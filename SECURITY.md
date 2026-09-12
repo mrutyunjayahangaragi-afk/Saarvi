@@ -1,6 +1,6 @@
-# DocEase Security Policy & Threat Model
+# Saarvi Security Policy & Threat Model
 
-DocEase is committed to delivering a robust, privacy-respecting, local-first document processing and student productivity ecosystem. This document outlines our threat model, trust boundaries, protected assets, attacker capabilities, mitigations, and security reporting procedures.
+Saarvi is committed to delivering a robust, privacy-respecting, local-first document processing and student productivity ecosystem. This document outlines our threat model, trust boundaries, protected assets, attacker capabilities, mitigations, and security reporting procedures.
 
 ---
 
