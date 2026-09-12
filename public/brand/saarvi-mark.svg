@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <!-- Top-to-Bottom S-Curve Gradient -->
+    <linearGradient id="saarvi-ribbon" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="35%" stop-color="#2563eb" />
+      <stop offset="70%" stop-color="#0d9488" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+    <linearGradient id="saarvi-book" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+    <!-- Golden Star Accent -->
+    <linearGradient id="saarvi-star" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+  </defs>
+
+  <!-- Top Star Accent -->
+  <path d="M78 12 Q80 18 86 20 Q80 22 78 28 Q76 22 70 20 Q76 18 78 12 Z" fill="url(#saarvi-star)" />
+
+  <!-- S-Ribbon Upper Curve -->
+  <path d="M42 20 C58 18 76 26 74 38 C72 48 56 50 48 54 C36 60 34 72 44 80 C52 86 64 84 74 76 C78 72 82 78 76 84 C62 94 44 94 34 84 C22 72 26 54 40 46 C50 40 64 38 64 32 C64 26 50 24 38 28 C34 29 32 21 42 20 Z" fill="url(#saarvi-ribbon)" />
+
+  <!-- Open Book Base Curve -->
+  <path d="M30 68 C38 64 46 66 50 72 C54 66 62 64 70 68 C71 70 70 74 68 74 C60 70 54 73 50 78 C46 73 40 70 32 74 C30 74 29 70 30 68 Z" fill="#ffffff" />
+</svg>

@@ -1,0 +1,279 @@
+@import "tailwindcss";
+
+/* 
+ * Saarvi Centralized Design Tokens & 3D Visual System
+ * Pure CSS 3D • Performance-First • Accessible Contrast
+ */
+
+:root {
+  /* Surface & Background */
+  --canvas-bg: #f8fafc;
+  --canvas-grid: rgba(148, 163, 184, 0.12);
+  --surface-base: #ffffff;
+  --surface-elevated: #ffffff;
+  --surface-hover: #f1f5f9;
+  --surface-subtle: #f8fafc;
+  --surface-glass: rgba(255, 255, 255, 0.85);
+
+  /* Typography Colors */
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-subtle: #94a3b8;
+
+  /* Borders & Dividers */
+  --border-subtle: #e2e8f0;
+  --border-medium: #cbd5e1;
+  --border-focus: #2563eb;
+
+  /* Brand Accents */
+  --accent-primary: #2563eb;
+  --accent-primary-hover: #1d4ed8;
+  --accent-primary-subtle: #eff6ff;
+  --accent-primary-border: #bfdbfe;
+
+  /* Status Colors */
+  --success-text: #047857;
+  --success-bg: #ecfdf5;
+  --success-border: #a7f3d0;
+
+  --warning-text: #b45309;
+  --warning-bg: #fffbeb;
+  --warning-border: #fde68a;
+
+  --error-text: #b91c1c;
+  --error-bg: #fef2f2;
+  --error-border: #fecaca;
+
+  /* Elevation Shadows with Subtle Color Bleed */
+  --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 12px 28px -4px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.06);
+  --shadow-3d-card: 0 20px 35px -8px rgba(37, 99, 235, 0.12), 0 10px 15px -3px rgba(15, 23, 42, 0.06);
+
+  /* Component Sizing & Touch Targets (Phase 26 Polish) */
+  --btn-height-sm: 36px;
+  --btn-height-md: 44px;
+  --btn-height-lg: 52px;
+  --input-height: 44px;
+  --touch-target-min: 44px;
+}
+
+.dark {
+  /* Enforce Light First as per Phase 5 Requirements */
+  --canvas-bg: #f8fafc;
+  --canvas-grid: rgba(148, 163, 184, 0.12);
+  --surface-base: #ffffff;
+  --surface-elevated: #ffffff;
+  --surface-hover: #f1f5f9;
+  --surface-subtle: #f8fafc;
+  --surface-glass: rgba(255, 255, 255, 0.9);
+
+  /* Typography Colors */
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-subtle: #94a3b8;
+
+  /* Borders & Dividers */
+  --border-subtle: #e2e8f0;
+  --border-medium: #cbd5e1;
+  --border-focus: #2563eb;
+
+  /* Brand Accents */
+  --accent-primary: #2563eb;
+  --accent-primary-hover: #1d4ed8;
+  --accent-primary-subtle: #eff6ff;
+  --accent-primary-border: #bfdbfe;
+
+  /* Status Colors */
+  --success-text: #047857;
+  --success-bg: #ecfdf5;
+  --success-border: #a7f3d0;
+
+  --warning-text: #b45309;
+  --warning-bg: #fffbeb;
+  --warning-border: #fde68a;
+
+  --error-text: #b91c1c;
+  --error-bg: #fef2f2;
+  --error-border: #fecaca;
+
+  /* Elevation Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 12px 28px -4px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.06);
+  --shadow-3d-card: 0 20px 35px -8px rgba(37, 99, 235, 0.12), 0 10px 15px -3px rgba(15, 23, 42, 0.06);
+}
+
+body {
+  background-color: var(--canvas-bg);
+  color: var(--text-main);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Accessible focus visible states */
+*:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+/* Responsive Table Scroll Container */
+.responsive-table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Touch-Friendly Interactive Target */
+.touch-target {
+  min-height: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 3D Perspective & Depth Helpers */
+.perspective-800 {
+  perspective: 800px;
+}
+
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.perspective-1200 {
+  perspective: 1200px;
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+/* Subtle 3D Card Hover */
+.hover-3d-lift {
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s ease;
+  will-change: transform;
+}
+
+.hover-3d-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* 3D Stack Floating Keyframe */
+@keyframes float3D {
+  0%, 100% {
+    transform: translateY(0px) rotateX(12deg) rotateY(-18deg) rotateZ(3deg);
+  }
+  50% {
+    transform: translateY(-10px) rotateX(15deg) rotateY(-15deg) rotateZ(4deg);
+  }
+}
+
+.animate-float-3d {
+  animation: float3D 7s ease-in-out infinite;
+}
+
+/* Subtle Layer Depth Offset */
+.layer-depth-1 {
+  transform: translateZ(15px);
+}
+.layer-depth-2 {
+  transform: translateZ(35px);
+}
+.layer-depth-3 {
+  transform: translateZ(55px);
+}
+.layer-depth-4 {
+  transform: translateZ(75px);
+}
+
+/* Rotating Micro 3D Ring for Processing */
+@keyframes spinRing3D {
+  0% {
+    transform: rotate(0deg) rotateX(25deg);
+  }
+  100% {
+    transform: rotate(360deg) rotateX(25deg);
+  }
+}
+
+.animate-ring-3d {
+  animation: spinRing3D 2s linear infinite;
+}
+
+/* Checkmark drawing effect */
+@keyframes scaleInCheck {
+  0% {
+    opacity: 0;
+    transform: scale(0.6) rotate(-8deg);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.1) rotate(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.animate-check-pop {
+  animation: scaleInCheck 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Background Subtle Grid Pattern */
+.bg-mesh-grid {
+  background-image: 
+    linear-gradient(to right, var(--canvas-grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--canvas-grid) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+/* Prefer Reduced Motion Overrides */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .animate-float-3d,
+  .animate-ring-3d,
+  .animate-spin,
+  .animate-pulse,
+  .animate-check-pop {
+    animation: none !important;
+  }
+
+  .animate-float-3d {
+    transform: translateY(0) rotateX(6deg) rotateY(-8deg) !important;
+  }
+
+  .hover-3d-lift:hover {
+    transform: none !important;
+  }
+}
+
+/* Print CSS */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

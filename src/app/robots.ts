@@ -1,0 +1,66 @@
+import { MetadataRoute } from 'next';
+import { SITE_CONFIG } from '@/config/site';
+
+export default function robots(): MetadataRoute.Robots {
+  const baseUrl = SITE_CONFIG.url || 'https://saarvi.app';
+
+  return {
+    rules: {
+      userAgent: '*',
+      allow: [
+        '/',
+        '/tools',
+        '/tools/*',
+        '/student',
+        '/student/sgpa-calculator',
+        '/student/cgpa-calculator',
+        '/student/marks-calculator',
+        '/student/percentage',
+        '/about',
+        '/pricing',
+        '/privacy',
+        '/terms',
+        '/contact',
+      ],
+      disallow: [
+        '/admin/',
+        '/admin/*',
+        '/dashboard/',
+        '/dashboard/*',
+        '/api/',
+        '/api/*',
+        '/auth/',
+        '/auth/*',
+        '/checkout/',
+        '/checkout/*',
+        '/login',
+        '/signup',
+        '/forgot-password',
+        '/reset-password',
+        '/career/',
+        '/career/*',
+        '/student/dashboard',
+        '/student/copilot',
+        '/student/copilot/*',
+        '/student/attendance',
+        '/student/timetable',
+        '/student/assignment-planner',
+        '/student/study-planner',
+        '/student/tasks',
+        '/student/goals',
+        '/student/exams',
+        '/student/certificates',
+        '/student/internships',
+        '/student/hackathons',
+        '/student/applications',
+        '/student/resume',
+        '/student/cover-letter',
+        '/student/career',
+        '/student/study-assistant',
+        '/student/settings',
+        '/student/settings/*',
+      ],
+    },
+    sitemap: `${baseUrl}/sitemap.xml`,
+  };
+}

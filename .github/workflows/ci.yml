@@ -1,0 +1,51 @@
+name: Saarvi CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Lint, Test, Typecheck & Build
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: test
+      NEXT_PUBLIC_APP_URL: https://saarvi.app
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-ci-anon-key-0000000000000000000000000000000000000000000000000000000000000000
+      BILLING_PROVIDER: razorpay
+      EMAIL_PROVIDER: gmail
+
+    steps:
+      - name: Checkout Code Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      - name: Install Project Dependencies
+        run: npm ci
+
+      - name: Run ESLint Code Standards
+        run: npm run lint
+
+      - name: Run TypeScript Typecheck
+        run: npx tsc --noEmit
+
+      - name: Run Automated Test Suites
+        run: npm test
+
+      - name: Run Next.js Production Build
+        run: npm run build
