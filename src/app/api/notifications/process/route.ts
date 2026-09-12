@@ -95,3 +95,11 @@ export async function POST(request: Request) {
     );
   }
 }
+
+/**
+ * Vercel Cron jobs invoke scheduled paths via HTTP GET with Authorization: Bearer <CRON_SECRET>.
+ */
+export async function GET(request: Request) {
+  return POST(request);
+}
+
