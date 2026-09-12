@@ -14,8 +14,43 @@ export type ErrorCategory =
   | 'STORAGE_ERROR'
   | 'INTERNAL_ERROR';
 
+/**
+ * Production incident and error classification domains.
+ */
+export type ProductionErrorCategory =
+  | 'AUTH'
+  | 'DB'
+  | 'EMAIL'
+  | 'PAYMENT'
+  | 'AI'
+  | 'OCR'
+  | 'TOOL'
+  | 'UPLOAD'
+  | 'DOWNLOAD'
+  | 'SECURITY'
+  | 'CLIENT'
+  | 'SERVER'
+  | 'EXTERNAL_PROVIDER';
+
+export const PRODUCTION_ERROR_CATEGORIES: readonly ProductionErrorCategory[] = [
+  'AUTH',
+  'DB',
+  'EMAIL',
+  'PAYMENT',
+  'AI',
+  'OCR',
+  'TOOL',
+  'UPLOAD',
+  'DOWNLOAD',
+  'SECURITY',
+  'CLIENT',
+  'SERVER',
+  'EXTERNAL_PROVIDER',
+] as const;
+
 export interface SerializedAppError {
   category: ErrorCategory;
+  productionCategory?: ProductionErrorCategory;
   code: string;
   message: string;
   requestId: string;
@@ -24,8 +59,27 @@ export interface SerializedAppError {
   context?: Record<string, unknown>;
 }
 
+
+export function toProductionCategory(category: ErrorCategory | string): ProductionErrorCategory {
+  switch (category) {
+    case 'VALIDATION_ERROR':
+    case 'USER_ERROR':
+      return 'CLIENT';
+    case 'NETWORK_ERROR':
+    case 'PROVIDER_ERROR':
+    case 'TIMEOUT':
+      return 'EXTERNAL_PROVIDER';
+    case 'STORAGE_ERROR':
+      return 'DB';
+    case 'INTERNAL_ERROR':
+    default:
+      return 'SERVER';
+  }
+}
+
 export class AppError extends Error {
   public readonly category: ErrorCategory;
+  public readonly productionCategory: ProductionErrorCategory;
   public readonly code: string;
   public readonly isOperational: boolean;
   public readonly requestId: string;
@@ -38,6 +92,7 @@ export class AppError extends Error {
     code: string = 'GENERIC_ERROR',
     options?: {
       requestId?: string;
+      productionCategory?: ProductionErrorCategory;
       isOperational?: boolean;
       context?: Record<string, unknown>;
       cause?: unknown;
@@ -46,6 +101,7 @@ export class AppError extends Error {
     super(message);
     this.name = 'AppError';
     this.category = category;
+    this.productionCategory = options?.productionCategory || toProductionCategory(category);
     this.code = code;
     this.isOperational = options?.isOperational ?? true;
     this.requestId = options?.requestId || generateTraceId();
@@ -59,6 +115,7 @@ export class AppError extends Error {
   public toJSON(): SerializedAppError {
     return {
       category: this.category,
+      productionCategory: this.productionCategory,
       code: this.code,
       message: this.message,
       requestId: this.requestId,
@@ -68,6 +125,7 @@ export class AppError extends Error {
     };
   }
 }
+
 
 /**
  * Generates a collision-resistant lightweight trace ID for distributed tracing.
