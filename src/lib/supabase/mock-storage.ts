@@ -93,7 +93,7 @@ const DEFAULT_SUPER_ADMINS: StoredUser[] = [
   },
   {
     id: 'admin_saarvi_super',
-    email: 'admin@saarvi.app',
+    email: 'admin@saarvi.in',
     passwordHash: btoa('admin123'),
     fullName: 'Saarvi SuperAdmin',
     role: 'SUPER_ADMIN',
@@ -306,7 +306,7 @@ export const MockStorageProvider = {
   },
 
   signInWithGoogle(params?: { email?: string; fullName?: string }): { user: AuthSessionUser; profile: UserProfile } {
-    const email = (params?.email || 'student.google@saarvi.app').trim().toLowerCase();
+    const email = (params?.email || 'student.google@saarvi.in').trim().toLowerCase();
     const fullName = params?.fullName || 'Google Student';
     const users = getUsersList();
     let found = users.find((u) => u.email === email);
@@ -888,8 +888,8 @@ export const MockStorageProvider = {
       logoUrl: '/brand/saarvi-logo.png',
       faviconUrl: '/brand/favicon.png',
       brandAccent: '#2563eb',
-      supportEmail: 'support@saarvi.app',
-      contactEmail: 'contact@saarvi.app',
+      supportEmail: 'support@saarvi.in',
+      contactEmail: 'contact@saarvi.in',
       defaultLanguage: 'en',
       defaultTimezone: 'Asia/Kolkata',
       maintenanceMode: false,

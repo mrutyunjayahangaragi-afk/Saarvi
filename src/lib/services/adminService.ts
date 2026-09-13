@@ -562,7 +562,7 @@ export const adminService = {
         isDismissible: true,
         createdAt: '2026-09-01T00:00:00.000Z',
         updatedAt: '2026-09-01T00:00:00.000Z',
-        publishedBy: 'admin@saarvi.app',
+        publishedBy: 'admin@saarvi.in',
       };
       MockStorageProvider.saveAnnouncement(defaultAnn);
       return [defaultAnn];
@@ -785,7 +785,7 @@ export const adminService = {
       const initial: AuditLogRecord = {
         id: 'audit-init',
         adminUserId: 'admin_root_super',
-        adminEmail: 'admin@saarvi.app',
+        adminEmail: 'admin@saarvi.in',
         action: 'PLATFORM_INITIALIZED',
         targetType: 'SYSTEM',
         targetId: 'doc_ease_platform',

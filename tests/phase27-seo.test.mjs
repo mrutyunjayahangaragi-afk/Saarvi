@@ -27,7 +27,7 @@ function createMetadata({
   ogType = "website",
   image = "/og-image.png",
 }) {
-  const baseUrl = "https://saarvi.app";
+  const baseUrl = "https://saarvi.in";
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
   const canonicalUrl = `${baseUrl}${cleanPath === "/" ? "" : cleanPath}`;
 
@@ -126,7 +126,7 @@ test("Phase 27 - SEO 1: Metadata helper formats consistent brand titles and desc
   assert.equal(metaTool.title, "JPG to PDF — Saarvi");
   assert.equal(metaTool.description, "Convert JPG images to PDF.");
   assert.ok(metaTool.alternates?.canonical);
-  assert.equal(metaTool.alternates.canonical, "https://saarvi.app/tools/jpg-to-pdf");
+  assert.equal(metaTool.alternates.canonical, "https://saarvi.in/tools/jpg-to-pdf");
 });
 
 test("Phase 27 - SEO 2: Canonical URL handling normalizes leading slashes and prevents duplicate indexing", () => {
@@ -140,8 +140,8 @@ test("Phase 27 - SEO 2: Canonical URL handling normalizes leading slashes and pr
     description: "Saarvi pricing",
     path: "pricing",
   });
-  assert.equal(metaWithSlash.alternates?.canonical, "https://saarvi.app/pricing");
-  assert.equal(metaWithoutSlash.alternates?.canonical, "https://saarvi.app/pricing");
+  assert.equal(metaWithSlash.alternates?.canonical, "https://saarvi.in/pricing");
+  assert.equal(metaWithoutSlash.alternates?.canonical, "https://saarvi.in/pricing");
 
   // Root path canonical normalization
   const metaHome = createMetadata({
@@ -149,7 +149,7 @@ test("Phase 27 - SEO 2: Canonical URL handling normalizes leading slashes and pr
     description: "Saarvi homepage",
     path: "/",
   });
-  assert.equal(metaHome.alternates?.canonical, "https://saarvi.app");
+  assert.equal(metaHome.alternates?.canonical, "https://saarvi.in");
 });
 
 test("Phase 27 - SEO 3: Private non-indexable routes receive strict noindex, nofollow directives", () => {
@@ -180,7 +180,7 @@ test("Phase 27 - SEO 3: Private non-indexable routes receive strict noindex, nof
 // =========================================================================
 
 function generateRobots() {
-  const baseUrl = "https://saarvi.app";
+  const baseUrl = "https://saarvi.in";
   return {
     rules: {
       userAgent: "*",
@@ -272,7 +272,7 @@ test("Phase 27 - SEO 4: Robots.txt allows public routes and disallows private/ad
   assert.ok(disallows.includes("/student/copilot"));
 
   // Verify declared sitemap
-  assert.equal(robotsConfig.sitemap, "https://saarvi.app/sitemap.xml");
+  assert.equal(robotsConfig.sitemap, "https://saarvi.in/sitemap.xml");
 });
 
 // =========================================================================
@@ -280,7 +280,7 @@ test("Phase 27 - SEO 4: Robots.txt allows public routes and disallows private/ad
 // =========================================================================
 
 function generateSitemap() {
-  const baseUrl = "https://saarvi.app";
+  const baseUrl = "https://saarvi.in";
   const now = new Date();
 
   const staticRoutes = [
@@ -337,19 +337,19 @@ test("Phase 27 - SEO 5: Sitemap contains only valid public URLs and strictly exc
   const urls = sitemapEntries.map((e) => e.url);
 
   // Must include core public routes
-  assert.ok(urls.includes("https://saarvi.app"));
-  assert.ok(urls.includes("https://saarvi.app/tools"));
-  assert.ok(urls.includes("https://saarvi.app/student"));
-  assert.ok(urls.includes("https://saarvi.app/pricing"));
-  assert.ok(urls.includes("https://saarvi.app/about"));
-  assert.ok(urls.includes("https://saarvi.app/privacy"));
-  assert.ok(urls.includes("https://saarvi.app/terms"));
-  assert.ok(urls.includes("https://saarvi.app/contact"));
+  assert.ok(urls.includes("https://saarvi.in"));
+  assert.ok(urls.includes("https://saarvi.in/tools"));
+  assert.ok(urls.includes("https://saarvi.in/student"));
+  assert.ok(urls.includes("https://saarvi.in/pricing"));
+  assert.ok(urls.includes("https://saarvi.in/about"));
+  assert.ok(urls.includes("https://saarvi.in/privacy"));
+  assert.ok(urls.includes("https://saarvi.in/terms"));
+  assert.ok(urls.includes("https://saarvi.in/contact"));
 
   // Must include public calculators
-  assert.ok(urls.includes("https://saarvi.app/student/sgpa-calculator"));
-  assert.ok(urls.includes("https://saarvi.app/student/cgpa-calculator"));
-  assert.ok(urls.includes("https://saarvi.app/student/marks-calculator"));
+  assert.ok(urls.includes("https://saarvi.in/student/sgpa-calculator"));
+  assert.ok(urls.includes("https://saarvi.in/student/cgpa-calculator"));
+  assert.ok(urls.includes("https://saarvi.in/student/marks-calculator"));
 
   // Must strictly exclude private and admin paths
   for (const url of urls) {
@@ -370,7 +370,7 @@ test("Phase 27 - SEO 5: Sitemap contains only valid public URLs and strictly exc
 // =========================================================================
 
 function generateWebSiteSchema() {
-  const baseUrl = "https://saarvi.app";
+  const baseUrl = "https://saarvi.in";
   return {
     "@context": "https://schema.org",
     "@type": "WebSite",
@@ -389,7 +389,7 @@ function generateWebSiteSchema() {
 }
 
 function generateToolSchema(tool) {
-  const baseUrl = "https://saarvi.app";
+  const baseUrl = "https://saarvi.in";
   return {
     "@context": "https://schema.org",
     "@type": "WebApplication",
@@ -425,7 +425,7 @@ function generateFaqSchema(faqItems) {
 }
 
 function generateBreadcrumbSchema(items) {
-  const baseUrl = "https://saarvi.app";
+  const baseUrl = "https://saarvi.in";
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -478,7 +478,7 @@ test("Phase 27 - SEO 6: Structured data schemas adhere to Schema.org standards w
   assert.equal(breadcrumbs["@type"], "BreadcrumbList");
   assert.equal(breadcrumbs.itemListElement.length, 3);
   assert.equal(breadcrumbs.itemListElement[0].position, 1);
-  assert.equal(breadcrumbs.itemListElement[2].item, "https://saarvi.app/tools/jpg-to-pdf");
+  assert.equal(breadcrumbs.itemListElement[2].item, "https://saarvi.in/tools/jpg-to-pdf");
 });
 
 // =========================================================================
@@ -496,7 +496,7 @@ test("Phase 27 - SEO 7: Open Graph and Twitter Card metadata include verified im
   assert.ok(meta.openGraph);
   assert.equal(meta.openGraph.siteName, "Saarvi");
   assert.equal(meta.openGraph.type, "website");
-  assert.equal(meta.openGraph.url, "https://saarvi.app/student/sgpa-calculator");
+  assert.equal(meta.openGraph.url, "https://saarvi.in/student/sgpa-calculator");
   assert.ok(Array.isArray(meta.openGraph.images));
   assert.equal(meta.openGraph.images[0].width, 1200);
   assert.equal(meta.openGraph.images[0].height, 630);

@@ -8,7 +8,7 @@ import { SITE_CONFIG } from '@/config/site';
  */
 
 export function generateWebSiteSchema() {
-  const baseUrl = SITE_CONFIG.url || 'https://saarvi.app';
+  const baseUrl = SITE_CONFIG.url || 'https://saarvi.in';
 
   return {
     '@context': 'https://schema.org',
@@ -28,7 +28,7 @@ export function generateWebSiteSchema() {
 }
 
 export function generateToolSchema(tool: ToolDefinition) {
-  const baseUrl = SITE_CONFIG.url || 'https://saarvi.app';
+  const baseUrl = SITE_CONFIG.url || 'https://saarvi.in';
 
   return {
     '@context': 'https://schema.org',
@@ -67,7 +67,7 @@ export function generateFaqSchema(faqItems: Array<{ question: string; answer: st
 }
 
 export function generateBreadcrumbSchema(items: Array<{ name: string; url: string }>) {
-  const baseUrl = SITE_CONFIG.url || 'https://saarvi.app';
+  const baseUrl = SITE_CONFIG.url || 'https://saarvi.in';
 
   return {
     '@context': 'https://schema.org',

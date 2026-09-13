@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       if (!error) {
         const forwardedHost = request.headers.get('x-forwarded-host');
         const isLocalEnv = process.env.NODE_ENV === 'development';
-        const allowedHosts = new Set(['saarvi.app', 'www.saarvi.app']);
+        const allowedHosts = new Set(['saarvi.in', 'www.saarvi.in', 'saarvi.app', 'www.saarvi.app']);
 
         if (isLocalEnv) {
           return NextResponse.redirect(`${origin}${safeNext}`);

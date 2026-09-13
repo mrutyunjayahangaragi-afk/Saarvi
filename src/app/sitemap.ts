@@ -3,7 +3,7 @@ import { TOOLS_CONFIG } from '@/config/tools';
 import { SITE_CONFIG } from '@/config/site';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = SITE_CONFIG.url || 'https://saarvi.app';
+  const baseUrl = SITE_CONFIG.url || 'https://saarvi.in';
   const now = new Date();
 
   // 1. Core Static Public Pages

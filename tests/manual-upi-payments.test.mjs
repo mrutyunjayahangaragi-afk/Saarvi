@@ -86,7 +86,7 @@ const DEFAULT_CONFIG = {
   currency: 'INR',
   reviewSlaHours: 2,
   instructions: 'Pay via any UPI app and submit 12-digit UTR',
-  supportEmail: 'payments@saarvi.app',
+  supportEmail: 'payments@saarvi.in',
   status: 'ACTIVE',
 };
 

@@ -101,7 +101,7 @@ export async function POST(request: Request) {
     const result = await emailProvider.sendTransactionalEmail({
       to: cleanRecipient,
       subject: 'Saarvi — Transactional Email Verification',
-      text: `Hello,\n\nThis is a test transactional email from Saarvi sent via ${emailProvider.name} on ${new Date().toLocaleString()}.\n\nIf you received this email, your transactional email provider configuration is working properly.\n\n— The Saarvi Team\nhttps://saarvi.app`,
+      text: `Hello,\n\nThis is a test transactional email from Saarvi sent via ${emailProvider.name} on ${new Date().toLocaleString()}.\n\nIf you received this email, your transactional email provider configuration is working properly.\n\n— The Saarvi Team\nhttps://saarvi.in`,
       html: `
         <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; rounded: 16px;">
           <h2 style="color: #2563eb; margin-top: 0;">Saarvi Email Verification</h2>
@@ -113,7 +113,7 @@ export async function POST(request: Request) {
             <strong>Timestamp:</strong> ${timestamp}
           </div>
           <p style="color: #64748b; font-size: 12px; margin-bottom: 0;">
-            Saarvi — Study. Work. Grow. • <a href="https://saarvi.app" style="color: #2563eb;">saarvi.app</a>
+            Saarvi — Study. Work. Grow. • <a href="https://saarvi.in" style="color: #2563eb;">saarvi.in</a>
           </p>
         </div>
       `,

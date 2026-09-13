@@ -545,7 +545,7 @@ export const paymentStore = {
       qrCodeUrl: c.qrImageUrl || "",
       reviewSlaHours: Math.round(c.reviewSlaMinutes / 60),
       instructions: c.paymentInstructions,
-      supportEmail: "payments@saarvi.app",
+      supportEmail: "payments@saarvi.in",
       status: c.manualUpiEnabled ? "ACTIVE" : "DISABLED",
     };
   },
@@ -561,7 +561,7 @@ export const paymentStore = {
       qrCodeUrl: c.qrImageUrl || "",
       reviewSlaHours: Math.round(c.reviewSlaMinutes / 60),
       instructions: c.paymentInstructions,
-      supportEmail: "payments@saarvi.app",
+      supportEmail: "payments@saarvi.in",
     };
   },
 

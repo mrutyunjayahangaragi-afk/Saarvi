@@ -58,10 +58,10 @@ export default function ContactPage() {
                   User & Technical Support
                 </span>
                 <a
-                  href="mailto:support@saarvi.app"
+                  href="mailto:support@saarvi.in"
                   className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors break-all"
                 >
-                  support@saarvi.app
+                  support@saarvi.in
                 </a>
               </div>
 
@@ -70,10 +70,10 @@ export default function ContactPage() {
                   General & Administrative
                 </span>
                 <a
-                  href="mailto:contact@saarvi.app"
+                  href="mailto:contact@saarvi.in"
                   className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors break-all"
                 >
-                  contact@saarvi.app
+                  contact@saarvi.in
                 </a>
               </div>
             </div>
@@ -103,7 +103,7 @@ export default function ContactPage() {
                 Authentication & Google Login
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                If Google sign-in closes unexpectedly, ensure pop-up blockers allow <code>saarvi.app</code>. Saarvi utilizes Google's account chooser prompt (<code>select_account</code>) so you can easily choose your preferred student or personal Google account.
+                If Google sign-in closes unexpectedly, ensure pop-up blockers allow <code>saarvi.in</code>. Saarvi utilizes Google's account chooser prompt (<code>select_account</code>) so you can easily choose your preferred student or personal Google account.
               </p>
             </div>
 
@@ -114,7 +114,7 @@ export default function ContactPage() {
                 Password Reset & Verification
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Password recovery links are dispatched from <code>support@saarvi.app</code> via Supabase Auth. If you do not see the email within two minutes, check your spam folder or trigger a new link from the <a href="/forgot-password" className="text-blue-600 font-semibold hover:underline">Forgot Password</a> page.
+                Password recovery links are dispatched from <code>support@saarvi.in</code> via Supabase Auth. If you do not see the email within two minutes, check your spam folder or trigger a new link from the <a href="/forgot-password" className="text-blue-600 font-semibold hover:underline">Forgot Password</a> page.
               </p>
             </div>
 

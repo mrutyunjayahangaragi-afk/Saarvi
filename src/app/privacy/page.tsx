@@ -252,17 +252,17 @@ export default function PrivacyPage() {
             <p>
               If you have questions or concerns about this Privacy Policy or your data, contact our privacy and support team at{" "}
               <a
-                href="mailto:support@saarvi.app"
+                href="mailto:support@saarvi.in"
                 className="font-semibold text-blue-600 hover:text-blue-700 transition-colors"
               >
-                support@saarvi.app
+                support@saarvi.in
               </a>{" "}
               or{" "}
               <a
-                href="mailto:contact@saarvi.app"
+                href="mailto:contact@saarvi.in"
                 className="font-semibold text-blue-600 hover:text-blue-700 transition-colors"
               >
-                contact@saarvi.app
+                contact@saarvi.in
               </a>
               .
             </p>

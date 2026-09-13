@@ -508,5 +508,5 @@ test("Phase 28 - QA 14: Saarvi pricing, tagline, and brand constants remain stri
   const siteContent = fs.readFileSync(siteConfigPath, "utf-8");
   assert.ok(siteContent.includes('name: "Saarvi"'));
   assert.ok(siteContent.includes('tagline: "Study. Work. Grow."'));
-  assert.ok(siteContent.includes("https://saarvi.app"));
+  assert.ok(siteContent.includes("https://saarvi.in"));
 });

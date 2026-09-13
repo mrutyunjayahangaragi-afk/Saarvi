@@ -78,7 +78,7 @@ function sanitizeInternalRedirectUrl(rawUrl, fallback = "/dashboard") {
 
   // 5. Test resolution against trusted base to prevent host spoofing
   try {
-    const dummyBase = "https://saarvi.app";
+    const dummyBase = "https://saarvi.in";
     const parsed = new URL(trimmed, dummyBase);
 
     if (parsed.origin !== dummyBase) {
@@ -157,9 +157,9 @@ test("Google Auth - Test 4: Redirect is generated correctly", () => {
   const sanitized = sanitizeInternalRedirectUrl(target, "/dashboard");
   assert.strictEqual(sanitized, "/dashboard");
 
-  const origin = "https://saarvi.app";
+  const origin = "https://saarvi.in";
   const callbackUrl = `${origin}/auth/callback?next=${encodeURIComponent(sanitized)}`;
-  assert.strictEqual(callbackUrl, "https://saarvi.app/auth/callback?next=%2Fdashboard");
+  assert.strictEqual(callbackUrl, "https://saarvi.in/auth/callback?next=%2Fdashboard");
 
   const withParams = "/tools/pdf?action=merge#top";
   const sanitizedWithParams = sanitizeInternalRedirectUrl(withParams, "/dashboard");

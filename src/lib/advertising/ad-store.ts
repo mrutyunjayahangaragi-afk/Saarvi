@@ -103,7 +103,7 @@ class AdvertisementStore {
 
   public async updateDisplaySettings(
     updates: Partial<AdDisplaySettings>,
-    actorEmail: string = 'admin@saarvi.app'
+    actorEmail: string = 'admin@saarvi.in'
   ): Promise<AdDisplaySettings> {
     const release = await GLOBAL_LOCK.acquire('ad_settings_lock');
     try {
@@ -164,7 +164,7 @@ class AdvertisementStore {
 
   public async createAd(
     params: CreateAdParams,
-    actorEmail: string = 'admin@saarvi.app'
+    actorEmail: string = 'admin@saarvi.in'
   ): Promise<AdvertisementRecord> {
     const release = await GLOBAL_LOCK.acquire('ad_mutation_lock');
     try {
@@ -228,7 +228,7 @@ class AdvertisementStore {
   public async updateAd(
     id: string,
     updates: Partial<AdvertisementRecord>,
-    actorEmail: string = 'admin@saarvi.app'
+    actorEmail: string = 'admin@saarvi.in'
   ): Promise<AdvertisementRecord> {
     const release = await GLOBAL_LOCK.acquire(`ad_lock_${id}`);
     try {
@@ -286,7 +286,7 @@ class AdvertisementStore {
     }
   }
 
-  public async deleteAd(id: string, actorEmail: string = 'admin@saarvi.app'): Promise<boolean> {
+  public async deleteAd(id: string, actorEmail: string = 'admin@saarvi.in'): Promise<boolean> {
     const release = await GLOBAL_LOCK.acquire(`ad_lock_${id}`);
     try {
       const existing = this.ads.get(id);

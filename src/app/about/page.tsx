@@ -248,10 +248,10 @@ export default function AboutPage() {
             <p className="text-sm text-slate-500 leading-relaxed">
               We'd love to hear your feedback. Contact us at{" "}
               <a
-                href="mailto:support@saarvi.app"
+                href="mailto:support@saarvi.in"
                 className="font-semibold text-slate-700 hover:text-blue-600 transition-colors"
               >
-                support@saarvi.app
+                support@saarvi.in
               </a>
               .
             </p>

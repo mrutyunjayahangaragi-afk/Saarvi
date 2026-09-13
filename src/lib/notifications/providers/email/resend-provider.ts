@@ -21,7 +21,7 @@ export class ResendEmailProvider implements NotificationEmailProvider {
 
   constructor(options?: ResendProviderOptions) {
     this.apiKey = options?.apiKey ?? process.env.RESEND_API_KEY;
-    this.fromEmail = options?.fromEmail ?? process.env.EMAIL_FROM ?? 'Saarvi Planning <reminders@saarvi.app>';
+    this.fromEmail = options?.fromEmail ?? process.env.EMAIL_FROM ?? 'Saarvi Planning <reminders@saarvi.in>';
     this.mockDeliveryInTest = options?.mockDeliveryInTest ?? (process.env.NODE_ENV === 'test');
   }
 

@@ -24,7 +24,7 @@ export function createMetadata({
   ogType = 'website',
   image = '/og-image.png',
 }: PageMetadataOptions): Metadata {
-  const baseUrl = SITE_CONFIG.url || 'https://saarvi.app';
+  const baseUrl = SITE_CONFIG.url || 'https://saarvi.in';
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   const canonicalUrl = `${baseUrl}${cleanPath === '/' ? '' : cleanPath}`;
 

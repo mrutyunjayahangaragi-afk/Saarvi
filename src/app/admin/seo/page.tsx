@@ -17,7 +17,7 @@ export default function AdminSeoPage() {
   const { user, profile } = useAuth();
   const [siteTitle, setSiteTitle] = useState('Saarvi — Study. Work. Grow.');
   const [siteDescription, setSiteDescription] = useState('High-performance browser-based PDF and image conversion tools with VTU CBCS/NEP academic calculators and resume builders.');
-  const [canonicalBase, setCanonicalBase] = useState('https://saarvi.app');
+  const [canonicalBase, setCanonicalBase] = useState('https://saarvi.in');
   const [ogTitle, setOgTitle] = useState('Saarvi — Study. Work. Grow.');
   const [ogDescription, setOgDescription] = useState('Fast client-side document utilities, SGPA/CGPA calculators, and career organizers.');
   const [robotsIndexable, setRobotsIndexable] = useState(true);

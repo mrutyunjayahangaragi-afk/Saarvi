@@ -25,19 +25,19 @@ const ROOT_DIR = process.cwd();
 // 1. CANONICAL DOMAIN & SEO CONFIGURATION
 // =========================================================================
 
-test("Phase 29 - Canonical Domain: site.ts defines canonical https://saarvi.app", () => {
+test("Phase 29 - Canonical Domain: site.ts defines canonical https://saarvi.in", () => {
   const siteTs = fs.readFileSync(path.join(ROOT_DIR, "src/config/site.ts"), "utf8");
-  assert.match(siteTs, /url:\s*['"]https:\/\/saarvi\.app['"]/);
+  assert.match(siteTs, /url:\s*['"]https:\/\/saarvi\.in['"]/);
   assert.match(siteTs, /name:\s*['"]Saarvi['"]/);
 });
 
-test("Phase 29 - Canonical Domain: robots.ts and sitemap.ts reference https://saarvi.app", () => {
+test("Phase 29 - Canonical Domain: robots.ts and sitemap.ts reference https://saarvi.in", () => {
   const robotsTs = fs.readFileSync(path.join(ROOT_DIR, "src/app/robots.ts"), "utf8");
-  assert.match(robotsTs, /https:\/\/saarvi\.app/);
+  assert.match(robotsTs, /https:\/\/saarvi\.in/);
   assert.match(robotsTs, /disallow:\s*\[/);
 
   const sitemapTs = fs.readFileSync(path.join(ROOT_DIR, "src/app/sitemap.ts"), "utf8");
-  assert.match(sitemapTs, /https:\/\/saarvi\.app/);
+  assert.match(sitemapTs, /https:\/\/saarvi\.in/);
   // Admin and auth routes must not be in sitemap
   assert.doesNotMatch(sitemapTs, /['"]\/admin['"]/);
   assert.doesNotMatch(sitemapTs, /['"]\/auth\/callback['"]/);
@@ -83,11 +83,11 @@ test("Phase 29 - Env Hygiene: src/lib/config/env.ts classifies variables and pro
   const sanitized = envModule.sanitizeForLogging({
     SMTP_PASS: "secret_app_password_123",
     RAZORPAY_KEY_SECRET: "rzp_secret_456",
-    NEXT_PUBLIC_APP_URL: "https://saarvi.app",
+    NEXT_PUBLIC_APP_URL: "https://saarvi.in",
   });
   assert.strictEqual(sanitized.SMTP_PASS, "[REDACTED]");
   assert.strictEqual(sanitized.RAZORPAY_KEY_SECRET, "[REDACTED]");
-  assert.strictEqual(sanitized.NEXT_PUBLIC_APP_URL, "https://saarvi.app");
+  assert.strictEqual(sanitized.NEXT_PUBLIC_APP_URL, "https://saarvi.in");
 });
 
 
@@ -131,7 +131,7 @@ test("Phase 29 - Privacy Disclosures: Privacy page accurately discloses local-fi
   assert.match(privacyPage, /Supabase/i);
 
   // Contact for data deletion
-  assert.match(privacyPage, /support@saarvi\.app/);
+  assert.match(privacyPage, /support@saarvi\.in/);
 });
 
 // =========================================================================
@@ -162,8 +162,8 @@ test("Phase 29 - Support: Contact page provides dual support channels and Troubl
   const contactPage = fs.readFileSync(path.join(ROOT_DIR, "src/app/contact/page.tsx"), "utf8");
   
   // Official support channels
-  assert.match(contactPage, /support@saarvi\.app/);
-  assert.match(contactPage, /contact@saarvi\.app/);
+  assert.match(contactPage, /support@saarvi\.in/);
+  assert.match(contactPage, /contact@saarvi\.in/);
 
   // Support & Troubleshooting Hub topics
   assert.match(contactPage, /Authentication & Google Login/i);

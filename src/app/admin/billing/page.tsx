@@ -87,7 +87,7 @@ export default function AdminBillingPage() {
     currency: 'INR',
     reviewSlaHours: 2,
     instructions: '',
-    supportEmail: 'payments@saarvi.app',
+    supportEmail: 'payments@saarvi.in',
     status: 'ACTIVE',
   });
   const [subscriptions, setSubscriptions] = useState<SubscriptionRecord[]>([]);

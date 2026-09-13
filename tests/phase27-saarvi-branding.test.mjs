@@ -30,7 +30,7 @@ test("Saarvi Brand 1: SITE_CONFIG reflects official brand name, tagline, and url
 
   assert.match(content, /name:\s*["']Saarvi["']/);
   assert.match(content, /tagline:\s*["']Study\.\s*Work\.\s*Grow\.["']/);
-  assert.match(content, /url:\s*["']https:\/\/saarvi\.app["']/);
+  assert.match(content, /url:\s*["']https:\/\/saarvi\.in["']/);
   assert.match(content, /author:\s*["']Saarvi Team["']/);
   assert.match(content, /© 2026 Saarvi/);
 });
@@ -79,7 +79,7 @@ test("Saarvi Brand 5: Structured data generators output Saarvi schemas", async (
   assert.match(content, /name:\s*['"]Saarvi['"]/);
   assert.match(content, /name:\s*`\$\{tool\.name\} — Saarvi`/);
   assert.doesNotMatch(content, /https:\/\/docease\.app/);
-  assert.match(content, /https:\/\/saarvi\.app/);
+  assert.match(content, /https:\/\/saarvi\.in/);
 });
 
 test("Saarvi Brand 6: Pricing configuration maintains ₹99 and ₹899 rates under Saarvi Pro branding", async () => {

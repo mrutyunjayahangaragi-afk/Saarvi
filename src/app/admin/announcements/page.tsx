@@ -72,7 +72,7 @@ export default function AdminAnnouncementsPage() {
         priority: 'NORMAL',
         targetAudience: 'ALL',
         isDismissible: true,
-        publishedBy: user?.email || 'admin@saarvi.app',
+        publishedBy: user?.email || 'admin@saarvi.in',
         createdAt: '',
         updatedAt: '',
       });

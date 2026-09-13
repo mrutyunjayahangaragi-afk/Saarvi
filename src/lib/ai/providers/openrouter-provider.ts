@@ -84,7 +84,7 @@ export class OpenRouterAIProvider implements AIProvider {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${this.apiKey}`,
-          "HTTP-Referer": "https://saarvi.app",
+          "HTTP-Referer": "https://saarvi.in",
           "X-Title": "Saarvi Document Intelligence",
         },
         body: JSON.stringify(body),

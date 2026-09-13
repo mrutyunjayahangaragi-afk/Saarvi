@@ -111,7 +111,7 @@ export function sanitizeInternalRedirectUrl(rawUrl?: string | null, fallback: st
 
   // 5. Test resolution against trusted base to prevent host spoofing
   try {
-    const dummyBase = "https://saarvi.app";
+    const dummyBase = "https://saarvi.in";
     const parsed = new URL(trimmed, dummyBase);
 
     // Origin must remain strictly identical to dummy base (no domain escaping)

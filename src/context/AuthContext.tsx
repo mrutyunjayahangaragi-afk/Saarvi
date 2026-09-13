@@ -235,7 +235,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://saarvi.app';
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://saarvi.in';
       const sanitizedNext = sanitizeInternalRedirectUrl(options?.redirectTo, '/dashboard');
       const callbackUrl = `${origin}/auth/callback?next=${encodeURIComponent(sanitizedNext)}`;
 

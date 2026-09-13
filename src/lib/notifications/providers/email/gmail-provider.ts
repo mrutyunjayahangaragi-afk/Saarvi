@@ -69,7 +69,7 @@ export class GmailSmtpEmailProvider implements NotificationEmailProvider {
   }
 
   public getFromAddress(): string {
-    const email = this.fromEmail || this.user || 'no-reply@saarvi.app';
+    const email = this.fromEmail || this.user || 'no-reply@saarvi.in';
     const cleanEmail = email.replace(/[\r\n]/g, '').trim();
     const cleanName = this.fromName.replace(/[\r\n]/g, '').trim();
     return `"${cleanName}" <${cleanEmail}>`;

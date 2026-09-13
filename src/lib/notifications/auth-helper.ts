@@ -99,6 +99,7 @@ export async function getAuthenticatedNotificationUser(
           }
           const superAdminEmails = [
             'muttuhangaragi161@gmail.com',
+            'admin@saarvi.in',
             'admin@saarvi.app',
             'admin@docease.com',
           ];

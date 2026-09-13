@@ -158,6 +158,7 @@ export async function getAuthenticatedAdmin(
           let role = parsed.role;
           const superAdminEmails = [
             'muttuhangaragi161@gmail.com',
+            'admin@saarvi.in',
             'admin@saarvi.app',
             'admin@docease.com',
           ];
@@ -208,7 +209,7 @@ export async function getAuthenticatedAdmin(
       success: true,
       user: {
         id: 'admin_saarvi_super',
-        email: 'admin@saarvi.app',
+        email: 'admin@saarvi.in',
         role: 'SUPER_ADMIN',
       },
     };
