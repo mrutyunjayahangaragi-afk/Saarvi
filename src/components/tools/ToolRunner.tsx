@@ -13,7 +13,8 @@ import {
   Lock,
   Zap,
   Download as DownloadIcon,
-  UserCheck
+  UserCheck,
+  ArrowRight
 } from "lucide-react";
 import { ToolDefinition } from "@/types/tool";
 import { getToolOperation } from "@/lib/tools/registry";
@@ -559,7 +560,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
       });
     } catch (err: unknown) {
       if (isCancelledRef.current) return;
-      console.error("Local tool processing error:", err);
+      console.warn("Local tool conversion notice:", err);
       const msg = err instanceof Error ? err.message : ERROR_MESSAGES.GENERIC_PROCESSING_ERROR;
       setErrorMessage(msg);
       setState("ERROR");
@@ -768,9 +769,46 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
       {/* Error Banner */}
       {errorMessage && (
-        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 flex items-start gap-3 text-red-800 text-xs shadow-xs animate-in fade-in">
-          <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-          <p className="leading-relaxed">{errorMessage}</p>
+        <div
+          className={`p-5 rounded-3xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs animate-in fade-in ${
+            errorMessage.includes("OCR is required")
+              ? "bg-amber-50/90 border-amber-200/90 text-amber-900"
+              : "bg-red-50 border-red-200 text-red-800"
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <AlertCircle
+              className={`w-5 h-5 shrink-0 mt-0.5 ${
+                errorMessage.includes("OCR is required") ? "text-amber-600" : "text-red-600"
+              }`}
+            />
+            <div className="space-y-1">
+              <p className="font-semibold text-xs leading-relaxed">{errorMessage}</p>
+              {errorMessage.includes("OCR is required") && (
+                <p className="text-[11px] text-amber-700/90">
+                  Saarvi includes a dedicated OCR tool that recognizes and extracts text from scanned documents and images.
+                </p>
+              )}
+            </div>
+          </div>
+          {errorMessage.includes("OCR is required") && (
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                href="/tools/ocr-pdf"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-xs transition-colors"
+              >
+                <span>Use OCR Tool</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+              <button
+                type="button"
+                onClick={resetAll}
+                className="px-3 py-2 rounded-xl bg-white border border-amber-300 text-xs font-medium text-amber-900 hover:bg-amber-100/60 transition-colors cursor-pointer"
+              >
+                Try another file
+              </button>
+            </div>
+          )}
         </div>
       )}
 

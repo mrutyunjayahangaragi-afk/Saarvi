@@ -85,10 +85,14 @@ export const pdfToWordOperation: ToolOperation<PdfToWordConfig, SingleFileResult
     if (onProgress) onProgress(10);
 
     const arrayBuffer = await readFileAsArrayBuffer(file);
+    if (typeof window !== "undefined" && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+    }
     const loadingTask = pdfjsLib.getDocument({
       data: arrayBuffer,
-      useSystemFonts: true,
-      disableFontFace: true,
+      cMapUrl: typeof window !== "undefined" ? "/cmaps/" : undefined,
+      cMapPacked: true,
+      standardFontDataUrl: typeof window !== "undefined" ? "/standard_fonts/" : undefined,
     });
     const pdfDoc = await loadingTask.promise;
     const numPages = pdfDoc.numPages;
