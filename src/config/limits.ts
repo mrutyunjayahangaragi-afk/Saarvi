@@ -22,7 +22,9 @@ export const FILE_LIMITS = {
     "split-pdf": 50,
     "rotate-pdf": 50,
     "extract-pdf-pages": 50,
-    "compress-pdf": 50
+    "compress-pdf": 50,
+    "pdf-to-word": 50,
+    "word-to-pdf": 50
   } as Record<string, number>
 };
 

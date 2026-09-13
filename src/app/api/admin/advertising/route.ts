@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const authResult = await getAuthenticatedAdmin(request, 'VIEW');
+    const authResult = await getAuthenticatedAdmin(request);
     if (!authResult.success) {
       return NextResponse.json({ error: authResult.error }, { status: authResult.status });
     }

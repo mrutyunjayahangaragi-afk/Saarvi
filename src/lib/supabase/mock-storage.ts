@@ -235,6 +235,7 @@ export const MockStorageProvider = {
     const sessionCookie = JSON.stringify({ id: newUser.id, userId: newUser.id, email: newUser.email, role: newUser.role });
     setCookie('saarvi_local_session', sessionCookie);
     setCookie('docease_local_session', sessionCookie);
+    setStored(STORAGE_KEYS.SESSION, sessionUser);
 
     const profile: UserProfile = {
       id: newUser.id,
@@ -288,6 +289,7 @@ export const MockStorageProvider = {
     const sessionCookie = JSON.stringify({ id: found.id, userId: found.id, email: found.email, role: found.role });
     setCookie('saarvi_local_session', sessionCookie);
     setCookie('docease_local_session', sessionCookie);
+    setStored(STORAGE_KEYS.SESSION, sessionUser);
 
     const profile: UserProfile = {
       id: found.id,
@@ -353,6 +355,7 @@ export const MockStorageProvider = {
     const sessionCookie = JSON.stringify({ id: found.id, userId: found.id, email: found.email, role: found.role });
     setCookie('saarvi_local_session', sessionCookie);
     setCookie('docease_local_session', sessionCookie);
+    setStored(STORAGE_KEYS.SESSION, sessionUser);
 
     const profile: UserProfile = {
       id: found.id,

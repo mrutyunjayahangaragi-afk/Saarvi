@@ -328,6 +328,94 @@ export const TOOLS_CONFIG: ToolDefinition[] = [
 
   // --- PDF TOOLS (WORKING BROWSER ENGINES) ---
   {
+    id: "pdf-to-word",
+    slug: "pdf-to-word",
+    name: "PDF to Word",
+    category: "pdf",
+    description: "Convert PDF documents into editable Microsoft Word documents.",
+    detailedDescription: "Transform PDF documents into editable Microsoft Word (.docx) files locally in your browser. Extracts readable text, detects headings, preserves paragraphs, basic line breaks, and page flow without server uploads.",
+    icon: "FileType",
+    route: "/tools/pdf-to-word",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    popular: true,
+    supportedFormats: ["PDF"],
+    maxSizeMB: getMaxFileSizeMB("pdf-to-word"),
+    keywords: [
+      "pdf to word",
+      "pdf to docx",
+      "convert pdf to word",
+      "pdf converter",
+      "editable word document",
+      "pdf document"
+    ],
+    howItWorks: [
+      "Select or drag your PDF document into the upload area.",
+      "Our local browser engine extracts structured text, headings, and paragraph layout.",
+      "Download the editable Microsoft Word (.docx) document instantly."
+    ],
+    faq: [
+      {
+        question: "Can I edit the converted Word document in Microsoft Office or Google Docs?",
+        answer: "Yes. The output is a standard OpenXML (.docx) file fully compatible with Microsoft Word, Google Docs, LibreOffice, and Apple Pages."
+      },
+      {
+        question: "Are my documents uploaded to any remote server?",
+        answer: "No. Conversion executes 100% locally inside your browser. Your private documents never leave your device."
+      },
+      {
+        question: "What happens if my PDF is a scanned image without selectable text?",
+        answer: "If the PDF contains scanned photos without embedded text, selectable text cannot be extracted directly and OCR is required."
+      }
+    ],
+    relatedSlugs: ["word-to-pdf", "pdf-to-jpg", "pdf-to-png", "merge-pdf", "compress-pdf"]
+  },
+  {
+    id: "word-to-pdf",
+    slug: "word-to-pdf",
+    name: "Word to PDF",
+    category: "pdf",
+    description: "Convert Microsoft Word documents into PDF files.",
+    detailedDescription: "Convert Microsoft Word (.docx) documents into clean, professional PDF documents right in your browser. Preserves headings, paragraphs, lists, bold/italic formatting, and basic tables with standard page margins.",
+    icon: "FileType",
+    route: "/tools/word-to-pdf",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    popular: true,
+    supportedFormats: ["DOCX"],
+    maxSizeMB: getMaxFileSizeMB("word-to-pdf"),
+    keywords: [
+      "word to pdf",
+      "docx to pdf",
+      "convert word to pdf",
+      "word converter",
+      "document to pdf",
+      "docx converter"
+    ],
+    howItWorks: [
+      "Upload your Microsoft Word (.docx) document.",
+      "The local parser processes document paragraphs, headings, formatting, and tables.",
+      "Download your generated PDF document with professional margins and page breaks."
+    ],
+    faq: [
+      {
+        question: "Which Word formats are supported?",
+        answer: "Standard Microsoft Word (.docx) OpenXML documents are fully supported."
+      },
+      {
+        question: "Does conversion happen privately in my browser?",
+        answer: "Yes. The entire DOCX parsing and PDF compilation happens on your device without uploading your file to any server."
+      },
+      {
+        question: "Are multi-page documents supported?",
+        answer: "Yes. Content flows naturally across multiple A4 pages with clean margins and automatic pagination."
+      }
+    ],
+    relatedSlugs: ["pdf-to-word", "pdf-to-jpg", "jpg-to-pdf", "merge-pdf"]
+  },
+  {
     id: "pdf-to-jpg",
     slug: "pdf-to-jpg",
     name: "PDF to JPG",

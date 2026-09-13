@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import {
   Megaphone,
   Sparkles,
@@ -56,11 +57,21 @@ type AdTab =
   | 'AUDIT';
 
 export default function AdminAdvertisingPage() {
+  const { user, profile } = useAuth();
   const [activeTab, setActiveTab] = useState<AdTab>('OVERVIEW');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Authentication Headers Helper for resilient administrative authorization
+  const getAuthHeaders = useCallback((): Record<string, string> => {
+    const headers: Record<string, string> = {};
+    if (user?.id) headers['x-user-id'] = user.id;
+    if (user?.email) headers['x-user-email'] = user.email;
+    if (profile?.role) headers['x-user-role'] = profile.role;
+    return headers;
+  }, [user, profile]);
 
   // Core Data
   const [ads, setAds] = useState<AdvertisementRecord[]>([]);
@@ -121,18 +132,29 @@ export default function AdminAdvertisingPage() {
     frequencyMode: 'ONCE_PER_SESSION' as AdFrequencyMode,
   });
 
-  // Fetch initial data
-  const fetchData = async () => {
+  // Fetch initial data with resilient fallback
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/advertising');
-      if (!res.ok) throw new Error(`Failed to load data (${res.status})`);
-      const data = await res.json();
-      if (data.success) {
-        setAds(data.ads || []);
-        if (data.settings) setSettings(data.settings);
-        if (data.summary) setSummary(data.summary);
-        if (data.recentEvents) setRecentEvents(data.recentEvents);
+      const res = await fetch('/api/admin/advertising', {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setAds(data.ads || []);
+          if (data.settings) setSettings(data.settings);
+          if (data.summary) setSummary(data.summary);
+          if (data.recentEvents) setRecentEvents(data.recentEvents);
+        }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        const message = errData.error || `Failed to load data (${res.status})`;
+        console.warn('[Admin Ad Page] Fetch response notice:', message);
+        setFeedback({
+          type: 'error',
+          text: message,
+        });
       }
     } catch (err: any) {
       console.error('[Admin Ad Page] Fetch error:', err);
@@ -140,11 +162,11 @@ export default function AdminAdvertisingPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getAuthHeaders]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   // Filtered ads
   const filteredAds = useMemo(() => {
@@ -180,6 +202,7 @@ export default function AdminAdvertisingPage() {
 
       const res = await fetch('/api/admin/advertising/upload', {
         method: 'POST',
+        headers: getAuthHeaders(),
         body: uploadForm,
       });
 
@@ -225,7 +248,7 @@ export default function AdminAdvertisingPage() {
         // Update
         const res = await fetch('/api/admin/advertising', {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
           body: JSON.stringify({ id: editingAdId, ...formData }),
         });
         const data = await res.json();
@@ -235,7 +258,7 @@ export default function AdminAdvertisingPage() {
         // Create
         const res = await fetch('/api/admin/advertising', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
           body: JSON.stringify(formData),
         });
         const data = await res.json();
@@ -314,7 +337,7 @@ export default function AdminAdvertisingPage() {
     try {
       const res = await fetch('/api/admin/advertising', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ id: ad.id, status: nextStatus }),
       });
       const data = await res.json();
@@ -329,7 +352,10 @@ export default function AdminAdvertisingPage() {
   const deleteAd = async (ad: AdvertisementRecord) => {
     if (!confirm(`Are you sure you want to permanently delete advertisement "${ad.name}"?`)) return;
     try {
-      const res = await fetch(`/api/admin/advertising?id=${ad.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/admin/advertising?id=${ad.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed to delete');
       setFeedback({ type: 'success', text: `Ad "${ad.name}" deleted.` });
@@ -343,7 +369,7 @@ export default function AdminAdvertisingPage() {
     try {
       const res = await fetch('/api/admin/advertising', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ action: 'UPDATE_SETTINGS', settings: updates }),
       });
       const data = await res.json();

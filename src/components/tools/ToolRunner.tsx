@@ -52,6 +52,7 @@ function SelectedFileItem({
 }: SelectedFileItemProps) {
   const isImage = file.type.startsWith("image/") || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(file.name);
   const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  const isDocx = /\.docx$/i.test(file.name) || file.type.includes("word") || file.type.includes("officedocument");
 
   const previewUrl = useMemo(() => {
     if (isImage) {
@@ -79,7 +80,7 @@ function SelectedFileItem({
   return (
     <div className="flex items-center justify-between p-3 sm:p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 transition-all hover:border-slate-300">
       <div className="flex items-center gap-3.5 min-w-0 pr-2">
-        {/* Preview: Thumbnail for image, icon for PDF */}
+        {/* Preview: Thumbnail for image, icon for PDF / Word */}
         {previewUrl ? (
           <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-slate-200 bg-white shrink-0 shadow-xs">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -87,7 +88,13 @@ function SelectedFileItem({
           </div>
         ) : (
           <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200/60 text-blue-600 flex items-center justify-center shrink-0">
-            {isPdf ? <FileText className="w-6 h-6 text-red-500" /> : <FileIcon className="w-6 h-6" />}
+            {isPdf ? (
+              <FileText className="w-6 h-6 text-red-500" />
+            ) : isDocx ? (
+              <FileText className="w-6 h-6 text-blue-600" />
+            ) : (
+              <FileIcon className="w-6 h-6" />
+            )}
           </div>
         )}
 

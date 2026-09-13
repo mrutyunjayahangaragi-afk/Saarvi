@@ -24,6 +24,9 @@ import {
   Layers,
   FileImage,
   FileType,
+  FileText,
+  FileOutput,
+  FileInput,
   RefreshCw,
   Repeat,
   Image as ImageIcon,
@@ -39,6 +42,9 @@ import {
 const ICON_MAP: Record<string, React.ElementType> = {
   FileImage,
   FileType,
+  FileText,
+  FileOutput,
+  FileInput,
   RefreshCw,
   Repeat,
   Image: ImageIcon,
@@ -48,7 +54,8 @@ const ICON_MAP: Record<string, React.ElementType> = {
   FileDown,
   Maximize2,
   Camera,
-  GraduationCap
+  GraduationCap,
+  Sparkles
 };
 
 interface PageProps {

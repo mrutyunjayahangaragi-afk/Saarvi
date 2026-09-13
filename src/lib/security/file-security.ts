@@ -9,6 +9,8 @@
  * - Image dimension bounding preventing canvas/decompression memory spikes.
  */
 
+import JSZip from "jszip";
+
 export interface FileValidationResult {
   valid: boolean;
   error?: string;
@@ -236,8 +238,7 @@ export async function validateInputFile(
 
     if (expectedFormats && expectedFormats.length > 0) {
       const normalizedExpected = expectedFormats.map((f) => f.toLowerCase().replace(/^\./, ""));
-      // Handle format equivalence (jpg/jpeg, txt/md/csv/json)
-      const isExpected =
+      let isExpected =
         detectedFormat &&
         (normalizedExpected.includes(detectedFormat) ||
           (detectedFormat === "jpeg" && normalizedExpected.includes("jpg")) ||
@@ -248,6 +249,29 @@ export async function validateInputFile(
               normalizedExpected.includes("json"))) ||
           (detectedFormat === "json" &&
             (normalizedExpected.includes("txt") || normalizedExpected.includes("json"))));
+
+      if (!isExpected && detectedFormat === "zip" && normalizedExpected.includes("docx")) {
+        try {
+          const zipData = typeof file.arrayBuffer === "function" ? await file.arrayBuffer() : file;
+          const zip = await JSZip.loadAsync(zipData);
+          const hasWordDoc = Boolean(zip.file("word/document.xml") || zip.file("[Content_Types].xml"));
+          if (hasWordDoc) {
+            isExpected = true;
+          } else {
+            return {
+              valid: false,
+              error: "The uploaded file is a ZIP archive, but does not contain a valid Microsoft Word (.docx) document structure.",
+              detectedFormat: "zip",
+            };
+          }
+        } catch {
+          return {
+            valid: false,
+            error: "Failed to parse Microsoft Word (.docx) container structure.",
+            detectedFormat: "corrupted_zip",
+          };
+        }
+      }
 
       if (!isExpected) {
         return {
