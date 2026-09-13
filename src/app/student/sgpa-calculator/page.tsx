@@ -69,11 +69,22 @@ export default function SGPACalculatorPage() {
   // Global Marks Input Mode preference: "cie-see" | "total"
   const [globalInputMode, setGlobalInputMode] = useState<MarksInputMode>("cie-see");
 
-  // VTU Stepper Selection States
+  // Dynamic Academic Hierarchy Selection States
+  const [universities, setUniversities] = useState<Array<{ id: string; name: string; code: string }>>([
+    { id: "vtu", name: "Visvesvaraya Technological University", code: "VTU" },
+  ]);
+  const [schemes, setSchemes] = useState<Array<{ id: string; name: string; year: string }>>([
+    { id: "vtu-2022", name: "2022 Scheme", year: "2022" },
+    { id: "vtu-2025", name: "2025 Scheme", year: "2025" },
+  ]);
+  const [branches, setBranches] = useState<Array<{ id: string; name: string; code: string }>>([
+    { id: "vtu-2022-cse", name: "Computer Science & Engineering", code: "CSE" },
+  ]);
+  const [selectedUniversity, setSelectedUniversity] = useState<string>("vtu");
+  const [selectedScheme, setSelectedScheme] = useState<string>("vtu-2022");
+  const [selectedBranch, setSelectedBranch] = useState<string>("vtu-2022-cse");
   const [selectedSemester, setSelectedSemester] = useState<number>(3);
-  const [selectedUniversity] = useState<string>("VTU");
-  const [selectedScheme, setSelectedScheme] = useState<string>("2022");
-  const [selectedBranch, setSelectedBranch] = useState<string>("CSE");
+  const [curriculumMissing, setCurriculumMissing] = useState<boolean>(false);
 
   // Course row inputs
   const [coursesState, setCoursesState] = useState<CourseRowState[]>([]);
@@ -97,58 +108,181 @@ export default function SGPACalculatorPage() {
     onConfirm: () => {},
   });
 
-  // Check if current combination is officially verified
-  const isVerified = useMemo(() => {
-    return curriculumIndex.isCombinationVerified(selectedScheme, selectedBranch, selectedSemester);
-  }, [selectedScheme, selectedBranch, selectedSemester]);
-
   // Check if any mark has been entered across all courses
   const hasEnteredMarks = useMemo(() => {
     return coursesState.some((c) => c.cie !== "" || c.see !== "" || c.total !== "");
   }, [coursesState]);
 
-  // Load official curriculum when selection changes
+  // Load universities on mount
+  useEffect(() => {
+    async function loadUniversities() {
+      try {
+        const res = await fetch("/api/academic/universities");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.universities && data.universities.length > 0) {
+            setUniversities(data.universities);
+          }
+        }
+      } catch {}
+    }
+    loadUniversities();
+  }, []);
+
+  // Load schemes when selected university changes
+  useEffect(() => {
+    async function loadSchemes() {
+      try {
+        const res = await fetch(`/api/academic/schemes?universityId=${selectedUniversity}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.schemes && data.schemes.length > 0) {
+            setSchemes(data.schemes);
+            if (!data.schemes.some((s: any) => s.id === selectedScheme)) {
+              setSelectedScheme(data.schemes[0].id);
+            }
+          }
+        }
+      } catch {}
+    }
+    loadSchemes();
+  }, [selectedUniversity]);
+
+  // Load branches when selected scheme changes
+  useEffect(() => {
+    async function loadBranches() {
+      try {
+        const res = await fetch(`/api/academic/branches?universityId=${selectedUniversity}&schemeId=${selectedScheme}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.branches && data.branches.length > 0) {
+            setBranches(data.branches);
+            if (!data.branches.some((b: any) => b.id === selectedBranch)) {
+              setSelectedBranch(data.branches[0].id);
+            }
+          }
+        }
+      } catch {}
+    }
+    loadBranches();
+  }, [selectedUniversity, selectedScheme]);
+
+  // Check if current combination has verified courses loaded
+  const isVerified = useMemo(() => {
+    return coursesState.length > 0 && !curriculumMissing;
+  }, [coursesState, curriculumMissing]);
+
+  // Load authoritative curriculum from server store / fallback index
   useEffect(() => {
     if (mode !== "vtu") return;
 
-    const officialCourses = curriculumIndex.getCourses(selectedScheme, selectedBranch, selectedSemester);
-    if (officialCourses.length > 0) {
-      const initialRows: CourseRowState[] = officialCourses.map((c) => {
-        let title = c.courseTitle;
-        let code = c.courseCode;
+    let isMounted = true;
 
-        if (c.isElectiveGroup && c.electiveOptions && c.electiveOptions.length > 0) {
-          code = c.electiveOptions[0].courseCode;
-          title = c.electiveOptions[0].courseTitle;
+    async function loadCurriculum() {
+      try {
+        const res = await fetch(
+          `/api/academic/curriculum?universityId=${selectedUniversity}&schemeId=${selectedScheme}&branchId=${selectedBranch}&semester=${selectedSemester}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data.available && data.courses && data.courses.length > 0) {
+            const rows: CourseRowState[] = data.courses.map((c: any) => {
+              const hasSEE = c.seeApplicable !== false;
+              const allowedInputModes: MarksInputMode[] = hasSEE ? ["cie-see", "total"] : ["cie-see", "total"];
+              const preferredMode = allowedInputModes.includes(globalInputMode) ? globalInputMode : "cie-see";
+              return {
+                courseCode: c.subjectCode,
+                courseTitle: c.subjectName,
+                credits: c.credits,
+                category: c.category || c.courseType,
+                assessment: {
+                  hasSEE,
+                  cie: { maxMarks: 50 },
+                  see: hasSEE ? { maxMarks: 50 } : undefined,
+                  total: { maxMarks: 100 },
+                  allowedInputModes,
+                  passingRules: {
+                    minCIE: 20,
+                    minSEE: hasSEE ? 18 : 0,
+                    minAggregate: 40,
+                  },
+                  components: [
+                    { id: "cie", name: "CIE", maxMarks: 50, minPassMarks: 20, weight: 0.5 },
+                    ...(hasSEE ? [{ id: "see", name: "SEE", maxMarks: 50, minPassMarks: 18, weight: 0.5 }] : []),
+                  ],
+                },
+                inputMode: preferredMode,
+                cie: "",
+                see: "",
+                total: "",
+                includedInSGPA: c.includedInSGPA !== false,
+                includedInCGPA: c.includedInCGPA !== false,
+              };
+            });
+            setCoursesState(rows);
+            setCurriculumMissing(false);
+            return;
+          }
         }
+      } catch {}
 
-        const preferredMode = c.assessment.allowedInputModes.includes(globalInputMode)
-          ? globalInputMode
-          : c.assessment.allowedInputModes[0] || "cie-see";
+      // Fallback: check if local verified VTU courses match
+      const schemeRecord = schemes.find((s) => s.id === selectedScheme);
+      const branchRecord = branches.find((b) => b.id === selectedBranch);
+      const schemeYear = schemeRecord?.year || (selectedScheme.includes("2025") ? "2025" : "2022");
+      const branchCode = branchRecord?.code || "CSE";
 
-        return {
-          courseCode: code,
-          courseTitle: title,
-          credits: c.credits,
-          category: c.category,
-          assessment: c.assessment,
-          inputMode: preferredMode,
-          cie: "",
-          see: "",
-          total: "",
-          includedInSGPA: c.includedInSGPA,
-          includedInCGPA: c.includedInCGPA,
-          isElectiveGroup: c.isElectiveGroup,
-          electiveGroupTitle: c.electiveGroupTitle,
-          electiveOptions: c.electiveOptions,
-          selectedElectiveCode: code,
-        };
-      });
-      setCoursesState(initialRows);
-    } else {
-      setCoursesState([]);
+      const officialCourses = curriculumIndex.getCourses(schemeYear, branchCode, selectedSemester);
+      if (officialCourses && officialCourses.length > 0) {
+        if (isMounted) {
+          const initialRows: CourseRowState[] = officialCourses.map((c) => {
+            let title = c.courseTitle;
+            let code = c.courseCode;
+
+            if (c.isElectiveGroup && c.electiveOptions && c.electiveOptions.length > 0) {
+              code = c.electiveOptions[0].courseCode;
+              title = c.electiveOptions[0].courseTitle;
+            }
+
+            const preferredMode = c.assessment.allowedInputModes.includes(globalInputMode)
+              ? globalInputMode
+              : c.assessment.allowedInputModes[0] || "cie-see";
+
+            return {
+              courseCode: code,
+              courseTitle: title,
+              credits: c.credits,
+              category: c.category,
+              assessment: c.assessment,
+              inputMode: preferredMode,
+              cie: "",
+              see: "",
+              total: "",
+              includedInSGPA: c.includedInSGPA,
+              includedInCGPA: c.includedInCGPA,
+              isElectiveGroup: c.isElectiveGroup,
+              electiveGroupTitle: c.electiveGroupTitle,
+              electiveOptions: c.electiveOptions,
+              selectedElectiveCode: code,
+            };
+          });
+          setCoursesState(initialRows);
+          setCurriculumMissing(false);
+        }
+      } else {
+        if (isMounted) {
+          setCoursesState([]);
+          setCurriculumMissing(true);
+        }
+      }
     }
-  }, [mode, selectedScheme, selectedBranch, selectedSemester, globalInputMode]);
+
+    loadCurriculum();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [mode, selectedUniversity, selectedScheme, selectedBranch, selectedSemester, globalInputMode, schemes, branches]);
 
   // Safe Switch for Global Input Mode
   const handleGlobalModeChange = (newMode: MarksInputMode) => {
@@ -225,6 +359,27 @@ export default function SGPACalculatorPage() {
         };
         return copy;
       });
+    }
+  };
+
+  // Safe Switch for University
+  const handleUniversityChange = (newUniv: string) => {
+    if (newUniv === selectedUniversity) return;
+
+    if (hasEnteredMarks) {
+      setConfirmDialog({
+        isOpen: true,
+        title: "Change University?",
+        message: "Changing university will reload regulations and clear entered marks. Continue?",
+        confirmText: "Change University",
+        cancelText: "Cancel",
+        onConfirm: () => {
+          setSelectedUniversity(newUniv);
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+        },
+      });
+    } else {
+      setSelectedUniversity(newUniv);
     }
   };
 
@@ -599,26 +754,45 @@ export default function SGPACalculatorPage() {
     }
   };
 
+  const selectedUnivObj = universities.find((u) => u.id === selectedUniversity) || universities[0];
+  const selectedSchemeObj = schemes.find((s) => s.id === selectedScheme) || schemes[0];
+  const selectedBranchObj = branches.find((b) => b.id === selectedBranch) || branches[0];
+
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc]">
       <Navbar />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14 space-y-8">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 space-y-8">
+        {/* Breadcrumb */}
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-slate-500">
+          <Link href="/student/dashboard" className="hover:text-blue-600 transition-colors">
+            Student Hub
+          </Link>
+          <span>/</span>
+          <span className="text-slate-800 font-medium">SGPA Calculator</span>
+        </nav>
+
         {/* 1. HERO HEADER */}
         <div className="space-y-2.5 text-center max-w-2xl mx-auto">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold">
             <GraduationCap className="w-3.5 h-3.5" />
-            <span>VTU Academic Intelligence • Official 2022 Scheme</span>
+            <span>{selectedUnivObj?.code || "Academic"} Intelligence • {selectedSchemeObj?.name || "Official Regulations"}</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-            Calculate your SGPA
+            {mode === "custom"
+              ? "SGPA Calculator"
+              : selectedUnivObj?.code === "VTU"
+              ? "VTU SGPA Calculator"
+              : selectedUnivObj?.name
+              ? `${selectedUnivObj.name} SGPA Calculator`
+              : "SGPA Calculator"}
           </h1>
           <p className="text-sm text-slate-500 leading-relaxed">
-            Course-specific assessment intelligence: CIE + SEE where applicable, CIE-only for continuous evaluation, and optional Total Marks entry.
+            Official syllabus credits and codes loaded dynamically. Enter your CIE & SEE marks to calculate your deterministic semester SGPA.
           </p>
         </div>
 
-        {/* MODE TOGGLE: VTU Curriculum Engine vs Custom */}
+        {/* MODE TOGGLE: Curriculum Engine vs Custom */}
         <div className="flex justify-center">
           <div className="inline-flex p-1 bg-slate-200/80 rounded-2xl shadow-inner text-xs font-bold">
             <button
@@ -628,7 +802,7 @@ export default function SGPACalculatorPage() {
                 mode === "vtu" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              VTU Curriculum Engine
+              {selectedUnivObj ? `${selectedUnivObj.code} Curriculum Engine` : "Curriculum Engine"}
             </button>
             <button
               type="button"
@@ -644,123 +818,135 @@ export default function SGPACalculatorPage() {
 
         {mode === "vtu" ? (
           <>
-            {/* 2. VTU STEPPER SELECTION CONTAINER */}
             <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
-              <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <h2 className="text-base font-bold text-slate-900">Choose your academic profile</h2>
-                  <p className="text-xs text-slate-500">Official syllabus loaded from {VTU_METADATA.universityShort}</p>
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 self-start sm:self-auto font-semibold">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Verified VTU Source</span>
-                </div>
-              </div>
-
-              {/* STEPPER GRID */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* 1. Semester Selector */}
-                <div className="space-y-1.5">
-                  <label htmlFor="select-semester" className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-                    1. Semester
-                  </label>
-                  <select
-                    id="select-semester"
-                    value={selectedSemester}
-                    onChange={(e) => handleSemesterChange(Number(e.target.value))}
-                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-800"
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-                      <option key={s} value={s}>
-                        Semester {s}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 2. University Selector */}
-                <div className="space-y-1.5">
-                  <label htmlFor="select-university" className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-                    2. University
-                  </label>
-                  <select
-                    id="select-university"
-                    disabled
-                    value={selectedUniversity}
-                    className="w-full px-3.5 py-2.5 text-sm bg-slate-100 border border-slate-200 rounded-xl text-slate-700 font-bold cursor-not-allowed"
-                  >
-                    <option value="VTU">VTU (Visvesvaraya Tech Univ)</option>
-                  </select>
-                </div>
-
-                {/* 3. Scheme Selector */}
-                <div className="space-y-1.5">
-                  <label htmlFor="select-scheme" className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-                    3. Scheme
-                  </label>
-                  <select
-                    id="select-scheme"
-                    value={selectedScheme}
-                    onChange={(e) => handleSchemeChange(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-800"
-                  >
-                    {AVAILABLE_VTU_SCHEMES.map((sch) => (
-                      <option key={sch.id} value={sch.id}>
-                        {sch.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 4. Branch Selector */}
-                <div className="space-y-1.5">
-                  <label htmlFor="select-branch" className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-                    4. Branch
-                  </label>
-                  <select
-                    id="select-branch"
-                    value={selectedBranch}
-                    onChange={(e) => handleBranchChange(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-800"
-                  >
-                    {AVAILABLE_VTU_SCHEMES.find((s) => s.id === selectedScheme)?.branches.map((b) => (
-                      <option key={b.code} value={b.code}>
-                        {b.name} ({b.code})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* VERIFICATION STATUS ALERT */}
-              {!isVerified && (
-                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="font-bold text-sm">Curriculum data for this combination has not been verified yet.</p>
-                    <p className="text-amber-700">
-                      Under VTU guidelines, higher semesters (Semesters 6–8) are released sequentially. Choose another semester (Sem 1–5 for CSE) or switch to Custom Subject Entry.
-                    </p>
-                    <div className="pt-2 flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() => handleSemesterChange(3)}
-                        className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold cursor-pointer"
-                      >
-                        Choose Semester 3 (Verified)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setMode("custom")}
-                        className="px-3 py-1 bg-white border border-amber-300 text-amber-800 rounded-lg font-semibold cursor-pointer"
-                      >
-                        Custom Subject Entry
-                      </button>
+                  <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h2 className="text-base font-bold text-slate-900">Choose your academic profile</h2>
+                      <p className="text-xs text-slate-500">Official syllabus loaded from {selectedUnivObj?.name || "Authoritative University Platform"}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 self-start sm:self-auto font-semibold">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>{selectedUnivObj?.code || "Official"} Verified Source</span>
                     </div>
                   </div>
+
+                  {/* STEPPER GRID */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* 1. University Selector */}
+                    <div className="space-y-1.5">
+                      <label htmlFor="select-university" className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+                        1. University
+                      </label>
+                      <select
+                        id="select-university"
+                        value={selectedUniversity}
+                        onChange={(e) => handleUniversityChange(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-800"
+                      >
+                        {universities.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.name} ({u.code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* 2. Scheme Selector */}
+                    <div className="space-y-1.5">
+                      <label htmlFor="select-scheme" className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+                        2. Scheme / Regulation
+                      </label>
+                      <select
+                        id="select-scheme"
+                        value={selectedScheme}
+                        onChange={(e) => handleSchemeChange(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-800"
+                      >
+                        {schemes.map((sch) => (
+                          <option key={sch.id} value={sch.id}>
+                            {sch.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* 3. Branch Selector */}
+                    <div className="space-y-1.5">
+                      <label htmlFor="select-branch" className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+                        3. Branch
+                      </label>
+                      <select
+                        id="select-branch"
+                        value={selectedBranch}
+                        onChange={(e) => handleBranchChange(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-800"
+                      >
+                        {branches.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name} ({b.code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* 4. Semester Selector */}
+                    <div className="space-y-1.5">
+                      <label htmlFor="select-semester" className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+                        4. Semester
+                      </label>
+                      <select
+                        id="select-semester"
+                        value={selectedSemester}
+                        onChange={(e) => handleSemesterChange(Number(e.target.value))}
+                        className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-800"
+                      >
+                        {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
+                          <option key={s} value={s}>
+                            Semester {s}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* MISSING CURRICULUM EMPTY STATE */}
+                  {(!isVerified || coursesState.length === 0) && (
+                    <div className="p-6 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-950 text-xs space-y-3">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <p className="font-bold text-sm text-amber-900">Curriculum not available yet.</p>
+                          <p className="text-amber-800 leading-relaxed">
+                            The curriculum for <span className="font-semibold">{selectedUnivObj?.name || selectedUniversity}</span> (
+                            {selectedSchemeObj?.name || selectedScheme}, {selectedBranchObj?.name || selectedBranch}, Semester {selectedSemester})
+                            has not been published yet.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="pt-2 flex flex-wrap gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const reqText = `Curriculum Request: ${selectedUnivObj?.name || "University"} ${selectedSchemeObj?.name || "Scheme"} ${selectedBranchObj?.code || "Branch"} Semester ${selectedSemester}`;
+                            navigator.clipboard.writeText(reqText);
+                            setSavedNotice("Curriculum request copied to clipboard!");
+                            setTimeout(() => setSavedNotice(null), 3000);
+                          }}
+                          className="px-3.5 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded-xl font-semibold cursor-pointer shadow-2xs"
+                        >
+                          Ask Admin to add curriculum
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMode("custom")}
+                          className="px-3.5 py-1.5 bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 rounded-xl font-semibold cursor-pointer"
+                        >
+                          Custom Subject Entry
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
             {/* 3. AUTO-LOADED COURSES & EVALUATION FORM */}
             {isVerified && coursesState.length > 0 && (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
+import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import {
@@ -26,6 +27,7 @@ import {
 import { academicStorage } from "@/lib/academic/storage/academic-db";
 import { generateResumePdf } from "@/lib/tools/resume/pdf-export";
 import { AIResumeFeedbackModal } from "@/components/career/AIResumeFeedbackModal";
+import { ResumeLivePreview } from "@/components/career/ResumeLivePreview";
 import {
   FileText,
   Plus,
@@ -120,6 +122,8 @@ function ResumeBuilderComponent() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"split" | "edit" | "preview">("split");
+  const [showReorderPanel, setShowReorderPanel] = useState(false);
 
   // PDF Export States
   const [exporting, setExporting] = useState(false);
@@ -408,6 +412,101 @@ function ResumeBuilderComponent() {
     );
   }
 
+  const renderNavigatorAndAtsChecks = () => (
+    <div className="space-y-4">
+      {/* Sections & Reordering */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Sections & Reordering
+          </span>
+          <span className="text-[11px] text-slate-400">Controls order in export</span>
+        </div>
+
+        <div className="space-y-1.5">
+          {activeVersion.sectionOrder.map((secId, idx) => {
+            const isEnabled = activeVersion.enabledSections[secId] ?? true;
+            const isCurrentTab = activeTab === secId;
+
+            return (
+              <div
+                key={secId}
+                className={`flex items-center justify-between p-2 rounded-lg text-xs font-medium transition-colors ${
+                  isCurrentTab
+                    ? "bg-blue-50 text-blue-900 border border-blue-200"
+                    : "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-transparent"
+                }`}
+              >
+                <button
+                  onClick={() => setActiveTab(secId)}
+                  className="flex-1 text-left truncate flex items-center gap-2 mr-2"
+                >
+                  <input
+                    type="checkbox"
+                    checked={isEnabled}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      handleToggleSection(secId);
+                    }}
+                    className="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                  />
+                  <span className={!isEnabled ? "line-through text-slate-400" : ""}>
+                    {SECTION_LABELS[secId]}
+                  </span>
+                </button>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleMoveSection(secId, "up")}
+                    disabled={idx === 0}
+                    className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30"
+                    title="Move section up"
+                    aria-label={`Move ${SECTION_LABELS[secId]} up`}
+                  >
+                    <ArrowUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleMoveSection(secId, "down")}
+                    disabled={idx === activeVersion.sectionOrder.length - 1}
+                    className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30"
+                    title="Move section down"
+                    aria-label={`Move ${SECTION_LABELS[secId]} down`}
+                  >
+                    <ArrowDown className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ATS Verification Checklist */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-3">
+          ATS-Friendly Verification Checks
+        </span>
+        <div className="space-y-2">
+          {validationResult.checks.map((chk) => (
+            <div key={chk.id} className="flex items-start gap-2 text-xs">
+              {chk.passed ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+              )}
+              <div>
+                <span className={`font-semibold ${chk.passed ? "text-slate-800" : "text-amber-800"}`}>
+                  {chk.label}
+                </span>
+                <p className="text-slate-500 text-[11px] leading-tight mt-0.5">{chk.tip}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       <Navbar />
@@ -420,6 +519,15 @@ function ResumeBuilderComponent() {
       )}
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Breadcrumb */}
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-slate-500 mb-4">
+          <Link href="/student/dashboard" className="hover:text-blue-600 transition-colors">
+            Student Hub
+          </Link>
+          <span>/</span>
+          <span className="text-slate-800 font-medium">Resume & CV Builder</span>
+        </nav>
+
         {/* Page Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between pb-6 border-b border-slate-200 gap-4">
           <div>
@@ -632,114 +740,126 @@ function ResumeBuilderComponent() {
           </div>
         </div>
 
-        {/* Main Editor & Section Reordering View */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column: Section Navigator & Reordering */}
-          <div className="lg:col-span-4 space-y-4">
-            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Sections & Reordering
-                </span>
-                <span className="text-[11px] text-slate-400">Controls order in export</span>
-              </div>
-
-              <div className="space-y-1.5">
-                {activeVersion.sectionOrder.map((secId, idx) => {
-                  const isEnabled = activeVersion.enabledSections[secId] ?? true;
-                  const isCurrentTab = activeTab === secId;
-
-                  return (
-                    <div
-                      key={secId}
-                      className={`flex items-center justify-between p-2 rounded-lg text-xs font-medium transition-colors ${
-                        isCurrentTab
-                          ? "bg-blue-50 text-blue-900 border border-blue-200"
-                          : "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-transparent"
-                      }`}
-                    >
-                      <button
-                        onClick={() => setActiveTab(secId)}
-                        className="flex-1 text-left truncate flex items-center gap-2 mr-2"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isEnabled}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            handleToggleSection(secId);
-                          }}
-                          className="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-                        />
-                        <span className={!isEnabled ? "line-through text-slate-400" : ""}>
-                          {SECTION_LABELS[secId]}
-                        </span>
-                      </button>
-
-                      {/* Accessible Up/Down Reorder Buttons */}
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleMoveSection(secId, "up")}
-                          disabled={idx === 0}
-                          className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30"
-                          title="Move section up"
-                          aria-label={`Move ${SECTION_LABELS[secId]} up`}
-                        >
-                          <ArrowUp className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleMoveSection(secId, "down")}
-                          disabled={idx === activeVersion.sectionOrder.length - 1}
-                          className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30"
-                          title="Move section down"
-                          aria-label={`Move ${SECTION_LABELS[secId]} down`}
-                        >
-                          <ArrowDown className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* ATS Verification Checklist */}
-            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-3">
-                ATS-Friendly Verification Checks
-              </span>
-              <div className="space-y-2">
-                {validationResult.checks.map((chk) => (
-                  <div key={chk.id} className="flex items-start gap-2 text-xs">
-                    {chk.passed ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                    ) : (
-                      <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                    )}
-                    <div>
-                      <span className={`font-semibold ${chk.passed ? "text-slate-800" : "text-amber-800"}`}>
-                        {chk.label}
-                      </span>
-                      <p className="text-slate-500 text-[11px] leading-tight mt-0.5">{chk.tip}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        {/* Workspace View Mode Selector */}
+        <div className="flex items-center justify-between bg-white rounded-xl border border-slate-200 px-4 py-2.5 mb-6 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Eye className="w-4 h-4 text-blue-600" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+              Workspace View
+            </span>
           </div>
 
-          {/* Right Column: Section Content Editor */}
-          <div className="lg:col-span-8 space-y-6">
-            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-              {/* Active Tab Title */}
-              <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-6">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">{SECTION_LABELS[activeTab]}</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Data updates automatically persist locally to IndexedDB.
-                  </p>
-                </div>
+          <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
+            <button
+              onClick={() => setViewMode("edit")}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                viewMode === "edit"
+                  ? "bg-white text-slate-900 shadow-xs font-semibold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Edit Form
+            </button>
+            <button
+              onClick={() => setViewMode("split")}
+              className={`hidden xl:inline-flex px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                viewMode === "split"
+                  ? "bg-white text-slate-900 shadow-xs font-semibold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Side-by-Side Live Preview
+            </button>
+            <button
+              onClick={() => setViewMode("preview")}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                viewMode === "preview"
+                  ? "bg-white text-slate-900 shadow-xs font-semibold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Full Live Preview
+            </button>
+          </div>
+        </div>
+
+        {/* FULL PREVIEW MODE */}
+        {viewMode === "preview" && (
+          <div className="max-w-4xl mx-auto mb-8">
+            <ResumeLivePreview
+              profile={profile}
+              version={activeVersion}
+              onPrint={handlePrint}
+              onExportPdf={handleExportPDF}
+            />
+          </div>
+        )}
+
+        {/* SPLIT & EDIT MODES */}
+        {viewMode !== "preview" && (
+          <div className={`grid grid-cols-1 ${viewMode === "split" ? "xl:grid-cols-12" : "lg:grid-cols-12"} gap-6`}>
+            {/* Left Column in Edit Mode: Navigator & ATS Checklist */}
+            {viewMode === "edit" && (
+              <div className="lg:col-span-4 space-y-4">
+                {renderNavigatorAndAtsChecks()}
               </div>
+            )}
+
+            {/* Form Editor Card Column */}
+            <div className={`${viewMode === "split" ? "xl:col-span-7 space-y-4" : "lg:col-span-8 space-y-6"}`}>
+              {/* If split mode, show quick horizontal section pills & toggle for reorder */}
+              {viewMode === "split" && (
+                <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin flex-1">
+                    {activeVersion.sectionOrder.map((secId) => {
+                      const isEnabled = activeVersion.enabledSections[secId] ?? true;
+                      return (
+                        <button
+                          key={secId}
+                          onClick={() => setActiveTab(secId)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+                            activeTab === secId
+                              ? "bg-blue-600 text-white shadow-xs"
+                              : isEnabled
+                              ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                              : "bg-slate-50 text-slate-400 line-through"
+                          }`}
+                        >
+                          {SECTION_LABELS[secId]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    onClick={() => setShowReorderPanel(!showReorderPanel)}
+                    className={`px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors whitespace-nowrap ${
+                      showReorderPanel
+                        ? "bg-blue-50 text-blue-700 border-blue-300"
+                        : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                    }`}
+                    title="Toggle Section Order & ATS Checks"
+                  >
+                    {showReorderPanel ? "Hide Order" : "Reorder & ATS"}
+                  </button>
+                </div>
+              )}
+
+              {viewMode === "split" && showReorderPanel && (
+                <div className="mb-4">
+                  {renderNavigatorAndAtsChecks()}
+                </div>
+              )}
+
+              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                {/* Active Tab Title */}
+                <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-6">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">{SECTION_LABELS[activeTab]}</h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Data updates automatically persist locally to IndexedDB.
+                    </p>
+                  </div>
+                </div>
 
               {/* TAB 1: CONTACT */}
               {activeTab === "contact" && (
@@ -753,7 +873,7 @@ function ResumeBuilderComponent() {
                         type="text"
                         value={profile.fullName}
                         onChange={(e) => updateProfile((p) => ({ ...p, fullName: e.target.value }))}
-                        placeholder="e.g. John Doe"
+                        placeholder="Your Name"
                         className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       />
                     </div>
@@ -1197,7 +1317,7 @@ function ResumeBuilderComponent() {
                           </div>
                           <button
                             onClick={() => handleAddBulletToEntry("experience", exp.id)}
-                            className="px-3 py-1 bg-slate-800 text-white rounded text-[11px] font-medium hover:bg-slate-900"
+                            className="px-3 py-1 bg-blue-600 text-white rounded text-[11px] font-medium hover:bg-blue-700 transition-colors shadow-xs"
                           >
                             Add Structured Bullet
                           </button>
@@ -1346,7 +1466,7 @@ function ResumeBuilderComponent() {
                           </div>
                           <button
                             onClick={() => handleAddBulletToEntry("project", proj.id)}
-                            className="px-3 py-1 bg-slate-800 text-white rounded text-[11px] font-medium hover:bg-slate-900"
+                            className="px-3 py-1 bg-blue-600 text-white rounded text-[11px] font-medium hover:bg-blue-700 transition-colors shadow-xs"
                           >
                             Add Structured Bullet
                           </button>
@@ -1535,13 +1655,28 @@ function ResumeBuilderComponent() {
               )}
             </div>
           </div>
+
+          {/* Right Column in Split Mode: Sticky Live Preview */}
+          {viewMode === "split" && (
+            <div className="xl:col-span-5">
+              <div className="sticky top-6">
+                <ResumeLivePreview
+                  profile={profile}
+                  version={activeVersion}
+                  onPrint={handlePrint}
+                  onExportPdf={handleExportPDF}
+                />
+              </div>
+            </div>
+          )}
         </div>
-      </main>
+      )}
+    </main>
 
       {/* New Version Modal */}
       {showNewVersionModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl space-y-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200/90">
             <h3 className="text-lg font-bold text-slate-900">Create New Resume Version</h3>
             <p className="text-xs text-slate-600">
               New versions let you tailor selected sections and templates for specific job types (e.g. Frontend Developer, Data Science).

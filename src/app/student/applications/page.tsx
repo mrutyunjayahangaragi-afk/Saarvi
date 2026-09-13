@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import {
@@ -413,6 +414,15 @@ export default function ApplicationsPage() {
       )}
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Breadcrumb */}
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-slate-500 mb-4">
+          <Link href="/student/dashboard" className="hover:text-blue-600 transition-colors">
+            Student Hub
+          </Link>
+          <span>/</span>
+          <span className="text-slate-800 font-medium">Application Tracker</span>
+        </nav>
+
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between pb-6 border-b border-slate-200 gap-4">
           <div>
@@ -528,9 +538,30 @@ export default function ApplicationsPage() {
           </div>
         </div>
 
-        {/* PIPELINE VIEW */}
-        {viewMode === "pipeline" && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pb-8">
+        {/* Empty State when 0 applications tracked */}
+        {applications.length === 0 ? (
+          <div className="p-12 text-center bg-white border border-slate-200/80 rounded-3xl space-y-3 mb-8 shadow-xs">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+              <Briefcase className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900">No applications tracked yet</h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              Track off-campus opportunities, referral pipelines, interviews, and deadlines in one place.
+            </p>
+            <button
+              type="button"
+              onClick={handleOpenAddModal}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-xl hover:bg-blue-700 cursor-pointer shadow-xs transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Track Your First Opportunity</span>
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* PIPELINE VIEW */}
+            {viewMode === "pipeline" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pb-8">
             {ALL_STATUSES.slice(0, 5).map((status) => {
               const statusApps = processedApplications.filter((a) => a.status === status);
               const conf = STATUS_CONFIG[status];
@@ -733,12 +764,14 @@ export default function ApplicationsPage() {
             </div>
           </div>
         )}
+          </>
+        )}
       </main>
 
       {/* Add / Edit Application Modal */}
       {showAppModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-xl w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto border border-slate-200/90">
             <h3 className="text-lg font-bold text-slate-900">
               {editingApp ? "Edit Opportunity" : "Track New Job or Internship"}
             </h3>
@@ -929,8 +962,8 @@ export default function ApplicationsPage() {
 
       {/* Schedule Interview Modal */}
       {showInterviewModal && interviewTargetApp && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl space-y-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200/90">
             <h3 className="text-lg font-bold text-slate-900">
               Schedule Interview with {interviewTargetApp.company}
             </h3>

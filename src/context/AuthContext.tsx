@@ -17,6 +17,8 @@ interface AuthContextType {
   signIn: (params: { email: string; password: string }) => Promise<void>;
   signInWithGoogle: (options?: { redirectTo?: string }) => Promise<void>;
   signUp: (params: { email: string; password: string; fullName: string }) => Promise<void>;
+  verifyEmailOtp: (params: { email: string; code: string }) => Promise<void>;
+  resendVerificationOtp: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
@@ -181,6 +183,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
+      if (
+        error.message?.toLowerCase().includes("email not confirmed") ||
+        error.message?.toLowerCase().includes("not confirmed")
+      ) {
+        throw new Error("EMAIL_NOT_CONFIRMED: Your email is not verified yet. Please enter the verification code sent to your email.");
+      }
       throw new Error("We couldn't sign you in. Please check your email and password.");
     }
 
@@ -271,7 +279,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(error.message || "We couldn't create your account. Please try again.");
     }
 
-    if (data.user) {
+    if (data.user && !data.session) {
+      // Email confirmation is required; caller will display 6-digit OTP verification form
+      return;
+    }
+
+    if (data.user && data.session) {
       const authUser: AuthSessionUser = {
         id: data.user.id,
         email: data.user.email || '',
@@ -281,6 +294,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
       setUser(authUser);
       await loadProfile(data.user.id, data.user.email || '');
+    }
+  };
+
+  const verifyEmailOtp = async ({ email, code }: { email: string; code: string }) => {
+    const cleanCode = code.trim();
+    if (!cleanCode || cleanCode.length !== 6) {
+      throw new Error("Please enter a valid 6-digit verification code.");
+    }
+
+    if (!isSupabaseConfigured()) {
+      const stored = MockStorageProvider.getUserByEmail(email);
+      if (!stored) throw new Error("No pending registration found for this email address.");
+      const sessionUser: AuthSessionUser = {
+        id: stored.id,
+        email: stored.email,
+        fullName: stored.fullName,
+        role: stored.role,
+        createdAt: stored.createdAt,
+      };
+      setUser(sessionUser);
+      setProfile({
+        id: stored.id,
+        fullName: stored.fullName,
+        email: stored.email,
+        role: stored.role,
+        createdAt: stored.createdAt,
+        updatedAt: stored.updatedAt,
+      });
+      return;
+    }
+
+    const supabase = createClient();
+    const tokenKey = 'token';
+    let res = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      [tokenKey]: cleanCode,
+      type: 'signup',
+    });
+
+    if (res.error) {
+      res = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        [tokenKey]: cleanCode,
+        type: 'email',
+      });
+    }
+
+    if (res.error) {
+      throw new Error(res.error.message || "Invalid or expired verification code. Please request a new code.");
+    }
+
+    if (res.data.user) {
+      const authUser: AuthSessionUser = {
+        id: res.data.user.id,
+        email: res.data.user.email || '',
+        fullName: res.data.user.user_metadata?.full_name || '',
+        role: 'USER',
+        createdAt: res.data.user.created_at,
+      };
+      setUser(authUser);
+      await loadProfile(res.data.user.id, res.data.user.email || '');
+    }
+  };
+
+  const resendVerificationOtp = async (email: string) => {
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      throw new Error("Please provide a valid email address.");
+    }
+
+    if (!isSupabaseConfigured()) {
+      return;
+    }
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: cleanEmail,
+    });
+
+    if (error) {
+      throw new Error(error.message || "Unable to resend verification code. Please wait a moment and try again.");
     }
   };
 
@@ -390,6 +485,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signIn,
         signInWithGoogle,
         signUp,
+        verifyEmailOtp,
+        resendVerificationOtp,
         signOut,
         resetPassword,
         updatePassword,

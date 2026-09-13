@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { CoverLetterVersion, CoverLetterType } from "@/types/career";
@@ -372,6 +373,15 @@ export default function CoverLetterPage() {
       )}
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Breadcrumb */}
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-slate-500 mb-4">
+          <Link href="/student/dashboard" className="hover:text-blue-600 transition-colors">
+            Student Hub
+          </Link>
+          <span>/</span>
+          <span className="text-slate-800 font-medium">Cover Letter Builder</span>
+        </nav>
+
         {/* Page Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between pb-6 border-b border-slate-200 gap-4">
           <div>
@@ -510,50 +520,106 @@ export default function CoverLetterPage() {
               Cover Letter Content
             </h2>
 
-            {/* Target Details */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Company Name *</label>
-                <input
-                  type="text"
-                  value={activeLetter.companyName}
-                  onChange={(e) => updateActiveLetter((l) => ({ ...l, companyName: e.target.value }))}
-                  placeholder="e.g. Acme Corporation"
-                  className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
-                />
+            {/* Sender Details */}
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-2">
+                Sender Information
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Your Full Name</label>
+                  <input
+                    type="text"
+                    value={activeLetter.fullName || ""}
+                    onChange={(e) => updateActiveLetter((l) => ({ ...l, fullName: e.target.value }))}
+                    placeholder="Your Name"
+                    className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Your Email</label>
+                  <input
+                    type="email"
+                    value={activeLetter.email || ""}
+                    onChange={(e) => updateActiveLetter((l) => ({ ...l, email: e.target.value }))}
+                    placeholder="Your Email"
+                    className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Target Role *</label>
-                <input
-                  type="text"
-                  value={activeLetter.targetRole}
-                  onChange={(e) => updateActiveLetter((l) => ({ ...l, targetRole: e.target.value }))}
-                  placeholder="e.g. Software Engineering Intern"
-                  className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Your Phone</label>
+                  <input
+                    type="tel"
+                    value={activeLetter.phone || ""}
+                    onChange={(e) => updateActiveLetter((l) => ({ ...l, phone: e.target.value }))}
+                    placeholder="Your Phone"
+                    className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Your Location</label>
+                  <input
+                    type="text"
+                    value={activeLetter.location || ""}
+                    onChange={(e) => updateActiveLetter((l) => ({ ...l, location: e.target.value }))}
+                    placeholder="City, State"
+                    className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Recipient Name</label>
-                <input
-                  type="text"
-                  value={activeLetter.recipientName || ""}
-                  onChange={(e) => updateActiveLetter((l) => ({ ...l, recipientName: e.target.value }))}
-                  placeholder="e.g. Hiring Manager"
-                  className="w-full text-xs border border-slate-300 rounded p-2"
-                />
+            {/* Target Details */}
+            <div className="pt-2 border-t border-slate-100">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-2">
+                Recipient & Company Details
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Company Name *</label>
+                  <input
+                    type="text"
+                    value={activeLetter.companyName}
+                    onChange={(e) => updateActiveLetter((l) => ({ ...l, companyName: e.target.value }))}
+                    placeholder="Company Name"
+                    className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Job Title *</label>
+                  <input
+                    type="text"
+                    value={activeLetter.targetRole}
+                    onChange={(e) => updateActiveLetter((l) => ({ ...l, targetRole: e.target.value }))}
+                    placeholder="Job Title"
+                    className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Recipient Title</label>
-                <input
-                  type="text"
-                  value={activeLetter.recipientTitle || ""}
-                  onChange={(e) => updateActiveLetter((l) => ({ ...l, recipientTitle: e.target.value }))}
-                  placeholder="e.g. Engineering Lead"
-                  className="w-full text-xs border border-slate-300 rounded p-2"
-                />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Hiring Manager</label>
+                  <input
+                    type="text"
+                    value={activeLetter.recipientName || ""}
+                    onChange={(e) => updateActiveLetter((l) => ({ ...l, recipientName: e.target.value }))}
+                    placeholder="Hiring Manager"
+                    className="w-full text-xs border border-slate-300 rounded p-2"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Recipient Title</label>
+                  <input
+                    type="text"
+                    value={activeLetter.recipientTitle || ""}
+                    onChange={(e) => updateActiveLetter((l) => ({ ...l, recipientTitle: e.target.value }))}
+                    placeholder="Engineering Lead"
+                    className="w-full text-xs border border-slate-300 rounded p-2"
+                  />
+                </div>
               </div>
             </div>
 
@@ -619,8 +685,8 @@ export default function CoverLetterPage() {
               Live Preview ({activeLetter.template} template)
             </span>
 
-            <div className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-5 text-slate-800 text-xs font-sans space-y-3 shadow-inner">
-              <div className="border-b border-slate-200 pb-2">
+            <div className="flex-1 bg-slate-50/70 border border-slate-200/90 rounded-2xl p-6 text-slate-800 text-xs font-sans space-y-4 shadow-xs">
+              <div className="border-b border-slate-200/80 pb-3">
                 <strong className="text-sm block text-slate-900">
                   {activeLetter.fullName || "Your Name"}
                 </strong>

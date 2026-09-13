@@ -94,29 +94,29 @@ export function AIJobDescriptionModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-200"
       role="dialog"
       aria-modal="true"
     >
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl text-slate-100">
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-200/90 bg-white p-6 shadow-2xl text-slate-900">
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 border border-blue-200 text-blue-600">
               <Briefcase className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white">
+              <h2 className="text-base font-bold text-slate-900">
                 Job Description Skill Matcher
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 Deterministic Set-matching + AI requirement extraction
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
@@ -126,12 +126,12 @@ export function AIJobDescriptionModal({
         <div className="py-5 space-y-5 text-sm">
           {/* Privacy Consent Step */}
           {needsConsent && !result && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
-              <div className="flex items-center gap-2 text-amber-400 font-semibold text-xs">
-                <ShieldAlert className="h-4 w-4" />
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-amber-800 font-bold text-xs">
+                <ShieldAlert className="h-4 w-4 text-amber-600" />
                 EXTERNAL PROCESSING CONSENT
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-xs text-slate-700 leading-relaxed">
                 To extract skills and keywords, only the pasted job description text will be
                 processed by an external AI service. Your personal profile data, academic grades,
                 and payment details are never shared.
@@ -140,14 +140,14 @@ export function AIJobDescriptionModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700"
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 shadow-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleConsentAndStart}
-                  className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+                  className="rounded-xl bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 shadow-xs transition-colors"
                 >
                   Consent & Continue
                 </button>
@@ -158,7 +158,7 @@ export function AIJobDescriptionModal({
           {/* Job Description Text Input */}
           {!result && !loading && (
             <div className="space-y-3">
-              <label className="text-xs font-semibold text-slate-300">
+              <label className="text-xs font-bold text-slate-700">
                 Paste Job Description / Vacancy Notice:
               </label>
               <textarea
@@ -166,14 +166,14 @@ export function AIJobDescriptionModal({
                 onChange={(e) => setJobText(e.target.value)}
                 placeholder="Paste the complete job post, responsibilities, or requirements section here..."
                 rows={8}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 p-4 font-mono text-xs text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 p-4 font-mono text-xs text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none transition-colors"
               />
               <div className="flex justify-end">
                 <button
                   type="button"
                   disabled={!jobText.trim()}
                   onClick={needsConsent ? () => setNeedsConsent(true) : handleAnalyze}
-                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-xs"
                 >
                   <Briefcase className="w-4 h-4" />
                   Analyze Job Requirements
@@ -185,8 +185,8 @@ export function AIJobDescriptionModal({
           {/* Loading */}
           {loading && (
             <div className="flex flex-col items-center justify-center py-12 space-y-3">
-              <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
-              <p className="text-xs text-slate-300">Extracting job requirements...</p>
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              <p className="text-xs font-bold text-slate-800">Extracting job requirements...</p>
               <p className="text-[11px] text-slate-500">
                 Parsing skills, qualifications, and core keywords
               </p>
@@ -195,13 +195,13 @@ export function AIJobDescriptionModal({
 
           {/* Error */}
           {error && (
-            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 space-y-3 text-center">
-              <AlertCircle className="w-6 h-6 text-red-400 mx-auto" />
-              <p className="text-xs text-red-300">{error}</p>
+            <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 space-y-3 text-center">
+              <AlertCircle className="w-6 h-6 text-rose-600 mx-auto" />
+              <p className="text-xs text-rose-700 font-medium">{error}</p>
               <button
                 type="button"
                 onClick={handleAnalyze}
-                className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-white hover:bg-slate-700"
+                className="rounded-xl bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs"
               >
                 Retry
               </button>
@@ -211,33 +211,33 @@ export function AIJobDescriptionModal({
           {/* Result View */}
           {result && (
             <div className="space-y-5 animate-in fade-in duration-300">
-              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                <span className="text-xs text-slate-400">Identified Target Role</span>
-                <h3 className="text-base font-bold text-white mt-0.5">{result.role}</h3>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <span className="text-xs font-semibold text-slate-500">Identified Target Role</span>
+                <h3 className="text-base font-bold text-slate-900 mt-0.5">{result.role}</h3>
               </div>
 
               {/* Section 1: Deterministic Skill Matching */}
-              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     Deterministic Skill Matching (Authoritative)
                   </h4>
-                  <span className="text-xs text-slate-400 font-mono">
+                  <span className="text-xs text-slate-500 font-mono font-medium">
                     {matchedSkills.length}/{matchedSkills.length + missingSkills.length} matches
                   </span>
                 </div>
 
                 <div className="space-y-2">
                   <div>
-                    <span className="text-[11px] font-semibold text-emerald-400 block mb-1">
+                    <span className="text-[11px] font-bold text-emerald-700 block mb-1">
                       Matched Skills ({matchedSkills.length}):
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {matchedSkills.map((s, i) => (
                         <span
                           key={i}
-                          className="rounded-md border border-emerald-500/30 bg-emerald-950/30 px-2 py-0.5 text-xs text-emerald-300"
+                          className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-800"
                         >
                           {s}
                         </span>
@@ -249,14 +249,14 @@ export function AIJobDescriptionModal({
                   </div>
 
                   <div>
-                    <span className="text-[11px] font-semibold text-amber-400 block mb-1">
+                    <span className="text-[11px] font-bold text-amber-700 block mb-1">
                       Missing Target Skills ({missingSkills.length}):
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {missingSkills.map((s, i) => (
                         <span
                           key={i}
-                          className="rounded-md border border-amber-500/30 bg-amber-950/30 px-2 py-0.5 text-xs text-amber-300"
+                          className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800"
                         >
                           {s}
                         </span>
@@ -267,17 +267,17 @@ export function AIJobDescriptionModal({
               </div>
 
               {/* Section 2: AI Explanatory Suggestions */}
-              <div className="rounded-xl border border-indigo-500/20 bg-indigo-950/20 p-4 space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
-                  <Lightbulb className="w-4 h-4 text-indigo-400" />
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/40 p-4 space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-blue-700 flex items-center gap-1.5">
+                  <Lightbulb className="w-4 h-4 text-blue-600" />
                   Key Responsibilities & Keywords (AI Suggestion)
                 </h4>
 
                 <div className="space-y-2">
-                  <span className="text-[11px] font-semibold text-slate-300 block">
+                  <span className="text-[11px] font-bold text-slate-700 block">
                     Core Responsibilities:
                   </span>
-                  <ul className="list-disc list-inside space-y-1 text-xs text-slate-300">
+                  <ul className="list-disc list-inside space-y-1 text-xs text-slate-600">
                     {result.responsibilities.map((r, i) => (
                       <li key={i}>{r}</li>
                     ))}
@@ -285,17 +285,17 @@ export function AIJobDescriptionModal({
                 </div>
 
                 {result.keywords.length > 0 && (
-                  <div className="pt-2 border-t border-indigo-500/20">
-                    <span className="text-[11px] font-semibold text-slate-300 block mb-1">
+                  <div className="pt-2 border-t border-blue-100">
+                    <span className="text-[11px] font-bold text-slate-700 block mb-1">
                       High-Frequency Resume Keywords:
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {result.keywords.map((kw, i) => (
                         <span
                           key={i}
-                          className="inline-flex items-center gap-1 rounded bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300"
+                          className="inline-flex items-center gap-1 rounded-lg bg-white border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-700 shadow-2xs"
                         >
-                          <Tag className="w-2.5 h-2.5 text-indigo-400" />
+                          <Tag className="w-2.5 h-2.5 text-blue-600" />
                           {kw}
                         </span>
                       ))}
@@ -307,13 +307,13 @@ export function AIJobDescriptionModal({
               <div className="flex justify-between items-center pt-2">
                 <button
                   onClick={() => setResult(null)}
-                  className="text-xs text-slate-400 hover:text-white"
+                  className="text-xs font-medium text-slate-500 hover:text-slate-800"
                 >
                   Analyze Another Job
                 </button>
                 <button
                   onClick={onClose}
-                  className="rounded-xl bg-slate-800 px-4 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700"
+                  className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 shadow-xs transition-colors"
                 >
                   Done
                 </button>

@@ -174,7 +174,7 @@ export default function StudentGoalsPage() {
             onClick={() => setCategoryFilter("ALL")}
             className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
               categoryFilter === "ALL"
-                ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                ? "bg-blue-600 text-white border-blue-600 shadow-xs"
                 : "bg-white text-slate-600 border-slate-200/80 hover:border-slate-300"
             }`}
           >
@@ -190,7 +190,7 @@ export default function StudentGoalsPage() {
                 onClick={() => setCategoryFilter(cat)}
                 className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
                   isSelected
-                    ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                    ? "bg-blue-600 text-white border-blue-600 shadow-xs"
                     : "bg-white text-slate-600 border-slate-200/80 hover:border-slate-300"
                 }`}
               >

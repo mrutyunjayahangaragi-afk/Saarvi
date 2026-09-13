@@ -221,7 +221,7 @@ export default function InternshipTrackerPage() {
               onClick={() => setFilterStatus(opt.id)}
               className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition-colors whitespace-nowrap cursor-pointer ${
                 filterStatus === opt.id
-                  ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                  ? "bg-blue-600 text-white border-blue-600 shadow-xs"
                   : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
               }`}
             >
@@ -249,7 +249,7 @@ export default function InternshipTrackerPage() {
             <button
               type="button"
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-xl hover:bg-blue-700 cursor-pointer shadow-xs transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Track Your First Application</span>

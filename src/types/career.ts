@@ -1,5 +1,3 @@
-import { ResumeTheme } from "./resume";
-
 export type ResumeSectionId =
   | "contact"
   | "summary"

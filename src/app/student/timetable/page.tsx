@@ -336,7 +336,7 @@ export default function TimetablePage() {
               type="button"
               onClick={handleExportPDF}
               disabled={exporting}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
             >
               <FileDown className="w-3.5 h-3.5" />
               <span>{exporting ? "Generating PDF..." : "Export PDF"}</span>
@@ -412,7 +412,7 @@ export default function TimetablePage() {
                 onClick={() => setActiveDay(d)}
                 className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
                   isSelected
-                    ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                    ? "bg-blue-600 text-white border-blue-600 shadow-xs"
                     : "bg-white text-slate-600 border-slate-200/80 hover:border-slate-300"
                 }`}
               >

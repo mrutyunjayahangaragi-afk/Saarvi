@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import {
   GraduationCap,
@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { TOOLS_CONFIG } from "@/config/tools";
 import { ToolDefinition } from "@/types/tool";
+import { adminService } from "@/lib/services/adminService";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   GraduationCap,
@@ -142,10 +143,21 @@ export default function StudentPortalView() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  // Base student tools from registry
-  const studentTools = useMemo(() => {
-    return TOOLS_CONFIG.filter((t) => t.category === "student" && t.status === "available");
+  const [effectiveTools, setEffectiveTools] = useState<ToolDefinition[]>(TOOLS_CONFIG);
+
+  useEffect(() => {
+    adminService
+      .getEffectiveTools()
+      .then((eff) => {
+        if (eff && eff.length > 0) setEffectiveTools(eff);
+      })
+      .catch(() => {});
   }, []);
+
+  // Base student tools from registry and effective configuration
+  const studentTools = useMemo(() => {
+    return effectiveTools.filter((t) => t.category === "student" && t.status !== "disabled");
+  }, [effectiveTools]);
 
   // Filtered tools by search and category
   const filteredTools = useMemo(() => {
@@ -239,7 +251,7 @@ export default function StudentPortalView() {
                 onClick={() => setSelectedCategory(cat.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   isActive
-                    ? "bg-slate-900 text-white shadow-xs"
+                    ? "bg-blue-600 text-white shadow-xs"
                     : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900"
                 }`}
               >
@@ -471,11 +483,18 @@ function ToolCardItem({ tool }: { tool: ToolDefinition }) {
           <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-xs">
             <Icon className="w-5 h-5" />
           </div>
-          {tool.badge && (
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-              {tool.badge}
-            </span>
-          )}
+          <div className="flex items-center gap-1.5">
+            {tool.requiresPro && (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                Pro
+              </span>
+            )}
+            {tool.badge && (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                {tool.badge}
+              </span>
+            )}
+          </div>
         </div>
 
         <div>

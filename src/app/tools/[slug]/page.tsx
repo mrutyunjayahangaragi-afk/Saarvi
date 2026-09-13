@@ -9,6 +9,7 @@ import FaqAccordion from "@/components/common/FaqAccordion";
 import ToolRunner from "@/components/tools/ToolRunner";
 import PrivacyBadge from "@/components/common/PrivacyBadge";
 import { createMetadata } from "@/lib/seo/metadata";
+import { featureServerStore } from "@/lib/features/feature-store";
 import {
   generateToolSchema,
   generateBreadcrumbSchema,
@@ -89,6 +90,10 @@ export default async function ToolPage({ params }: PageProps) {
     notFound();
   }
 
+  const feature = featureServerStore.getFeature(tool.id) || featureServerStore.getFeature(slug);
+  const isDisabled = feature?.status === "DISABLED";
+  const isMaintenance = feature?.status === "MAINTENANCE";
+
   const IconComponent = ICON_MAP[tool.icon] || FileImage;
 
   // Find related tools by slug
@@ -159,7 +164,53 @@ export default async function ToolPage({ params }: PageProps) {
 
         {/* Upload Area / File Selection Component (Visual Center) */}
         <section className="pt-2">
-          {tool.status !== "coming_soon" ? (
+          {isDisabled ? (
+            <div className="p-8 rounded-3xl border border-red-200 bg-red-50/60 text-center space-y-4 shadow-xs">
+              <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-700 flex items-center justify-center mx-auto">
+                <Lock className="w-6 h-6" />
+              </div>
+              <div className="space-y-1 max-w-md mx-auto">
+                <h3 className="text-base font-bold text-slate-800">
+                  {tool.name} is Temporarily Unavailable
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  This tool has been temporarily disabled by platform administrators. Please check back soon or explore our other available tools.
+                </p>
+              </div>
+              <div className="pt-2">
+                <Link
+                  href="/tools"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs hover-3d-lift"
+                >
+                  <span>Explore Other Tools</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+          ) : isMaintenance ? (
+            <div className="p-8 rounded-3xl border border-amber-200 bg-amber-50/60 text-center space-y-4 shadow-xs">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+                <RefreshCw className="w-6 h-6 animate-spin" />
+              </div>
+              <div className="space-y-1 max-w-md mx-auto">
+                <h3 className="text-base font-bold text-slate-800">
+                  {tool.name} Under Maintenance
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  We are currently performing scheduled maintenance on this tool. It will be back online shortly.
+                </p>
+              </div>
+              <div className="pt-2">
+                <Link
+                  href="/tools"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs hover-3d-lift"
+                >
+                  <span>Browse Available Tools</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+          ) : tool.status !== "coming_soon" ? (
             <ToolRunner tool={tool} />
           ) : (
             <div className="p-8 rounded-3xl border-2 border-dashed border-amber-300 bg-amber-50/50 text-center space-y-4 shadow-xs">

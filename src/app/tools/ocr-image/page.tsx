@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState, useRef } from "react";
+import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { AIToolRunner } from "@/components/ai/AIToolRunner";
+import PrivacyBadge from "@/components/common/PrivacyBadge";
 import { getToolBySlug } from "@/config/tools";
-import { Upload, ScanText, FileImage, Image as ImageIcon, AlertCircle } from "lucide-react";
+import { Upload, ScanText, FileImage, Image as ImageIcon, AlertCircle, ChevronRight } from "lucide-react";
 
 export default function OcrImagePage() {
   const tool = getToolBySlug("ocr-image")!;
@@ -53,20 +55,41 @@ export default function OcrImagePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+    <div className="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900 font-sans">
       <Navbar />
 
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-10 space-y-8">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 space-y-8">
+        {/* Breadcrumb Navigation */}
+        <nav className="flex items-center gap-1.5 text-xs text-slate-500" aria-label="Breadcrumb">
+          <Link href="/" className="hover:text-blue-600 transition-colors">
+            Home
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          <Link href="/tools" className="hover:text-blue-600 transition-colors">
+            Tools
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          <span className="font-semibold text-slate-800">{tool?.name || "Image to Text (OCR)"}</span>
+        </nav>
+
         {/* Header */}
-        <div className="text-center space-y-3 max-w-2xl mx-auto">
-          <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto">
+        <div className="text-center space-y-3.5 max-w-2xl mx-auto">
+          <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 mx-auto shadow-xs">
             <ScanText className="w-7 h-7" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Image to Text (OCR)</h1>
-          <p className="text-sm text-slate-400">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+            Image to Text (OCR)
+          </h1>
+          <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-normal">
             Extract editable text from document photos, receipts, notes, and scans. Review and edit
             the text directly before exporting.
           </p>
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+            <PrivacyBadge mode="EXTERNAL" />
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+              OCR & AI
+            </span>
+          </div>
         </div>
 
         {/* Runner */}
@@ -81,10 +104,10 @@ export default function OcrImagePage() {
               {/* Dropzone */}
               <div
                 onClick={() => !disabled && fileInputRef.current?.click()}
-                className={`relative flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${
+                className={`relative flex flex-col items-center justify-center p-10 border-2 border-dashed rounded-3xl cursor-pointer transition-all ${
                   file
-                    ? "border-indigo-500/50 bg-indigo-950/20"
-                    : "border-slate-700 bg-slate-900/50 hover:border-slate-600 hover:bg-slate-900"
+                    ? "border-blue-500 bg-blue-50/40 shadow-xs"
+                    : "border-slate-300 bg-white hover:border-blue-400 hover:bg-slate-50/70 shadow-xs"
                 }`}
               >
                 <input
@@ -100,22 +123,24 @@ export default function OcrImagePage() {
                     <img
                       src={previewUrl}
                       alt="Selected preview"
-                      className="max-h-48 max-w-full rounded-lg object-contain border border-slate-700 shadow-md"
+                      className="max-h-48 max-w-full rounded-2xl object-contain border border-slate-200 shadow-sm bg-white p-1"
                     />
-                    <p className="text-xs text-slate-300 font-medium">{file?.name}</p>
-                    <span className="text-[11px] text-indigo-400 hover:underline">
-                      Click to choose a different photo
-                    </span>
+                    <div className="text-center">
+                      <p className="text-xs text-slate-800 font-bold">{file?.name}</p>
+                      <span className="text-[11px] text-blue-600 font-semibold hover:underline mt-0.5 inline-block">
+                        Click to choose a different photo
+                      </span>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center space-y-3 text-center">
-                    <div className="p-3 rounded-xl bg-slate-800 text-slate-400">
-                      <Upload className="w-6 h-6" />
+                    <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-200/60 text-blue-600 flex items-center justify-center shadow-xs">
+                      <Upload className="w-7 h-7" />
                     </div>
                     <div className="space-y-1">
-                      <p className="text-sm font-medium text-slate-200">
+                      <p className="text-base font-bold text-slate-800">
                         Drop your image here, or{" "}
-                        <span className="text-indigo-400 underline">browse</span>
+                        <span className="text-blue-600 underline">browse</span>
                       </p>
                       <p className="text-xs text-slate-500">
                         Supports JPG, PNG, WEBP (up to 15 MB)
@@ -126,25 +151,25 @@ export default function OcrImagePage() {
               </div>
 
               {/* Options */}
-              <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-                <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+              <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700">
                   <input
                     type="checkbox"
                     checked={preprocess}
                     onChange={(e) => setPreprocess(e.target.checked)}
-                    className="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
                   <span>Enhance text contrast & reconnect hyphenated words</span>
                 </label>
               </div>
 
               {/* Start Button */}
-              <div className="flex justify-end">
+              <div className="flex justify-end pt-2">
                 <button
                   type="button"
                   disabled={!file || disabled}
                   onClick={onStart}
-                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-indigo-600/30"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 px-6 py-3 text-sm font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg cursor-pointer"
                 >
                   <ScanText className="w-4 h-4" />
                   Extract Text with OCR

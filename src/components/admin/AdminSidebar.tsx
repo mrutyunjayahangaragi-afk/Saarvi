@@ -24,6 +24,7 @@ import {
   X,
   Sparkles,
   CreditCard,
+  Megaphone,
 } from 'lucide-react';
 import { SaarviMark } from '@/components/brand/SaarviLogo';
 import { useAuth } from '@/context/AuthContext';
@@ -62,6 +63,7 @@ export default function AdminSidebar({
     { label: 'Announcements', href: '/admin/announcements', icon: Bell },
     { label: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
     { label: 'Billing & Subscriptions', href: '/admin/billing', icon: CreditCard },
+    { label: 'Advertising', href: '/admin/advertising', icon: Megaphone },
     {
       label: 'Errors',
       href: '/admin/errors',

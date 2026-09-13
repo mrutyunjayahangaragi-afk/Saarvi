@@ -1,20 +1,31 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ToolCard from "@/components/tools/ToolCard";
 import { TOOLS_CONFIG } from "@/config/tools";
-import { ToolCategory } from "@/types/tool";
+import { ToolCategory, ToolDefinition } from "@/types/tool";
+import { adminService } from "@/lib/services/adminService";
 import { Search, SlidersHorizontal } from "lucide-react";
 
 export default function ToolsPage() {
+  const [tools, setTools] = useState<ToolDefinition[]>(TOOLS_CONFIG);
   const [selectedCategory, setSelectedCategory] = useState<"all" | ToolCategory>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
+  useEffect(() => {
+    adminService
+      .getEffectiveTools()
+      .then((eff) => {
+        if (eff && eff.length > 0) setTools(eff);
+      })
+      .catch(() => {});
+  }, []);
+
   const filteredTools = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    return TOOLS_CONFIG.filter((tool) => {
+    return tools.filter((tool) => {
       const matchesCategory = selectedCategory === "all" || tool.category === selectedCategory;
       const matchesQuery =
         !q ||
@@ -25,16 +36,16 @@ export default function ToolsPage() {
         (tool.keywords || []).some((kw) => kw.toLowerCase().includes(q));
       return matchesCategory && matchesQuery;
     });
-  }, [selectedCategory, searchQuery]);
+  }, [tools, selectedCategory, searchQuery]);
 
   const categoryCounts = useMemo(() => {
     return {
-      all: TOOLS_CONFIG.length,
-      image: TOOLS_CONFIG.filter((t) => t.category === "image").length,
-      pdf: TOOLS_CONFIG.filter((t) => t.category === "pdf").length,
-      student: TOOLS_CONFIG.filter((t) => t.category === "student").length
+      all: tools.length,
+      image: tools.filter((t) => t.category === "image").length,
+      pdf: tools.filter((t) => t.category === "pdf").length,
+      student: tools.filter((t) => t.category === "student").length,
     };
-  }, []);
+  }, [tools]);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50/60 transition-colors duration-200">

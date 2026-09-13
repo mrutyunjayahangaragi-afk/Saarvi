@@ -312,7 +312,7 @@ export default function MarksCalculatorPage() {
                 </div>
               </div>
 
-              <div className="p-3 bg-black/15 rounded-2xl text-xs text-white/95 leading-relaxed font-medium">
+              <div className="p-3 bg-white/15 rounded-2xl text-xs text-white/95 leading-relaxed font-medium">
                 {requiredResult.explanation}
               </div>
             </div>

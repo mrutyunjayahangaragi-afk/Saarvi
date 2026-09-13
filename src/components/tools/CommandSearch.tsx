@@ -7,33 +7,66 @@ import {
   Command,
   FileText,
   FileImage,
+  GraduationCap,
+  Sparkles,
   ArrowRight,
-  X
+  X,
+  Briefcase
 } from "lucide-react";
-import { TOOLS_CONFIG } from "@/config/tools";
-import { ToolDefinition } from "@/types/tool";
+import {
+  CANONICAL_TOOL_REGISTRY,
+  CanonicalTool,
+  resolveToolState
+} from "@/lib/tools/tool-registry";
+import { FeatureFlag } from "@/types/admin";
 
 export default function CommandSearch() {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [featureFlags, setFeatureFlags] = useState<Record<string, FeatureFlag>>({});
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  // Filter tools based on query
+  useEffect(() => {
+    async function loadFlags() {
+      try {
+        const res = await fetch("/api/features", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.flags && Array.isArray(data.flags)) {
+            const map: Record<string, FeatureFlag> = {};
+            for (const f of data.flags) {
+              map[f.id] = f;
+              map[f.key] = f;
+            }
+            setFeatureFlags(map);
+          }
+        }
+      } catch {}
+    }
+    loadFlags();
+  }, []);
+
+  // Filter tools based on query & omit disabled tools
+  const availableTools = CANONICAL_TOOL_REGISTRY.filter((t) => {
+    const flag = featureFlags[t.featureFlagKey] || featureFlags[t.key];
+    if (flag && flag.status === "DISABLED") return false;
+    return true;
+  });
+
   const filteredTools = query.trim()
-    ? TOOLS_CONFIG.filter((t) => {
+    ? availableTools.filter((t) => {
         const q = query.toLowerCase();
         return (
           t.name.toLowerCase().includes(q) ||
           t.description.toLowerCase().includes(q) ||
           t.category.toLowerCase().includes(q) ||
-          t.supportedFormats.some((fmt) => fmt.toLowerCase().includes(q)) ||
           (t.keywords && t.keywords.some((k) => k.toLowerCase().includes(q)))
         );
       })
-    : TOOLS_CONFIG.slice(0, 6); // default popular preview
+    : availableTools.slice(0, 6); // default popular preview
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -69,12 +102,12 @@ export default function CommandSearch() {
     }
   };
 
-  const selectTool = (tool: ToolDefinition) => {
+  const selectTool = (tool: CanonicalTool) => {
     router.push(tool.route);
     setIsOpen(false);
   };
 
-  const searchExamples = ["PDF to JPG", "Compress PDF", "Resize image", "Merge PDF"];
+  const searchExamples = ["PDF to JPG", "SGPA Calculator", "Resume Builder", "Compress PDF", "Attendance"];
 
   return (
     <div ref={containerRef} className="relative w-full max-w-2xl mx-auto z-30">
@@ -105,7 +138,7 @@ export default function CommandSearch() {
           }}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="What do you want to do?"
+          placeholder="What do you want to do? (e.g. SGPA, Resume, Merge PDF)"
           className="w-full py-3.5 px-2 bg-transparent text-slate-900 placeholder:text-slate-400 text-sm sm:text-base font-normal outline-none"
         />
 
@@ -165,11 +198,12 @@ export default function CommandSearch() {
             {filteredTools.length > 0 ? (
               filteredTools.map((tool, idx) => {
                 const isSelected = idx === safeIndex;
-                const isPdf = tool.category === "pdf";
+                const flag = featureFlags[tool.featureFlagKey] || featureFlags[tool.key];
+                const resolved = resolveToolState(tool, flag);
 
                 return (
                   <div
-                    key={tool.id}
+                    key={tool.key}
                     onMouseEnter={() => setSelectedIndex(idx)}
                     onClick={() => selectTool(tool)}
                     className={`flex items-center justify-between p-3 rounded-xl transition-all cursor-pointer ${
@@ -186,15 +220,31 @@ export default function CommandSearch() {
                             : "bg-slate-100 text-slate-600"
                         }`}
                       >
-                        {isPdf ? <FileText className="w-4 h-4" /> : <FileImage className="w-4 h-4" />}
+                        {tool.category === "pdf" ? (
+                          <FileText className="w-4 h-4" />
+                        ) : tool.category === "academic" ? (
+                          <GraduationCap className="w-4 h-4" />
+                        ) : tool.category === "career" ? (
+                          <Briefcase className="w-4 h-4" />
+                        ) : tool.category === "ai" ? (
+                          <Sparkles className="w-4 h-4" />
+                        ) : (
+                          <FileImage className="w-4 h-4" />
+                        )}
                       </div>
 
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold">{tool.name}</span>
-                          <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
-                            {tool.category}
-                          </span>
+                          {resolved.isSubscription ? (
+                            <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-white">
+                              PRO
+                            </span>
+                          ) : (
+                            <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
+                              {tool.category}
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-slate-500 line-clamp-1">
                           {tool.description}
@@ -219,7 +269,7 @@ export default function CommandSearch() {
                   No matching tools found
                 </p>
                 <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                  Try searching for &quot;PDF&quot;, &quot;JPG&quot;, &quot;Resize&quot;, or &quot;Compress&quot;.
+                  Try searching for &quot;SGPA&quot;, &quot;Resume&quot;, &quot;PDF&quot;, or &quot;Compress&quot;.
                 </p>
               </div>
             )}

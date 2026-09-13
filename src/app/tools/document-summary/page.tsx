@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState, useRef } from "react";
+import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { AIToolRunner } from "@/components/ai/AIToolRunner";
+import PrivacyBadge from "@/components/common/PrivacyBadge";
 import { getToolBySlug } from "@/config/tools";
-import { Sparkles, FileText, Upload } from "lucide-react";
+import { Sparkles, FileText, Upload, ChevronRight } from "lucide-react";
 import { AISummaryLength } from "@/types/ai";
 
 export default function DocumentSummaryPage() {
@@ -68,20 +70,41 @@ ${result.keyPoints.map((pt: string, i: number) => `${i + 1}. ${pt}`).join("\n")}
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+    <div className="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900 font-sans">
       <Navbar />
 
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-10 space-y-8">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 space-y-8">
+        {/* Breadcrumb Navigation */}
+        <nav className="flex items-center gap-1.5 text-xs text-slate-500" aria-label="Breadcrumb">
+          <Link href="/" className="hover:text-blue-600 transition-colors">
+            Home
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          <Link href="/tools" className="hover:text-blue-600 transition-colors">
+            Tools
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          <span className="font-semibold text-slate-800">{tool?.name || "Document Summarizer"}</span>
+        </nav>
+
         {/* Header */}
-        <div className="text-center space-y-3 max-w-2xl mx-auto">
-          <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto">
+        <div className="text-center space-y-3.5 max-w-2xl mx-auto">
+          <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 mx-auto shadow-xs">
             <Sparkles className="w-7 h-7" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Document Summarizer</h1>
-          <p className="text-sm text-slate-400">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+            Document Summarizer
+          </h1>
+          <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-normal">
             Generate clean, concise summaries and structured key takeaways with explicit privacy
             consent and configurable length options.
           </p>
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+            <PrivacyBadge mode="EXTERNAL" />
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+              AI-assisted
+            </span>
+          </div>
         </div>
 
         {/* Runner */}
@@ -95,13 +118,13 @@ ${result.keyPoints.map((pt: string, i: number) => `${i + 1}. ${pt}`).join("\n")}
               {/* Text Input Area */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-300">
+                  <label className="text-xs font-bold text-slate-700">
                     Document Content (Paste or Upload):
                   </label>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+                    className="inline-flex items-center gap-1 text-xs text-blue-600 font-semibold hover:text-blue-700 hover:underline cursor-pointer"
                   >
                     <Upload className="w-3.5 h-3.5" />
                     Upload .txt or .md file
@@ -119,28 +142,28 @@ ${result.keyPoints.map((pt: string, i: number) => `${i + 1}. ${pt}`).join("\n")}
                   onChange={(e) => setInputText(e.target.value)}
                   placeholder="Paste your document text, lecture notes, or report content here..."
                   rows={10}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-900/70 p-4 font-mono text-sm text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 p-4 font-mono text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
                 />
-                <div className="flex justify-between text-[11px] text-slate-500">
+                <div className="flex justify-between text-[11px] text-slate-500 font-medium">
                   <span>Characters: {inputText.length.toLocaleString()} / 50,000</span>
                   <span>Data is processed ephemerally with zero permanent cloud storage</span>
                 </div>
               </div>
 
               {/* Length & Focus Controls */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Summary Length:</label>
+                  <label className="text-xs font-bold text-slate-700">Summary Length:</label>
                   <div className="flex gap-2">
                     {(["brief", "standard", "detailed"] as AISummaryLength[]).map((len) => (
                       <button
                         key={len}
                         type="button"
                         onClick={() => setSummaryLength(len)}
-                        className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
+                        className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold capitalize transition-all cursor-pointer ${
                           summaryLength === len
-                            ? "bg-indigo-600 text-white shadow-xs"
-                            : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700"
+                            ? "bg-blue-600 text-white shadow-xs"
+                            : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
                         }`}
                       >
                         {len}
@@ -150,7 +173,7 @@ ${result.keyPoints.map((pt: string, i: number) => `${i + 1}. ${pt}`).join("\n")}
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">
+                  <label className="text-xs font-bold text-slate-700">
                     Optional Topic Focus:
                   </label>
                   <input
@@ -158,18 +181,18 @@ ${result.keyPoints.map((pt: string, i: number) => `${i + 1}. ${pt}`).join("\n")}
                     value={focus}
                     onChange={(e) => setFocus(e.target.value)}
                     placeholder="e.g. key conclusions, technical steps..."
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
                   />
                 </div>
               </div>
 
               {/* Submit Button */}
-              <div className="flex justify-end">
+              <div className="flex justify-end pt-2">
                 <button
                   type="button"
                   disabled={!inputText.trim() || disabled}
                   onClick={onStart}
-                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-indigo-600/30"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 px-6 py-3 text-sm font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg cursor-pointer"
                 >
                   <Sparkles className="w-4 h-4" />
                   Summarize Document

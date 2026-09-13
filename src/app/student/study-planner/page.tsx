@@ -260,7 +260,7 @@ export default function StudyPlannerPage() {
                 onClick={() => setFilter(tab.id as typeof filter)}
                 className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                   filter === tab.id
-                    ? "bg-slate-900 text-white shadow-xs"
+                    ? "bg-blue-600 text-white shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -293,7 +293,7 @@ export default function StudyPlannerPage() {
             <button
               type="button"
               onClick={handleOpenAdd}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-xl hover:bg-blue-700 cursor-pointer shadow-xs transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Your First Session</span>

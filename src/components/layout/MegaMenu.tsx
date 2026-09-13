@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   FileText,
@@ -27,9 +28,23 @@ import {
   Calendar,
   CalendarDays,
   Briefcase,
-  Trophy
+  Trophy,
+  Search,
+  FileCheck2,
+  ScanText,
+  FileSearch,
+  MessageSquare,
+  Sliders,
+  Sparkle
 } from "lucide-react";
-import { getToolBySlug } from "@/config/tools";
+import {
+  CANONICAL_TOOL_REGISTRY,
+  CanonicalTool,
+  CanonicalToolCategory,
+  getCanonicalToolsByCategory,
+  resolveToolState
+} from "@/lib/tools/tool-registry";
+import { FeatureFlag } from "@/types/admin";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   FileText,
@@ -57,9 +72,16 @@ const ICON_MAP: Record<string, React.ElementType> = {
   CalendarDays,
   Briefcase,
   Trophy,
+  Search,
+  FileCheck2,
+  ScanText,
+  FileSearch,
+  MessageSquare,
+  Sliders,
+  Sparkle
 };
 
-export type ActiveMenuCategory = "tools" | "pdf" | "images" | "student" | null;
+export type ActiveMenuCategory = "tools" | "pdf" | "images" | "student" | "academic" | "career" | "ai" | null;
 
 interface MegaMenuProps {
   activeCategory: ActiveMenuCategory;
@@ -69,23 +91,22 @@ interface MegaMenuProps {
 }
 
 interface MenuItemProps {
-  slug: string;
-  customTitle?: string;
-  customDescription?: string;
+  tool: CanonicalTool;
+  featureFlag?: FeatureFlag;
   onClick?: () => void;
 }
 
-function MenuItem({ slug, customTitle, customDescription, onClick }: MenuItemProps) {
-  const tool = getToolBySlug(slug);
+function MenuItem({ tool, featureFlag, onClick }: MenuItemProps) {
+  const resolved = resolveToolState(tool, featureFlag);
 
-  if (!tool) {
+  // If disabled by admin, do not render in public active mega menu
+  if (!resolved.isEnabled) {
     return null;
   }
 
   const IconComponent = ICON_MAP[tool.icon] || FileText;
+  const isSubscription = resolved.isSubscription;
   const isComingSoon = tool.status === "coming_soon";
-  const title = customTitle || tool.name;
-  const description = customDescription || tool.description;
 
   return (
     <Link
@@ -98,18 +119,28 @@ function MenuItem({ slug, customTitle, customDescription, onClick }: MenuItemPro
       </div>
 
       <div className="min-w-0 flex-1 space-y-0.5">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-xs font-bold text-slate-800 group-hover:text-blue-600 transition-colors truncate">
-            {title}
+            {tool.name}
           </span>
+          {isSubscription && (
+            <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-2xs shrink-0">
+              PRO
+            </span>
+          )}
           {isComingSoon && (
             <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
               Coming soon
             </span>
           )}
+          {tool.badge && !isSubscription && !isComingSoon && (
+            <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+              {tool.badge}
+            </span>
+          )}
         </div>
         <p className="text-[11px] text-slate-500 line-clamp-1 leading-snug">
-          {description}
+          {tool.description}
         </p>
       </div>
 
@@ -124,7 +155,38 @@ export default function MegaMenu({
   onMouseLeave,
   onClose
 }: MegaMenuProps) {
+  const [featureFlags, setFeatureFlags] = useState<Record<string, FeatureFlag>>({});
+
+  useEffect(() => {
+    async function loadFlags() {
+      try {
+        const res = await fetch("/api/features", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.flags && Array.isArray(data.flags)) {
+            const map: Record<string, FeatureFlag> = {};
+            for (const f of data.flags) {
+              map[f.id] = f;
+              map[f.key] = f;
+            }
+            setFeatureFlags(map);
+          }
+        }
+      } catch {
+        // Fallback to defaults
+      }
+    }
+    loadFlags();
+  }, []);
+
   if (!activeCategory) return null;
+
+  const pdfTools = getCanonicalToolsByCategory("pdf");
+  const imageTools = getCanonicalToolsByCategory("image");
+  const academicTools = getCanonicalToolsByCategory("academic");
+  const studentTools = getCanonicalToolsByCategory("student");
+  const careerTools = getCanonicalToolsByCategory("career");
+  const aiTools = getCanonicalToolsByCategory("ai");
 
   return (
     <div
@@ -137,292 +199,364 @@ export default function MegaMenu({
       {/* Invisible hover bridge to prevent flickering while cursor crosses the gap */}
       <div className="absolute top-0 left-0 right-0 h-3" />
 
-      {/* Mega Menu White Surface Card */}
+      {/* Mega Menu Surface */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl shadow-slate-900/5 p-6 sm:p-7 relative overflow-hidden">
-          
           {/* Subtle top indicator bar */}
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 opacity-90" />
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 opacity-90" />
 
-          {/* 1. TOOLS MEGA MENU (3 Columns) */}
+          {/* 1. COMPREHENSIVE TOOLS MEGA MENU (6 Categories) */}
           {activeCategory === "tools" && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* PDF Tools Column */}
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-5">
+              {/* Column 1: PDF Tools */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     PDF Tools
                   </h3>
                   <Link
                     href="/tools?category=pdf"
                     onClick={onClose}
-                    className="text-[11px] font-semibold text-blue-600 hover:underline"
+                    className="text-[10px] font-semibold text-blue-600 hover:underline"
                   >
-                    View all →
+                    All →
                   </Link>
                 </div>
                 <div className="space-y-1">
-                  <MenuItem slug="pdf-to-jpg" onClick={onClose} />
-                  <MenuItem slug="merge-pdf" onClick={onClose} />
-                  <MenuItem slug="split-pdf" onClick={onClose} />
-                  <MenuItem slug="organize-pdf" onClick={onClose} />
-                  <MenuItem slug="compress-pdf" onClick={onClose} />
-                  <MenuItem slug="rotate-pdf" onClick={onClose} />
+                  {pdfTools.slice(0, 5).map((t) => (
+                    <MenuItem
+                      key={t.key}
+                      tool={t}
+                      featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                      onClick={onClose}
+                    />
+                  ))}
                 </div>
               </div>
 
-              {/* Image Tools Column */}
+              {/* Column 2: Image Tools */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     Image Tools
                   </h3>
                   <Link
                     href="/tools?category=image"
                     onClick={onClose}
-                    className="text-[11px] font-semibold text-blue-600 hover:underline"
+                    className="text-[10px] font-semibold text-blue-600 hover:underline"
                   >
-                    View all →
+                    All →
                   </Link>
                 </div>
                 <div className="space-y-1">
-                  <MenuItem slug="jpg-to-pdf" onClick={onClose} />
-                  <MenuItem slug="png-to-jpg" onClick={onClose} />
-                  <MenuItem slug="jpg-to-png" onClick={onClose} />
-                  <MenuItem slug="image-to-pdf" onClick={onClose} />
-                  <MenuItem slug="image-resize" onClick={onClose} />
-                  <MenuItem slug="compress-image" onClick={onClose} />
+                  {imageTools.slice(0, 5).map((t) => (
+                    <MenuItem
+                      key={t.key}
+                      tool={t}
+                      featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                      onClick={onClose}
+                    />
+                  ))}
                 </div>
               </div>
 
-              {/* Student Tools Column */}
+              {/* Column 3: Academic Tools */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Student Tools
+                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Academic
+                  </h3>
+                  <Link
+                    href="/student/sgpa-calculator"
+                    onClick={onClose}
+                    className="text-[10px] font-semibold text-blue-600 hover:underline"
+                  >
+                    SGPA →
+                  </Link>
+                </div>
+                <div className="space-y-1">
+                  {academicTools.map((t) => (
+                    <MenuItem
+                      key={t.key}
+                      tool={t}
+                      featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                      onClick={onClose}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Column 4: Student Tools */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Student
                   </h3>
                   <Link
                     href="/student"
                     onClick={onClose}
-                    className="text-[11px] font-semibold text-blue-600 hover:underline"
+                    className="text-[10px] font-semibold text-blue-600 hover:underline"
                   >
-                    View all →
+                    Hub →
                   </Link>
                 </div>
                 <div className="space-y-1">
-                  <MenuItem slug="resume-builder" onClick={onClose} />
-                  <MenuItem slug="id-photo" onClick={onClose} />
-                  <MenuItem slug="notes-to-pdf" onClick={onClose} />
-                </div>
-                <div className="mt-4 p-3.5 rounded-2xl bg-blue-50/70 border border-blue-100 space-y-1">
-                  <p className="text-xs font-bold text-blue-900">Guest Access Enabled</p>
-                  <p className="text-[11px] text-blue-700 leading-relaxed">
-                    All tools process documents in your browser without requiring account creation.
-                  </p>
+                  {studentTools.slice(0, 5).map((t) => (
+                    <MenuItem
+                      key={t.key}
+                      tool={t}
+                      featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                      onClick={onClose}
+                    />
+                  ))}
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* 2. PDF MEGA MENU (4 Columns: Organize, Convert, Optimize, More) */}
-          {activeCategory === "pdf" && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              {/* Organize */}
+              {/* Column 5: Career Tools */}
               <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
-                  Organize
-                </h3>
-                <div className="space-y-1">
-                  <MenuItem slug="organize-pdf" onClick={onClose} />
-                  <MenuItem slug="merge-pdf" onClick={onClose} />
-                  <MenuItem slug="split-pdf" onClick={onClose} />
-                  <MenuItem slug="extract-pdf-pages" onClick={onClose} />
-                  <MenuItem slug="delete-pdf-pages" onClick={onClose} />
-                  <MenuItem slug="rotate-pdf" onClick={onClose} />
-                </div>
-              </div>
-
-              {/* Convert */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
-                  Convert
-                </h3>
-                <div className="space-y-1">
-                  <MenuItem slug="pdf-to-jpg" onClick={onClose} />
-                  <MenuItem slug="pdf-to-png" onClick={onClose} />
-                  <MenuItem slug="jpg-to-pdf" onClick={onClose} />
-                  <MenuItem slug="image-to-pdf" onClick={onClose} />
-                </div>
-              </div>
-
-              {/* Optimize */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
-                  Optimize
-                </h3>
-                <div className="space-y-1">
-                  <MenuItem slug="compress-pdf" onClick={onClose} />
-                </div>
-              </div>
-
-              {/* More (Clearly Marked Future Tools) */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
-                  More
-                </h3>
-                <div className="space-y-1">
-                  <MenuItem slug="notes-to-pdf" onClick={onClose} />
-                  <MenuItem slug="resume-builder" onClick={onClose} />
-                </div>
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 text-[11px] text-slate-500 leading-relaxed">
-                  🔒 100% In-browser execution. Your PDF bytes never leave your machine.
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 3. IMAGES MEGA MENU (4 Columns: Convert, Create, Edit, Student) */}
-          {activeCategory === "images" && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              {/* Convert */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
-                  Convert
-                </h3>
-                <div className="space-y-1">
-                  <MenuItem slug="jpg-to-png" onClick={onClose} />
-                  <MenuItem slug="png-to-jpg" onClick={onClose} />
-                  <MenuItem slug="webp-to-jpg" onClick={onClose} />
-                  <MenuItem slug="webp-to-png" onClick={onClose} />
-                </div>
-              </div>
-
-              {/* Create */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
-                  Create
-                </h3>
-                <div className="space-y-1">
-                  <MenuItem slug="image-to-pdf" onClick={onClose} />
-                  <MenuItem slug="multiple-images-to-pdf" onClick={onClose} />
-                </div>
-              </div>
-
-              {/* Edit */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
-                  Edit
-                </h3>
-                <div className="space-y-1">
-                  <MenuItem slug="image-resize" onClick={onClose} />
-                  <MenuItem slug="crop-image" onClick={onClose} />
-                  <MenuItem slug="rotate-image" onClick={onClose} />
-                  <MenuItem slug="compress-image" onClick={onClose} />
-                </div>
-              </div>
-
-              {/* Student */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
-                  Student
-                </h3>
-                <div className="space-y-1">
-                  <MenuItem slug="id-photo" onClick={onClose} />
-                </div>
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 text-[11px] text-slate-500 leading-relaxed">
-                  ⚡ Client-side canvas transformations without server latency.
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 4. STUDENT TOOLS MEGA MENU (5 Columns) */}
-          {activeCategory === "student" && (
-            <div className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
-                {/* 1. Academic Calculators */}
-                <div className="space-y-2.5">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
-                    Academic
-                  </h3>
-                  <div className="space-y-0.5">
-                    <MenuItem slug="cgpa-calculator" onClick={onClose} />
-                    <MenuItem slug="sgpa-calculator" onClick={onClose} />
-                    <MenuItem slug="percentage" onClick={onClose} />
-                    <MenuItem slug="attendance" onClick={onClose} />
-                    <MenuItem slug="marks-calculator" onClick={onClose} />
-                  </div>
-                </div>
-
-                {/* 2. Planning */}
-                <div className="space-y-2.5">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
-                    Planning
-                  </h3>
-                  <div className="space-y-0.5">
-                    <MenuItem slug="study-planner" onClick={onClose} />
-                    <MenuItem slug="assignment-planner" onClick={onClose} />
-                    <MenuItem slug="timetable" onClick={onClose} />
-                  </div>
-                </div>
-
-                {/* 3. Career */}
-                <div className="space-y-2.5">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     Career
                   </h3>
-                  <div className="space-y-0.5">
-                    <MenuItem slug="resume-builder" onClick={onClose} />
-                    <MenuItem slug="cover-letter" onClick={onClose} />
-                  </div>
+                  <Link
+                    href="/student/resume"
+                    onClick={onClose}
+                    className="text-[10px] font-semibold text-blue-600 hover:underline"
+                  >
+                    Resume →
+                  </Link>
                 </div>
-
-                {/* 4. Organization */}
-                <div className="space-y-2.5">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
-                    Organization
-                  </h3>
-                  <div className="space-y-0.5">
-                    <MenuItem slug="certificates" onClick={onClose} />
-                    <MenuItem slug="internships" onClick={onClose} />
-                    <MenuItem slug="hackathons" onClick={onClose} />
-                  </div>
-                </div>
-
-                {/* 5. Documents */}
-                <div className="space-y-2.5">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
-                    Documents
-                  </h3>
-                  <div className="space-y-0.5">
-                    <MenuItem slug="notes-to-pdf" onClick={onClose} />
-                    <MenuItem slug="multiple-images-to-pdf" customTitle="Images to PDF" onClick={onClose} />
-                    <MenuItem slug="compress-pdf" customTitle="Compress for Portals" onClick={onClose} />
-                  </div>
+                <div className="space-y-1">
+                  {careerTools.slice(0, 5).map((t) => (
+                    <MenuItem
+                      key={t.key}
+                      tool={t}
+                      featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                      onClick={onClose}
+                    />
+                  ))}
                 </div>
               </div>
 
-              {/* Small visual message banner */}
-              <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                    <GraduationCap className="w-4 h-4" />
-                  </div>
-                  <span className="text-xs font-semibold text-indigo-950">
-                    Student utilities for scoring, coursework deadlines, resumes, and career applications.
-                  </span>
+              {/* Column 6: AI Tools */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-purple-600 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-purple-600" />
+                    <span>AI & OCR</span>
+                  </h3>
+                  <Link
+                    href="/student/copilot"
+                    onClick={onClose}
+                    className="text-[10px] font-semibold text-purple-600 hover:underline"
+                  >
+                    Copilot →
+                  </Link>
                 </div>
-                <Link
-                  href="/student"
-                  onClick={onClose}
-                  className="text-xs font-bold text-indigo-700 hover:text-indigo-900 flex items-center gap-1 shrink-0"
-                >
-                  Explore student portal <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
+                <div className="space-y-1">
+                  {aiTools.slice(0, 5).map((t) => (
+                    <MenuItem
+                      key={t.key}
+                      tool={t}
+                      featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                      onClick={onClose}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
           )}
 
+          {/* 2. SPECIFIC PDF MENU */}
+          {activeCategory === "pdf" && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+                  Organize & Edit
+                </h3>
+                <div className="space-y-1">
+                  {pdfTools
+                    .filter((t) => ["merge-pdf", "split-pdf", "reorder-pdf", "delete-pdf-pages"].includes(t.key))
+                    .map((t) => (
+                      <MenuItem
+                        key={t.key}
+                        tool={t}
+                        featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                        onClick={onClose}
+                      />
+                    ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+                  Convert from PDF
+                </h3>
+                <div className="space-y-1">
+                  {pdfTools
+                    .filter((t) => ["pdf-to-jpg", "pdf-to-png"].includes(t.key))
+                    .map((t) => (
+                      <MenuItem
+                        key={t.key}
+                        tool={t}
+                        featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                        onClick={onClose}
+                      />
+                    ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+                  Optimize & Secure
+                </h3>
+                <div className="space-y-1">
+                  {pdfTools
+                    .filter((t) => ["compress-pdf", "rotate-pdf", "watermark-pdf"].includes(t.key))
+                    .map((t) => (
+                      <MenuItem
+                        key={t.key}
+                        tool={t}
+                        featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                        onClick={onClose}
+                      />
+                    ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+                  Client-Side Security
+                </h3>
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
+                  <p className="text-xs font-bold text-slate-800">Zero Cloud Upload</p>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    All PDF rendering, extraction, and page manipulations execute 100% inside your browser WebAssembly sandbox.
+                  </p>
+                  <Link
+                    href="/tools?category=pdf"
+                    onClick={onClose}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline pt-1"
+                  >
+                    <span>View all PDF tools</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3. SPECIFIC IMAGE MENU */}
+          {activeCategory === "images" && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+                  Convert to PDF
+                </h3>
+                <div className="space-y-1">
+                  {imageTools
+                    .filter((t) => ["jpg-to-pdf", "image-to-pdf", "multiple-images-to-pdf"].includes(t.key))
+                    .map((t) => (
+                      <MenuItem
+                        key={t.key}
+                        tool={t}
+                        featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                        onClick={onClose}
+                      />
+                    ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+                  Format Conversion
+                </h3>
+                <div className="space-y-1">
+                  {imageTools
+                    .filter((t) => ["png-to-jpg", "jpg-to-png", "svg-to-png", "heic-to-jpg"].includes(t.key))
+                    .map((t) => (
+                      <MenuItem
+                        key={t.key}
+                        tool={t}
+                        featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                        onClick={onClose}
+                      />
+                    ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+                  Adjust & Compress
+                </h3>
+                <div className="space-y-1">
+                  {imageTools
+                    .filter((t) => ["image-resize", "crop-image", "compress-image"].includes(t.key))
+                    .map((t) => (
+                      <MenuItem
+                        key={t.key}
+                        tool={t}
+                        featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                        onClick={onClose}
+                      />
+                    ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4. SPECIFIC STUDENT MENU */}
+          {activeCategory === "student" && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+                  Academic Intelligence
+                </h3>
+                <div className="space-y-1">
+                  {academicTools.map((t) => (
+                    <MenuItem
+                      key={t.key}
+                      tool={t}
+                      featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                      onClick={onClose}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+                  Career & Placement
+                </h3>
+                <div className="space-y-1">
+                  {careerTools.map((t) => (
+                    <MenuItem
+                      key={t.key}
+                      tool={t}
+                      featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                      onClick={onClose}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+                  Planning & Productivity
+                </h3>
+                <div className="space-y-1">
+                  {studentTools.slice(0, 5).map((t) => (
+                    <MenuItem
+                      key={t.key}
+                      tool={t}
+                      featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                      onClick={onClose}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

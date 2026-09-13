@@ -36,6 +36,7 @@ export default function AdminToolsPage() {
   const [editStatus, setEditStatus] = useState<ToolStatusUpper>('AVAILABLE');
   const [editMaxSizeMB, setEditMaxSizeMB] = useState<number>(25);
   const [editRequiresAuth, setEditRequiresAuth] = useState(false);
+  const [editRequiresPro, setEditRequiresPro] = useState(false);
   const [editDescription, setEditDescription] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -70,6 +71,13 @@ export default function AdminToolsPage() {
     setEditStatus((existing?.status || tool.status.toUpperCase()) as ToolStatusUpper);
     setEditMaxSizeMB(existing?.maxSizeMB || tool.maxSizeMB || 25);
     setEditRequiresAuth(existing?.requiresAuth ?? tool.requiresAuth);
+    setEditRequiresPro(
+      existing?.requiresPro !== undefined
+        ? existing.requiresPro
+        : existing?.accessMode
+        ? existing.accessMode === 'SUBSCRIPTION'
+        : Boolean(tool.requiresPro)
+    );
     setEditDescription(existing?.description || tool.description);
   };
 
@@ -118,6 +126,8 @@ export default function AdminToolsPage() {
         status: editStatus,
         maxSizeMB: Number(editMaxSizeMB),
         requiresAuth: editRequiresAuth,
+        requiresPro: editRequiresPro,
+        accessMode: editRequiresPro ? 'SUBSCRIPTION' : 'FREE',
         description: editDescription.trim(),
         updatedAt: new Date().toISOString(),
         updatedBy: user.email,
@@ -435,6 +445,32 @@ export default function AdminToolsPage() {
                   />
                   <label htmlFor="edit-auth" className="text-slate-700">
                     Require users to log in before executing this specific tool
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block font-bold text-slate-700">Access Mode & Plan Gating</label>
+                <div className="flex items-center gap-4 pt-1">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="edit-access-mode"
+                      checked={!editRequiresPro}
+                      onChange={() => setEditRequiresPro(false)}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-slate-700 font-semibold">FREE (Guest & Free Accounts)</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="edit-access-mode"
+                      checked={editRequiresPro}
+                      onChange={() => setEditRequiresPro(true)}
+                      className="text-purple-600 focus:ring-purple-500"
+                    />
+                    <span className="text-purple-700 font-semibold">PRO (₹99/mo or ₹899/yr)</span>
                   </label>
                 </div>
               </div>

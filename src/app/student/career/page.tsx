@@ -222,6 +222,15 @@ export default function CareerDashboardPage() {
       )}
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Breadcrumb */}
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-slate-500 mb-4">
+          <Link href="/student/dashboard" className="hover:text-blue-600 transition-colors">
+            Student Hub
+          </Link>
+          <span>/</span>
+          <span className="text-slate-800 font-medium">Career Suite</span>
+        </nav>
+
         {/* Page Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between pb-6 border-b border-slate-200 gap-4">
           <div>
@@ -614,8 +623,8 @@ export default function CareerDashboardPage() {
 
       {/* Import Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl space-y-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200/90">
             <h3 className="text-lg font-bold text-slate-900">Import Career Workspace</h3>
             <p className="text-xs text-slate-600">
               Paste your exported JSON backup below. This will restore your career profile, resumes, and applications.

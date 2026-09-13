@@ -20,7 +20,8 @@ import {
   LogOut,
   Shield,
   Sparkles,
-  MessageSquare
+  MessageSquare,
+  Briefcase
 } from "lucide-react";
 import { SITE_CONFIG } from "@/config/site";
 import { SaarviMark } from "@/components/brand/SaarviLogo";
@@ -500,65 +501,7 @@ export default function Navbar() {
               </kbd>
             </button>
 
-            {/* Accordion 1: Tools */}
-            <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">
-              <button
-                type="button"
-                onClick={() => toggleMobileSection("tools")}
-                className="w-full p-3.5 text-left font-bold text-xs text-slate-800 flex items-center justify-between"
-              >
-                <span className="flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-blue-600" />
-                  All Tools
-                </span>
-                <ChevronDown
-                  className={`w-4 h-4 text-slate-400 transition-transform ${
-                    mobileExpandedSection === "tools" ? "rotate-180 text-blue-600" : ""
-                  }`}
-                />
-              </button>
-              {mobileExpandedSection === "tools" && (
-                <div className="p-3 border-t border-slate-200/60 bg-white space-y-1.5 text-xs">
-                  <Link
-                    href="/tools"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50"
-                  >
-                    View Directory (All 15 Tools) →
-                  </Link>
-                  <Link
-                    href="/tools/jpg-to-pdf"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50"
-                  >
-                    JPG to PDF
-                  </Link>
-                  <Link
-                    href="/tools/pdf-to-jpg"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50"
-                  >
-                    PDF to JPG
-                  </Link>
-                  <Link
-                    href="/tools/compress-pdf"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50"
-                  >
-                    Compress PDF
-                  </Link>
-                  <Link
-                    href="/tools/merge-pdf"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50"
-                  >
-                    Merge PDF
-                  </Link>
-                </div>
-              )}
-            </div>
-
-            {/* Accordion 2: PDF */}
+            {/* Mobile Accordion 1: PDF Tools */}
             <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">
               <button
                 type="button"
@@ -578,45 +521,32 @@ export default function Navbar() {
               {mobileExpandedSection === "pdf" && (
                 <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs">
                   <Link
-                    href="/tools/merge-pdf"
+                    href="/tools?category=pdf"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50"
+                    className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50"
                   >
+                    View All PDF Tools →
+                  </Link>
+                  <Link href="/tools/merge-pdf" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
                     Merge PDF
                   </Link>
-                  <Link
-                    href="/tools/split-pdf"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50"
-                  >
+                  <Link href="/tools/split-pdf" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
                     Split PDF
                   </Link>
-                  <Link
-                    href="/tools/compress-pdf"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50"
-                  >
+                  <Link href="/tools/compress-pdf" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
                     Compress PDF
                   </Link>
-                  <Link
-                    href="/tools/pdf-to-jpg"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50"
-                  >
+                  <Link href="/tools/pdf-to-jpg" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
                     PDF to JPG
                   </Link>
-                  <Link
-                    href="/tools/rotate-pdf"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50"
-                  >
+                  <Link href="/tools/rotate-pdf" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
                     Rotate PDF
                   </Link>
                 </div>
               )}
             </div>
 
-            {/* Accordion 3: Images */}
+            {/* Mobile Accordion 2: Image Tools */}
             <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">
               <button
                 type="button"
@@ -636,38 +566,70 @@ export default function Navbar() {
               {mobileExpandedSection === "images" && (
                 <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs">
                   <Link
-                    href="/tools/jpg-to-png"
+                    href="/tools?category=image"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50"
+                    className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50"
                   >
-                    JPG to PNG
+                    View All Image Tools →
                   </Link>
-                  <Link
-                    href="/tools/png-to-jpg"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50"
-                  >
+                  <Link href="/tools/jpg-to-pdf" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    JPG to PDF
+                  </Link>
+                  <Link href="/tools/png-to-jpg" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
                     PNG to JPG
                   </Link>
-                  <Link
-                    href="/tools/image-to-pdf"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50"
-                  >
-                    Image to PDF
+                  <Link href="/tools/multiple-images-to-pdf" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Multiple Images to PDF
                   </Link>
-                  <Link
-                    href="/tools/image-resize"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50"
-                  >
-                    Image Resize
+                  <Link href="/tools/image-resize" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Resize Image
+                  </Link>
+                  <Link href="/tools/compress-image" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Compress Image
                   </Link>
                 </div>
               )}
             </div>
 
-            {/* Accordion 4: Student Tools */}
+            {/* Mobile Accordion 3: Academic Tools */}
+            <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">
+              <button
+                type="button"
+                onClick={() => toggleMobileSection("academic")}
+                className="w-full p-3.5 text-left font-bold text-xs text-slate-800 flex items-center justify-between"
+              >
+                <span className="flex items-center gap-2">
+                  <GraduationCap className="w-4 h-4 text-purple-600" />
+                  Academic Tools
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-400 transition-transform ${
+                    mobileExpandedSection === "academic" ? "rotate-180 text-blue-600" : ""
+                  }`}
+                />
+              </button>
+              {mobileExpandedSection === "academic" && (
+                <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs">
+                  <Link href="/student/sgpa-calculator" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold">
+                    SGPA Calculator
+                  </Link>
+                  <Link href="/student/cgpa-calculator" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    CGPA Calculator
+                  </Link>
+                  <Link href="/student/attendance" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Attendance Planner
+                  </Link>
+                  <Link href="/student/calculator" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Marks Calculator
+                  </Link>
+                  <Link href="/student/goals" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Academic Goals
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Mobile Accordion 4: Student Tools */}
             <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">
               <button
                 type="button"
@@ -675,8 +637,8 @@ export default function Navbar() {
                 className="w-full p-3.5 text-left font-bold text-xs text-slate-800 flex items-center justify-between"
               >
                 <span className="flex items-center gap-2">
-                  <GraduationCap className="w-4 h-4 text-indigo-600" />
-                  Student Tools
+                  <Layers className="w-4 h-4 text-indigo-600" />
+                  Student Utilities
                 </span>
                 <ChevronDown
                   className={`w-4 h-4 text-slate-400 transition-transform ${
@@ -686,33 +648,111 @@ export default function Navbar() {
               </button>
               {mobileExpandedSection === "student" && (
                 <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs">
-                  <Link
-                    href="/student"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50"
-                  >
-                    Student Overview →
+                  <Link href="/student" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50">
+                    Student Portal Overview →
                   </Link>
-                  <Link
-                    href="/tools/resume-builder"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50"
-                  >
-                    Resume Builder (Phase 3)
+                  <Link href="/student/timetable" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Timetable Generator
                   </Link>
-                  <Link
-                    href="/tools/id-photo"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50"
-                  >
-                    ID Photo Utility (Phase 3)
+                  <Link href="/student/study-planner" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Study Planner
                   </Link>
-                  <Link
-                    href="/tools/notes-to-pdf"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50"
-                  >
-                    Notes to PDF (Phase 3)
+                  <Link href="/student/exams" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Exam Schedule Tracker
+                  </Link>
+                  <Link href="/student/assignments" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Assignment Tracker
+                  </Link>
+                  <Link href="/student/certificates" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Certificate Locker
+                  </Link>
+                  <Link href="/student/internships" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Internship Tracker
+                  </Link>
+                  <Link href="/student/hackathons" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Hackathon Tracker
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Mobile Accordion 5: Career Tools */}
+            <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">
+              <button
+                type="button"
+                onClick={() => toggleMobileSection("career")}
+                className="w-full p-3.5 text-left font-bold text-xs text-slate-800 flex items-center justify-between"
+              >
+                <span className="flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-emerald-600" />
+                  Career Tools
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-400 transition-transform ${
+                    mobileExpandedSection === "career" ? "rotate-180 text-blue-600" : ""
+                  }`}
+                />
+              </button>
+              {mobileExpandedSection === "career" && (
+                <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs">
+                  <Link href="/student/resume" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold">
+                    Resume Builder (Live Preview)
+                  </Link>
+                  <Link href="/student/cover-letter" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold">
+                    Cover Letter Builder
+                  </Link>
+                  <Link href="/student/jobs" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Job Application Tracker
+                  </Link>
+                  <Link href="/student/interviews" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Interview Preparation Hub
+                  </Link>
+                  <Link href="/student/skills" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Skill Gap Analysis
+                  </Link>
+                  <Link href="/student/ats" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    ATS Keyword Scanner
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Mobile Accordion 6: AI & OCR Tools */}
+            <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-purple-50/30 border-purple-200/60">
+              <button
+                type="button"
+                onClick={() => toggleMobileSection("ai")}
+                className="w-full p-3.5 text-left font-bold text-xs text-purple-900 flex items-center justify-between"
+              >
+                <span className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-purple-600" />
+                  AI & OCR Tools
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-400 transition-transform ${
+                    mobileExpandedSection === "ai" ? "rotate-180 text-purple-600" : ""
+                  }`}
+                />
+              </button>
+              {mobileExpandedSection === "ai" && (
+                <div className="p-3 border-t border-purple-100 bg-white space-y-1 text-xs">
+                  <Link href="/student/copilot" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-purple-700 hover:bg-purple-50 font-semibold">
+                    AI Student Copilot
+                  </Link>
+                  <Link href="/student/copilot/interview" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    AI Mock Interview Coach
+                  </Link>
+                  <Link href="/tools/ocr-image" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Image to Text (OCR)
+                  </Link>
+                  <Link href="/tools/ocr-pdf" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Scanned PDF to Text (OCR)
+                  </Link>
+                  <Link href="/tools/document-summary" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Document Summarizer
+                  </Link>
+                  <Link href="/tools/document-qa" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
+                    Ask This Document
                   </Link>
                 </div>
               )}

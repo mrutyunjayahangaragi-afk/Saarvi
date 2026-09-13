@@ -726,7 +726,7 @@ export default function StudentDashboardPage() {
                 onClick={() => setActiveTab(tab.id as WorkspaceTab)}
                 className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
                   isSelected
-                    ? "bg-slate-900 text-white shadow-xs"
+                    ? "bg-blue-600 text-white shadow-xs"
                     : "bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80"
                 }`}
               >

@@ -96,12 +96,19 @@ export const careerService = {
   // ==========================================
   // PROFILE MANAGEMENT
   // ==========================================
-  async getOrCreateProfile(id: string = DEFAULT_PROFILE_ID): Promise<CareerProfile> {
-    const existing = await academicStorage.getCareerProfile(id);
+  async getOrCreateProfile(id?: string): Promise<CareerProfile> {
+    const activeProfileId = academicStorage.getActiveProfileId();
+    const effectiveId = (id && id !== DEFAULT_PROFILE_ID)
+      ? id
+      : (activeProfileId && activeProfileId !== 'guest')
+        ? `career_${activeProfileId}`
+        : DEFAULT_PROFILE_ID;
+
+    const existing = await academicStorage.getCareerProfile(effectiveId);
     if (existing) return existing;
 
     const initial: CareerProfile = {
-      id,
+      id: effectiveId,
       fullName: "",
       professionalTitle: "",
       email: "",

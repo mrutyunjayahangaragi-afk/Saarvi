@@ -20,6 +20,7 @@ import { adminService } from './adminService';
 import { MockStorageProvider } from '../supabase/mock-storage';
 import { STUDENT_TOOLS_REGISTRY } from '@/config/studentTools';
 import { telemetry } from '@/lib/observability/telemetry';
+import { featureServerStore } from '@/lib/features/feature-store';
 
 export interface DateRangeBoundary {
   currentStart: Date;
@@ -654,6 +655,10 @@ export const adminAnalyticsService = {
       comingSoonTools: toolMetrics.comingSoon,
       maintenanceTools: toolMetrics.maintenance,
       studentToolsCount: STUDENT_TOOLS_REGISTRY.length,
+      activeFeatures: featureServerStore.getAggregateMetrics().active,
+      disabledFeatures: featureServerStore.getAggregateMetrics().disabled,
+      freeFeatures: featureServerStore.getAggregateMetrics().free,
+      subscriptionFeatures: featureServerStore.getAggregateMetrics().subscription,
       curriculumCount: curriculumMetrics.total,
       verifiedCurriculumCount: curriculumMetrics.verified + curriculumMetrics.active,
       openErrorsCount: errorMetrics.unresolved,

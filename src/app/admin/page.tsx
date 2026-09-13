@@ -30,6 +30,7 @@ import {
   ChevronRight,
   AlertOctagon,
   FileCheck,
+  ToggleLeft,
 } from 'lucide-react';
 import { adminAnalyticsService } from '@/lib/services/adminAnalyticsService';
 import {
@@ -494,6 +495,41 @@ export default function AdminAnalyticsDashboard() {
             <div className="text-[11px] text-slate-400">0 bytes user files saved</div>
           </div>
           <Shield className="w-6 h-6 text-emerald-600" />
+        </div>
+      </div>
+
+      {/* Feature Control Overview Row */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+            <ToggleLeft className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-900">Feature Availability & Access Modes</h3>
+            <p className="text-xs text-slate-500">Central control plane for public availability and Saarvi Pro subscription gating</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+            <span className="text-slate-400">Active:</span> <strong className="text-emerald-700 font-mono ml-1">{kpis?.activeFeatures ?? '...'}</strong>
+          </div>
+          <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+            <span className="text-slate-400">Disabled:</span> <strong className="text-slate-700 font-mono ml-1">{kpis?.disabledFeatures ?? '0'}</strong>
+          </div>
+          <div className="px-3 py-1.5 rounded-xl bg-blue-50/50 border border-blue-100 text-xs">
+            <span className="text-blue-500">Free Access:</span> <strong className="text-blue-700 font-mono ml-1">{kpis?.freeFeatures ?? '...'}</strong>
+          </div>
+          <div className="px-3 py-1.5 rounded-xl bg-purple-50/50 border border-purple-100 text-xs">
+            <span className="text-purple-500">Subscription:</span> <strong className="text-purple-700 font-mono ml-1">{kpis?.subscriptionFeatures ?? '...'}</strong>
+          </div>
+          <Link
+            href="/admin/features"
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors flex items-center gap-1"
+          >
+            <span>Manage Flags</span>
+            <ChevronRight className="w-3 h-3" />
+          </Link>
         </div>
       </div>
 

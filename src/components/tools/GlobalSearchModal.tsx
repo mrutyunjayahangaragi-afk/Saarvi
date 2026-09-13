@@ -17,6 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { TOOLS_CONFIG } from "@/config/tools";
+import { CANONICAL_TOOL_REGISTRY } from "@/lib/tools/tool-registry";
 import { ToolDefinition } from "@/types/tool";
 import { academicStorage } from "@/lib/academic/storage/academic-db";
 import { LightweightSearchIndex } from "@/lib/student/algorithms/search-index";
@@ -129,15 +130,38 @@ export default function GlobalSearchModal({
 
       const items: GlobalSearchItem[] = [];
 
-      // 1. Tools Domain
-      for (const t of TOOLS_CONFIG) {
+      // Fetch dynamic feature flags to respect disabled / pro access
+      let flagsMap: Record<string, any> = {};
+      try {
+        const flagRes = await fetch('/api/features', { cache: 'no-store' });
+        if (flagRes.ok) {
+          const data = await flagRes.json();
+          if (data.flags && Array.isArray(data.flags)) {
+            for (const f of data.flags) {
+              flagsMap[f.id] = f;
+              flagsMap[f.key] = f;
+            }
+          }
+        }
+      } catch {
+        // Continue with local defaults
+      }
+
+      // 1. Tools Domain from Canonical Registry (omits disabled tools, tags PRO)
+      for (const t of CANONICAL_TOOL_REGISTRY) {
+        const flag = flagsMap[t.featureFlagKey] || flagsMap[t.key];
+        if (flag && flag.status === 'DISABLED') {
+          continue; // Disabled tools must not appear as active available search results
+        }
+        const isSubscription = flag ? flag.accessMode === 'SUBSCRIPTION' : t.defaultAccess === 'SUBSCRIPTION';
+
         items.push({
-          id: `tool_${t.id}`,
+          id: `tool_${t.key}`,
           domain: "tools",
           title: t.name,
           description: t.description,
           route: t.route,
-          badge: t.badge || t.category.toUpperCase(),
+          badge: isSubscription ? "PRO" : (t.badge || t.category.toUpperCase()),
         });
       }
 
@@ -146,15 +170,15 @@ export default function GlobalSearchModal({
         {
           id: "acad_calc",
           domain: "academic",
-          title: "VTU SGPA & CGPA Calculator",
-          description: "Calculate semester SGPA, cumulative CGPA, and degree percentage for 2022 & 2025 schemes.",
+          title: "SGPA & CGPA Calculator",
+          description: "Calculate semester SGPA, cumulative CGPA, and degree percentage across supported schemes.",
           route: "/student/sgpa-calculator",
-          badge: "VTU",
+          badge: "Academic",
         },
         {
           id: "acad_courses",
           domain: "academic",
-          title: "VTU Curriculum & Courses",
+          title: "Academic Curriculum & Courses",
           description: "Browse verified engineering courses, credits, and syllabus codes across Semesters 1-8.",
           route: "/student",
           badge: "Curriculum",
@@ -179,7 +203,7 @@ export default function GlobalSearchModal({
           id: "acad_copilot",
           domain: "academic",
           title: "AI Student & Career Copilot",
-          description: "Intelligent assistant for VTU academics, study schedules, attendance recovery, and career prep.",
+          description: "Intelligent assistant for academics, study schedules, attendance recovery, and career prep.",
           route: "/student/copilot",
           badge: "Copilot",
         },

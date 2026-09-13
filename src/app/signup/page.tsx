@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileText, Eye, EyeOff, Loader2, ArrowRight, ShieldCheck, Mail } from "lucide-react";
@@ -13,7 +13,7 @@ import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { signUp, signInWithGoogle } = useAuth();
+  const { signUp, signInWithGoogle, verifyEmailOtp, resendVerificationOtp, user } = useAuth();
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -24,6 +24,22 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [verificationPending, setVerificationPending] = useState(false);
+
+  // OTP Verification state
+  const [otpCode, setOtpCode] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendNotice, setResendNotice] = useState<string | null>(null);
+
+  // Cooldown countdown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,18 +68,57 @@ export default function SignupPage() {
     setLoading(true);
     try {
       await signUp({ email, password, fullName });
-      // If user session is immediate (e.g. mock or auto-confirm), navigate to dashboard
-      // Otherwise show email verification screen
-      router.push("/dashboard");
+      // If immediate session exists (e.g. auto-confirm/mock), route to dashboard
+      if (user) {
+        router.push("/dashboard");
+      } else {
+        router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`);
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "We couldn't create your account. Please try again.";
       if (msg.toLowerCase().includes("check your email") || msg.toLowerCase().includes("confirmation")) {
-        setVerificationPending(true);
+        router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`);
       } else {
         setError(msg);
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOtpError(null);
+    const cleanToken = otpCode.trim();
+
+    if (!cleanToken || cleanToken.length !== 6) {
+      setOtpError("Please enter the complete 6-digit verification code.");
+      return;
+    }
+
+    setOtpLoading(true);
+    try {
+      await verifyEmailOtp({ email, code: cleanToken });
+      router.push("/dashboard");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Invalid verification code. Please try again.";
+      setOtpError(msg);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || otpLoading) return;
+    setOtpError(null);
+    setResendNotice(null);
+    try {
+      await resendVerificationOtp(email);
+      setResendNotice("A new 6-digit verification code has been dispatched to your inbox.");
+      setResendCooldown(60);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unable to resend verification code. Please try again.";
+      setOtpError(msg);
     }
   };
 
@@ -92,35 +147,117 @@ export default function SignupPage() {
         <div className="w-full max-w-md mx-auto">
           <div className="bg-white border border-slate-200/90 rounded-3xl p-7 sm:p-9 shadow-sm space-y-6">
 
-            {/* If waiting for email verification */}
+            {/* 6-Digit Email Verification Screen */}
             {verificationPending ? (
-              <div className="text-center space-y-5 py-4">
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-3xl bg-blue-50 text-blue-600 border border-blue-200">
-                  <Mail className="w-7 h-7" />
-                </div>
-                <div className="space-y-2">
+              <div className="space-y-5 py-2">
+                <div className="text-center space-y-3">
+                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 border border-blue-200">
+                    <Mail className="w-7 h-7" />
+                  </div>
                   <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
                     Check your email
                   </h2>
-                  <p className="text-xs sm:text-sm text-slate-500 max-w-xs mx-auto leading-relaxed">
-                    We&apos;ve sent a verification link to <strong className="text-slate-800">{email}</strong>. Please click the link to activate your account.
+                  <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                    We sent a 6-digit verification code to{" "}
+                    <strong className="text-slate-800 break-all">{email}</strong>.
+                    Enter the code below to verify your account.
                   </p>
                 </div>
 
-                <div className="pt-2 flex flex-col gap-2">
-                  <Link
-                    href="/login"
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all text-center"
+                {otpError && (
+                  <div
+                    role="alert"
+                    className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-medium"
                   >
-                    Back to login
-                  </Link>
+                    {otpError}
+                  </div>
+                )}
+
+                {resendNotice && (
+                  <div
+                    role="status"
+                    className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-medium"
+                  >
+                    {resendNotice}
+                  </div>
+                )}
+
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="otp-code"
+                      className="block text-xs font-bold text-slate-700 uppercase tracking-wider text-center"
+                    >
+                      Verification Code
+                    </label>
+                    <input
+                      id="otp-code"
+                      type="text"
+                      inputMode="numeric"
+                      autoFocus
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
+                        setOtpCode(val);
+                      }}
+                      placeholder="123456"
+                      className="w-full text-center tracking-[0.4em] font-mono text-2xl py-3 px-4 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none transition-all placeholder:text-slate-300 placeholder:tracking-normal"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={otpLoading || otpCode.trim().length !== 6}
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-sm rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    {otpLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Verifying...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Verify Email</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                <div className="pt-2 flex flex-col gap-2.5 text-center text-xs text-slate-500">
                   <button
                     type="button"
-                    onClick={() => alert("Verification link resent.")}
-                    className="w-full py-2 text-xs text-slate-500 hover:text-slate-800 font-medium"
+                    disabled={resendCooldown > 0 || otpLoading}
+                    onClick={handleResendOtp}
+                    className="hover:text-blue-600 font-medium disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                   >
-                    Resend email
+                    {resendCooldown > 0
+                      ? `Resend code in ${resendCooldown}s`
+                      : "Didn't receive a code? Resend Code"}
                   </button>
+
+                  <div className="flex items-center justify-center gap-4 text-xs pt-1 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVerificationPending(false);
+                        setOtpError(null);
+                        setResendNotice(null);
+                      }}
+                      className="text-slate-600 hover:text-slate-900 underline underline-offset-2"
+                    >
+                      Change Email
+                    </button>
+                    <span>•</span>
+                    <Link
+                      href="/login"
+                      className="text-slate-600 hover:text-slate-900 underline underline-offset-2"
+                    >
+                      Back to Login
+                    </Link>
+                  </div>
                 </div>
               </div>
             ) : (

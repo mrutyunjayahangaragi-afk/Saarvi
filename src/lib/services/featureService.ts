@@ -1,23 +1,24 @@
 // DocEase Centralized Feature Flags Service
 
-import { FeatureFlag, FeatureFlagStatus, hasPermission } from '@/types/admin';
-import { MockStorageProvider } from '@/lib/supabase/mock-storage';
+import { FeatureFlag, FeatureFlagStatus, FeatureAccessMode, hasPermission } from '@/types/admin';
+import { featureServerStore } from '@/lib/features/feature-store';
 import { AdminActor } from './adminService';
 
 export const featureService = {
   getAllFeatures(): FeatureFlag[] {
-    return MockStorageProvider.getFeatureFlags();
+    return featureServerStore.getAllFeatures();
   },
 
   getFeature(id: string): FeatureFlag | undefined {
-    const flags = this.getAllFeatures();
-    return flags.find((f) => f.id === id);
+    return featureServerStore.getFeature(id);
   },
 
   isFeatureEnabled(id: string): boolean {
-    const flag = this.getFeature(id);
-    if (!flag) return false;
-    return flag.status === 'ENABLED' || flag.status === 'BETA';
+    return featureServerStore.isFeatureEnabled(id);
+  },
+
+  getFeatureAccessMode(id: string): FeatureAccessMode {
+    return featureServerStore.getFeatureAccessMode(id);
   },
 
   updateFeatureStatus(id: string, status: FeatureFlagStatus, actor: AdminActor): FeatureFlag {
@@ -25,24 +26,42 @@ export const featureService = {
       throw new Error('Permission denied: settings.update is required.');
     }
 
-    const flag = this.getFeature(id);
-    if (!flag) throw new Error(`Feature flag "${id}" not found.`);
+    return featureServerStore.updateFeature(
+      id,
+      { status },
+      { id: actor.id, email: actor.email, role: actor.role }
+    );
+  },
 
-    const updated = MockStorageProvider.updateFeatureFlag({
-      ...flag,
-      status,
-      updatedBy: actor.email,
-    });
+  updateFeatureAccessMode(id: string, accessMode: FeatureAccessMode, actor: AdminActor): FeatureFlag {
+    if (!hasPermission(actor.role, 'settings.update')) {
+      throw new Error('Permission denied: settings.update is required.');
+    }
 
-    MockStorageProvider.addAuditLog({
-      adminUserId: actor.id,
-      adminEmail: actor.email,
-      action: `FEATURE_FLAG_${status}`,
-      targetType: 'FEATURE',
-      targetId: id,
-      metadata: { newStatus: status },
-    });
+    return featureServerStore.updateFeature(
+      id,
+      { accessMode },
+      { id: actor.id, email: actor.email, role: actor.role }
+    );
+  },
 
-    return updated;
+  updateFeature(
+    id: string,
+    updates: Partial<Pick<FeatureFlag, 'status' | 'accessMode' | 'visibility' | 'name' | 'description'>>,
+    actor: AdminActor
+  ): FeatureFlag {
+    if (!hasPermission(actor.role, 'settings.update')) {
+      throw new Error('Permission denied: settings.update is required.');
+    }
+
+    return featureServerStore.updateFeature(
+      id,
+      updates,
+      { id: actor.id, email: actor.email, role: actor.role }
+    );
+  },
+
+  getAggregateMetrics() {
+    return featureServerStore.getAggregateMetrics();
   },
 };

@@ -228,7 +228,7 @@ export default function TaskManagerPage() {
                 onClick={() => setStatusFilter(st)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   statusFilter === st
-                    ? "bg-slate-900 text-white shadow-2xs"
+                    ? "bg-blue-600 text-white shadow-2xs"
                     : "text-slate-600 hover:bg-slate-100"
                 }`}
               >

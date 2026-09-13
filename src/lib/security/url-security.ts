@@ -173,7 +173,7 @@ export function isSafeRemoteUrl(rawUrl: string): { safe: boolean; error?: string
     return { safe: false, error: `Disallowed URL protocol: "${parsed.protocol}". Only HTTP(S) permitted.` };
   }
 
-  const hostname = parsed.hostname.toLowerCase();
+  const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
 
   // 1. Loopback & Localhost check
   if (
@@ -182,13 +182,21 @@ export function isSafeRemoteUrl(rawUrl: string): { safe: boolean; error?: string
     hostname === "::1" ||
     hostname === "0.0.0.0" ||
     hostname.endsWith(".localhost") ||
-    hostname.endsWith(".local")
+    hostname.endsWith(".local") ||
+    hostname.startsWith("fc00:") ||
+    hostname.startsWith("fd00:") ||
+    hostname.startsWith("fe80:")
   ) {
-    return { safe: false, error: "Access to loopback/localhost network addresses is strictly prohibited." };
+    return { safe: false, error: "Access to loopback/localhost/private network addresses is strictly prohibited." };
   }
 
-  // 2. Cloud metadata service check (AWS, GCP, Azure metadata IP: 169.254.169.254)
-  if (hostname === "169.254.169.254" || hostname.startsWith("169.254.")) {
+  // 2. Cloud metadata service check (AWS, GCP, Azure metadata IP: 169.254.169.254, metadata.google.internal)
+  if (
+    hostname === "169.254.169.254" ||
+    hostname.startsWith("169.254.") ||
+    hostname === "metadata.google.internal" ||
+    hostname.includes("metadata.google")
+  ) {
     return { safe: false, error: "Access to cloud instance metadata services is strictly prohibited." };
   }
 

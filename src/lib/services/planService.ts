@@ -13,6 +13,7 @@ import { AuthSessionUser, UserProfile } from '@/types/auth';
 import { FEATURES_REGISTRY, PLAN_LIMITS } from '@/config/features';
 import { TOOLS_CONFIG } from '@/config/tools';
 import { MockStorageProvider } from '../supabase/mock-storage';
+import { featureServerStore } from '@/lib/features/feature-store';
 
 export const planService = {
   // =========================================================================
@@ -78,15 +79,40 @@ export const planService = {
 
     // Check runtime feature flag overrides
     try {
-      const flags = MockStorageProvider.getFeatureFlags();
-      const flag = flags.find((f) => f.id === featureId || f.id === feature.toolSlug);
-      if (flag && flag.status === 'DISABLED') {
-        return {
-          allowed: false,
-          reason: 'disabled',
-          message: 'This feature has been temporarily disabled by platform administration.',
-          feature,
-        };
+      const flag =
+        featureServerStore.getFeature(featureId) ||
+        featureServerStore.getFeature(feature.toolSlug || '') ||
+        MockStorageProvider.getFeatureFlags().find((f) => f.id === featureId || f.id === feature.toolSlug);
+
+      if (flag) {
+        if (flag.status === 'DISABLED') {
+          return {
+            allowed: false,
+            reason: 'disabled',
+            message: 'This feature has been temporarily disabled by platform administration.',
+            feature,
+          };
+        }
+        if (flag.status === 'MAINTENANCE') {
+          return {
+            allowed: false,
+            reason: 'maintenance',
+            message: 'This feature is temporarily unavailable while we improve it.',
+            feature,
+          };
+        }
+        if (flag.accessMode === 'SUBSCRIPTION') {
+          const userPlan = this.getUserPlan(user, profile);
+          if (userPlan !== 'pro') {
+            return {
+              allowed: false,
+              reason: 'pro_required',
+              message: feature.proNotice || 'This feature requires a Saarvi Pro subscription.',
+              feature,
+              requiredPlan: 'pro',
+            };
+          }
+        }
       }
     } catch {
       // Fail-safe default: continue with static registry definition
@@ -185,7 +211,49 @@ export const planService = {
   // =========================================================================
 
   canUseTool(toolSlug: string, user?: AuthSessionUser | null): EntitlementCheckResult {
-    // 1. Check runtime tool override from admin platform
+    const userPlan = this.getUserPlan(user);
+
+    // 1. Check authoritative Central Feature Flag Store
+    try {
+      const feature = featureServerStore.getFeature(toolSlug);
+      if (feature) {
+        if (feature.status === 'DISABLED') {
+          return {
+            allowed: false,
+            reason: 'disabled',
+            message: 'This tool is temporarily unavailable.',
+          };
+        }
+        if (feature.status === 'MAINTENANCE') {
+          return {
+            allowed: false,
+            reason: 'maintenance',
+            message: 'This tool is temporarily unavailable while we improve it.',
+          };
+        }
+        if ((feature.status as string) === 'COMING_SOON') {
+          return {
+            allowed: false,
+            reason: 'coming_soon',
+            message: "We're building this feature now.",
+          };
+        }
+        if (feature.accessMode === 'SUBSCRIPTION') {
+          if (userPlan !== 'pro') {
+            return {
+              allowed: false,
+              reason: 'pro_required',
+              message: 'This feature requires a Saarvi Pro subscription.',
+              requiredPlan: 'pro',
+            };
+          }
+        }
+      }
+    } catch {
+      // Fail-safe: continue to overrides evaluation
+    }
+
+    // 2. Check runtime tool override from admin platform
     try {
       const overrides = MockStorageProvider.getToolOverrides();
       const override = overrides[toolSlug];
@@ -219,20 +287,22 @@ export const planService = {
             requiredPlan: 'free',
           };
         }
-        if (override.requiresPro) {
-          return {
-            allowed: false,
-            reason: 'pro_required',
-            message: 'This feature will be available with Saarvi Pro.',
-            requiredPlan: 'pro',
-          };
+        if (override.requiresPro || override.accessMode === 'SUBSCRIPTION') {
+          if (userPlan !== 'pro') {
+            return {
+              allowed: false,
+              reason: 'pro_required',
+              message: 'This feature requires a Saarvi Pro subscription.',
+              requiredPlan: 'pro',
+            };
+          }
         }
       }
     } catch {
       // Fail-safe: continue to registry evaluation
     }
 
-    // 2. Check base tool definition in TOOLS_CONFIG
+    // 3. Check base tool definition in TOOLS_CONFIG
     const baseTool = TOOLS_CONFIG.find((t) => t.slug === toolSlug || t.id === toolSlug);
     if (!baseTool) {
       // If not in tool config, look in feature registry
@@ -273,12 +343,14 @@ export const planService = {
     }
 
     if (baseTool.requiresPro) {
-      return {
-        allowed: false,
-        reason: 'pro_required',
-        message: 'This feature will be available with Saarvi Pro.',
-        requiredPlan: 'pro',
-      };
+      if (userPlan !== 'pro') {
+        return {
+          allowed: false,
+          reason: 'pro_required',
+          message: 'This feature will be available with Saarvi Pro.',
+          requiredPlan: 'pro',
+        };
+      }
     }
 
     if (baseTool.requiresAuth && !user) {

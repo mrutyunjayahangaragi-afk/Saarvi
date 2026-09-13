@@ -161,6 +161,28 @@ export async function detectFileFormatFromBytes(bytes: Uint8Array): Promise<stri
     return "zip";
   }
 
+  // MP4: ISO Base Media file format ('ftyp' at bytes 4-7: 0x66 0x74 0x79 0x70)
+  if (
+    bytes.length >= 8 &&
+    bytes[4] === 0x66 &&
+    bytes[5] === 0x74 &&
+    bytes[6] === 0x79 &&
+    bytes[7] === 0x70
+  ) {
+    return "mp4";
+  }
+
+  // WebM: EBML header (0x1A 0x45 0xDF 0xA3)
+  if (
+    bytes.length >= 4 &&
+    bytes[0] === 0x1a &&
+    bytes[1] === 0x45 &&
+    bytes[2] === 0xdf &&
+    bytes[3] === 0xa3
+  ) {
+    return "webm";
+  }
+
   // Text files (ASCII / UTF-8 text without null bytes or control characters)
   const isText =
     bytes.length > 0 &&

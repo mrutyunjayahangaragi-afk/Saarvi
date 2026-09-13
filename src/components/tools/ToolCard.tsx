@@ -58,9 +58,20 @@ export default function ToolCard({ tool, featured = false }: ToolCardProps) {
             <IconComponent className="w-5 h-5" />
           </div>
 
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-semibold text-emerald-700">
-            <Lock className="w-2.5 h-2.5" />
-            <span>Local</span>
+          <div className="flex items-center gap-1.5">
+            {tool.requiresPro ? (
+              <span className="px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-[10px] font-bold text-amber-700">
+                Pro
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-[10px] font-bold text-blue-700">
+                Free
+              </span>
+            )}
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-semibold text-emerald-700">
+              <Lock className="w-2.5 h-2.5" />
+              <span>Local</span>
+            </div>
           </div>
         </div>
 
@@ -85,6 +96,14 @@ export default function ToolCard({ tool, featured = false }: ToolCardProps) {
           <span className="flex items-center gap-1 text-blue-600 font-semibold group-hover:translate-x-1 transition-transform">
             <span>Open</span>
             <ArrowRight className="w-3.5 h-3.5" />
+          </span>
+        ) : tool.status === "disabled" ? (
+          <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] font-semibold border border-red-200">
+            Unavailable
+          </span>
+        ) : tool.status === "maintenance" ? (
+          <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-semibold border border-amber-200">
+            Maintenance
           </span>
         ) : (
           <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-medium border border-slate-200">

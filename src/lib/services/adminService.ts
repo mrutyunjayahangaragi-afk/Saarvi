@@ -24,6 +24,8 @@ import { UserProfile, UserRole, UserAccountStatus } from '@/types/auth';
 import { MockStorageProvider } from '@/lib/supabase/mock-storage';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/client';
+import { featureServerStore } from '@/lib/features/feature-store';
+import { FeatureFlagStatus } from '@/types/admin';
 
 export interface AdminActor {
   id: string;
@@ -41,19 +43,42 @@ export const adminService = {
 
     return TOOLS_CONFIG.map((baseTool) => {
       const override = overrides[baseTool.slug] || overrides[baseTool.id];
-      if (!override) return baseTool;
+      const flag = featureServerStore.getFeature(baseTool.slug) || featureServerStore.getFeature(baseTool.id);
 
-      const mappedStatus = override.status.toLowerCase() as ToolDefinition['status'];
+      let status = baseTool.status;
+      let requiresPro = baseTool.requiresPro;
+      let requiresAuth = baseTool.requiresAuth;
+
+      if (flag) {
+        if (flag.status === 'DISABLED') status = 'disabled';
+        else if (flag.status === 'MAINTENANCE') status = 'maintenance';
+        else if (flag.status === 'BETA') status = 'beta';
+        else if (flag.status === 'ENABLED') status = 'available';
+
+        if (flag.accessMode === 'SUBSCRIPTION') {
+          requiresPro = true;
+        } else if (flag.accessMode === 'FREE') {
+          requiresPro = false;
+        }
+      }
+
+      if (override) {
+        status = override.status.toLowerCase() as ToolDefinition['status'];
+        if (override.requiresPro !== undefined) requiresPro = override.requiresPro;
+        if (override.accessMode === 'SUBSCRIPTION') requiresPro = true;
+        if (override.accessMode === 'FREE') requiresPro = false;
+        if (override.requiresAuth !== undefined) requiresAuth = override.requiresAuth;
+      }
 
       return {
         ...baseTool,
-        name: override.name || baseTool.name,
-        status: mappedStatus,
-        requiresAuth: override.requiresAuth !== undefined ? override.requiresAuth : baseTool.requiresAuth,
-        requiresPro: override.requiresPro !== undefined ? override.requiresPro : baseTool.requiresPro,
-        maxSizeMB: override.maxSizeMB || baseTool.maxSizeMB || getMaxFileSizeMB(baseTool.slug),
-        description: override.description || baseTool.description,
-        keywords: override.keywords || baseTool.keywords,
+        name: override?.name || flag?.name || baseTool.name,
+        status,
+        requiresAuth,
+        requiresPro,
+        maxSizeMB: override?.maxSizeMB || baseTool.maxSizeMB || getMaxFileSizeMB(baseTool.slug),
+        description: override?.description || flag?.description || baseTool.description,
+        keywords: override?.keywords || baseTool.keywords,
       };
     });
   },
@@ -74,6 +99,33 @@ export const adminService = {
 
     const saved = MockStorageProvider.saveToolOverride(override);
 
+    // Synchronize to featureServerStore
+    try {
+      const statusMap: Record<string, FeatureFlagStatus> = {
+        AVAILABLE: 'ENABLED',
+        BETA: 'BETA',
+        MAINTENANCE: 'MAINTENANCE',
+        DISABLED: 'DISABLED',
+        COMING_SOON: 'DISABLED',
+      };
+      const flagStatus = statusMap[override.status] || 'ENABLED';
+      const accessMode = override.requiresPro ? 'SUBSCRIPTION' : override.accessMode || 'FREE';
+
+      featureServerStore.updateFeature(
+        override.id,
+        {
+          status: flagStatus,
+          accessMode,
+          visibility: override.hidden ? 'hidden' : 'visible',
+          name: override.name,
+          description: override.description,
+        },
+        actor
+      );
+    } catch {
+      // Safe fallback if feature flag not mapped
+    }
+
     MockStorageProvider.addAuditLog({
       adminUserId: actor.id,
       adminEmail: actor.email,
@@ -84,6 +136,8 @@ export const adminService = {
         status: override.status,
         maxSizeMB: override.maxSizeMB,
         requiresAuth: override.requiresAuth,
+        requiresPro: override.requiresPro,
+        accessMode: override.accessMode,
       },
     });
 

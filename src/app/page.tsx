@@ -134,24 +134,26 @@ export default function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
-              {/* 1. Resume Builder */}
-              <div className="p-6 sm:p-7 rounded-3xl bg-white border border-slate-200/90 space-y-5 hover-3d-lift shadow-xs">
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200/80 text-blue-600 flex items-center justify-center">
+              {/* 1. Resume Builder (Live Preview) */}
+              <Link
+                href="/student/resume"
+                className="group p-6 sm:p-7 rounded-3xl bg-white border border-slate-200/90 space-y-5 hover-3d-lift shadow-xs block transition-all"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200/80 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
                   <FileText className="w-6 h-6" />
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold text-slate-900">
+                    <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
                       Resume Builder
                     </h3>
-                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-blue-100 text-blue-700">
-                      Coming soon
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Live Preview
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    ATS-friendly student resume generator with structured education modules and direct vector PDF export.
+                    ATS-friendly student resume generator with instant live A4 paper preview and direct vector PDF export.
                   </p>
                 </div>
 
@@ -161,69 +163,74 @@ export default function HomePage() {
                   <div className="h-1.5 w-full bg-slate-200 rounded-full" />
                   <div className="h-1.5 w-4/5 bg-slate-200 rounded-full" />
                 </div>
-              </div>
+              </Link>
 
-              {/* 2. ID Photo Utility */}
-              <div className="p-6 sm:p-7 rounded-3xl bg-white border border-slate-200/90 space-y-5 hover-3d-lift shadow-xs">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200/80 text-indigo-600 flex items-center justify-center">
-                  <Camera className="w-6 h-6" />
+              {/* 2. SGPA & CGPA Calculator */}
+              <Link
+                href="/student/sgpa-calculator"
+                className="group p-6 sm:p-7 rounded-3xl bg-white border border-slate-200/90 space-y-5 hover-3d-lift shadow-xs block transition-all"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-200/80 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                  <GraduationCap className="w-6 h-6" />
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold text-slate-900">
-                      ID Photo Utility
+                    <h3 className="text-lg font-bold text-slate-900 group-hover:text-purple-600 transition-colors">
+                      SGPA Calculator
                     </h3>
-                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">
-                      Coming soon
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                      Multi-University
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Standard passport and college exam photo cropping with biometric alignment guides and printable grid layouts.
+                    Deterministic semester SGPA & CGPA calculation with auto-loaded official syllabus credits and grade points.
                   </p>
                 </div>
 
-                {/* Subtle Visual Concept: ID Frame */}
+                {/* Visual Preview */}
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between shadow-2xs">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-100 border border-indigo-300 flex items-center justify-center text-[10px] font-bold text-indigo-600">
-                      35x45
+                    <div className="w-8 h-8 rounded-lg bg-purple-100 border border-purple-300 flex items-center justify-center text-[10px] font-bold text-purple-700">
+                      9.4
                     </div>
                     <span className="text-[11px] font-medium text-slate-600">
-                      Biometric passport spec
+                      Deterministic calculation
                     </span>
                   </div>
                 </div>
-              </div>
+              </Link>
 
-              {/* 3. Notes to PDF */}
-              <div className="p-6 sm:p-7 rounded-3xl bg-white border border-slate-200/90 space-y-5 hover-3d-lift shadow-xs">
-                <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200/80 text-amber-600 flex items-center justify-center">
+              {/* 3. Attendance Planner */}
+              <Link
+                href="/student/attendance"
+                className="group p-6 sm:p-7 rounded-3xl bg-white border border-slate-200/90 space-y-5 hover-3d-lift shadow-xs block transition-all"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200/80 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                   <Layers className="w-6 h-6" />
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold text-slate-900">
-                      Notes to PDF
+                    <h3 className="text-lg font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">
+                      Attendance Planner
                     </h3>
-                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-700">
-                      Coming soon
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Safety Margins
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Clean up photos of handwritten notebooks and whiteboards into high-contrast, compact study PDFs.
+                    Track attendance percentages, calculate bunkable classes safely, and forecast classes needed for 75%.
                   </p>
                 </div>
 
-                {/* Subtle Visual Concept: Lined Paper */}
+                {/* Visual Preview */}
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2 shadow-2xs">
-                  <div className="h-1.5 w-2/3 bg-amber-200/80 rounded-full" />
-                  <div className="h-1.5 w-full bg-amber-200/60 rounded-full" />
-                  <div className="h-1.5 w-1/2 bg-amber-200/50 rounded-full" />
+                  <div className="h-1.5 w-2/3 bg-emerald-400 rounded-full" />
+                  <div className="h-1.5 w-full bg-slate-200 rounded-full" />
+                  <div className="h-1.5 w-1/2 bg-slate-200 rounded-full" />
                 </div>
-              </div>
-
+              </Link>
             </div>
           </div>
         </section>

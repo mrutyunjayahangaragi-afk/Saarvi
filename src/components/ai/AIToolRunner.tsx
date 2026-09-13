@@ -200,19 +200,19 @@ export function AIToolRunner({
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6">
       {/* Privacy Notice Banner */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2.5 text-xs text-slate-300">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3 text-xs text-slate-700 shadow-xs">
         <div className="flex items-center gap-2">
           {isExternal ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 font-semibold text-amber-400 border border-amber-500/20">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 font-semibold text-amber-800 border border-amber-200">
               EXTERNAL PROCESSING
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 font-semibold text-emerald-400 border border-emerald-500/20">
-              <ShieldCheck className="h-3.5 w-3.5" />
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 font-semibold text-emerald-800 border border-emerald-200">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
               100% LOCAL IN-BROWSER
             </span>
           )}
-          <span>
+          <span className="text-slate-600">
             {isExternal
               ? "Explicit user consent required. Only selected document text is transmitted."
               : "Zero network transmission. Runs securely inside your web browser."}
@@ -221,7 +221,7 @@ export function AIToolRunner({
       </div>
 
       {/* Main Container */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl backdrop-blur-sm">
+      <div className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs text-slate-900">
         {/* Input Phase */}
         {state === "IDLE" && (
           <div className="space-y-6">
@@ -236,20 +236,19 @@ export function AIToolRunner({
         {(state === "PROCESSING" || state === "PREPARING") && (
           <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
             <div className="relative flex h-16 w-16 items-center justify-center">
-              <div className="absolute h-full w-full animate-ping rounded-full bg-indigo-500/20" />
-              <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600/20 border border-indigo-500/40 text-indigo-400">
-                <Loader2 className="h-7 w-7 animate-spin" />
+              <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600 shadow-xs">
+                <Loader2 className="h-7 w-7 animate-spin text-blue-600" />
               </div>
             </div>
             <div className="space-y-1">
-              <h3 className="text-base font-semibold text-white">{statusMessage}</h3>
-              <p className="text-xs text-slate-400">
+              <h3 className="text-base font-bold text-slate-900">{statusMessage}</h3>
+              <p className="text-xs text-slate-500">
                 Data minimization: transmitting only required document contents.
               </p>
             </div>
             <button
               onClick={handleCancel}
-              className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
             >
               Cancel Operation
             </button>
@@ -259,20 +258,20 @@ export function AIToolRunner({
         {/* Error / Cancelled Phase */}
         {(state === "ERROR" || state === "CANCELLED") && (
           <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 border border-rose-200 text-rose-600">
               <AlertTriangle className="h-6 w-6" />
             </div>
             <div className="max-w-md space-y-1">
-              <h3 className="text-base font-semibold text-white">
+              <h3 className="text-base font-bold text-slate-900">
                 {state === "CANCELLED" ? "Operation Cancelled" : "Processing Failed"}
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-600 leading-relaxed">
                 {errorMessage || "The operation was interrupted. Your local document remains safe."}
               </p>
             </div>
             <button
               onClick={handleReset}
-              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-medium text-white hover:bg-indigo-500 transition-colors"
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 px-4 py-2.5 text-xs font-bold text-white transition-colors shadow-xs cursor-pointer"
             >
               <RotateCcw className="h-4 w-4" />
               Try Again
@@ -284,11 +283,11 @@ export function AIToolRunner({
         {state === "RESULT_READY" && (
           <div className="space-y-6 animate-in fade-in duration-300">
             {/* Header & Disclaimer */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
-                <h3 className="text-lg font-semibold text-white">{resultTitle}</h3>
+                <h3 className="text-lg font-bold text-slate-900">{resultTitle}</h3>
                 {citedPages && citedPages.length > 0 && (
-                  <p className="text-xs text-indigo-400 mt-0.5">
+                  <p className="text-xs text-blue-600 font-medium mt-0.5">
                     Cited Sources: Page {citedPages.join(", ")}
                   </p>
                 )}
@@ -296,30 +295,30 @@ export function AIToolRunner({
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleCopy}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
                 >
                   {copied ? (
                     <>
-                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                      <Check className="h-3.5 w-3.5 text-emerald-600" />
                       Copied
                     </>
                   ) : (
                     <>
-                      <Copy className="h-3.5 w-3.5" />
+                      <Copy className="h-3.5 w-3.5 text-slate-500" />
                       Copy
                     </>
                   )}
                 </button>
                 <button
                   onClick={handleSaveToConversation}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
                 >
-                  <Bookmark className="h-3.5 w-3.5 text-amber-400" />
+                  <Bookmark className="h-3.5 w-3.5 text-amber-500" />
                   {savedToConv ? "Saved Locally!" : "Save Session"}
                 </button>
                 <button
                   onClick={handleReset}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-red-400 transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                   title="Clear temporary session data"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -329,8 +328,8 @@ export function AIToolRunner({
             </div>
 
             {/* Disclaimer Alert */}
-            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300/90 leading-relaxed">
-              <strong className="font-semibold text-amber-300">Notice:</strong>{" "}
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3.5 text-xs text-amber-900 leading-relaxed font-medium">
+              <strong className="font-bold text-amber-900">Notice:</strong>{" "}
               {tool.supportsOCR
                 ? "OCR results may contain recognition errors. Review and edit the text below as needed before downloading."
                 : "AI-generated results may contain mistakes. Verify important information against your original source document."}
@@ -338,28 +337,28 @@ export function AIToolRunner({
 
             {/* Editable Text Area for User Review */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-400">
+              <label className="text-xs font-bold text-slate-700">
                 Extracted Text (Editable for Review):
               </label>
               <textarea
                 value={outputText}
                 onChange={(e) => setOutputText(e.target.value)}
                 rows={12}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 p-4 font-mono text-sm text-slate-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-y"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 p-4 font-mono text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y transition-colors"
               />
             </div>
 
             {/* Download System (Single Download Preservation) */}
             {downloadResult && (
-              <div className="space-y-3 pt-2 border-t border-slate-800">
+              <div className="space-y-3 pt-4 border-t border-slate-100">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-slate-400">
+                  <span className="text-xs font-bold text-slate-700">
                     Export Output:
                   </span>
                   {allowSearchablePdf && (
                     <button
                       onClick={handleExportSearchablePdf}
-                      className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 underline"
+                      className="inline-flex items-center gap-1 text-xs text-blue-600 font-semibold hover:text-blue-700 hover:underline cursor-pointer"
                     >
                       Export as Formatted PDF
                     </button>
