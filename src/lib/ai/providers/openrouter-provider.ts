@@ -39,7 +39,7 @@ export class OpenRouterAIProvider implements AIProvider {
 
   constructor(apiKey?: string, model?: string) {
     this.apiKey = apiKey || process.env.OPENROUTER_API_KEY || process.env.AI_API_KEY || "";
-    this.model = model || process.env.AI_TEXT_MODEL || "meta-llama/llama-3-8b-instruct";
+    this.model = model || process.env.OPENROUTER_MODEL || process.env.AI_TEXT_MODEL || "meta-llama/llama-3-8b-instruct";
   }
 
   isAvailable(): boolean {
@@ -84,7 +84,7 @@ export class OpenRouterAIProvider implements AIProvider {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${this.apiKey}`,
-          "HTTP-Referer": "https://saarvi.in",
+          "HTTP-Referer": "https://saarvi.app",
           "X-Title": "Saarvi Document Intelligence",
         },
         body: JSON.stringify(body),

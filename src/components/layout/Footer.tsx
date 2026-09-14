@@ -34,10 +34,10 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* Product */}
+          {/* Product & Tools */}
           <div className="space-y-3">
             <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
-              Product
+              Tools & Directory
             </h4>
 
             <ul className="space-y-2">
@@ -46,7 +46,25 @@ export default function Footer() {
                   href="/tools"
                   className="text-slate-600 hover:text-blue-600 transition-colors"
                 >
-                  Tools
+                  All Tools
+                </Link>
+              </li>
+
+              <li>
+                <Link
+                  href="/tools/pdf-to-jpg"
+                  className="text-slate-600 hover:text-blue-600 transition-colors"
+                >
+                  PDF to JPG
+                </Link>
+              </li>
+
+              <li>
+                <Link
+                  href="/tools/compress-pdf"
+                  className="text-slate-600 hover:text-blue-600 transition-colors"
+                >
+                  Compress PDF
                 </Link>
               </li>
 
@@ -56,6 +74,24 @@ export default function Footer() {
                   className="text-slate-600 hover:text-blue-600 transition-colors"
                 >
                   Student Tools
+                </Link>
+              </li>
+
+              <li>
+                <Link
+                  href="/student/resume"
+                  className="text-slate-600 hover:text-blue-600 transition-colors"
+                >
+                  Career & Resume
+                </Link>
+              </li>
+
+              <li>
+                <Link
+                  href="/blog"
+                  className="text-slate-600 hover:text-blue-600 transition-colors"
+                >
+                  Guides & Tutorials
                 </Link>
               </li>
 

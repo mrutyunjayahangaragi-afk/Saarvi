@@ -1,147 +1,216 @@
-"use client";
-
-import { useState, useMemo, useEffect } from "react";
+import type { Metadata } from "next";
+import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import ToolCard from "@/components/tools/ToolCard";
+import ToolsCatalogClient from "@/components/tools/ToolsCatalogClient";
 import { TOOLS_CONFIG } from "@/config/tools";
-import { ToolCategory, ToolDefinition } from "@/types/tool";
-import { adminService } from "@/lib/services/adminService";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { CANONICAL_TOOL_REGISTRY } from "@/lib/tools/tool-registry";
+import { createMetadata } from "@/lib/seo/metadata";
+import { generateBreadcrumbSchema } from "@/lib/seo/structured-data";
+import {
+  FileText,
+  FileImage,
+  GraduationCap,
+  Briefcase,
+  Cpu,
+  ChevronRight,
+  ArrowRight
+} from "lucide-react";
+
+export const metadata: Metadata = createMetadata({
+  title: "All Tools — Free Online PDF, Image & Document Utilities | Saarvi",
+  description: "Explore the complete directory of browser-based PDF converters, image tools, compressors, and student calculators. Fast, simple, and private local processing.",
+  path: "/tools",
+  keywords: [
+    "pdf tools",
+    "image converter",
+    "online pdf compressor",
+    "merge pdf",
+    "split pdf",
+    "jpg to pdf",
+    "pdf to jpg",
+    "sgpa calculator",
+    "free document tools"
+  ],
+});
 
 export default function ToolsPage() {
-  const [tools, setTools] = useState<ToolDefinition[]>(TOOLS_CONFIG);
-  const [selectedCategory, setSelectedCategory] = useState<"all" | ToolCategory>("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: "Home", url: "/" },
+    { name: "Tools", url: "/tools" },
+  ]);
 
-  useEffect(() => {
-    adminService
-      .getEffectiveTools()
-      .then((eff) => {
-        if (eff && eff.length > 0) setTools(eff);
-      })
-      .catch(() => {});
-  }, []);
-
-  const filteredTools = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-    return tools.filter((tool) => {
-      const matchesCategory = selectedCategory === "all" || tool.category === selectedCategory;
-      const matchesQuery =
-        !q ||
-        tool.name.toLowerCase().includes(q) ||
-        tool.description.toLowerCase().includes(q) ||
-        tool.category.toLowerCase().includes(q) ||
-        tool.supportedFormats.some((f) => f.toLowerCase().includes(q)) ||
-        (tool.keywords || []).some((kw) => kw.toLowerCase().includes(q));
-      return matchesCategory && matchesQuery;
-    });
-  }, [tools, selectedCategory, searchQuery]);
-
-  const categoryCounts = useMemo(() => {
-    return {
-      all: tools.length,
-      image: tools.filter((t) => t.category === "image").length,
-      pdf: tools.filter((t) => t.category === "pdf").length,
-      student: tools.filter((t) => t.category === "student").length,
-    };
-  }, [tools]);
+  const pdfTools = CANONICAL_TOOL_REGISTRY.filter((t) => t.category === "pdf");
+  const imageTools = CANONICAL_TOOL_REGISTRY.filter((t) => t.category === "image");
+  const studentTools = CANONICAL_TOOL_REGISTRY.filter((t) => t.category === "academic" || t.category === "student");
+  const careerTools = CANONICAL_TOOL_REGISTRY.filter((t) => t.category === "career");
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50/60 transition-colors duration-200">
+    <div className="min-h-screen flex flex-col bg-slate-50/60 text-slate-900 transition-colors duration-200">
+      {/* Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
+
       <Navbar />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16 space-y-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16 space-y-12">
+        {/* Breadcrumb Navigation */}
+        <nav className="flex items-center gap-1.5 text-xs text-slate-500" aria-label="Breadcrumb">
+          <Link href="/" className="hover:text-blue-600 transition-colors">
+            Home
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          <span className="font-semibold text-slate-800">All Tools</span>
+        </nav>
+
         {/* Page Heading */}
-        <div className="space-y-2 text-center sm:text-left">
+        <div className="space-y-3 text-center sm:text-left">
           <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-            All tools
+            All Saarvi Tools & Utilities
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 max-w-2xl">
-            Browse our complete catalog of image, PDF, and student utilities. All tools are free to use without login.
+          <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
+            Fast, private, in-browser utilities for document conversions, image processing, and student workflows. All core utilities process files locally in your browser with no account required.
           </p>
         </div>
 
-        {/* Controls: Search & Category Filter */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 pt-2">
-          {/* Category Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            {[
-              { id: "all", label: "All" },
-              { id: "pdf", label: "PDF" },
-              { id: "image", label: "Images" },
-              { id: "student", label: "Student" }
-            ].map((tab) => {
-              const count = categoryCounts[tab.id as keyof typeof categoryCounts];
-              const isSelected = selectedCategory === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setSelectedCategory(tab.id as ToolCategory | "all")}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
-                    isSelected
-                      ? "bg-blue-600 text-white shadow-xs"
-                      : "bg-white hover:bg-slate-100 text-slate-600 border border-slate-200/80"
-                  }`}
-                >
-                  <span>{tab.label}</span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                      isSelected
-                        ? "bg-white/20 text-white"
-                        : "bg-slate-100 text-slate-500"
-                    }`}
-                  >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+        {/* Interactive Search & Live Filter Section */}
+        <section aria-label="Tool search and filtering">
+          <ToolsCatalogClient initialTools={TOOLS_CONFIG} />
+        </section>
 
-          {/* Real-time Search Input */}
-          <div className="relative w-full md:w-80">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="What do you want to do?"
-              className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-blue-600 transition-colors shadow-xs"
-            />
-          </div>
-        </div>
-
-        {/* Tools Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 pt-2">
-          {filteredTools.map((tool) => (
-            <ToolCard key={tool.id} tool={tool} />
-          ))}
-        </div>
-
-        {/* Empty Search State */}
-        {filteredTools.length === 0 && (
-          <div className="p-12 text-center bg-white rounded-3xl border border-slate-200/80 space-y-3 shadow-xs">
-            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center mx-auto text-slate-400">
-              <SlidersHorizontal className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-semibold text-slate-900">No tools found</h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              No utilities match your filter &quot;{searchQuery}&quot;. Try searching for &quot;pdf&quot;, &quot;image&quot;, or clearing the search box.
+        {/* Server-Rendered Crawlable Category Hubs (Phase 9 & 11) */}
+        <section className="space-y-12 pt-8 border-t border-slate-200/80">
+          <div className="space-y-2">
+            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              Crawlable Category Directory
+            </h2>
+            <p className="text-xs text-slate-500">
+              Direct links to every specialized converter, compressor, and student calculator.
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                setSearchQuery("");
-                setSelectedCategory("all");
-              }}
-              className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer"
-            >
-              Reset filters
-            </button>
           </div>
-        )}
+
+          {/* 1. PDF Tools */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-base font-bold text-slate-900">
+              <FileText className="w-5 h-5 text-blue-600" />
+              <h3>PDF Tools</h3>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                {pdfTools.length} utilities
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 text-xs">
+              {pdfTools.map((t) => (
+                <Link
+                  key={t.key}
+                  href={t.route}
+                  className="p-3.5 bg-white border border-slate-200/80 rounded-xl hover:border-blue-500 hover:shadow-xs transition-all flex items-center justify-between group"
+                >
+                  <div className="space-y-0.5">
+                    <span className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors block">
+                      {t.name}
+                    </span>
+                    <span className="text-[11px] text-slate-500 line-clamp-1">
+                      {t.description}
+                    </span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* 2. Image Tools */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-base font-bold text-slate-900">
+              <FileImage className="w-5 h-5 text-indigo-600" />
+              <h3>Image Tools</h3>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                {imageTools.length} utilities
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 text-xs">
+              {imageTools.map((t) => (
+                <Link
+                  key={t.key}
+                  href={t.route}
+                  className="p-3.5 bg-white border border-slate-200/80 rounded-xl hover:border-indigo-500 hover:shadow-xs transition-all flex items-center justify-between group"
+                >
+                  <div className="space-y-0.5">
+                    <span className="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors block">
+                      {t.name}
+                    </span>
+                    <span className="text-[11px] text-slate-500 line-clamp-1">
+                      {t.description}
+                    </span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* 3. Student & Academic Tools */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-base font-bold text-slate-900">
+              <GraduationCap className="w-5 h-5 text-purple-600" />
+              <h3>Academic & Student Tools</h3>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                {studentTools.length} utilities
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 text-xs">
+              {studentTools.map((t) => (
+                <Link
+                  key={t.key}
+                  href={t.route}
+                  className="p-3.5 bg-white border border-slate-200/80 rounded-xl hover:border-purple-500 hover:shadow-xs transition-all flex items-center justify-between group"
+                >
+                  <div className="space-y-0.5">
+                    <span className="font-semibold text-slate-900 group-hover:text-purple-600 transition-colors block">
+                      {t.name}
+                    </span>
+                    <span className="text-[11px] text-slate-500 line-clamp-1">
+                      {t.description}
+                    </span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* 4. Career Tools */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-base font-bold text-slate-900">
+              <Briefcase className="w-5 h-5 text-emerald-600" />
+              <h3>Career & Resume Tools</h3>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                {careerTools.length} utilities
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 text-xs">
+              {careerTools.map((t) => (
+                <Link
+                  key={t.key}
+                  href={t.route}
+                  className="p-3.5 bg-white border border-slate-200/80 rounded-xl hover:border-emerald-500 hover:shadow-xs transition-all flex items-center justify-between group"
+                >
+                  <div className="space-y-0.5">
+                    <span className="font-semibold text-slate-900 group-hover:text-emerald-600 transition-colors block">
+                      {t.name}
+                    </span>
+                    <span className="text-[11px] text-slate-500 line-clamp-1">
+                      {t.description}
+                    </span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
       </main>
 
       <Footer />

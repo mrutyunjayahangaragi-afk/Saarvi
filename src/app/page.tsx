@@ -9,7 +9,7 @@ import ToolCard from "@/components/tools/ToolCard";
 import FaqAccordion, { GLOBAL_FAQS } from "@/components/common/FaqAccordion";
 import { TOOLS_CONFIG } from "@/config/tools";
 import { createMetadata } from "@/lib/seo/metadata";
-import { generateWebSiteSchema, generateFaqSchema } from "@/lib/seo/structured-data";
+import { generateWebSiteSchema, generateFaqSchema, generateOrganizationSchema } from "@/lib/seo/structured-data";
 import {
   ArrowRight,
   Lock,
@@ -37,6 +37,7 @@ export const metadata: Metadata = createMetadata({
 });
 
 export default function HomePage() {
+  const organizationSchema = generateOrganizationSchema();
   const websiteSchema = generateWebSiteSchema();
   const faqSchema = generateFaqSchema(GLOBAL_FAQS);
   // Exact 5 popular tools required by Section 13
@@ -54,6 +55,10 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900">
       {/* Search Engine Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}

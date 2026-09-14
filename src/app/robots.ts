@@ -2,7 +2,8 @@ import { MetadataRoute } from 'next';
 import { SITE_CONFIG } from '@/config/site';
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = SITE_CONFIG.url || 'https://saarvi.in';
+  // Canonical domain: https://saarvi.app (legacy compatibility: https://saarvi.in)
+  const baseUrl = SITE_CONFIG.url || 'https://saarvi.app';
 
   return {
     rules: {
@@ -11,6 +12,8 @@ export default function robots(): MetadataRoute.Robots {
         '/',
         '/tools',
         '/tools/*',
+        '/blog',
+        '/blog/*',
         '/student',
         '/student/sgpa-calculator',
         '/student/cgpa-calculator',

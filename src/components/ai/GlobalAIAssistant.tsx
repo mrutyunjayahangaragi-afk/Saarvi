@@ -11,6 +11,8 @@ import {
   RotateCcw,
   RefreshCw,
   Trash2,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { ToolDiscoveryResult, DiscoveredToolItem } from '@/lib/ai/tool-discovery-engine';
 import { isValidCanonicalRoute } from '@/lib/ai/ai-assistant-router';
@@ -25,11 +27,10 @@ interface ChatMessage {
 }
 
 const QUICK_PROMPTS = [
-  'Where is PDF to Word?',
-  'What can Saarvi do?',
-  'Help me prepare for interviews',
-  'Explain SGPA',
-  'Help me create a resume',
+  'Convert PDF to JPG',
+  'Calculate SGPA',
+  'Build a resume',
+  'Compress a PDF',
 ];
 
 const INITIAL_MESSAGE: ChatMessage = {
@@ -50,6 +51,7 @@ export default function GlobalAIAssistant() {
   const [inputValue, setInputValue] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [lastUserPrompt, setLastUserPrompt] = useState<string | null>(null);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const triggerButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -243,9 +245,9 @@ export default function GlobalAIAssistant() {
         <button
           ref={triggerButtonRef}
           onClick={() => setIsOpen(true)}
-          aria-label="Saarvi AI Assistant"
+          aria-label="Open Saarvi AI"
           aria-expanded={isOpen}
-          title="Saarvi AI Assistant — Ask me anything about Saarvi, study, work, or career"
+          title="Saarvi AI Assistant — Study. Work. Grow."
           className="min-h-[48px] min-w-[48px] px-4 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-xl hover:shadow-2xl flex items-center gap-2 font-bold text-xs transition-all duration-200 active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-300 select-none group cursor-pointer"
         >
           <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center group-hover:rotate-12 transition-transform">
@@ -276,7 +278,7 @@ export default function GlobalAIAssistant() {
                   </span>
                 </div>
                 <div className="text-[11px] text-blue-100">
-                  Ask me anything about Saarvi, study, work, or career
+                  Study. Work. Grow.
                 </div>
               </div>
             </div>
@@ -322,6 +324,34 @@ export default function GlobalAIAssistant() {
                   }`}
                 >
                   <div className="whitespace-pre-wrap">{msg.text}</div>
+
+                  {/* Copy button for assistant responses */}
+                  {msg.sender === 'assistant' && !msg.isError && (
+                    <div className="mt-2 pt-1.5 flex justify-end border-t border-slate-100">
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(msg.text);
+                          setCopiedMessageId(msg.id);
+                          setTimeout(() => setCopiedMessageId(null), 2000);
+                        }}
+                        aria-label="Copy response"
+                        title="Copy response"
+                        className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                      >
+                        {copiedMessageId === msg.id ? (
+                          <>
+                            <Check className="w-3 h-3 text-emerald-600" />
+                            <span className="text-emerald-600 font-medium">Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3" />
+                            <span>Copy</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
 
                   {/* Retry action for error state */}
                   {msg.isError && lastUserPrompt && (
@@ -453,7 +483,7 @@ export default function GlobalAIAssistant() {
             <input
               ref={inputFieldRef}
               type="text"
-              placeholder="Ask anything: Where is PDF to Word? Explain SGPA..."
+              placeholder="Ask Saarvi AI..."
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder:text-slate-400 text-slate-800"

@@ -2094,8 +2094,14 @@ export const TOOLS_CONFIG: ToolDefinition[] = [
   }
 ];
 
+const SLUG_ALIASES: Record<string, string> = {
+  "reorder-pdf": "reorder-pdf-pages",
+  "image-compressor": "compress-image",
+};
+
 export function getToolBySlug(slug: string): ToolDefinition | undefined {
-  return TOOLS_CONFIG.find((t) => t.slug === slug);
+  const normalized = SLUG_ALIASES[slug] || slug;
+  return TOOLS_CONFIG.find((t) => t.slug === normalized || t.id === normalized || t.slug === slug || t.id === slug);
 }
 
 export function getPopularTools(): ToolDefinition[] {

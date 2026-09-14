@@ -196,9 +196,9 @@ export function resolveToolQuery(
   // =========================================================================
   // Common synonym map for high-frequency user intentions
   const intentMappings: Array<{ synonyms: string[]; targetKey: string }> = [
-    { synonyms: ['sgpa', 'sgpa calculator', 'semester gpa', 'calculate sgpa', 'my sgpa', 'calculate my sgpa', 'academic grade calculator'], targetKey: 'sgpa-calculator' },
-    { synonyms: ['cgpa', 'cgpa calculator', 'cumulative gpa', 'calculate cgpa', 'my cgpa', 'cgpa goal', 'target cgpa'], targetKey: 'cgpa-calculator' },
-    { synonyms: ['resume', 'resume builder', 'create resume', 'make resume', 'make a resume', 'cv', 'cv maker', 'ats resume'], targetKey: 'resume-builder' },
+    { synonyms: ['sgpa', 'sgpa calculator', 'semester gpa', 'calculate sgpa', 'my sgpa', 'calculate my sgpa', 'vtu sgpa', 'calculate vtu sgpa', 'vtu sgpa calculator', 'academic grade calculator'], targetKey: 'sgpa-calculator' },
+    { synonyms: ['cgpa', 'cgpa calculator', 'cumulative gpa', 'calculate cgpa', 'my cgpa', 'vtu cgpa', 'calculate vtu cgpa', 'vtu cgpa calculator', 'cgpa goal', 'target cgpa'], targetKey: 'cgpa-calculator' },
+    { synonyms: ['resume', 'resume builder', 'build resume', 'build professional resume', 'create resume', 'create professional resume', 'make resume', 'make a resume', 'cv', 'cv maker', 'ats resume'], targetKey: 'resume-builder' },
     { synonyms: ['cover letter', 'cover letter builder', 'make a cover letter', 'make cover letter', 'job letter', 'internship cover letter'], targetKey: 'cover-letter' },
     { synonyms: ['pdf to excel', 'convert pdf to excel', 'make spreadsheet from pdf', 'pdf to xlsx', 'extract table from pdf', 'pdf spreadsheet'], targetKey: 'pdf-to-excel' },
     { synonyms: ['excel to pdf', 'convert excel to pdf', 'xlsx to pdf', 'spreadsheet to pdf', 'sheet to pdf', 'turn excel into pdf'], targetKey: 'excel-to-pdf' },
@@ -207,11 +207,11 @@ export function resolveToolQuery(
     { synonyms: ['txt to pdf', 'convert txt to pdf', 'text to pdf', 'plain text to pdf', 'notepad to pdf'], targetKey: 'txt-to-pdf' },
     { synonyms: ['csv to pdf', 'convert csv to pdf', 'csv to table pdf', 'data to pdf'], targetKey: 'csv-to-pdf' },
     { synonyms: ['html to pdf', 'convert html to pdf', 'webpage to pdf', 'save html as pdf'], targetKey: 'html-to-pdf' },
-    { synonyms: ['pdf to jpg', 'convert pdf to jpg', 'pdf to image', 'extract jpg from pdf'], targetKey: 'pdf-to-jpg' },
-    { synonyms: ['jpg to pdf', 'convert jpg to pdf', 'photo to pdf', 'image to pdf'], targetKey: 'jpg-to-pdf' },
+    { synonyms: ['pdf to jpg', 'convert pdf to jpg', 'pdf to jpeg', 'convert pdf to jpeg', 'convert my pdf to jpeg', 'convert my pdf to jpg', 'pdf to jpg converter', 'pdf to image', 'extract jpg from pdf'], targetKey: 'pdf-to-jpg' },
+    { synonyms: ['jpg to pdf', 'convert jpg to pdf', 'jpeg to pdf', 'convert jpeg to pdf', 'photo to pdf', 'photos to pdf', 'image to pdf', 'make pdf from photos', 'make pdf from photo', 'create pdf from photos'], targetKey: 'jpg-to-pdf' },
     { synonyms: ['merge pdf', 'combine pdf', 'join pdf', 'combine pdfs'], targetKey: 'merge-pdf' },
     { synonyms: ['split pdf', 'cut pdf', 'separate pdf', 'extract pages'], targetKey: 'split-pdf' },
-    { synonyms: ['compress pdf', 'reduce pdf size', 'shrink pdf', 'pdf compressor'], targetKey: 'compress-pdf' },
+    { synonyms: ['compress pdf', 'reduce pdf size', 'reduce the size of my pdf', 'reduce pdf file size', 'compress my pdf', 'shrink pdf', 'pdf compressor'], targetKey: 'compress-pdf' },
     { synonyms: ['pdf to png', 'convert pdf to png'], targetKey: 'pdf-to-png' },
     { synonyms: ['png to pdf', 'convert png to pdf'], targetKey: 'png-to-pdf' },
     { synonyms: ['id photo', 'passport photo', 'id photo maker', 'crop photo'], targetKey: 'id-photo' },
@@ -239,7 +239,7 @@ export function resolveToolQuery(
     { synonyms: ['ocr pdf', 'scanned pdf to text', 'searchable pdf'], targetKey: 'ocr-pdf' },
     { synonyms: ['ai copilot', 'student copilot', 'academic copilot', 'ai assistant', 'study assistant'], targetKey: 'student-copilot' },
     { synonyms: ['mock interview', 'interview coach', 'ai interview'], targetKey: 'copilot-interview' },
-    { synonyms: ['ats scanner', 'ats analyzer', 'resume score', 'ats keyword scanner'], targetKey: 'ats-analyzer' },
+    { synonyms: ['ats scanner', 'ats analyzer', 'ats checker', 'check ats', 'resume score', 'ats score', 'ats keyword scanner'], targetKey: 'ats-analyzer' },
   ];
 
   let matchedTool: CanonicalTool | undefined;

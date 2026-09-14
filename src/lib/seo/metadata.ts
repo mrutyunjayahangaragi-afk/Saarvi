@@ -24,12 +24,12 @@ export function createMetadata({
   ogType = 'website',
   image = '/og-image.png',
 }: PageMetadataOptions): Metadata {
-  const baseUrl = SITE_CONFIG.url || 'https://saarvi.in';
+  const baseUrl = SITE_CONFIG.url || 'https://saarvi.app';
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   const canonicalUrl = `${baseUrl}${cleanPath === '/' ? '' : cleanPath}`;
 
   const formattedTitle =
-    title === 'Saarvi' || title.startsWith('Saarvi —')
+    title === 'Saarvi' || title.startsWith('Saarvi —') || title.includes('Saarvi')
       ? title
       : `${title} — Saarvi`;
 

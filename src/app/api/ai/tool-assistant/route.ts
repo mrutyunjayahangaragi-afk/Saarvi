@@ -3,6 +3,7 @@ import { resolveAssistantQuery } from '@/lib/ai/ai-assistant-router';
 import { featureServerStore } from '@/lib/features/feature-store';
 import { enforceRateLimit, createRateLimitResponse } from '@/lib/security/rate-limit';
 import { getAuthenticatedAdmin } from '@/lib/security/admin-auth';
+import { analyticsStore } from '@/lib/analytics/analytics-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,7 @@ export const dynamic = 'force-dynamic';
  * Evaluates CANONICAL_TOOL_REGISTRY deterministically first for instantaneous response.
  */
 export async function POST(request: Request) {
+  const startTime = Date.now();
   const rateLimit = enforceRateLimit(request, 'publicRead');
   if (!rateLimit.allowed) {
     return createRateLimitResponse(rateLimit);
@@ -55,6 +57,24 @@ export async function POST(request: Request) {
 
     // 4. Resolve query via AI Assistant 2.0 Router
     const execution = await resolveAssistantQuery(message, { isAdmin });
+    const durationMs = Date.now() - startTime;
+
+    // 5. Safe platform telemetry: aggregate intent, timing, and toolId only (never raw prompt or documents)
+    try {
+      await analyticsStore.logEvent({
+        eventType: 'ai_query',
+        toolId: execution.result.tools?.[0]?.key,
+        metadata: {
+          intent: execution.intent,
+          isDeterministic: execution.isDeterministic,
+          provider: execution.providerUsed || (execution.isDeterministic ? 'deterministic_knowledge' : 'openrouter'),
+          durationMs,
+          success: execution.success,
+        },
+      });
+    } catch (telemetryErr) {
+      console.warn('[AI Assistant API] Non-blocking telemetry log error:', telemetryErr);
+    }
 
     return NextResponse.json({
       success: execution.success,

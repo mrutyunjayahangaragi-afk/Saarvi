@@ -3,7 +3,8 @@ import { TOOLS_CONFIG } from '@/config/tools';
 import { SITE_CONFIG } from '@/config/site';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = SITE_CONFIG.url || 'https://saarvi.in';
+  // Canonical domain: https://saarvi.app (legacy compatibility: https://saarvi.in)
+  const baseUrl = SITE_CONFIG.url || 'https://saarvi.app';
   const now = new Date();
 
   // 1. Core Static Public Pages
@@ -35,7 +36,17 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/tools/document-summary`, lastModified: now, changeFrequency: 'weekly', priority: 0.75 },
   ];
 
-  // 4. Dynamic Tool Routes from TOOLS_CONFIG (Only public accessible tools)
+  // 4. Educational Blog & Tutorials
+  const blogRoutes: MetadataRoute.Sitemap = [
+    { url: `${baseUrl}/blog`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${baseUrl}/blog/how-to-convert-pdf-to-jpg`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${baseUrl}/blog/how-to-compress-pdf`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${baseUrl}/blog/how-to-convert-jpg-to-pdf`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${baseUrl}/blog/how-to-merge-pdf-files`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${baseUrl}/blog/pdf-vs-jpg`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
+  ];
+
+  // 5. Dynamic Tool Routes from TOOLS_CONFIG (Only public accessible tools)
   const dynamicToolRoutes: MetadataRoute.Sitemap = TOOLS_CONFIG
     .filter((tool) => !tool.requiresAuth)
     .map((tool) => ({
@@ -51,6 +62,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...staticRoutes,
     ...studentCalculatorRoutes,
     ...standaloneToolRoutes,
+    ...blogRoutes,
     ...dynamicToolRoutes,
   ].forEach((entry) => {
     if (!uniqueMap.has(entry.url)) {

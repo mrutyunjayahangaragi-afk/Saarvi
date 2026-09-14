@@ -7,8 +7,24 @@ import { SITE_CONFIG } from '@/config/site';
  * Zero fake reviews, zero fake ratings, zero fabricated testimonials.
  */
 
+export function generateOrganizationSchema() {
+  // Canonical domain: https://saarvi.app (legacy compatibility: https://saarvi.in)
+  const baseUrl = SITE_CONFIG.url || 'https://saarvi.app';
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'Saarvi',
+    url: baseUrl,
+    logo: `${baseUrl}/brand/saarvi-mark.png`,
+    description: 'Privacy-first document, image, student and career utility platform.',
+    sameAs: [
+      'https://github.com/mrutyunjayahangaragi-afk/Saarvi',
+    ],
+  };
+}
+
 export function generateWebSiteSchema() {
-  const baseUrl = SITE_CONFIG.url || 'https://saarvi.in';
+  const baseUrl = SITE_CONFIG.url || 'https://saarvi.app';
 
   return {
     '@context': 'https://schema.org',
@@ -28,13 +44,13 @@ export function generateWebSiteSchema() {
 }
 
 export function generateToolSchema(tool: ToolDefinition) {
-  const baseUrl = SITE_CONFIG.url || 'https://saarvi.in';
+  const baseUrl = SITE_CONFIG.url || 'https://saarvi.app';
 
   return {
     '@context': 'https://schema.org',
     '@type': 'WebApplication',
     name: `${tool.name} — Saarvi`,
-    description: tool.description,
+    description: tool.detailedDescription || tool.description,
     url: `${baseUrl}${tool.route}`,
     applicationCategory: 'UtilitiesApplication',
     operatingSystem: 'All',
@@ -67,7 +83,7 @@ export function generateFaqSchema(faqItems: Array<{ question: string; answer: st
 }
 
 export function generateBreadcrumbSchema(items: Array<{ name: string; url: string }>) {
-  const baseUrl = SITE_CONFIG.url || 'https://saarvi.in';
+  const baseUrl = SITE_CONFIG.url || 'https://saarvi.app';
 
   return {
     '@context': 'https://schema.org',
@@ -78,5 +94,46 @@ export function generateBreadcrumbSchema(items: Array<{ name: string; url: strin
       name: item.name,
       item: item.url.startsWith('http') ? item.url : `${baseUrl}${item.url.startsWith('/') ? '' : '/'}${item.url}`,
     })),
+  };
+}
+
+export function generateArticleSchema({
+  title,
+  description,
+  slug,
+  datePublished = '2026-09-01',
+  dateModified = '2026-09-14',
+}: {
+  title: string;
+  description: string;
+  slug: string;
+  datePublished?: string;
+  dateModified?: string;
+}) {
+  const baseUrl = SITE_CONFIG.url || 'https://saarvi.app';
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: title,
+    description,
+    author: {
+      '@type': 'Organization',
+      name: 'Saarvi Team',
+      url: baseUrl,
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Saarvi',
+      logo: {
+        '@type': 'ImageObject',
+        url: `${baseUrl}/brand/saarvi-mark.png`,
+      },
+    },
+    datePublished,
+    dateModified,
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': `${baseUrl}/blog/${slug}`,
+    },
   };
 }

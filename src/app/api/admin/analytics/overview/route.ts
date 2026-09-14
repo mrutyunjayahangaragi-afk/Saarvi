@@ -6,6 +6,8 @@ import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { MockStorageProvider } from '@/lib/supabase/mock-storage';
 import { adminAnalyticsService } from '@/lib/services/adminAnalyticsService';
 
+import { getAuthenticatedAdmin } from '@/lib/security/admin-auth';
+
 export const dynamic = 'force-dynamic';
 
 /**
@@ -16,6 +18,12 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   const rateLimit = enforceRateLimit(request, 'publicRead');
   if (!rateLimit.allowed) return createRateLimitResponse(rateLimit);
+
+  // Authorize server-authoritative admin session
+  const authResult = await getAuthenticatedAdmin(request, 'VIEW');
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status });
+  }
 
   try {
     const { searchParams } = new URL(request.url);

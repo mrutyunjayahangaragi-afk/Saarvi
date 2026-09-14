@@ -24,6 +24,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://saarvi.app"),
   title: {
     default: "Saarvi — Study. Work. Grow.",
     template: "%s — Saarvi",
@@ -31,6 +32,9 @@ export const metadata: Metadata = {
   description:
     "Convert, compress and manage documents with simple tools designed for students and everyday users.",
   applicationName: "Saarvi",
+  alternates: {
+    canonical: "https://saarvi.app",
+  },
   keywords: ["saarvi", "pdf tools", "image converter", "student tools", "compress pdf", "merge pdf", "id photo", "resume builder"],
   authors: [{ name: "Saarvi Team" }],
   manifest: "/manifest.webmanifest",

@@ -10,6 +10,7 @@ import ToolRunner from "@/components/tools/ToolRunner";
 import PrivacyBadge from "@/components/common/PrivacyBadge";
 import { createMetadata } from "@/lib/seo/metadata";
 import { featureServerStore } from "@/lib/features/feature-store";
+import { getToolSeoContent } from "@/config/tool-seo-content";
 import {
   generateToolSchema,
   generateBreadcrumbSchema,
@@ -48,7 +49,10 @@ import {
   Tags,
   Info,
   Scan,
-  FileCheck
+  FileCheck,
+  ShieldCheck,
+  ArrowRight,
+  CheckCircle2
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -106,9 +110,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     });
   }
 
+  const seo = getToolSeoContent(slug, tool.name, tool.detailedDescription || tool.description);
+
   return createMetadata({
-    title: tool.name,
-    description: tool.detailedDescription || tool.description,
+    title: seo.metaTitle,
+    description: seo.metaDescription,
     path: tool.route || `/tools/${slug}`,
     keywords: tool.keywords || [],
   });
@@ -122,6 +128,7 @@ export default async function ToolPage({ params }: PageProps) {
     notFound();
   }
 
+  const seo = getToolSeoContent(slug, tool.name, tool.detailedDescription || tool.description);
   const feature = featureServerStore.getFeature(tool.id) || featureServerStore.getFeature(slug);
   const isDisabled = feature?.status === "DISABLED";
   const isMaintenance = feature?.status === "MAINTENANCE";
@@ -175,22 +182,38 @@ export default async function ToolPage({ params }: PageProps) {
           <span className="font-semibold text-slate-800">{tool.name}</span>
         </nav>
 
-        {/* TOOL PAGE HERO: Do not waste top of page - immediately present tool, purpose, and privacy badge */}
+        {/* TOOL PAGE HERO: Immediate tool presence, H1, value proposition, and privacy badge */}
         <div className="text-center space-y-3.5 max-w-2xl mx-auto">
           <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 mx-auto shadow-xs hover-3d-lift">
             <IconComponent className="w-7 h-7" />
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-            {tool.name}
+            {seo.h1}
           </h1>
 
           <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-normal">
-            {tool.detailedDescription || tool.description}
+            {seo.valueProposition}
           </p>
 
           <div className="flex justify-center pt-1">
             <PrivacyBadge mode={tool.privacyLevel === "external" ? "EXTERNAL" : "LOCAL"} />
+          </div>
+
+          {/* Supported Format Badges */}
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-2 text-xs">
+            <span className="font-semibold text-slate-500">Input:</span>
+            {seo.supportedInputs.map((fmt, i) => (
+              <span key={i} className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium border border-slate-200">
+                {fmt}
+              </span>
+            ))}
+            <span className="font-semibold text-slate-500 ml-2">Output:</span>
+            {seo.supportedOutputs.map((fmt, i) => (
+              <span key={i} className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium border border-blue-200">
+                {fmt}
+              </span>
+            ))}
           </div>
         </div>
 
@@ -251,10 +274,10 @@ export default async function ToolPage({ params }: PageProps) {
               </div>
               <div className="space-y-1 max-w-md mx-auto">
                 <h3 className="text-base font-bold text-slate-800">
-                  {tool.name} is Scheduled for Phase 3
+                  {tool.name} is Coming Soon
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  We are developing this specialized utility for the next platform release. Phase 2 prioritizes real, working core document & image transformations without simulated placeholders.
+                  We are actively building this utility to run smoothly and privately in your browser.
                 </p>
               </div>
               <div className="pt-2">
@@ -269,7 +292,7 @@ export default async function ToolPage({ params }: PageProps) {
           )}
         </section>
 
-        {/* Tool Information & Specifications with Subtle 3D Card Surface */}
+        {/* Tool Information & Specifications */}
         <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 border-t border-slate-200/80">
           <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-1 hover-3d-lift">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
@@ -324,13 +347,98 @@ export default async function ToolPage({ params }: PageProps) {
           </section>
         )}
 
-        {/* Related Tools Section (Section 30: "You may also need") */}
+        {/* Unique In-Depth Educational & Technical Content (Phase 4 & 7) */}
+        <section className="space-y-6 pt-6 border-t border-slate-200/80">
+          <div className="space-y-3">
+            <h2 className="text-xl font-bold text-slate-900">About {seo.h1} & How It Works</h2>
+            <p className="text-sm text-slate-600 leading-relaxed font-normal">
+              {seo.overview}
+            </p>
+          </div>
+
+          {/* When to use */}
+          {seo.whenToUse && seo.whenToUse.length > 0 && (
+            <div className="space-y-3 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                When to use {tool.name}
+              </h3>
+              <ul className="space-y-2 text-xs text-slate-600">
+                {seo.whenToUse.map((useCase, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 mt-1.5 shrink-0" />
+                    <span>{useCase}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Technical highlights */}
+          {seo.technicalHighlights && seo.technicalHighlights.length > 0 && (
+            <div className="space-y-3 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-blue-600" />
+                Technical Capabilities
+              </h3>
+              <ul className="space-y-2 text-xs text-slate-600">
+                {seo.technicalHighlights.map((hl, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 mt-1.5 shrink-0" />
+                    <span>{hl}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Educational Articles / FAQs */}
+          {seo.educationalSections && seo.educationalSections.map((sec, idx) => (
+            <div key={idx} className="space-y-2 bg-slate-50/80 p-5 rounded-2xl border border-slate-200 text-xs">
+              <h4 className="font-bold text-slate-900 text-sm">{sec.title}</h4>
+              <p className="text-slate-600 leading-relaxed">{sec.content}</p>
+            </div>
+          ))}
+
+          {/* Privacy & Local Processing Guarantee */}
+          <div className="p-5 rounded-2xl bg-emerald-50/50 border border-emerald-200 space-y-2 text-xs text-emerald-900">
+            <div className="flex items-center gap-2 font-bold text-emerald-800 text-sm">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              Privacy & Local Processing Guarantee
+            </div>
+            <p className="leading-relaxed text-emerald-800/90 font-normal">
+              {seo.privacyDetails}
+            </p>
+          </div>
+        </section>
+
+        {/* Genuinely Related Tools with Descriptive Anchor Text (Phase 9) */}
         {relatedTools.length > 0 && (
-          <section className="space-y-4 pt-4 border-t border-slate-200/80">
-            <h2 className="text-xl font-bold text-slate-900">You may also need</h2>
+          <section className="space-y-4 pt-6 border-t border-slate-200/80">
+            <h2 className="text-xl font-bold text-slate-900">Complementary Document & Image Tools</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {relatedTools.slice(0, 3).map((rt) => (
-                <ToolCard key={rt.id} tool={rt} />
+                <Link
+                  key={rt.id}
+                  href={rt.route}
+                  className="group p-5 bg-white border border-slate-200/80 rounded-2xl space-y-3 shadow-xs hover-3d-lift transition-all block"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      {rt.category}
+                    </span>
+                    <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                    {rt.name}
+                  </h3>
+                  <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                    {rt.description}
+                  </p>
+                  <div className="pt-1 text-xs font-semibold text-blue-600 flex items-center gap-1">
+                    <span>Convert with {rt.name}</span>
+                  </div>
+                </Link>
               ))}
             </div>
           </section>
