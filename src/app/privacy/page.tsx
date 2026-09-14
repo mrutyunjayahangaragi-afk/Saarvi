@@ -142,15 +142,36 @@ export default function PrivacyPage() {
           {/* 4 */}
           <div className="space-y-3">
             <h2 className="text-lg font-bold text-slate-900">
-              4. Authentication & Google OAuth
+              4. Authentication & Google OAuth User Data Policy
             </h2>
 
             <p>
-              You can explore basic document tools without creating an account. When you sign up or log in, authentication is securely handled using Supabase Auth or Google OAuth (using standard PKCE flow and <code>prompt: select_account</code>).
+              You can explore basic document tools without creating an account. When you choose to sign up or log in using Google OAuth, authentication is securely handled using Supabase Auth (using standard PKCE flow and <code>prompt: select_account</code>).
             </p>
 
             <p>
-              We store only your authenticated email address, account identifier, and subscription role. We never receive or store your Google account password or private Google Drive contents.
+              <strong>Google User Data Collected:</strong> We access only non-sensitive basic profile information explicitly granted during sign-in: your primary Google email address, your display name, and your avatar URL. We never access, store, or receive your Google account password, Google Drive files, contacts, or Gmail messages.
+            </p>
+
+            <p>
+              <strong>Purpose & Use of Google Data:</strong> Google user data is used exclusively to authenticate your identity, create your unique user profile, and deliver transactional account notifications.
+            </p>
+
+            <p>
+              <strong>Google API Services User Data Policy Compliance:</strong> Saarvi&apos;s use and transfer to any other app of information received from Google APIs will adhere to the{" "}
+              <a
+                href="https://developers.google.com/terms/api-services-user-data-policy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-blue-600 hover:text-blue-700 underline"
+              >
+                Google API Services User Data Policy
+              </a>
+              , including the Limited Use requirements.
+            </p>
+
+            <p>
+              <strong>No Sharing or AI Training:</strong> We do not sell, lease, or transfer Google user data to data brokers, advertisers, or third-party marketing services. Google user data is never used to develop, improve, or train generalized machine learning or artificial intelligence models.
             </p>
           </div>
 
