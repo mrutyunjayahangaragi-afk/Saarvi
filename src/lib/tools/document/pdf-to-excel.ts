@@ -1,14 +1,10 @@
-import * as pdfjsLib from "pdfjs-dist";
+import type * as pdfjsLib from "pdfjs-dist";
 import JSZip from "jszip";
 import { ToolOperation, SingleFileResult, MultiFileResult, ValidationResult } from "../types";
 import { readFileAsArrayBuffer } from "../../utils";
 import { validateInputFile, sanitizeFilename } from "../../security/file-security";
 import { buildXlsxWorkbook, XlsxSheetData } from "./openxml-helper";
-
-// Ensure worker is configured for browser execution
-if (typeof window !== "undefined") {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-}
+import { loadPdfjs } from "../pdf/pdfjs-loader";
 
 export interface PdfToExcelConfig {
   sheetPerPage?: boolean;
@@ -173,11 +169,9 @@ async function convertSinglePdfToXlsx(
   if (onProgress) onProgress(15);
 
   const arrayBuffer = await readFileAsArrayBuffer(file);
-  if (typeof window !== "undefined" && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-  }
+  const pdfjs = await loadPdfjs();
 
-  const loadingTask = pdfjsLib.getDocument({
+  const loadingTask = pdfjs.getDocument({
     data: arrayBuffer,
     cMapUrl: typeof window !== "undefined" ? "/cmaps/" : undefined,
     cMapPacked: true,

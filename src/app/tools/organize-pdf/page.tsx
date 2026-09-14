@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import * as pdfjsLib from "pdfjs-dist";
 import { PDFDocument, degrees } from "pdf-lib";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -23,10 +22,7 @@ import {
   Check,
 } from "lucide-react";
 import { formatBytes } from "@/lib/utils";
-
-if (typeof window !== "undefined") {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-}
+import { loadPdfjs } from "@/lib/tools/pdf/pdfjs-loader";
 
 interface PageItem {
   originalIndex: number; // 0-based index in source PDF
@@ -77,6 +73,7 @@ export default function OrganizePdfPage() {
 
     try {
       const arrayBuffer = await file.arrayBuffer();
+      const pdfjsLib = await loadPdfjs();
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       const pdfDoc = await loadingTask.promise;
       const numPages = pdfDoc.numPages;

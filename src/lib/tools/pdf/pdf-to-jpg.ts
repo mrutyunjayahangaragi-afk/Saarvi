@@ -1,12 +1,7 @@
-import * as pdfjsLib from "pdfjs-dist";
 import JSZip from "jszip";
 import { ToolOperation, MultiFileResult, ValidationResult } from "../types";
 import { readFileAsArrayBuffer } from "@/lib/utils";
-
-// Ensure worker is configured for browser execution
-if (typeof window !== "undefined") {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-}
+import { loadPdfjs } from "./pdfjs-loader";
 
 export interface PdfToJpgConfig {
   scale?: number; // 1.5 default for good clarity
@@ -39,6 +34,7 @@ export const pdfToJpgOperation: ToolOperation<PdfToJpgConfig, MultiFileResult> =
     const file = files[0];
     if (onProgress) onProgress(10);
 
+    const pdfjsLib = await loadPdfjs();
     const arrayBuffer = await readFileAsArrayBuffer(file);
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdfDoc = await loadingTask.promise;

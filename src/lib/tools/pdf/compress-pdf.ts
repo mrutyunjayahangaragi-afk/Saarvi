@@ -1,11 +1,7 @@
-import * as pdfjsLib from "pdfjs-dist";
 import { PDFDocument } from "pdf-lib";
 import { ToolOperation, SingleFileResult, ValidationResult } from "../types";
 import { readFileAsArrayBuffer } from "@/lib/utils";
-
-if (typeof window !== "undefined") {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-}
+import { loadPdfjs } from "./pdfjs-loader";
 
 export type CompressionPreset = "low" | "balanced" | "high";
 
@@ -44,6 +40,7 @@ export const compressPdfOperation: ToolOperation<CompressPdfConfig, SingleFileRe
     const file = files[0];
     if (onProgress) onProgress(10);
 
+    const pdfjsLib = await loadPdfjs();
     const arrayBuffer = await readFileAsArrayBuffer(file);
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdfDoc = await loadingTask.promise;
