@@ -1,18 +1,16 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
   Sparkles,
   X,
   Send,
-  ExternalLink,
   ArrowRight,
   Bot,
-  Lock,
-  AlertCircle,
-  ChevronRight,
-  Compass,
+  RotateCcw,
+  RefreshCw,
+  Trash2,
 } from 'lucide-react';
 import { ToolDiscoveryResult, DiscoveredToolItem } from '@/lib/ai/tool-discovery-engine';
 import { isValidCanonicalRoute } from '@/lib/ai/ai-assistant-router';
@@ -23,35 +21,65 @@ interface ChatMessage {
   text: string;
   result?: ToolDiscoveryResult;
   timestamp: string;
+  isError?: boolean;
 }
 
 const QUICK_PROMPTS = [
-  'Where is SGPA Calculator?',
-  'Where can I create a resume?',
-  'Where is PDF to JPG?',
-  'Show me Student Tools',
+  'Where is PDF to Word?',
+  'What can Saarvi do?',
+  'Help me prepare for interviews',
+  'Explain SGPA',
+  'Help me create a resume',
 ];
+
+const INITIAL_MESSAGE: ChatMessage = {
+  id: 'welcome',
+  sender: 'assistant',
+  text: "Hi! I'm Saarvi AI. I can help you find tools, understand Saarvi features, plan your studies, prepare for your career, and answer general questions. What would you like to work on?",
+  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+};
+
+const STORAGE_KEY = 'saarvi_ai_chat_history';
 
 export default function GlobalAIAssistant() {
   const router = useRouter();
-  const pathname = usePathname();
 
   const [isOpen, setIsOpen] = useState(false);
   const [hiddenByAdGate, setHiddenByAdGate] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      sender: 'assistant',
-      text: 'Hello! I am Saarvi AI. Ask me where to find any academic, PDF, image, or career tool.',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_MESSAGE]);
   const [inputValue, setInputValue] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [lastUserPrompt, setLastUserPrompt] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const triggerButtonRef = useRef<HTMLButtonElement | null>(null);
   const inputFieldRef = useRef<HTMLInputElement | null>(null);
+
+  // Load chat history from local browser storage on mount (zero cloud telemetry)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+        }
+      }
+    } catch {
+      // Fallback to default
+    }
+  }, []);
+
+  // Save chat history to local browser storage whenever messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-30)));
+      } catch {
+        // Storage limit protection
+      }
+    }
+  }, [messages]);
 
   // Listen to advertisement gate state changes
   useEffect(() => {
@@ -95,10 +123,25 @@ export default function GlobalAIAssistant() {
     }
   }, [messages, isOpen]);
 
+  // Clear chat history
+  const handleClearChat = () => {
+    setMessages([
+      {
+        ...INITIAL_MESSAGE,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ]);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
+  };
+
   // Send message
   const handleSendMessage = async (queryText?: string) => {
     const textToSend = (queryText || inputValue).trim();
     if (!textToSend || isSearching) return;
+
+    setLastUserPrompt(textToSend);
 
     const userMessage: ChatMessage = {
       id: `usr_${Date.now()}`,
@@ -120,15 +163,18 @@ export default function GlobalAIAssistant() {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to search tools');
+        throw new Error(data.error || 'Failed to process request');
       }
 
-      const result: ToolDiscoveryResult = data.result;
+      const result: ToolDiscoveryResult = data.result || {
+        type: 'NO_MATCH',
+        reply: data.reply || 'Here is what I found.',
+      };
 
       const aiMessage: ChatMessage = {
         id: `ai_${Date.now()}`,
         sender: 'assistant',
-        text: result.reply,
+        text: data.reply || result.reply,
         result,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
@@ -138,7 +184,8 @@ export default function GlobalAIAssistant() {
       const errorMessage: ChatMessage = {
         id: `err_${Date.now()}`,
         sender: 'assistant',
-        text: "I couldn't complete that search right now. Please try again.",
+        text: "Saarvi AI is temporarily unavailable, but I can still help you find Saarvi tools. Please try again or ask for PDF, Image, Student, or Career utilities.",
+        isError: true,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -147,11 +194,33 @@ export default function GlobalAIAssistant() {
     }
   };
 
-  const handleNavigate = (route: string) => {
+  // Retry last query
+  const handleRetry = () => {
+    if (lastUserPrompt) {
+      handleSendMessage(lastUserPrompt);
+    }
+  };
+
+  // Navigate to verified route with safe analytics tracking
+  const handleNavigate = (route: string, toolId?: string) => {
     if (!isValidCanonicalRoute(route)) {
       console.warn('[GlobalAIAssistant] Blocked unverified route:', route);
       return;
     }
+
+    // Telemetry dispatch: AI_TOOL_OPEN (strictly safe metadata; zero private user content)
+    try {
+      fetch('/api/analytics/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType: 'AI_TOOL_OPEN',
+          toolId: toolId || route.replace(/^\/(tools|student|career)\//, ''),
+          metadata: { source: 'ai_assistant', route },
+        }),
+      }).catch(() => {});
+    } catch {}
+
     setIsOpen(false);
     router.push(route);
   };
@@ -176,8 +245,8 @@ export default function GlobalAIAssistant() {
           onClick={() => setIsOpen(true)}
           aria-label="Saarvi AI Assistant"
           aria-expanded={isOpen}
-          title="Saarvi AI Assistant — Ask where to find any tool"
-          className="min-h-[48px] min-w-[48px] px-4 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-xl hover:shadow-2xl flex items-center gap-2 font-bold text-xs transition-all duration-200 active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-300 select-none group"
+          title="Saarvi AI Assistant — Ask me anything about Saarvi, study, work, or career"
+          className="min-h-[48px] min-w-[48px] px-4 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-xl hover:shadow-2xl flex items-center gap-2 font-bold text-xs transition-all duration-200 active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-300 select-none group cursor-pointer"
         >
           <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center group-hover:rotate-12 transition-transform">
             <Sparkles className="w-3.5 h-3.5 text-white" />
@@ -190,8 +259,8 @@ export default function GlobalAIAssistant() {
       {isOpen && (
         <div
           role="dialog"
-          aria-label="Saarvi AI Tool Finder"
-          className="w-[360px] sm:w-[400px] max-w-[calc(100vw-32px)] h-[560px] max-h-[min(580px,calc(100vh-100px))] flex flex-col bg-white rounded-2xl border border-slate-200/90 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
+          aria-label="Saarvi AI Assistant"
+          className="w-[360px] sm:w-[420px] max-w-[calc(100vw-32px)] h-[580px] max-h-[min(600px,calc(100vh-100px))] flex flex-col bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200 select-none"
         >
           {/* Header */}
           <div className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-between shrink-0 shadow-sm">
@@ -203,23 +272,35 @@ export default function GlobalAIAssistant() {
                 <div className="text-sm font-bold tracking-tight flex items-center gap-1.5">
                   <span>Saarvi AI</span>
                   <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-white/20 text-white">
-                    Tools
+                    2.0
                   </span>
                 </div>
-                <div className="text-[11px] text-blue-100">Ask me where to find any tool</div>
+                <div className="text-[11px] text-blue-100">
+                  Ask me anything about Saarvi, study, work, or career
+                </div>
               </div>
             </div>
 
-            <button
-              onClick={() => {
-                setIsOpen(false);
-                triggerButtonRef.current?.focus();
-              }}
-              aria-label="Close Saarvi AI panel"
-              className="p-1.5 rounded-lg hover:bg-white/20 text-blue-100 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-white"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleClearChat}
+                aria-label="Clear chat history"
+                title="Clear chat history"
+                className="p-1.5 rounded-lg hover:bg-white/20 text-blue-100 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-white cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  triggerButtonRef.current?.focus();
+                }}
+                aria-label="Close Saarvi AI panel"
+                className="p-1.5 rounded-lg hover:bg-white/20 text-blue-100 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Messages Container */}
@@ -235,10 +316,26 @@ export default function GlobalAIAssistant() {
                   className={`max-w-[88%] rounded-2xl p-3.5 text-xs shadow-xs leading-relaxed ${
                     msg.sender === 'user'
                       ? 'bg-blue-600 text-white rounded-br-sm'
+                      : msg.isError
+                      ? 'bg-red-50 text-red-800 border border-red-200 rounded-bl-sm'
                       : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-sm'
                   }`}
                 >
-                  <p>{msg.text}</p>
+                  <div className="whitespace-pre-wrap">{msg.text}</div>
+
+                  {/* Retry action for error state */}
+                  {msg.isError && lastUserPrompt && (
+                    <div className="mt-2.5 pt-2 border-t border-red-200/60 flex justify-end">
+                      <button
+                        onClick={handleRetry}
+                        disabled={isSearching}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold shadow-2xs transition active:scale-95 cursor-pointer"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>Retry</span>
+                      </button>
+                    </div>
+                  )}
 
                   {/* Tool Discovery Cards */}
                   {msg.result && msg.result.tools && msg.result.tools.length > 0 && (
@@ -246,7 +343,7 @@ export default function GlobalAIAssistant() {
                       {msg.result.tools.map((tool) => (
                         <div
                           key={tool.key}
-                          className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 hover:border-blue-200 transition-colors"
+                          className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 hover:border-blue-200 transition-colors"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
@@ -282,16 +379,16 @@ export default function GlobalAIAssistant() {
                               </span>
                             ) : tool.requiresPro ? (
                               <button
-                                onClick={() => handleNavigate('/pricing')}
-                                className="min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-bold shadow-xs transition-transform active:scale-95"
+                                onClick={() => handleNavigate('/pricing', tool.key)}
+                                className="min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-bold shadow-xs transition-transform active:scale-95 cursor-pointer"
                               >
                                 View Pro / Open Tool
                                 <ArrowRight className="w-3 h-3" />
                               </button>
                             ) : (
                               <button
-                                onClick={() => handleNavigate(tool.route)}
-                                className="min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold shadow-xs transition-transform active:scale-95"
+                                onClick={() => handleNavigate(tool.route, tool.key)}
+                                className="min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold shadow-xs transition-transform active:scale-95 cursor-pointer"
                               >
                                 Open {tool.name}
                                 <ArrowRight className="w-3 h-3" />
@@ -308,7 +405,7 @@ export default function GlobalAIAssistant() {
                     <div className="mt-2 pt-2 border-t border-slate-100 flex justify-end">
                       <button
                         onClick={() => handleNavigate(msg.result!.categoryRoute!)}
-                        className="min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold"
+                        className="min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold cursor-pointer"
                       >
                         Open {msg.result.categoryName || 'Category'}
                         <ArrowRight className="w-3 h-3" />
@@ -325,20 +422,20 @@ export default function GlobalAIAssistant() {
             {isSearching && (
               <div className="flex items-center gap-2 text-xs text-slate-400 p-2">
                 <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                <span>Searching canonical tool registry...</span>
+                <span>Thinking...</span>
               </div>
             )}
 
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick Suggestions Chips */}
+          {/* Suggested Prompts Chips */}
           <div className="px-3 py-2 bg-white border-t border-slate-100 overflow-x-auto flex items-center gap-1.5 no-scrollbar shrink-0">
             {QUICK_PROMPTS.map((prompt, idx) => (
               <button
                 key={idx}
                 onClick={() => handleSendMessage(prompt)}
-                className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[11px] font-medium transition-colors shrink-0"
+                className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[11px] font-medium transition-colors shrink-0 cursor-pointer"
               >
                 {prompt}
               </button>
@@ -351,21 +448,21 @@ export default function GlobalAIAssistant() {
               e.preventDefault();
               handleSendMessage();
             }}
-            className="p-3 bg-white border-t border-slate-200/80 flex items-center gap-2 shrink-0"
+            className="p-3 bg-white border-t border-slate-200 flex items-center gap-2 shrink-0"
           >
             <input
               ref={inputFieldRef}
               type="text"
-              placeholder="Ask: Where is SGPA Calculator?..."
+              placeholder="Ask anything: Where is PDF to Word? Explain SGPA..."
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder:text-slate-400"
+              className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder:text-slate-400 text-slate-800"
             />
             <button
               type="submit"
               disabled={!inputValue.trim() || isSearching}
               aria-label="Send query"
-              className="min-h-[40px] min-w-[40px] p-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white flex items-center justify-center transition-transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="min-h-[40px] min-w-[40px] p-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white flex items-center justify-center transition-transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer"
             >
               <Send className="w-4 h-4" />
             </button>

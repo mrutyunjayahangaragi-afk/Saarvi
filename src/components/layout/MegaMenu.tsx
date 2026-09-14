@@ -108,10 +108,26 @@ function MenuItem({ tool, featureFlag, onClick }: MenuItemProps) {
   const isSubscription = resolved.isSubscription;
   const isComingSoon = tool.status === "coming_soon";
 
+  const handleClick = () => {
+    try {
+      fetch('/api/analytics/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType: 'MEGA_MENU_TOOL_CLICK',
+          toolId: tool.key,
+          toolSlug: tool.key,
+          metadata: { source: 'mega_menu', category: tool.category },
+        }),
+      }).catch(() => {});
+    } catch {}
+    if (onClick) onClick();
+  };
+
   return (
     <Link
       href={tool.route}
-      onClick={onClick}
+      onClick={handleClick}
       className="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-100/70 transition-all duration-150 relative cursor-pointer"
     >
       <div className="w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-blue-600 text-slate-600 group-hover:text-white flex items-center justify-center shrink-0 transition-colors shadow-xs">
@@ -156,6 +172,7 @@ export default function MegaMenu({
   onClose
 }: MegaMenuProps) {
   const [featureFlags, setFeatureFlags] = useState<Record<string, FeatureFlag>>({});
+  const [navCategories, setNavCategories] = useState<any[]>([]);
 
   useEffect(() => {
     async function loadFlags() {
@@ -176,17 +193,51 @@ export default function MegaMenu({
         // Fallback to defaults
       }
     }
+
+    async function loadNavigation() {
+      try {
+        const res = await fetch("/api/navigation", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.categories && Array.isArray(data.categories)) {
+            setNavCategories(data.categories);
+          }
+        }
+      } catch {
+        // Fallback to registry
+      }
+    }
+
     loadFlags();
+    loadNavigation();
   }, []);
 
   if (!activeCategory) return null;
 
-  const pdfTools = getCanonicalToolsByCategory("pdf");
-  const imageTools = getCanonicalToolsByCategory("image");
-  const academicTools = getCanonicalToolsByCategory("academic");
-  const studentTools = getCanonicalToolsByCategory("student");
-  const careerTools = getCanonicalToolsByCategory("career");
-  const aiTools = getCanonicalToolsByCategory("ai");
+  const getToolsForCategory = (catId: string, fallbackTools: CanonicalTool[]): CanonicalTool[] => {
+    const cat = navCategories.find((c: any) => c.id === catId);
+    if (!cat || !cat.tools || cat.tools.length === 0) {
+      return fallbackTools;
+    }
+    return cat.tools
+      .filter((t: any) => t.visibleInMegaMenu !== false && t.status !== 'DISABLED')
+      .map((t: any) => {
+        const canonical = CANONICAL_TOOL_REGISTRY.find((c) => c.key === t.key);
+        if (!canonical) return null;
+        return {
+          ...canonical,
+          badge: t.badge !== undefined ? t.badge : canonical.badge,
+        };
+      })
+      .filter(Boolean) as CanonicalTool[];
+  };
+
+  const pdfTools = getToolsForCategory("pdf", getCanonicalToolsByCategory("pdf"));
+  const imageTools = getToolsForCategory("image", getCanonicalToolsByCategory("image"));
+  const academicTools = getToolsForCategory("academic", getCanonicalToolsByCategory("academic"));
+  const studentTools = getToolsForCategory("student", getCanonicalToolsByCategory("student"));
+  const careerTools = getToolsForCategory("career", getCanonicalToolsByCategory("career"));
+  const aiTools = getToolsForCategory("ai", getCanonicalToolsByCategory("ai"));
 
   return (
     <div

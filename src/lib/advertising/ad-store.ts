@@ -573,6 +573,29 @@ class AdvertisementStore {
       this.events.pop(); // Cap memory retention
     }
 
+    // Persist to Supabase ad_analytics_events table
+    try {
+      const supabase = getSupabaseAdminClient();
+      if (supabase) {
+        supabase
+          .from('ad_analytics_events')
+          .insert({
+            id: event.id,
+            ad_id: event.adId,
+            event_type: event.eventType,
+            user_id: event.userId || null,
+            metadata: event.metadata || {},
+            created_at: event.timestamp,
+          })
+          .then(
+            ({ error }) => {
+              if (error) console.warn('[Supabase ad_analytics_events insert error]:', error.message);
+            },
+            () => {}
+          );
+      }
+    } catch {}
+
     return event;
   }
 

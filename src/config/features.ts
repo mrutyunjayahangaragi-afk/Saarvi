@@ -231,13 +231,13 @@ export const FEATURES_REGISTRY: Record<FeatureId, FeatureDefinition> = {
   // =========================================================================
   vtu_sgpa: {
     id: 'vtu_sgpa',
-    name: 'VTU SGPA Calculator',
+    name: 'SGPA Calculator',
     category: 'student',
     requiredPlan: 'guest',
     enabled: true,
     availability: 'available',
     processingType: 'local',
-    description: 'VTU 2022 Scheme semester grade point engine with adaptive CIE/SEE input.',
+    description: 'Semester grade point engine with adaptive CIE/SEE and total marks input.',
     toolSlug: 'vtu-sgpa',
   },
   vtu_cgpa: {
@@ -563,5 +563,25 @@ export const FEATURES_REGISTRY: Record<FeatureId, FeatureDefinition> = {
     processingType: 'server',
     description: 'Programmatic API keys for automated document conversions.',
     proNotice: 'Planned Pro capability.',
+  },
+  ai_assistant: {
+    id: 'ai_assistant',
+    name: 'Saarvi AI Assistant 2.0',
+    category: 'ai',
+    requiredPlan: 'guest',
+    enabled: true,
+    availability: 'available',
+    processingType: 'server',
+    description: 'Floating Saarvi AI assistant for tool discovery, study guidance, career help, and platform assistance.',
+  },
+  navigation_management: {
+    id: 'navigation_management',
+    name: 'Navbar & Navigation Management',
+    category: 'developer',
+    requiredPlan: 'free',
+    enabled: true,
+    availability: 'available',
+    processingType: 'server',
+    description: 'Super Admin control for adding, removing, and reordering Navbar and Mega Menu tools.',
   },
 };

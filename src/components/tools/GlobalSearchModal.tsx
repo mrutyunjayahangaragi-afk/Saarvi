@@ -426,6 +426,18 @@ export default function GlobalSearchModal({
     if (query.trim()) {
       saveRecentSearch(query);
     }
+    try {
+      fetch('/api/analytics/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType: 'SEARCH_TOOL_OPEN',
+          toolId: item.id,
+          toolSlug: item.id,
+          metadata: { source: 'search', domain: item.domain, route: item.route },
+        }),
+      }).catch(() => {});
+    } catch {}
     router.push(item.route);
     onClose();
   };

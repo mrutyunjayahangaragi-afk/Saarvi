@@ -39,6 +39,37 @@ export default function Navbar() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [navCategories, setNavCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function loadNav() {
+      try {
+        const res = await fetch("/api/navigation", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.categories && Array.isArray(data.categories)) {
+            setNavCategories(data.categories);
+          }
+        }
+      } catch {}
+    }
+    loadNav();
+  }, []);
+
+  const handleToolClick = (toolId: string, category: string) => {
+    try {
+      fetch('/api/analytics/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType: 'NAVBAR_TOOL_CLICK',
+          toolId,
+          toolSlug: toolId,
+          metadata: { source: 'navbar', category },
+        }),
+      }).catch(() => {});
+    } catch {}
+  };
 
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const accountDropdownRef = useRef<HTMLDivElement>(null);

@@ -130,12 +130,15 @@ export const adminAnalyticsService = {
     const trend = this.calculateTrend(currentNewUsers.length, previousNewUsers.length);
 
     // Active users: accounts with genuine lastSignInAt inside the selected window
-    const rawStoredUsers = MockStorageProvider.listAllUsers();
-    const activeInPeriod = rawStoredUsers.filter((u) => {
+    const activeInPeriod = allUsers.filter((u) => {
       if (!u.lastSignInAt) return false;
       const lastLogin = new Date(u.lastSignInAt);
       return lastLogin >= boundaries.currentStart && lastLogin <= boundaries.currentEnd;
     });
+
+    const proUsers = allUsers.filter((u) => u.plan === 'PRO').length;
+    const freeUsers = Math.max(0, allUsers.length - proUsers);
+    const suspendedUsers = allUsers.filter((u) => u.status === 'SUSPENDED').length;
 
     return {
       totalUsers: allUsers.length,
@@ -143,13 +146,17 @@ export const adminAnalyticsService = {
       previousNewUsers: previousNewUsers.length,
       trend,
       activeUsers: activeInPeriod.length,
+      freeUsers,
+      proUsers,
+      suspendedUsers,
       activeUsersLabel: 'Based on recorded account sign-in activity in the selected period',
     };
   },
 
   async getUserGrowthTimeSeries(period: DateRangePeriod, customStart?: string, customEnd?: string): Promise<TimeSeriesPoint[]> {
     const boundaries = this.getDateRangeBoundaries(period, customStart, customEnd);
-    const rawStoredUsers = MockStorageProvider.listAllUsers();
+    const usersRes = await adminService.listUsers({ limit: 10000 });
+    const rawStoredUsers = usersRes.users;
 
     const points: TimeSeriesPoint[] = [];
     const stepDays = boundaries.daysCount <= 1 ? 1 : boundaries.daysCount <= 14 ? 1 : boundaries.daysCount <= 60 ? 3 : 7;
@@ -184,7 +191,8 @@ export const adminAnalyticsService = {
 
   async getNewUsersTimeSeries(period: DateRangePeriod, customStart?: string, customEnd?: string): Promise<TimeSeriesPoint[]> {
     const boundaries = this.getDateRangeBoundaries(period, customStart, customEnd);
-    const rawStoredUsers = MockStorageProvider.listAllUsers();
+    const usersRes = await adminService.listUsers({ limit: 10000 });
+    const rawStoredUsers = usersRes.users;
 
     const points: TimeSeriesPoint[] = [];
     const stepDays = boundaries.daysCount <= 1 ? 1 : boundaries.daysCount <= 14 ? 1 : boundaries.daysCount <= 60 ? 2 : 5;
@@ -211,7 +219,8 @@ export const adminAnalyticsService = {
   },
 
   async getAccountStatusDistribution(): Promise<CategoryDistribution[]> {
-    const rawStoredUsers = MockStorageProvider.listAllUsers();
+    const usersRes = await adminService.listUsers({ limit: 10000 });
+    const rawStoredUsers = usersRes.users;
     const counts: Record<UserAccountStatus, number> = {
       ACTIVE: 0,
       SUSPENDED: 0,
@@ -648,6 +657,9 @@ export const adminAnalyticsService = {
       newUsersDiff: userMetrics.trend.diff,
       activeUsers: userMetrics.activeUsers,
       activeUsersLabel: userMetrics.activeUsersLabel,
+      freeUsers: userMetrics.freeUsers,
+      proUsers: userMetrics.proUsers,
+      suspendedUsers: userMetrics.suspendedUsers,
       totalTools: toolMetrics.total,
       enabledTools: toolMetrics.available,
       disabledTools: toolMetrics.disabled,

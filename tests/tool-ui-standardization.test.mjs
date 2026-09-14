@@ -180,7 +180,7 @@ describe("Saarvi Tool UI/UX Standardization Test Suite", () => {
     );
   });
 
-  test("SGPA Calculator has deterministic title per university and breadcrumbs", () => {
+  test("SGPA Calculator has standardized title and breadcrumbs", () => {
     const sgpa = fs.readFileSync(
       path.join(SRC_DIR, "app/student/sgpa-calculator/page.tsx"),
       "utf-8"
@@ -190,12 +190,8 @@ describe("Saarvi Tool UI/UX Standardization Test Suite", () => {
       "sgpa-calculator must have Breadcrumb"
     );
     assert.ok(
-      sgpa.includes("selectedUnivObj?.code === \"VTU\""),
-      "sgpa-calculator must check VTU code for VTU title"
-    );
-    assert.ok(
-      sgpa.includes("VTU SGPA Calculator"),
-      "sgpa-calculator must provide VTU SGPA Calculator title"
+      sgpa.includes("SGPA Calculator"),
+      "sgpa-calculator must provide SGPA Calculator title"
     );
   });
 

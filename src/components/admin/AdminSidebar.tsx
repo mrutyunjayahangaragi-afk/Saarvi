@@ -25,6 +25,7 @@ import {
   Sparkles,
   CreditCard,
   Megaphone,
+  Navigation,
 } from 'lucide-react';
 import { SaarviMark } from '@/components/brand/SaarviLogo';
 import { useAuth } from '@/context/AuthContext';
@@ -56,6 +57,7 @@ export default function AdminSidebar({
       locked: !isSuperAdmin,
     },
     { label: 'Tools', href: '/admin/tools', icon: Wrench },
+    { label: 'Navigation & Tools', href: '/admin/navigation', icon: Navigation },
     { label: 'Student Tools', href: '/admin/student-tools', icon: GraduationCap },
     { label: 'Curriculum', href: '/admin/curriculum', icon: BookOpen },
     { label: 'Feature Flags', href: '/admin/features', icon: ToggleLeft },

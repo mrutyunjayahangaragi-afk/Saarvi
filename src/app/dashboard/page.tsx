@@ -381,7 +381,7 @@ export default function DashboardOverviewPage() {
         {/* Student Quick Launch Shortcuts */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-1">
           {[
-            { label: "VTU SGPA", route: "/student/sgpa-calculator", icon: Calculator, color: "text-blue-600", bg: "bg-blue-50" },
+            { label: "SGPA Calculator", route: "/student/sgpa-calculator", icon: Calculator, color: "text-blue-600", bg: "bg-blue-50" },
             { label: "VTU CGPA", route: "/student/cgpa-calculator", icon: Award, color: "text-indigo-600", bg: "bg-indigo-50" },
             { label: "Attendance Target", route: "/student/attendance", icon: Clock, color: "text-emerald-600", bg: "bg-emerald-50" },
             { label: "Resume Builder", route: "/student/resume", icon: FileText, color: "text-purple-600", bg: "bg-purple-50" },

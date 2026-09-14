@@ -25,6 +25,7 @@ import type { UserProfile, UserRole, UserAccountStatus } from '@/types/auth';
 import { MockStorageProvider } from '../supabase/mock-storage';
 import { isSupabaseConfigured } from '../supabase/config';
 import { createClient } from '../supabase/client';
+import { getSupabaseAdminClient } from '../supabase/admin';
 import { featureServerStore } from '../features/feature-store';
 
 export interface AdminActor {
@@ -820,18 +821,67 @@ export const adminService = {
     >;
     total: number;
   }> {
-    let all = MockStorageProvider.listAllUsers().map((u) => ({
-      id: u.id,
-      email: u.email,
-      fullName: u.fullName,
-      role: u.role,
-      status: u.status || 'ACTIVE',
-      createdAt: u.createdAt,
-      updatedAt: u.updatedAt,
-      authProvider: u.authProvider || (u.email.includes('gmail.com') ? 'GOOGLE' : 'EMAIL'),
-      plan: u.plan || (u.role === 'SUPER_ADMIN' || u.role === 'ADMIN' ? 'PRO' : 'FREE'),
-      lastSignInAt: u.lastSignInAt,
-    }));
+    let all: Array<
+      Omit<UserProfile, 'avatarUrl'> & {
+        status: UserAccountStatus;
+        authProvider?: 'EMAIL' | 'GOOGLE';
+        plan?: 'FREE' | 'PRO';
+        lastSignInAt?: string;
+      }
+    > = [];
+
+    if (typeof window === 'undefined' && isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabaseAdminClient();
+        if (supabase) {
+          const { data: authData } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+          const { data: profiles } = await supabase.from('profiles').select('*');
+          const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+          const { data: subs } = await supabase.from('subscriptions').select('user_id').eq('status', 'active');
+          const proSet = new Set((subs || []).map((s) => s.user_id));
+
+          all = (authData?.users || []).map((u) => {
+            const prof = profileMap.get(u.id);
+            const role = (prof?.role || u.user_metadata?.role || 'USER') as UserRole;
+            const isBanned = Boolean(u.banned_until && new Date(u.banned_until) > new Date());
+            const status: UserAccountStatus = isBanned || u.user_metadata?.status === 'SUSPENDED' ? 'SUSPENDED' : 'ACTIVE';
+            const plan: 'FREE' | 'PRO' = proSet.has(u.id) ? 'PRO' : 'FREE';
+            const authProvider = (u.app_metadata?.provider || (u.email?.includes('gmail.com') ? 'google' : 'email')).toUpperCase() as 'EMAIL' | 'GOOGLE';
+            const fullName = prof?.full_name || u.user_metadata?.full_name || u.user_metadata?.name || (u.email ? u.email.split('@')[0] : 'User');
+
+            return {
+              id: u.id,
+              email: u.email || '',
+              fullName,
+              role,
+              status,
+              createdAt: u.created_at,
+              updatedAt: prof?.updated_at || u.updated_at || u.created_at,
+              authProvider,
+              plan,
+              lastSignInAt: u.last_sign_in_at || undefined,
+            };
+          });
+        }
+      } catch (err) {
+        console.warn('[AdminService] Fallback to mock storage for listUsers:', err);
+      }
+    }
+
+    if (all.length === 0) {
+      all = MockStorageProvider.listAllUsers().map((u) => ({
+        id: u.id,
+        email: u.email,
+        fullName: u.fullName,
+        role: u.role,
+        status: u.status || 'ACTIVE',
+        createdAt: u.createdAt,
+        updatedAt: u.updatedAt,
+        authProvider: u.authProvider || (u.email.includes('gmail.com') ? 'GOOGLE' : 'EMAIL'),
+        plan: u.plan || (u.role === 'SUPER_ADMIN' || u.role === 'ADMIN' ? 'PRO' : 'FREE'),
+        lastSignInAt: u.lastSignInAt,
+      }));
+    }
 
     if (params?.search) {
       const q = params.search.toLowerCase();

@@ -64,6 +64,7 @@ export type FeatureId =
   | 'image_ocr'
   | 'scanned_pdf_ocr'
   // AI Utilities (Conceptual / Coming Soon)
+  | 'ai_assistant'
   | 'ai_resume_assistant'
   | 'ai_cover_letter'
   | 'ai_pdf_assistant'
@@ -74,7 +75,8 @@ export type FeatureId =
   | 'conversion_history'
   | 'cloud_sync'
   | 'cross_device_workspace'
-  | 'developer_api';
+  | 'developer_api'
+  | 'navigation_management';
 
 export interface FeatureDefinition {
   id: FeatureId;

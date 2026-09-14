@@ -779,13 +779,7 @@ export default function SGPACalculatorPage() {
             <span>{selectedUnivObj?.code || "Academic"} Intelligence • {selectedSchemeObj?.name || "Official Regulations"}</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-            {mode === "custom"
-              ? "SGPA Calculator"
-              : selectedUnivObj?.code === "VTU"
-              ? "VTU SGPA Calculator"
-              : selectedUnivObj?.name
-              ? `${selectedUnivObj.name} SGPA Calculator`
-              : "SGPA Calculator"}
+            SGPA Calculator
           </h1>
           <p className="text-sm text-slate-500 leading-relaxed">
             Official syllabus credits and codes loaded dynamically. Enter your CIE & SEE marks to calculate your deterministic semester SGPA.
@@ -956,7 +950,7 @@ export default function SGPACalculatorPage() {
                   <div className="space-y-1">
                     <h3 className="text-lg font-extrabold text-slate-900">Enter your course marks</h3>
                     <p className="text-xs text-slate-500">
-                      Assessment inputs adapt to each course configuration. Credits are locked per VTU regulations.
+                      Assessment inputs adapt to each course configuration. Credits are locked per official curriculum regulations.
                     </p>
                   </div>
 

@@ -17,7 +17,15 @@ export type AnalyticsEventType =
   | 'tool_export'
   | 'search'
   | 'ai_query'
-  | 'category_view';
+  | 'category_view'
+  | 'navbar_tool_click'
+  | 'mega_menu_tool_click'
+  | 'search_tool_open'
+  | 'ai_tool_open'
+  | 'NAVBAR_TOOL_CLICK'
+  | 'MEGA_MENU_TOOL_CLICK'
+  | 'SEARCH_TOOL_OPEN'
+  | 'AI_TOOL_OPEN';
 
 export interface AnalyticsEvent {
   id: string;
@@ -57,32 +65,59 @@ export interface PlatformAnalyticsOverview {
   eventTypeDistribution: Record<string, number>;
 }
 
+export interface UserAnalyticsSummary {
+  userId: string;
+  totalToolUses: number;
+  completedUses: number;
+  failedUses: number;
+  searches: number;
+  aiUses: number;
+  lastUsedTool?: {
+    slug: string;
+    name: string;
+    usedAt: string;
+  };
+  mostUsedTools: Array<{
+    toolId: string;
+    toolName: string;
+    category: string;
+    categoryName: string;
+    count: number;
+  }>;
+  categoryUsage: Array<{
+    category: string;
+    categoryName: string;
+    count: number;
+    percentage: number;
+  }>;
+  recentActivity: Array<{
+    id: string;
+    timestamp: string;
+    eventType: string;
+    toolId?: string;
+    toolName?: string;
+    source?: string;
+    status?: string;
+    durationMs?: number;
+  }>;
+  activityTrend: Array<{
+    date: string;
+    label: string;
+    count: number;
+  }>;
+  discoverySources: Array<{
+    source: string;
+    count: number;
+    percentage: number;
+  }>;
+}
+
 class AnalyticsStore {
   private inMemoryEvents: AnalyticsEvent[] = [];
   private readonly MAX_IN_MEMORY = 5000;
 
   constructor() {
-    // Seed initial operational events for immediate realistic reporting if database is empty
-    this.seedInitialEvents();
-  }
-
-  private seedInitialEvents() {
-    const sampleTools = ['merge-pdf', 'pdf-to-excel', 'sgpa-calculator', 'document-scanner', 'resume-builder', 'compress-pdf'];
-    const now = Date.now();
-
-    for (let i = 0; i < 40; i++) {
-      const toolId = sampleTools[i % sampleTools.length];
-      const timeOffset = Math.floor(Math.random() * 7 * 864e5); // past 7 days
-      this.inMemoryEvents.push({
-        id: `evt_seed_${i}`,
-        userId: i % 3 === 0 ? `usr_sample_${i % 5}` : null,
-        eventType: i % 2 === 0 ? 'tool_run' : 'tool_view',
-        toolId,
-        toolSlug: toolId,
-        metadata: { source: i % 4 === 0 ? 'ai' : i % 3 === 0 ? 'search' : 'navbar' },
-        createdAt: new Date(now - timeOffset).toISOString(),
-      });
-    }
+    // 100% Real platform telemetry only: zero fake event generation
   }
 
   /**
@@ -181,6 +216,10 @@ class AnalyticsStore {
 
     // Fallback to in-memory events
     return this.inMemoryEvents.filter((e) => new Date(e.createdAt) >= startTime);
+  }
+
+  getRawEvents(): AnalyticsEvent[] {
+    return [...this.inMemoryEvents];
   }
 
   /**
@@ -297,6 +336,206 @@ class AnalyticsStore {
       unusedTools: unusedTools.slice(0, 15),
       discoveryChannels,
       eventTypeDistribution: typeDistribution,
+    };
+  }
+
+  /**
+   * Computes comprehensive, strictly privacy-safe real analytics for a specific user.
+   */
+  async getUserAnalytics(userId: string, period: AnalyticsPeriod = '30d'): Promise<UserAnalyticsSummary> {
+    const rawEvents = await this.getUserTimeline(userId);
+
+    const now = new Date();
+    let startTime: Date;
+    switch (period) {
+      case 'today':
+        startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        break;
+      case '7d':
+        startTime = new Date(now.getTime() - 7 * 864e5);
+        break;
+      case '30d':
+        startTime = new Date(now.getTime() - 30 * 864e5);
+        break;
+      case '90d':
+        startTime = new Date(now.getTime() - 90 * 864e5);
+        break;
+      case 'all':
+      default:
+        startTime = new Date(0);
+        break;
+    }
+
+    const events = rawEvents.filter((e) => new Date(e.createdAt) >= startTime);
+
+    const canonicalMap = new Map(CANONICAL_TOOL_REGISTRY.map((t) => [t.key, t]));
+    const categoryNames: Record<string, string> = {
+      pdf: 'PDF Tools',
+      image: 'Image Tools',
+      student: 'Student Tools',
+      academic: 'Academic Tools',
+      career: 'Career Tools',
+      ai: 'AI Tools',
+    };
+
+    let totalToolUses = 0;
+    let completedUses = 0;
+    let failedUses = 0;
+    let searches = 0;
+    let aiUses = 0;
+
+    let lastUsedTool: { slug: string; name: string; usedAt: string } | undefined;
+
+    const toolCounts = new Map<string, number>();
+    const categoryCounts = new Map<string, number>();
+    const discoveryCounts: Record<string, number> = {
+      navbar: 0,
+      'mega-menu': 0,
+      search: 0,
+      ai: 0,
+      direct: 0,
+    };
+
+    // Date grouping for trend
+    const dateCounts = new Map<string, number>();
+
+    // Iterate descending chronological events
+    events.forEach((e) => {
+      const type = (e.eventType || '').toLowerCase();
+
+      // Tool usage identification
+      if (
+        type.includes('tool') ||
+        type === 'tool_run' ||
+        type === 'tool_view' ||
+        type === 'tool_export' ||
+        type === 'navbar_tool_click' ||
+        type === 'mega_menu_tool_click' ||
+        type === 'search_tool_open' ||
+        type === 'ai_tool_open'
+      ) {
+        totalToolUses++;
+        if (type === 'tool_run' || type.includes('complete')) {
+          completedUses++;
+        } else if (type.includes('fail') || type.includes('error')) {
+          failedUses++;
+        }
+
+        if (e.toolId || e.toolSlug) {
+          const key = e.toolSlug || e.toolId!;
+          toolCounts.set(key, (toolCounts.get(key) || 0) + 1);
+
+          const tool = canonicalMap.get(key);
+          const cat = tool?.category || 'general';
+          categoryCounts.set(cat, (categoryCounts.get(cat) || 0) + 1);
+
+          if (!lastUsedTool) {
+            lastUsedTool = {
+              slug: key,
+              name: tool?.name || key,
+              usedAt: e.createdAt,
+            };
+          }
+        }
+      }
+
+      // Searches
+      if (type.includes('search')) {
+        searches++;
+      }
+
+      // AI interactions
+      if (type.includes('ai')) {
+        aiUses++;
+      }
+
+      // Discovery sources
+      const src = (e.metadata?.source || '').toLowerCase();
+      if (src.includes('ai')) discoveryCounts.ai++;
+      else if (src.includes('search')) discoveryCounts.search++;
+      else if (src.includes('mega')) discoveryCounts['mega-menu']++;
+      else if (src.includes('nav')) discoveryCounts.navbar++;
+      else if (src.includes('direct')) discoveryCounts.direct++;
+      else discoveryCounts.direct++;
+
+      // Trend day
+      const dayKey = e.createdAt.split('T')[0];
+      dateCounts.set(dayKey, (dateCounts.get(dayKey) || 0) + 1);
+    });
+
+    // Format most used tools
+    const mostUsedTools = Array.from(toolCounts.entries())
+      .map(([toolId, count]) => {
+        const canonical = canonicalMap.get(toolId);
+        const category = canonical?.category || 'general';
+        return {
+          toolId,
+          toolName: canonical?.name || toolId,
+          category,
+          categoryName: categoryNames[category] || category,
+          count,
+        };
+      })
+      .sort((a, b) => b.count - a.count);
+
+    // Format category usage
+    const totalCatCount = Array.from(categoryCounts.values()).reduce((a, b) => a + b, 0) || 1;
+    const categoryUsage = Array.from(categoryCounts.entries())
+      .map(([category, count]) => ({
+        category,
+        categoryName: categoryNames[category] || category,
+        count,
+        percentage: Math.round((count / totalCatCount) * 100),
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    // Format recent safe activity
+    const recentActivity = events.slice(0, 20).map((e) => {
+      const tool = e.toolSlug || e.toolId ? canonicalMap.get(e.toolSlug || e.toolId!) : undefined;
+      return {
+        id: e.id,
+        timestamp: e.createdAt,
+        eventType: e.eventType,
+        toolId: e.toolSlug || e.toolId,
+        toolName: tool?.name || e.toolSlug || e.toolId,
+        source: e.metadata?.source || 'direct',
+      };
+    });
+
+    // Format discovery sources
+    const totalDiscovery = Object.values(discoveryCounts).reduce((a, b) => a + b, 0) || 1;
+    const discoverySources = Object.entries(discoveryCounts).map(([source, count]) => ({
+      source: source.toUpperCase(),
+      count,
+      percentage: Math.round((count / totalDiscovery) * 100),
+    }));
+
+    // Format activity trend
+    const days = period === 'today' ? 1 : period === '7d' ? 7 : period === '90d' ? 90 : 30;
+    const activityTrend: Array<{ date: string; label: string; count: number }> = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 864e5);
+      const dayIso = d.toISOString().split('T')[0];
+      activityTrend.push({
+        date: dayIso,
+        label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        count: dateCounts.get(dayIso) || 0,
+      });
+    }
+
+    return {
+      userId,
+      totalToolUses,
+      completedUses,
+      failedUses,
+      searches,
+      aiUses,
+      lastUsedTool,
+      mostUsedTools,
+      categoryUsage,
+      recentActivity,
+      activityTrend,
+      discoverySources,
     };
   }
 

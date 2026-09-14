@@ -356,6 +356,9 @@ export interface DashboardKPIs {
   newUsersDiff: number;
   activeUsers: number;
   activeUsersLabel: string;
+  freeUsers?: number;
+  proUsers?: number;
+  suspendedUsers?: number;
   totalTools: number;
   enabledTools: number;
   disabledTools: number;

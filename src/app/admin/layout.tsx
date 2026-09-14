@@ -3,7 +3,7 @@ import { createMetadata } from '@/lib/seo/metadata';
 import AdminLayoutClient from '@/components/admin/AdminLayoutClient';
 
 export const metadata: Metadata = createMetadata({
-  title: 'Admin Control Center',
+  title: 'Admin Portal',
   description: 'Saarvi platform administrative management.',
   path: '/admin',
   noIndex: true,

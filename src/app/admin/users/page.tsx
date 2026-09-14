@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   Users,
   Search,
@@ -20,6 +21,7 @@ import {
   Clock,
   X,
   ShieldCheck,
+  Activity,
 } from 'lucide-react';
 import { adminService } from '@/lib/services/adminService';
 import { UserProfile, UserRole, UserAccountStatus } from '@/types/auth';
@@ -31,6 +33,7 @@ interface DisplayUser extends Omit<UserProfile, 'avatarUrl'> {
   authProvider?: 'EMAIL' | 'GOOGLE';
   plan?: 'FREE' | 'PRO';
   lastSignInAt?: string;
+  toolUses?: number;
 }
 
 export default function AdminUsersPage() {
@@ -42,6 +45,7 @@ export default function AdminUsersPage() {
   const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | UserAccountStatus>('all');
   const [planFilter, setPlanFilter] = useState<'all' | 'FREE' | 'PRO'>('all');
+  const [providerFilter, setProviderFilter] = useState<'all' | 'EMAIL' | 'GOOGLE'>('all');
   const [page, setPage] = useState(1);
   const limit = 10;
 
@@ -58,11 +62,34 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     loadUsers();
-  }, [search, roleFilter, statusFilter, planFilter, page]);
+  }, [search, roleFilter, statusFilter, planFilter, providerFilter, page]);
 
   const loadUsers = async () => {
     setLoading(true);
     try {
+      const params = new URLSearchParams();
+      if (search.trim()) params.set('search', search.trim());
+      if (roleFilter !== 'all') params.set('role', roleFilter);
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (planFilter !== 'all') params.set('plan', planFilter);
+      if (providerFilter !== 'all') params.set('provider', providerFilter);
+      params.set('page', page.toString());
+      params.set('limit', limit.toString());
+
+      try {
+        const resp = await fetch(`/api/admin/users?${params.toString()}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.success && Array.isArray(data.users)) {
+            setUsers(data.users);
+            setTotal(data.total);
+            return;
+          }
+        }
+      } catch {
+        // Fallback to local service
+      }
+
       const res = await adminService.listUsers({
         search: search.trim() || undefined,
         role: roleFilter === 'all' ? undefined : roleFilter,
@@ -169,8 +196,20 @@ export default function AdminUsersPage() {
           </p>
         </div>
 
-        <div className="text-xs text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs">
-          Total Accounts: <span className="font-bold text-slate-800">{total}</span>
+        <div className="flex items-center gap-2 flex-wrap text-xs">
+          <div className="text-xs text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-1.5 font-medium">
+            <span>Total Accounts:</span>
+            <span className="font-bold text-slate-900 font-mono">{total}</span>
+          </div>
+          <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl font-medium">
+            Active: <strong className="font-mono">{users.filter((u) => u.status === 'ACTIVE').length}</strong>
+          </div>
+          <div className="text-xs text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-xl font-medium">
+            Free: <strong className="font-mono">{users.filter((u) => u.plan !== 'PRO').length}</strong>
+          </div>
+          <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-xl font-medium">
+            Pro: <strong className="font-mono">{users.filter((u) => u.plan === 'PRO').length}</strong>
+          </div>
         </div>
       </div>
 
@@ -203,6 +242,20 @@ export default function AdminUsersPage() {
             <option value="all">All Plans</option>
             <option value="FREE">Free Tier</option>
             <option value="PRO">Pro Tier</option>
+          </select>
+
+          {/* Provider Filter */}
+          <select
+            value={providerFilter}
+            onChange={(e) => {
+              setProviderFilter(e.target.value as any);
+              setPage(1);
+            }}
+            className="text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">All Providers</option>
+            <option value="GOOGLE">Google Auth</option>
+            <option value="EMAIL">Email Auth</option>
           </select>
 
           {/* Role Filter */}
@@ -249,6 +302,7 @@ export default function AdminUsersPage() {
                 <th className="py-3 px-3">Plan</th>
                 <th className="py-3 px-3">Auth</th>
                 <th className="py-3 px-3">Account Status</th>
+                <th className="py-3 px-3">Tool Uses</th>
                 <th className="py-3 px-3">Created</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
@@ -256,13 +310,13 @@ export default function AdminUsersPage() {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-500">
+                  <td colSpan={8} className="py-8 text-center text-slate-500">
                     Loading user records...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-500">
+                  <td colSpan={8} className="py-8 text-center text-slate-500">
                     No users found matching query.
                   </td>
                 </tr>
@@ -310,12 +364,27 @@ export default function AdminUsersPage() {
                       {getStatusBadge(u.status)}
                     </td>
 
+                    <td className="py-3 px-3 font-mono font-bold text-[11px] text-slate-700">
+                      <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200">
+                        {u.toolUses ?? 0}
+                      </span>
+                    </td>
+
                     <td className="py-3 px-3 text-slate-500 font-mono text-[11px]">
                       {new Date(u.createdAt).toLocaleDateString()}
                     </td>
 
                     <td className="py-3 px-4 text-right">
                       <div className="inline-flex items-center gap-1.5">
+                        {/* User Dashboard Link */}
+                        <Link
+                          href={`/admin/users/${u.id}`}
+                          className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[11px] font-semibold border border-blue-200 transition flex items-center gap-1"
+                          title="Open User Analytics Dashboard"
+                        >
+                          <Activity className="w-3 h-3" /> Dashboard
+                        </Link>
+
                         {/* View Details */}
                         <button
                           onClick={() => setDetailUser(u)}

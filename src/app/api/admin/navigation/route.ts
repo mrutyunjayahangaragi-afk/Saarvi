@@ -1,20 +1,31 @@
 import { NextResponse } from 'next/server';
 import { navigationStore } from '@/lib/navigation/navigation-store';
 import { enforceRateLimit, createRateLimitResponse } from '@/lib/security/rate-limit';
+import { getAuthenticatedAdmin } from '@/lib/security/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/admin/navigation
- * Returns current navigation configs across all categories.
+ * Returns current navigation configs and categories across the platform.
+ * Requires server-authoritative admin authentication.
  */
 export async function GET(request: Request) {
-  const rateLimit = enforceRateLimit(request, 'publicRead');
+  const rateLimit = enforceRateLimit(request, 'adminRead');
   if (!rateLimit.allowed) return createRateLimitResponse(rateLimit);
 
   try {
-    const items = await navigationStore.getAllConfigs();
-    return NextResponse.json({ success: true, items });
+    const authResult = await getAuthenticatedAdmin(request, 'VIEW');
+    if (!authResult.success) {
+      return NextResponse.json({ error: authResult.error }, { status: authResult.status });
+    }
+
+    const [items, categories] = await Promise.all([
+      navigationStore.getAllConfigs(),
+      navigationStore.getCategoryConfigs(),
+    ]);
+
+    return NextResponse.json({ success: true, items, categories });
   } catch (error: any) {
     console.error('[Admin Navigation API] GET error:', error);
     return NextResponse.json({ error: error.message || 'Failed to fetch navigation' }, { status: 500 });
@@ -23,27 +34,72 @@ export async function GET(request: Request) {
 
 /**
  * POST /api/admin/navigation
- * Update single item, reorder category, or reset to defaults.
+ * Update single item, add tool, remove tool from navbar, reorder category, or reset to defaults.
+ * Requires server-authoritative admin authentication with MANAGE permission.
  */
 export async function POST(request: Request) {
-  const rateLimit = enforceRateLimit(request, 'adminWrite');
+  const rateLimit = enforceRateLimit(request, 'adminMutations');
   if (!rateLimit.allowed) return createRateLimitResponse(rateLimit);
 
   try {
-    const body = await request.json();
-    const { action, toolId, categoryId, updates, toolIdsInOrder, adminEmail } = body;
+    const authResult = await getAuthenticatedAdmin(request, 'MANAGE');
+    if (!authResult.success) {
+      return NextResponse.json({ error: authResult.error }, { status: authResult.status });
+    }
 
+    const adminEmail = authResult.user.email;
+    const body = await request.json();
+    const { action, toolId, categoryId, updates, toolIdsInOrder, categoryIdsInOrder, overrides } = body;
+
+    // Action 1: Reset to canonical defaults
     if (action === 'reset') {
       const items = await navigationStore.resetToDefaults(adminEmail);
       return NextResponse.json({ success: true, items });
     }
 
+    // Action 2: Reorder tools within a category
     if (action === 'reorder') {
       if (!categoryId || !Array.isArray(toolIdsInOrder)) {
         return NextResponse.json({ error: 'categoryId and toolIdsInOrder array are required.' }, { status: 400 });
       }
       const items = await navigationStore.reorderCategory(categoryId, toolIdsInOrder, adminEmail);
       return NextResponse.json({ success: true, items });
+    }
+
+    // Action 3: Reorder categories
+    if (action === 'reorder_categories') {
+      if (!Array.isArray(categoryIdsInOrder)) {
+        return NextResponse.json({ error: 'categoryIdsInOrder array is required.' }, { status: 400 });
+      }
+      const categories = await navigationStore.reorderCategories(categoryIdsInOrder);
+      return NextResponse.json({ success: true, categories });
+    }
+
+    // Action 4: Update category metadata (label, visibility)
+    if (action === 'update_category') {
+      if (!categoryId || !updates) {
+        return NextResponse.json({ error: 'categoryId and updates are required.' }, { status: 400 });
+      }
+      const categories = await navigationStore.updateCategoryConfig(categoryId, updates, adminEmail);
+      return NextResponse.json({ success: true, categories });
+    }
+
+    // Action 5: Add an existing canonical tool to category
+    if (action === 'add_tool') {
+      if (!toolId || !categoryId) {
+        return NextResponse.json({ error: 'toolId and categoryId are required.' }, { status: 400 });
+      }
+      const item = await navigationStore.addTool(toolId, categoryId, overrides, adminEmail);
+      return NextResponse.json({ success: true, item });
+    }
+
+    // Action 6: Remove tool from Navbar visibility
+    if (action === 'remove_from_navbar') {
+      if (!toolId || !categoryId) {
+        return NextResponse.json({ error: 'toolId and categoryId are required.' }, { status: 400 });
+      }
+      const item = await navigationStore.removeFromNavbar(toolId, categoryId, adminEmail);
+      return NextResponse.json({ success: true, item });
     }
 
     // Default action: update single item

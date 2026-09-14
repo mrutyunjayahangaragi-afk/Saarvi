@@ -24,20 +24,40 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Saarvi — Study. Work. Grow.",
+  title: {
+    default: "Saarvi — Study. Work. Grow.",
+    template: "%s — Saarvi",
+  },
   description:
     "Convert, compress and manage documents with simple tools designed for students and everyday users.",
   applicationName: "Saarvi",
   keywords: ["saarvi", "pdf tools", "image converter", "student tools", "compress pdf", "merge pdf", "id photo", "resume builder"],
   authors: [{ name: "Saarvi Team" }],
+  manifest: "/manifest.webmanifest",
   icons: {
     icon: [
-      { url: "/favicon.ico" },
+      { url: "/favicon.ico", sizes: "any" },
       { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/brand/saarvi-mark.png", type: "image/png" },
+      { url: "/brand/saarvi-mark.png", type: "image/png", sizes: "512x512" },
+    ],
+    shortcut: [
+      { url: "/favicon.ico" },
     ],
     apple: [
-      { url: "/brand/saarvi-mark.png" },
+      { url: "/brand/saarvi-mark.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  openGraph: {
+    title: "Saarvi — Study. Work. Grow.",
+    description: "Convert, compress and manage documents with simple tools designed for students and everyday users.",
+    siteName: "Saarvi",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Saarvi — Study. Work. Grow.",
+      },
     ],
   },
 };

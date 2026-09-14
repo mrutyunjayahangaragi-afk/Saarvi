@@ -3,7 +3,7 @@ import { StudentToolConfig } from '@/types/admin';
 export const STUDENT_TOOLS_REGISTRY: StudentToolConfig[] = [
   {
     id: 'vtu-sgpa',
-    name: 'VTU SGPA Calculator',
+    name: 'SGPA Calculator',
     category: 'academic',
     description: 'Official 2022 Scheme CIE + SEE and Continuous Evaluation engine',
     route: '/student/sgpa',

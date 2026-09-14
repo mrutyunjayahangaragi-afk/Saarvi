@@ -173,6 +173,14 @@ export const VALID_EVENT_NAMES = new Set<string>([
   'rate_limited',
   'auth_method_selected',
   'auth_success',
+  'navbar_tool_click',
+  'mega_menu_tool_click',
+  'search_tool_open',
+  'ai_tool_open',
+  'NAVBAR_TOOL_CLICK',
+  'MEGA_MENU_TOOL_CLICK',
+  'SEARCH_TOOL_OPEN',
+  'AI_TOOL_OPEN',
 ]);
 
 export const PROHIBITED_KEYS = new Set<string>([

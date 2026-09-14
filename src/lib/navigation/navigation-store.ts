@@ -1,14 +1,18 @@
 /**
  * Saarvi Navigation Store & Persistence Engine
- * Unified Admin Control Center 2.0 (Phase 40 Part A)
+ * Unified Admin Control Center 2.0 (Phase 40 Part A & Part D)
  *
- * Persists navigation configurations (visibility, position, featured, badges)
- * into Supabase table `navigation_configs` with an in-memory cached fallback.
+ * Guarantees:
+ * 1. Single source of truth for dynamic navigation: CANONICAL_TOOL_REGISTRY + Supabase `navigation_configs` + Feature Flags.
+ * 2. Supabase table `navigation_configs` authoritative persistence with cached fallback.
+ * 3. Supports adding tools, removing from navbar without deleting underlying tools, reordering, and category customization.
+ * 4. Zero arbitrary URLs or unsafe injections: every route is strictly derived from canonical tools.
  */
 
-import { CANONICAL_TOOL_REGISTRY } from '../tools/tool-registry';
-import type { CanonicalTool } from '../tools/tool-registry';
+import { CANONICAL_TOOL_REGISTRY, CANONICAL_TOOL_CATEGORIES } from '../tools/tool-registry';
+import type { CanonicalTool, CanonicalToolCategory } from '../tools/tool-registry';
 import { getSupabaseAdminClient } from '../supabase/admin';
+import { featureServerStore } from '../features/feature-store';
 
 export type NavigationStatus = 'ACTIVE' | 'NAVBAR_HIDDEN' | 'DISABLED' | 'MAINTENANCE';
 
@@ -31,6 +35,23 @@ export interface NavigationConfigItem {
   updatedAt: string;
   updatedBy?: string;
 }
+
+export interface CategoryConfigItem {
+  id: string;
+  label: string;
+  route: string;
+  position: number;
+  visible: boolean;
+}
+
+export const DEFAULT_CATEGORY_CONFIGS: CategoryConfigItem[] = [
+  { id: 'pdf', label: 'PDF Tools', route: '/tools?category=pdf', position: 0, visible: true },
+  { id: 'image', label: 'Image Tools', route: '/tools?category=image', position: 1, visible: true },
+  { id: 'academic', label: 'Academic Tools', route: '/student', position: 2, visible: true },
+  { id: 'student', label: 'Student Tools', route: '/student', position: 3, visible: true },
+  { id: 'career', label: 'Career Tools', route: '/student', position: 4, visible: true },
+  { id: 'ai', label: 'AI Tools', route: '/tools?category=ai', position: 5, visible: true },
+];
 
 /**
  * Builds default seed configurations derived deterministically from CANONICAL_TOOL_REGISTRY.
@@ -62,6 +83,7 @@ function buildDefaultConfigs(): NavigationConfigItem[] {
 
 class NavigationStore {
   private cache: NavigationConfigItem[] | null = null;
+  private categoryCache: CategoryConfigItem[] = [...DEFAULT_CATEGORY_CONFIGS];
   private cacheExpiry = 0;
   private readonly TTL_MS = 60_000; // 1 minute in-memory cache
 
@@ -134,6 +156,40 @@ class NavigationStore {
       this.cacheExpiry = now + this.TTL_MS;
       return [...this.cache];
     }
+  }
+
+  /**
+   * Retrieves category configurations.
+   */
+  async getCategoryConfigs(): Promise<CategoryConfigItem[]> {
+    return [...this.categoryCache].sort((a, b) => a.position - b.position);
+  }
+
+  /**
+   * Updates category label or visibility.
+   */
+  async updateCategoryConfig(
+    categoryId: string,
+    updates: Partial<Omit<CategoryConfigItem, 'id'>>,
+    _adminEmail = 'admin@saarvi.in'
+  ): Promise<CategoryConfigItem[]> {
+    const found = this.categoryCache.find((c) => c.id === categoryId);
+    if (found) {
+      Object.assign(found, updates);
+    }
+    return [...this.categoryCache].sort((a, b) => a.position - b.position);
+  }
+
+  /**
+   * Reorders categories based on ordered array of IDs.
+   */
+  async reorderCategories(categoryIdsInOrder: string[]): Promise<CategoryConfigItem[]> {
+    categoryIdsInOrder.forEach((id, idx) => {
+      const cat = this.categoryCache.find((c) => c.id === id);
+      if (cat) cat.position = idx;
+    });
+    this.categoryCache.sort((a, b) => a.position - b.position);
+    return [...this.categoryCache];
   }
 
   /**
@@ -210,6 +266,56 @@ class NavigationStore {
   }
 
   /**
+   * Adds an existing registered tool to a navigation category.
+   */
+  async addTool(
+    toolId: string,
+    categoryId: string,
+    overrides?: Partial<NavigationConfigItem>,
+    adminEmail = 'admin@saarvi.in'
+  ): Promise<NavigationConfigItem> {
+    const canonical = CANONICAL_TOOL_REGISTRY.find((t) => t.key === toolId);
+    if (!canonical) {
+      throw new Error(`Tool "${toolId}" is not registered in CANONICAL_TOOL_REGISTRY.`);
+    }
+
+    return this.updateConfig(
+      toolId,
+      categoryId,
+      {
+        visibleInNavbar: overrides?.visibleInNavbar ?? true,
+        visibleInMegaMenu: overrides?.visibleInMegaMenu ?? true,
+        visibleInSearch: overrides?.visibleInSearch ?? true,
+        visibleInHomepage: overrides?.visibleInHomepage ?? true,
+        visibleInAI: overrides?.visibleInAI ?? true,
+        featured: overrides?.featured ?? false,
+        badge: overrides?.badge ?? null,
+        status: overrides?.status ?? 'ACTIVE',
+        ...overrides,
+      },
+      adminEmail
+    );
+  }
+
+  /**
+   * Removes a tool from Navbar visibility without deleting the underlying tool.
+   */
+  async removeFromNavbar(
+    toolId: string,
+    categoryId: string,
+    adminEmail = 'admin@saarvi.in'
+  ): Promise<NavigationConfigItem> {
+    return this.updateConfig(
+      toolId,
+      categoryId,
+      {
+        visibleInNavbar: false,
+      },
+      adminEmail
+    );
+  }
+
+  /**
    * Reorders items within a category according to an ordered list of toolIds.
    */
   async reorderCategory(
@@ -269,6 +375,7 @@ class NavigationStore {
   async resetToDefaults(adminEmail = 'admin@saarvi.in'): Promise<NavigationConfigItem[]> {
     const defaults = buildDefaultConfigs();
     this.cache = defaults;
+    this.categoryCache = [...DEFAULT_CATEGORY_CONFIGS];
 
     try {
       const supabase = getSupabaseAdminClient();
@@ -297,6 +404,86 @@ class NavigationStore {
     }
 
     return defaults;
+  }
+
+  /**
+   * Resolves effective runtime navigation by combining CANONICAL_TOOL_REGISTRY,
+   * Supabase navigation configs, and active Feature Flags.
+   */
+  async getEffectiveNavigation() {
+    const configs = await this.getAllConfigs();
+    const categories = await this.getCategoryConfigs();
+
+    // Map feature flags
+    const featureMap = new Map<string, { status?: string; accessMode?: string }>();
+    try {
+      const flags = featureServerStore.getAllFeatures();
+      flags.forEach((f) => {
+        featureMap.set(f.id, { status: f.status, accessMode: f.accessMode });
+        if (f.key) {
+          featureMap.set(f.key, { status: f.status, accessMode: f.accessMode });
+        }
+      });
+    } catch {}
+
+    const configMap = new Map<string, NavigationConfigItem>();
+    configs.forEach((c) => configMap.set(`${c.toolId}:${c.categoryId}`, c));
+
+    // Resolve per category
+    const resolvedCategories = categories
+      .filter((cat) => cat.visible)
+      .map((cat) => {
+        const catTools = CANONICAL_TOOL_REGISTRY.filter((t) => t.category === cat.id);
+
+        const resolvedTools = catTools
+          .map((tool) => {
+            const conf = configMap.get(`${tool.key}:${cat.id}`);
+            const flag = featureMap.get(tool.featureFlagKey) || featureMap.get(tool.key);
+
+            const isFlagDisabled = flag?.status === 'DISABLED';
+            const isFlagMaintenance = flag?.status === 'MAINTENANCE';
+            const isPro = flag?.accessMode === 'SUBSCRIPTION' || tool.defaultAccess === 'SUBSCRIPTION';
+
+            let effectiveStatus: NavigationStatus = conf?.status || 'ACTIVE';
+            if (isFlagDisabled) effectiveStatus = 'DISABLED';
+            else if (isFlagMaintenance) effectiveStatus = 'MAINTENANCE';
+
+            return {
+              key: tool.key,
+              name: tool.name,
+              route: tool.route,
+              icon: tool.icon,
+              category: tool.category,
+              categoryName: cat.label,
+              description: tool.description,
+              position: conf?.position ?? 0,
+              visibleInNavbar: conf ? conf.visibleInNavbar : true,
+              visibleInMegaMenu: conf ? conf.visibleInMegaMenu : true,
+              visibleInSearch: conf ? conf.visibleInSearch : true,
+              visibleInHomepage: conf ? conf.visibleInHomepage : true,
+              visibleInAI: conf ? conf.visibleInAI : true,
+              featured: conf ? conf.featured : false,
+              badge: conf?.badge || tool.badge || (conf?.featured ? 'FEATURED' : null),
+              status: effectiveStatus,
+              requiresPro: isPro,
+              isEnabled: effectiveStatus !== 'DISABLED',
+            };
+          })
+          .sort((a, b) => a.position - b.position);
+
+        return {
+          id: cat.id,
+          label: cat.label,
+          route: cat.route,
+          position: cat.position,
+          tools: resolvedTools,
+        };
+      });
+
+    return {
+      categories: resolvedCategories,
+      allTools: configs,
+    };
   }
 }
 

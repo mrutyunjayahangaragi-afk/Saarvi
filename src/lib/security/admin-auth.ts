@@ -57,64 +57,7 @@ export async function getAuthenticatedAdmin(
       ? 'SUPER_ADMIN'
       : undefined;
 
-  // 1. Production: Verified Supabase SSR Session Check
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = await createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user || !user.id || !user.email) {
-        return { success: false, error: 'Unauthorized: Authentication required.', status: 401 };
-      }
-
-      let role = (user.user_metadata?.role as string) || undefined;
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-        if (profile?.role) {
-          role = profile.role;
-        }
-      } catch {
-        // Fallback safely to metadata or storage
-      }
-
-      if (!role) {
-        const localUser = MockStorageProvider.getUserById(user.id) || MockStorageProvider.getUserByEmail(user.email);
-        if (localUser?.role) role = localUser.role;
-      }
-
-      if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
-        return { success: false, error: 'Forbidden: Administrative privileges required.', status: 403 };
-      }
-
-      if (isSuperAdminRequired && role !== 'SUPER_ADMIN') {
-        return { success: false, error: 'Forbidden: Super Administrator privileges required.', status: 403 };
-      }
-
-      if (permissionRequired && !hasAdminPermission(role, permissionRequired)) {
-        return { success: false, error: `Forbidden: Missing required "${permissionRequired}" privilege.`, status: 403 };
-      }
-
-      return {
-        success: true,
-        user: {
-          id: user.id,
-          email: user.email,
-          role: role as 'ADMIN' | 'SUPER_ADMIN',
-        },
-      };
-    } catch (err) {
-      console.error('[AdminAuth] Supabase authentication error:', err);
-      return { success: false, error: 'Unauthorized: Session verification failed.', status: 401 };
-    }
-  }
-
-  // 2. Automated Test / Non-Production Controlled Environments: Allow test/dev headers
+  // 1. Automated Test / Non-Production Controlled Environments: Allow test/dev headers
   // Strictly blocked in production environment
   if (process.env.NODE_ENV !== 'production' && (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development' || !isSupabaseConfigured())) {
     const headerId = request.headers.get('x-user-id');
@@ -138,6 +81,67 @@ export async function getAuthenticatedAdmin(
           role: headerRole as 'ADMIN' | 'SUPER_ADMIN',
         },
       };
+    }
+  }
+
+  // 2. Production / Authenticated Session: Verified Supabase SSR Session Check
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user || !user.id || !user.email) {
+        if (process.env.NODE_ENV === 'production') {
+          return { success: false, error: 'Unauthorized: Authentication required.', status: 401 };
+        }
+      } else {
+        let role = (user.user_metadata?.role as string) || undefined;
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+          if (profile?.role) {
+            role = profile.role;
+          }
+        } catch {
+          // Fallback safely to metadata or storage
+        }
+
+        if (!role) {
+          const localUser = MockStorageProvider.getUserById(user.id) || MockStorageProvider.getUserByEmail(user.email);
+          if (localUser?.role) role = localUser.role;
+        }
+
+        if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+          return { success: false, error: 'Forbidden: Administrative privileges required.', status: 403 };
+        }
+
+        if (isSuperAdminRequired && role !== 'SUPER_ADMIN') {
+          return { success: false, error: 'Forbidden: Super Administrator privileges required.', status: 403 };
+        }
+
+        if (permissionRequired && !hasAdminPermission(role, permissionRequired)) {
+          return { success: false, error: `Forbidden: Missing required "${permissionRequired}" privilege.`, status: 403 };
+        }
+
+        return {
+          success: true,
+          user: {
+            id: user.id,
+            email: user.email,
+            role: role as 'ADMIN' | 'SUPER_ADMIN',
+          },
+        };
+      }
+    } catch (err) {
+      if (process.env.NODE_ENV === 'production') {
+        console.error('[AdminAuth] Supabase authentication error:', err);
+        return { success: false, error: 'Unauthorized: Session verification failed.', status: 401 };
+      }
     }
   }
 

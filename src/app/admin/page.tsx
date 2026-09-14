@@ -104,7 +104,44 @@ export default function AdminAnalyticsDashboard() {
     async (selectedPeriod: DateRangePeriod) => {
       setIsRefreshing(true);
       try {
+        let apiOverview: any = null;
+        try {
+          const res = await fetch(`/api/admin/analytics/overview?period=${selectedPeriod}`);
+          if (res.ok) {
+            const json = await res.json();
+            if (json.success) {
+              apiOverview = json;
+            }
+          }
+        } catch {
+          // fallback to client-side service
+        }
+
         const data = await adminAnalyticsService.getDashboardOverview(selectedPeriod);
+
+        if (apiOverview?.userMetrics) {
+          data.kpis.totalUsers = apiOverview.userMetrics.totalUsers;
+          data.kpis.newUsers = apiOverview.userMetrics.newUsers;
+          data.kpis.previousPeriodNewUsers = apiOverview.userMetrics.previousNewUsers;
+          data.kpis.newUsersChangePct = apiOverview.userMetrics.trend.percentage;
+          data.kpis.newUsersDiff = apiOverview.userMetrics.trend.diff;
+          data.kpis.activeUsers = apiOverview.userMetrics.activeUsers;
+          data.kpis.freeUsers = apiOverview.userMetrics.freeUsers;
+          data.kpis.proUsers = apiOverview.userMetrics.proUsers;
+          data.kpis.suspendedUsers = apiOverview.userMetrics.suspendedUsers;
+        }
+
+        try {
+          const usersRes = await fetch('/api/admin/users?limit=6');
+          if (usersRes.ok) {
+            const usersJson = await usersRes.json();
+            if (usersJson.success && Array.isArray(usersJson.users)) {
+              data.recentUsers = usersJson.users;
+            }
+          }
+        } catch {
+          // fallback
+        }
 
         setKpis(data.kpis);
         setUserGrowthSeries(data.userGrowthSeries);
@@ -321,103 +358,158 @@ export default function AdminAnalyticsDashboard() {
       {/* ========================================================================= */}
       {/* 2. REUSABLE KPI CARDS (Real Values Only)                                   */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-        {/* Total Users */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-slate-300 transition-colors flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Users</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
-              {initialLoading ? '...' : kpis?.totalUsers ?? 0}
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1">Registered accounts</p>
-          </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
-            <span className="text-slate-400">Status active</span>
-            <Link href="/admin/users" className="font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-0.5">
-              <span>View</span>
-              <ChevronRight className="w-3 h-3" />
-            </Link>
-          </div>
+      {/* ========================================================================= */}
+      {/* 2. REAL USER COUNT DASHBOARD (The 5 Core Real Metrics)                      */}
+      {/* ========================================================================= */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5 text-blue-600" />
+            <span>Platform User Overview</span>
+          </h2>
+          {kpis?.suspendedUsers && kpis.suspendedUsers > 0 ? (
+            <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+              {kpis.suspendedUsers} Suspended Accounts
+            </span>
+          ) : null}
         </div>
 
-        {/* New Users (With Real Trend) */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-slate-300 transition-colors flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">New Users</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          {/* Card 1: TOTAL USERS */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-slate-300 transition-colors flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Users</span>
+              <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <Users className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
+                {initialLoading ? '...' : kpis?.totalUsers ?? 0}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Registered accounts</p>
+            </div>
+            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+              <span className="text-slate-400">All registered</span>
+              <Link href="/admin/users" className="font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-0.5">
+                <span>Directory</span>
+                <ChevronRight className="w-3 h-3" />
+              </Link>
             </div>
           </div>
-          <div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
-                {initialLoading ? '...' : kpis?.newUsers ?? 0}
-              </span>
-              {/* Genuine Trend Badge: Only when mathematically valid comparison exists */}
-              {!initialLoading && kpis && kpis.newUsersChangePct !== null && (
+
+          {/* Card 2: ACTIVE USERS */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-slate-300 transition-colors flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Active Users</span>
                 <span
-                  className={`inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded-md ${
-                    kpis.newUsersDiff > 0
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                      : kpis.newUsersDiff < 0
-                      ? 'bg-red-50 text-red-700 border border-red-100'
-                      : 'bg-slate-100 text-slate-600'
-                  }`}
-                  title={`${kpis.newUsersDiff >= 0 ? '+' : ''}${kpis.newUsersDiff} users vs prior ${periodLabels[period]}`}
+                  className="cursor-help text-slate-400 hover:text-slate-600"
+                  title={kpis?.activeUsersLabel || 'Based on recorded sign-in timestamps and real events'}
                 >
-                  {kpis.newUsersDiff > 0 ? (
-                    <TrendingUp className="w-3 h-3 text-emerald-600" />
-                  ) : kpis.newUsersDiff < 0 ? (
-                    <TrendingDown className="w-3 h-3 text-red-600" />
-                  ) : null}
-                  <span>
-                    {kpis.newUsersDiff > 0 ? '+' : ''}
-                    {kpis.newUsersChangePct}%
-                  </span>
+                  <Info className="w-3 h-3" />
                 </span>
-              )}
+              </div>
+              <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                <Activity className="w-4 h-4" />
+              </div>
             </div>
-            <p className="text-[11px] text-slate-500 mt-1">
-              Registered in {periodLabels[period]}
-            </p>
+            <div>
+              <div className="text-2xl sm:text-3xl font-extrabold text-purple-600 font-mono tracking-tight">
+                {initialLoading ? '...' : kpis?.activeUsers ?? 0}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Active in {periodLabels[period]}</p>
+            </div>
+            <div className="mt-3 pt-2.5 border-t border-slate-100 text-[10px] text-slate-400 truncate">
+              Real sign-in & tool telemetry
+            </div>
           </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-100 text-[11px] text-slate-400">
-            Prior period: <strong className="text-slate-600 font-mono">{kpis?.previousPeriodNewUsers ?? 0}</strong>
+
+          {/* Card 3: FREE USERS */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-slate-300 transition-colors flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Free Users</span>
+              <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
+                <Shield className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl sm:text-3xl font-extrabold text-slate-800 font-mono tracking-tight">
+                {initialLoading ? '...' : kpis?.freeUsers ?? Math.max(0, (kpis?.totalUsers ?? 0) - (kpis?.proUsers ?? 0))}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Free plan accounts</p>
+            </div>
+            <div className="mt-3 pt-2.5 border-t border-slate-100 text-[11px] text-slate-400">
+              {kpis?.totalUsers ? Math.round(((kpis.freeUsers ?? (kpis.totalUsers - (kpis.proUsers ?? 0))) / kpis.totalUsers) * 100) : 100}% of total
+            </div>
+          </div>
+
+          {/* Card 4: PRO USERS */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-slate-300 transition-colors flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Pro Users</span>
+              <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <Sparkles className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl sm:text-3xl font-extrabold text-amber-700 font-mono tracking-tight">
+                {initialLoading ? '...' : kpis?.proUsers ?? 0}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Active Pro subscriptions</p>
+            </div>
+            <div className="mt-3 pt-2.5 border-t border-slate-100 text-[11px] text-slate-400">
+              {kpis?.proUsers ? `${kpis.proUsers} paid active` : '0 active paid'}
+            </div>
+          </div>
+
+          {/* Card 5: NEW USERS (With Trend) */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-slate-300 transition-colors flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">New Users</span>
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-extrabold text-emerald-700 font-mono tracking-tight">
+                  {initialLoading ? '...' : kpis?.newUsers ?? 0}
+                </span>
+                {!initialLoading && kpis && kpis.newUsersChangePct !== null && (
+                  <span
+                    className={`inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded-md ${
+                      kpis.newUsersDiff > 0
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                        : kpis.newUsersDiff < 0
+                        ? 'bg-red-50 text-red-700 border border-red-100'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}
+                    title={`${kpis.newUsersDiff >= 0 ? '+' : ''}${kpis.newUsersDiff} vs prior ${periodLabels[period]}`}
+                  >
+                    {kpis.newUsersDiff > 0 ? (
+                      <TrendingUp className="w-3 h-3 text-emerald-600" />
+                    ) : kpis.newUsersDiff < 0 ? (
+                      <TrendingDown className="w-3 h-3 text-red-600" />
+                    ) : null}
+                    <span>
+                      {kpis.newUsersDiff > 0 ? '+' : ''}
+                      {kpis.newUsersChangePct}%
+                    </span>
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">In {periodLabels[period]}</p>
+            </div>
+            <div className="mt-3 pt-2.5 border-t border-slate-100 text-[11px] text-slate-400">
+              Prior: <strong className="text-slate-600 font-mono">{kpis?.previousPeriodNewUsers ?? 0}</strong>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Active Users (Authentication Metadata) */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-slate-300 transition-colors flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-500 mb-2">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Active Users</span>
-              <span
-                className="cursor-help text-slate-400 hover:text-slate-600"
-                title={kpis?.activeUsersLabel || 'Based on recorded sign-in timestamps'}
-              >
-                <Info className="w-3 h-3" />
-              </span>
-            </div>
-            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-              <Activity className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
-              {initialLoading ? '...' : kpis?.activeUsers ?? 0}
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1">Logged in during window</p>
-          </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-100 text-[10px] text-slate-400 truncate">
-            Based on sign-in logs
-          </div>
-        </div>
-
+      {/* Second Row KPIs: Platform Infrastructure & Tools */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         {/* Total & Enabled Tools */}
         <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-slate-300 transition-colors flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-500 mb-2">
@@ -442,10 +534,7 @@ export default function AdminAnalyticsDashboard() {
             </Link>
           </div>
         </div>
-      </div>
 
-      {/* Second Row KPIs: Curricula & Open Diagnostics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         {/* Student Tools */}
         <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-xs flex items-center justify-between">
           <div>
