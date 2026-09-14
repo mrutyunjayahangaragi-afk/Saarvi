@@ -1,7 +1,7 @@
 import { PDFDocument } from "pdf-lib";
 import { ToolOperation, SingleFileResult, ValidationResult } from "../types";
 import { readFileAsArrayBuffer } from "@/lib/utils";
-import { parsePageRangeToIndices } from "./split-pdf";
+import { parsePageRange } from "./page-range-parser";
 
 export interface ExtractPagesConfig {
   rangeString: string; // e.g. "2, 5, 8-10"
@@ -44,11 +44,11 @@ export const extractPagesOperation: ToolOperation<ExtractPagesConfig, SingleFile
     }
 
     const totalPages = srcDoc.getPageCount();
-    const indices = parsePageRangeToIndices(config.rangeString, totalPages);
-
-    if (indices.length === 0) {
-      throw new Error(`No pages found matching "${config.rangeString}". Document has ${totalPages} pages.`);
+    const rangeResult = parsePageRange(config.rangeString, totalPages);
+    if (!rangeResult.valid || rangeResult.indices.length === 0) {
+      throw new Error(rangeResult.error || `No pages found matching "${config.rangeString}". Document has ${totalPages} pages.`);
     }
+    const indices = rangeResult.indices;
 
     if (onProgress) onProgress(45);
 

@@ -1,7 +1,7 @@
 // Resilient Local Storage Provider for DocEase
 // Implements zero-configuration auth, profile, history, and resume draft persistence with strict user isolation (RLS)
 
-import {
+import type {
   UserProfile,
   ConversionHistoryRecord,
   SavedResumeDraft,
@@ -10,7 +10,7 @@ import {
   UserRole,
   UserAccountStatus,
 } from '@/types/auth';
-import {
+import type {
   StudyTask,
   Assignment,
   TimetableEntry,
@@ -20,7 +20,7 @@ import {
   CoverLetterData,
   AcademicCalculationSnapshot,
 } from '@/types/student';
-import {
+import type {
   PlatformSettings,
   ToolOverrideConfig,
   CurriculumVersionRecord,
@@ -31,7 +31,7 @@ import {
   PlatformEventRecord,
   PlatformEventType,
 } from '@/types/admin';
-import {
+import type {
   SubscriptionRecord,
   BillingEventRecord,
   BillingInvoiceRecord,
@@ -78,6 +78,8 @@ interface StoredUser {
   createdAt: string;
   updatedAt: string;
   lastSignInAt?: string;
+  authProvider?: 'EMAIL' | 'GOOGLE';
+  plan?: 'FREE' | 'PRO';
 }
 
 const DEFAULT_SUPER_ADMINS: StoredUser[] = [
@@ -141,6 +143,83 @@ function setStored<T>(key: string, value: T): void {
   } catch (e) {
     console.error(`Failed to persist ${key}`, e);
   }
+}
+
+function getAdminClientSafe(): any {
+  if (typeof window !== 'undefined') return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getSupabaseAdminClient } = require('./admin');
+    return getSupabaseAdminClient();
+  } catch {
+    return null;
+  }
+}
+
+async function hydrateMockStorageFromSupabase(): Promise<void> {
+  if (typeof window !== 'undefined') return;
+  try {
+    const supabase = getAdminClientSafe();
+    if (!supabase) return;
+
+    const [toolsRes, settingsRes] = await Promise.all([
+      supabase.from('tool_overrides').select('*'),
+      supabase.from('platform_settings').select('*').eq('id', 'default_config').maybeSingle(),
+    ]);
+
+    if (toolsRes.data && toolsRes.data.length > 0) {
+      const overrides: Record<string, any> = (serverMemoryStore[STORAGE_KEYS.TOOL_OVERRIDES] as Record<string, any>) || {};
+      for (const row of toolsRes.data) {
+        overrides[row.id] = {
+          id: row.id,
+          name: row.name,
+          category: row.category,
+          status: row.status,
+          requiresAuth: row.requires_auth,
+          requiresPro: row.requires_pro,
+          maxSizeMB: row.max_size_mb,
+          maxFiles: row.max_files,
+          maxPages: row.max_pages,
+          orderIndex: row.order_index,
+          hidden: row.hidden,
+          description: row.description,
+          updatedBy: row.updated_by,
+          updatedAt: row.updated_at,
+        };
+      }
+      serverMemoryStore[STORAGE_KEYS.TOOL_OVERRIDES] = overrides;
+    }
+
+    if (settingsRes.data) {
+      const row = settingsRes.data;
+      serverMemoryStore[STORAGE_KEYS.PLATFORM_SETTINGS] = {
+        appName: row.app_name,
+        tagline: row.tagline,
+        logoUrl: row.logo_url,
+        faviconUrl: row.favicon_url,
+        brandAccent: row.brand_accent,
+        supportEmail: row.support_email,
+        contactEmail: row.contact_email,
+        defaultLanguage: row.default_language,
+        defaultTimezone: row.default_timezone,
+        maintenanceMode: row.maintenance_mode,
+        maintenanceMessage: row.maintenance_message,
+        registrationEnabled: row.registration_enabled,
+        guestAccessEnabled: row.guest_access_enabled,
+        defaultAutoDownload: row.default_auto_download,
+        publicToolAvailability: row.public_tool_availability,
+        version: row.version,
+        updatedBy: row.updated_by,
+        updatedAt: row.updated_at,
+      };
+    }
+  } catch (err: any) {
+    console.warn('[MockStorage Supabase hydration error]:', err?.message);
+  }
+}
+
+if (typeof window === 'undefined') {
+  hydrateMockStorageFromSupabase().catch(() => {});
 }
 
 function getUsersList(): StoredUser[] {
@@ -915,6 +994,36 @@ export const MockStorageProvider = {
       updatedAt: new Date().toISOString(),
     };
     setStored(STORAGE_KEYS.PLATFORM_SETTINGS, updated);
+
+    try {
+      const supabase = getAdminClientSafe();
+      if (supabase) {
+        supabase.from('platform_settings').upsert({
+          id: 'default_config',
+          app_name: updated.appName,
+          tagline: updated.tagline,
+          logo_url: updated.logoUrl,
+          favicon_url: updated.faviconUrl,
+          brand_accent: updated.brandAccent,
+          support_email: updated.supportEmail,
+          contact_email: updated.contactEmail,
+          default_language: updated.defaultLanguage,
+          default_timezone: updated.defaultTimezone,
+          maintenance_mode: updated.maintenanceMode,
+          maintenance_message: updated.maintenanceMessage,
+          registration_enabled: updated.registrationEnabled,
+          guest_access_enabled: updated.guestAccessEnabled,
+          default_auto_download: updated.defaultAutoDownload,
+          public_tool_availability: updated.publicToolAvailability,
+          version: updated.version,
+          updated_by: updatedBy,
+          updated_at: updated.updatedAt,
+        }).then(({ error }: any) => {
+          if (error) console.warn('[Supabase platform_settings upsert error]:', error.message);
+        }).catch(() => {});
+      }
+    } catch {}
+
     return updated;
   },
 
@@ -931,6 +1040,31 @@ export const MockStorageProvider = {
     };
     overrides[override.id] = updated;
     setStored(STORAGE_KEYS.TOOL_OVERRIDES, overrides);
+
+    try {
+      const supabase = getAdminClientSafe();
+      if (supabase) {
+        supabase.from('tool_overrides').upsert({
+          id: override.id,
+          name: override.name,
+          category: override.category || 'pdf',
+          status: override.status,
+          requires_auth: override.requiresAuth ?? false,
+          requires_pro: override.requiresPro ?? false,
+          max_size_mb: override.maxSizeMB ?? null,
+          max_files: override.maxFiles ?? 20,
+          max_pages: override.maxPages ?? 100,
+          order_index: override.orderIndex ?? 0,
+          hidden: override.hidden ?? false,
+          description: override.description ?? null,
+          updated_by: 'admin',
+          updated_at: updated.updatedAt,
+        }).then(({ error }: any) => {
+          if (error) console.warn('[Supabase tool_overrides upsert error]:', error.message);
+        }).catch(() => {});
+      }
+    } catch {}
+
     return updated;
   },
 
@@ -951,6 +1085,25 @@ export const MockStorageProvider = {
     const filtered = all.filter((c) => c.id !== updated.id);
     filtered.unshift(updated);
     setStored(STORAGE_KEYS.CURRICULUM_VERSIONS, filtered);
+
+    try {
+      const supabase = getAdminClientSafe();
+      if (supabase && updated.id.includes('-') && updated.id.length === 36) {
+        supabase.from('curriculum_versions').upsert({
+          id: updated.id,
+          scheme: updated.scheme,
+          branch: updated.branch,
+          semester: updated.semester,
+          version: updated.version,
+          status: updated.status,
+          source_url: updated.sourceUrl || 'manual',
+          updated_at: updated.updatedAt,
+        }).then(({ error }: any) => {
+          if (error) console.warn('[Supabase curriculum_versions upsert error]:', error.message);
+        }).catch(() => {});
+      }
+    } catch {}
+
     return updated;
   },
 
@@ -1028,6 +1181,22 @@ export const MockStorageProvider = {
     all.unshift(newLog);
     if (all.length > 500) all.pop(); // keep last 500 audit logs
     setStored(STORAGE_KEYS.AUDIT_LOGS, all);
+
+    try {
+      const supabase = getAdminClientSafe();
+      if (supabase) {
+        supabase.from('audit_logs').insert({
+          admin_id: entry.adminUserId || 'system',
+          action: entry.action,
+          resource: `${entry.targetType}:${entry.targetId}`,
+          details: entry.metadata || {},
+          created_at: newLog.timestamp,
+        }).then(({ error }: any) => {
+          if (error) console.warn('[Supabase audit_logs insert error]:', error.message);
+        }).catch(() => {});
+      }
+    } catch {}
+
     return newLog;
   },
 

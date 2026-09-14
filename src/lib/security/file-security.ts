@@ -192,9 +192,12 @@ export async function detectFileFormatFromBytes(bytes: Uint8Array): Promise<stri
       (b) => b === 0x09 || b === 0x0a || b === 0x0d || (b >= 0x20 && b <= 0x7e) || b >= 0x80
     );
   if (isText) {
-    const str = String.fromCharCode(...bytes.slice(0, 16)).trim();
+    const str = String.fromCharCode(...bytes.slice(0, 32)).trim();
     if (str.startsWith("{") || str.startsWith("[")) {
       return "json";
+    }
+    if (/^<!doctype\s+html/i.test(str) || /^<html/i.test(str) || /^<\?xml/i.test(str)) {
+      return "html";
     }
     return "txt";
   }
@@ -246,7 +249,14 @@ export async function validateInputFile(
           (detectedFormat === "txt" &&
             (normalizedExpected.includes("md") ||
               normalizedExpected.includes("csv") ||
+              normalizedExpected.includes("txt") ||
+              normalizedExpected.includes("html") ||
+              normalizedExpected.includes("htm") ||
               normalizedExpected.includes("json"))) ||
+          (detectedFormat === "html" &&
+            (normalizedExpected.includes("html") ||
+              normalizedExpected.includes("htm") ||
+              normalizedExpected.includes("txt"))) ||
           (detectedFormat === "json" &&
             (normalizedExpected.includes("txt") || normalizedExpected.includes("json"))));
 
@@ -268,6 +278,58 @@ export async function validateInputFile(
           return {
             valid: false,
             error: "Failed to parse Microsoft Word (.docx) container structure.",
+            detectedFormat: "corrupted_zip",
+          };
+        }
+      }
+
+      if (!isExpected && detectedFormat === "zip" && normalizedExpected.includes("xlsx")) {
+        try {
+          const zipData = typeof file.arrayBuffer === "function" ? await file.arrayBuffer() : file;
+          const zip = await JSZip.loadAsync(zipData);
+          const hasWorkbook = Boolean(
+            zip.file("xl/workbook.xml") ||
+            (zip.file("[Content_Types].xml") && Object.keys(zip.files).some((k) => k.startsWith("xl/")))
+          );
+          if (hasWorkbook) {
+            isExpected = true;
+          } else {
+            return {
+              valid: false,
+              error: "The uploaded file is a ZIP archive, but does not contain a valid Microsoft Excel (.xlsx) spreadsheet structure.",
+              detectedFormat: "zip",
+            };
+          }
+        } catch {
+          return {
+            valid: false,
+            error: "Failed to parse Microsoft Excel (.xlsx) container structure.",
+            detectedFormat: "corrupted_zip",
+          };
+        }
+      }
+
+      if (!isExpected && detectedFormat === "zip" && normalizedExpected.includes("pptx")) {
+        try {
+          const zipData = typeof file.arrayBuffer === "function" ? await file.arrayBuffer() : file;
+          const zip = await JSZip.loadAsync(zipData);
+          const hasPresentation = Boolean(
+            zip.file("ppt/presentation.xml") ||
+            (zip.file("[Content_Types].xml") && Object.keys(zip.files).some((k) => k.startsWith("ppt/")))
+          );
+          if (hasPresentation) {
+            isExpected = true;
+          } else {
+            return {
+              valid: false,
+              error: "The uploaded file is a ZIP archive, but does not contain a valid Microsoft PowerPoint (.pptx) presentation structure.",
+              detectedFormat: "zip",
+            };
+          }
+        } catch {
+          return {
+            valid: false,
+            error: "Failed to parse Microsoft PowerPoint (.pptx) container structure.",
             detectedFormat: "corrupted_zip",
           };
         }
@@ -344,7 +406,7 @@ export function validateZipEntryMetadata(
 
   // 1. Path traversal in entry name
   const sanitized = sanitizeFilename(entryName);
-  if (entryName.includes("..") || entryName.startsWith("/") || entryName.startsWith("\\")) {
+  if (entryName.includes("..") || entryName.startsWith("/") || entryName.startsWith("\\") || sanitized !== entryName) {
     return { valid: false, error: `Malicious ZIP entry path traversal detected: "${entryName}"` };
   }
 
@@ -370,4 +432,28 @@ export function validateZipEntryMetadata(
   }
 
   return { valid: true };
+}
+
+/**
+ * Strict Security Sanitizer: Strips scripts, dangerous tags, and JavaScript URI handlers.
+ */
+export function sanitizeHtmlContent(rawHtml: string): string {
+  if (!rawHtml) return "";
+
+  // 1. Strip script, style, iframe, object, embed, applet tags and their contents
+  let clean = rawHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+  clean = clean.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
+  clean = clean.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "");
+  clean = clean.replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, "");
+  clean = clean.replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, "");
+  clean = clean.replace(/<applet\b[^<]*(?:(?!<\/applet>)<[^<]*)*<\/applet>/gi, "");
+
+  // 2. Strip inline event handlers (onclick, onload, onerror, etc.)
+  clean = clean.replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+
+  // 3. Strip javascript: URIs in href and src
+  clean = clean.replace(/href\s*=\s*(["'])\s*javascript:[^"']*\1/gi, 'href="#"');
+  clean = clean.replace(/src\s*=\s*(["'])\s*javascript:[^"']*\1/gi, 'src=""');
+
+  return clean;
 }

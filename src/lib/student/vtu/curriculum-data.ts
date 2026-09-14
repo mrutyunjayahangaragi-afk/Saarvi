@@ -1,4 +1,4 @@
-import { CurriculumCourse, CourseAssessmentConfig } from "@/types/student";
+import type { CurriculumCourse, CourseAssessmentConfig } from "@/types/student";
 
 export const STANDARD_50_50_ASSESSMENT: CourseAssessmentConfig = {
   hasSEE: true,

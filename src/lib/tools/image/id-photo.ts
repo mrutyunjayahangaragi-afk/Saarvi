@@ -1,4 +1,4 @@
-import { readFileAsDataURL, loadImage } from "@/lib/utils";
+import { readFileAsDataURL, loadImage } from "../../utils";
 
 export interface IdPreset {
   id: string;
@@ -77,10 +77,36 @@ export interface CropArea {
   height: number;
 }
 
+export function createCustomIdPreset(
+  widthMm: number,
+  heightMm: number,
+  name = "Custom ID Photo"
+): IdPreset {
+  const safeW = Math.max(10, Math.min(150, widthMm));
+  const safeH = Math.max(10, Math.min(150, heightMm));
+  const targetWidthPx = Math.round((safeW / 25.4) * 300);
+  const targetHeightPx = Math.round((safeH / 25.4) * 300);
+  const cols = Math.max(1, Math.floor(1800 / targetWidthPx));
+  const rows = Math.max(1, Math.floor(1200 / targetHeightPx));
+
+  return {
+    id: "custom",
+    name,
+    country: "Custom",
+    widthMm: safeW,
+    heightMm: safeH,
+    targetWidthPx,
+    targetHeightPx,
+    description: `Custom ${safeW}mm × ${safeH}mm specification at 300 DPI.`,
+    photosPerSheet: cols * rows,
+  };
+}
+
 export async function generateIdPhoto(
   file: File,
   preset: IdPreset,
-  cropArea: CropArea
+  cropArea: CropArea,
+  options: { backgroundColor?: string } = {}
 ): Promise<{ singleBlob: Blob; singleUrl: string; sheetBlob: Blob; sheetUrl: string }> {
   const dataUrl = await readFileAsDataURL(file);
   const img = await loadImage(dataUrl);
@@ -95,7 +121,8 @@ export async function generateIdPhoto(
     throw new Error("Could not initialize 2D context for single photo");
   }
 
-  singleCtx.fillStyle = "#ffffff";
+  const bgColor = options.backgroundColor || "#ffffff";
+  singleCtx.fillStyle = bgColor;
   singleCtx.fillRect(0, 0, singleCanvas.width, singleCanvas.height);
   singleCtx.imageSmoothingEnabled = true;
   singleCtx.imageSmoothingQuality = "high";

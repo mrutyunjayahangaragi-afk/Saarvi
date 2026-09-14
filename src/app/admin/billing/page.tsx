@@ -31,6 +31,7 @@ import PlanBadge from '@/components/plan/PlanBadge';
 import { SubscriptionRecord, BillingInvoiceRecord } from '@/types/plan';
 import { MockStorageProvider } from '@/lib/supabase/mock-storage';
 import { useAuth } from '@/context/AuthContext';
+import { resolvePaymentQrImage } from '@/lib/billing/qr-resolver';
 
 type AdminTab = 'REQUESTS' | 'SETTINGS' | 'SUBSCRIPTIONS';
 
@@ -44,8 +45,11 @@ interface PaymentRequestItem {
   payeeUpiId: string;
   utrNumber: string;
   payerUpiId?: string;
+  paymentMethod: string;
+  provider: string;
   paymentProofUrl?: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  submittedAt: string;
   slaDeadline: string;
   reviewedAt?: string;
   reviewedBy?: string;
@@ -75,6 +79,7 @@ export default function AdminBillingPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [imgError, setImgError] = useState(false);
 
   // Data states
   const [paymentRequests, setPaymentRequests] = useState<PaymentRequestItem[]>([]);
@@ -206,10 +211,12 @@ export default function AdminBillingPage() {
     setFeedbackMsg(null);
 
     try {
+      // Exclude qrCodeUrl so general settings save never touches or nullifies the QR code
+      const { qrCodeUrl: _, ...settingsPayload } = config;
       const res = await fetch('/api/billing/payment-config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
+        body: JSON.stringify(settingsPayload),
       });
 
       const data = await res.json();
@@ -218,7 +225,13 @@ export default function AdminBillingPage() {
       }
 
       setFeedbackMsg({ type: 'success', text: 'Payment settings updated successfully!' });
-      if (data.config) setConfig((prev) => ({ ...prev, ...data.config }));
+      if (data.config) {
+        setConfig((prev) => ({
+          ...prev,
+          ...data.config,
+          qrCodeUrl: data.config.qrCodeUrl || prev.qrCodeUrl,
+        }));
+      }
     } catch (err: any) {
       setFeedbackMsg({ type: 'error', text: err.message || 'Update failed' });
     } finally {
@@ -233,6 +246,7 @@ export default function AdminBillingPage() {
 
     setActionLoading(true);
     setFeedbackMsg(null);
+    setImgError(false);
 
     try {
       const formData = new FormData();
@@ -249,6 +263,7 @@ export default function AdminBillingPage() {
       }
 
       setConfig((prev) => ({ ...prev, qrCodeUrl: data.qrCodeUrl }));
+      setImgError(false);
       setFeedbackMsg({ type: 'success', text: 'Custom QR code uploaded and verified!' });
     } catch (err: any) {
       setFeedbackMsg({ type: 'error', text: err.message || 'QR upload failed' });
@@ -260,7 +275,7 @@ export default function AdminBillingPage() {
 
   // Handle QR Delete
   const handleQrDelete = async () => {
-    if (!confirm('Are you sure you want to remove the custom QR code? System will revert to default generated QR.')) return;
+    if (!confirm('Are you sure you want to remove the custom QR code? System will revert to default.')) return;
     setActionLoading(true);
     setFeedbackMsg(null);
 
@@ -271,6 +286,7 @@ export default function AdminBillingPage() {
         throw new Error(data.error || 'Failed to remove QR code.');
       }
       setConfig((prev) => ({ ...prev, qrCodeUrl: '' }));
+      setImgError(false);
       setFeedbackMsg({ type: 'success', text: 'Custom QR code removed.' });
     } catch (err: any) {
       setFeedbackMsg({ type: 'error', text: err.message || 'QR removal failed' });
@@ -758,23 +774,49 @@ export default function AdminBillingPage() {
                 <h3 className="text-sm font-bold text-slate-900">Official UPI QR Code</h3>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Upload a custom brand QR code image. Magic-bytes security ensures safe PNG/JPEG files (max 2MB).
+                Upload a custom brand QR code image. Magic-bytes security ensures safe PNG/JPEG files (max 10MB).
               </p>
 
               <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-col items-center">
-                {config.qrCodeUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={config.qrCodeUrl}
-                    alt="Custom UPI QR"
-                    className="w-44 h-44 object-contain rounded-xl border border-slate-100"
-                  />
-                ) : (
-                  <div className="w-44 h-44 rounded-xl border border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 gap-2 p-4 text-center">
-                    <QrCode className="w-8 h-8 text-slate-300" />
-                    <span className="text-[11px]">System Default Dynamic QR Active</span>
-                  </div>
-                )}
+                {(() => {
+                  const resolvedQrUrl = resolvePaymentQrImage(config.qrCodeUrl);
+                  if (resolvedQrUrl && !imgError) {
+                    return (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={resolvedQrUrl}
+                        alt="Custom UPI QR"
+                        className="w-44 h-44 object-contain rounded-xl border border-slate-100"
+                        onError={() => setImgError(true)}
+                      />
+                    );
+                  }
+                  if (imgError) {
+                    return (
+                      <div className="w-44 h-44 rounded-xl border border-rose-200 bg-rose-50/50 flex flex-col items-center justify-center text-rose-600 gap-2 p-4 text-center">
+                        <AlertCircle className="w-7 h-7 text-rose-500" />
+                        <span className="text-xs font-bold">QR Code Unavailable</span>
+                        <span className="text-[10px] text-rose-700 leading-tight">
+                          Please update or re-upload the QR code in Admin Portal.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setImgError(false)}
+                          className="mt-1 text-[10px] text-rose-700 underline font-semibold hover:text-rose-900 cursor-pointer"
+                        >
+                          Retry Loading
+                        </button>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="w-44 h-44 rounded-xl border border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 gap-2 p-4 text-center">
+                      <QrCode className="w-8 h-8 text-slate-300" />
+                      <span className="text-xs font-semibold text-slate-600">No custom QR code configured yet</span>
+                      <span className="text-[10px] text-slate-400">System default dynamic QR active</span>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
@@ -783,25 +825,25 @@ export default function AdminBillingPage() {
                 type="file"
                 ref={fileInputRef}
                 onChange={handleQrUpload}
-                accept="image/png,image/jpeg,image/webp"
+                accept="image/*,.png,.jpg,.jpeg,.webp"
                 className="hidden"
               />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={actionLoading}
-                className="w-full py-2.5 px-4 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-2xs"
+                className="w-full py-2.5 px-4 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-2xs cursor-pointer"
               >
                 <Upload className="w-4 h-4 text-blue-600" />
-                <span>{config.qrCodeUrl ? 'Replace Custom QR' : 'Upload Custom QR'}</span>
+                <span>{resolvePaymentQrImage(config.qrCodeUrl) ? 'Replace Custom QR' : 'Upload Custom QR'}</span>
               </button>
 
-              {config.qrCodeUrl && (
+              {resolvePaymentQrImage(config.qrCodeUrl) && (
                 <button
                   type="button"
                   onClick={handleQrDelete}
                   disabled={actionLoading}
-                  className="w-full py-2 px-4 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2"
+                  className="w-full py-2 px-4 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Remove Custom QR</span>

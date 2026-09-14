@@ -1,4 +1,4 @@
-import {
+import type {
   CareerProfile,
   ResumeVersion,
   ResumeSnapshot,
@@ -11,7 +11,7 @@ import {
   SkillGapAnalysis,
   ResumeSectionId,
 } from "@/types/career";
-import { academicStorage } from "@/lib/academic/storage/academic-db";
+import { academicStorage } from "../academic/storage/academic-db";
 
 const DEFAULT_PROFILE_ID = "default_career_profile";
 

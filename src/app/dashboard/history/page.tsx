@@ -29,7 +29,21 @@ type SortOrder = "newest" | "oldest";
 type FilterCategory = "all" | "pdf" | "images" | "student";
 
 const CATEGORY_TOOL_MAP: Record<string, string[]> = {
-  pdf: ["jpg-to-pdf", "pdf-to-jpg", "compress-pdf", "merge-pdf", "pdf-to-word", "word-to-pdf"],
+  pdf: [
+    "jpg-to-pdf",
+    "pdf-to-jpg",
+    "compress-pdf",
+    "merge-pdf",
+    "pdf-to-word",
+    "word-to-pdf",
+    "pdf-to-excel",
+    "excel-to-pdf",
+    "pdf-to-powerpoint",
+    "powerpoint-to-pdf",
+    "txt-to-pdf",
+    "csv-to-pdf",
+    "html-to-pdf"
+  ],
   images: ["image-resize", "jpg-to-png", "png-to-jpg", "remove-bg", "image-compress"],
   student: ["resume", "notes-to-pdf", "plagiarism-check"],
 };

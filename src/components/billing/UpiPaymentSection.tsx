@@ -23,6 +23,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import Link from 'next/link';
+import { resolvePaymentQrImage } from '@/lib/billing/qr-resolver';
 
 interface PaymentConfigData {
   upiId: string;
@@ -43,14 +44,14 @@ interface ExistingRequest {
   currency: string;
   utrNumber: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
-  slaDeadline: string;
   createdAt: string;
+  slaDeadline: string;
+  reviewedAt?: string;
   reviewNotes?: string;
 }
 
 interface UpiPaymentSectionProps {
   defaultPlan?: 'monthly' | 'yearly';
-  onPaymentSuccess?: () => void;
 }
 
 export function UpiPaymentSection({
@@ -77,6 +78,7 @@ export function UpiPaymentSection({
   const [showQrCode, setShowQrCode] = useState(true);
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [qrImgError, setQrImgError] = useState(false);
 
   // Unique reference for the session
   const [reference, setReference] = useState('SAARVI-PRO');
@@ -206,12 +208,12 @@ export function UpiPaymentSection({
     }
   };
 
-  // Generate dynamic QR image URL if admin has not uploaded a custom one
+  // Resolve official custom QR image URL if configured, otherwise fallback to dynamic QR
   const upiIntentUri = `upi://pay?pa=${encodeURIComponent(currentUpiId)}&pn=${encodeURIComponent(currentPayee)}&am=${currentAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(reference)}`;
+  const resolvedCustomQr = resolvePaymentQrImage(config?.qrCodeUrl);
   const qrDisplayUrl =
-    config?.qrCodeUrl && config.qrCodeUrl.length > 10
-      ? config.qrCodeUrl
-      : `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiIntentUri)}`;
+    resolvedCustomQr ||
+    `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiIntentUri)}`;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 max-w-3xl mx-auto">
@@ -398,14 +400,23 @@ export function UpiPaymentSection({
             Or Scan QR Code to Pay
           </div>
 
-          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm my-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={qrDisplayUrl}
-              alt="Saarvi UPI Payment QR Code"
-              className="w-44 h-44 object-contain rounded-lg"
-              loading="lazy"
-            />
+          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm my-2 flex flex-col items-center justify-center min-h-[176px]">
+            {qrImgError ? (
+              <div className="w-44 h-44 rounded-lg border border-slate-200 bg-slate-50 flex flex-col items-center justify-center p-3 text-center text-slate-500 gap-1.5">
+                <AlertCircle className="w-6 h-6 text-amber-500" />
+                <span className="text-xs font-semibold text-slate-700">QR payment is currently unavailable.</span>
+                <span className="text-[10px] text-slate-400">Please pay using UPI App buttons or copy UPI ID below.</span>
+              </div>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={qrDisplayUrl}
+                alt="Saarvi UPI Payment QR Code"
+                className="w-44 h-44 object-contain rounded-lg"
+                loading="lazy"
+                onError={() => setQrImgError(true)}
+              />
+            )}
           </div>
 
           <div className="mt-2 w-full text-left bg-white p-3 rounded-lg border border-slate-200 text-xs space-y-1.5">

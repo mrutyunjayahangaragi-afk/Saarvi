@@ -26,6 +26,7 @@ import { sanitizeUrl } from '@/lib/security/url-security';
 import { GLOBAL_LOCK } from '@/lib/security/concurrency';
 import { MockStorageProvider } from '@/lib/supabase/mock-storage';
 import { featureServerStore } from '@/lib/features/feature-store';
+import { getSupabaseAdminClient } from '@/lib/supabase/admin';
 
 export interface CreateAdParams {
   name: string;
@@ -83,7 +84,71 @@ class AdvertisementStore {
   private init(): void {
     if (this.initialized) return;
     this.initialized = true;
-    // In-memory runtime with clean initial state
+    if (typeof window === 'undefined') {
+      this.hydrateFromSupabase().catch(() => {});
+    }
+  }
+
+  public async hydrateFromSupabase(): Promise<void> {
+    try {
+      const supabase = getSupabaseAdminClient();
+      if (!supabase) return;
+
+      const [settingsRes, adsRes] = await Promise.all([
+        supabase.from('ad_display_settings').select('*').eq('id', 'global').maybeSingle(),
+        supabase.from('advertisements').select('*'),
+      ]);
+
+      if (settingsRes.data && !settingsRes.error) {
+        const row = settingsRes.data;
+        this.settings = {
+          ...this.settings,
+          adsEnabled: row.ads_enabled ?? this.settings.adsEnabled,
+          defaultDisplayMode: row.default_display_mode ?? this.settings.defaultDisplayMode,
+          defaultDurationSeconds: row.default_duration_seconds ?? this.settings.defaultDurationSeconds,
+          defaultSkipEnabled: row.default_skip_enabled ?? this.settings.defaultSkipEnabled,
+          defaultSkipAfterSeconds: row.default_skip_after_seconds ?? this.settings.defaultSkipAfterSeconds,
+          defaultFrequencyMode: row.default_frequency_mode ?? this.settings.defaultFrequencyMode,
+          updatedAt: row.updated_at || this.settings.updatedAt,
+          updatedBy: row.updated_by || this.settings.updatedBy,
+        };
+      }
+
+      if (adsRes.data && !adsRes.error && adsRes.data.length > 0) {
+        for (const row of adsRes.data) {
+          const rec: AdvertisementRecord = {
+            id: row.id,
+            name: row.name,
+            description: row.description || undefined,
+            mediaType: row.media_type as AdMediaType,
+            mediaUrl: row.media_url,
+            thumbnailUrl: row.thumbnail_url || undefined,
+            headline: row.headline || undefined,
+            bodyText: row.body_text || undefined,
+            ctaText: row.cta_text || undefined,
+            ctaUrl: row.cta_url || undefined,
+            advertiserName: row.advertiser_name || undefined,
+            status: row.status as AdvertisementStatus,
+            priority: row.priority ?? 0,
+            audience: row.audience as AdAudience,
+            startAt: row.start_at || undefined,
+            endAt: row.end_at || undefined,
+            timezone: row.timezone || 'UTC',
+            durationSeconds: row.duration_seconds ?? 15,
+            skipEnabled: row.skip_enabled ?? true,
+            skipAfterSeconds: row.skip_after_seconds ?? 5,
+            displayMode: row.display_mode as AdDisplayMode,
+            frequencyMode: row.frequency_mode as AdFrequencyMode,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+            createdBy: row.created_by || 'admin',
+          };
+          this.ads.set(rec.id, rec);
+        }
+      }
+    } catch (err: any) {
+      console.warn('[AdvertisementStore Supabase hydration warning]:', err?.message);
+    }
   }
 
   public resetForTesting(): void {
@@ -138,6 +203,29 @@ class AdvertisementStore {
         },
       });
 
+      // Persist to Supabase ad_display_settings
+      try {
+        const supabase = getSupabaseAdminClient();
+        if (supabase) {
+          supabase.from('ad_display_settings').upsert({
+            id: 'global',
+            ads_enabled: this.settings.adsEnabled,
+            default_display_mode: this.settings.defaultDisplayMode,
+            default_duration_seconds: this.settings.defaultDurationSeconds,
+            default_skip_enabled: this.settings.defaultSkipEnabled,
+            default_skip_after_seconds: this.settings.defaultSkipAfterSeconds,
+            default_frequency_mode: this.settings.defaultFrequencyMode,
+            updated_at: this.settings.updatedAt,
+            updated_by: this.settings.updatedBy,
+          }).then(
+            ({ error }) => {
+              if (error) console.warn('[Supabase ad_display_settings upsert error]:', error.message);
+            },
+            () => {}
+          );
+        }
+      } catch {}
+
       return { ...this.settings };
     } finally {
       release();
@@ -169,7 +257,9 @@ class AdvertisementStore {
     const release = await GLOBAL_LOCK.acquire('ad_mutation_lock');
     try {
       const now = new Date().toISOString();
-      const id = `ad_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const id = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `ad_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
       const duration = params.durationSeconds ?? this.settings.defaultDurationSeconds;
       const skipAfter = params.skipAfterSeconds ?? this.settings.defaultSkipAfterSeconds;
@@ -218,6 +308,45 @@ class AdvertisementStore {
           priority: record.priority,
         },
       });
+
+      // Persist to Supabase advertisements table
+      try {
+        const supabase = getSupabaseAdminClient();
+        if (supabase) {
+          supabase.from('advertisements').insert({
+            id: record.id,
+            name: record.name,
+            description: record.description || null,
+            media_type: record.mediaType,
+            media_url: record.mediaUrl,
+            thumbnail_url: record.thumbnailUrl || null,
+            headline: record.headline || null,
+            body_text: record.bodyText || null,
+            cta_text: record.ctaText || null,
+            cta_url: record.ctaUrl || null,
+            advertiser_name: record.advertiserName || null,
+            status: record.status,
+            priority: record.priority,
+            audience: record.audience,
+            start_at: record.startAt || null,
+            end_at: record.endAt || null,
+            timezone: record.timezone,
+            duration_seconds: record.durationSeconds,
+            skip_enabled: record.skipEnabled,
+            skip_after_seconds: record.skipAfterSeconds,
+            display_mode: record.displayMode,
+            frequency_mode: record.frequencyMode,
+            created_at: record.createdAt,
+            updated_at: record.updatedAt,
+            created_by: actorEmail,
+          }).then(
+            ({ error }) => {
+              if (error) console.warn('[Supabase advertisements insert error]:', error.message);
+            },
+            () => {}
+          );
+        }
+      } catch {}
 
       return { ...record };
     } finally {
@@ -280,6 +409,42 @@ class AdvertisementStore {
         },
       });
 
+      // Persist to Supabase advertisements table
+      try {
+        const supabase = getSupabaseAdminClient();
+        if (supabase) {
+          supabase.from('advertisements').update({
+            name: updated.name,
+            description: updated.description || null,
+            media_type: updated.mediaType,
+            media_url: updated.mediaUrl,
+            thumbnail_url: updated.thumbnailUrl || null,
+            headline: updated.headline || null,
+            body_text: updated.bodyText || null,
+            cta_text: updated.ctaText || null,
+            cta_url: updated.ctaUrl || null,
+            advertiser_name: updated.advertiserName || null,
+            status: updated.status,
+            priority: updated.priority,
+            audience: updated.audience,
+            start_at: updated.startAt || null,
+            end_at: updated.endAt || null,
+            timezone: updated.timezone,
+            duration_seconds: updated.durationSeconds,
+            skip_enabled: updated.skipEnabled,
+            skip_after_seconds: updated.skipAfterSeconds,
+            display_mode: updated.displayMode,
+            frequency_mode: updated.frequencyMode,
+            updated_at: updated.updatedAt,
+          }).eq('id', id).then(
+            ({ error }) => {
+              if (error) console.warn('[Supabase advertisements update error]:', error.message);
+            },
+            () => {}
+          );
+        }
+      } catch {}
+
       return { ...updated };
     } finally {
       release();
@@ -305,6 +470,19 @@ class AdvertisementStore {
           deletedAt: new Date().toISOString(),
         },
       });
+
+      // Persist to Supabase advertisements table
+      try {
+        const supabase = getSupabaseAdminClient();
+        if (supabase) {
+          supabase.from('advertisements').delete().eq('id', id).then(
+            ({ error }) => {
+              if (error) console.warn('[Supabase advertisements delete error]:', error.message);
+            },
+            () => {}
+          );
+        }
+      } catch {}
 
       return true;
     } finally {

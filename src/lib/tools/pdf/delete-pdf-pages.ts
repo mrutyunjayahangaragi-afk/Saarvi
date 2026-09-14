@@ -1,7 +1,7 @@
 import { PDFDocument } from "pdf-lib";
 import { ToolOperation, SingleFileResult, ValidationResult } from "../types";
 import { readFileAsArrayBuffer } from "@/lib/utils";
-import { parsePageRangeToIndices } from "./split-pdf";
+import { parsePageRange } from "./page-range-parser";
 
 export interface DeletePdfPagesConfig {
   rangeString: string; // e.g. "2, 5, 8-10"
@@ -47,11 +47,11 @@ export const deletePdfPagesOperation: ToolOperation<DeletePdfPagesConfig, Single
     if (onProgress) onProgress(35);
 
     // Get 0-indexed pages to DELETE
-    const indicesToDelete = parsePageRangeToIndices(config.rangeString, totalPages);
-
-    if (indicesToDelete.length === 0) {
-      throw new Error(`No pages found matching "${config.rangeString}". Document has ${totalPages} pages.`);
+    const rangeResult = parsePageRange(config.rangeString, totalPages);
+    if (!rangeResult.valid || rangeResult.indices.length === 0) {
+      throw new Error(rangeResult.error || `No pages found matching "${config.rangeString}". Document has ${totalPages} pages.`);
     }
+    const indicesToDelete = rangeResult.indices;
 
     if (indicesToDelete.length >= totalPages) {
       throw new Error("You cannot delete all pages. Please keep at least one page.");

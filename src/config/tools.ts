@@ -1,4 +1,4 @@
-import { ToolDefinition } from "@/types/tool";
+import type { ToolDefinition } from "@/types/tool";
 import { getMaxFileSizeMB } from "./limits";
 
 export const TOOLS_CONFIG: ToolDefinition[] = [
@@ -327,6 +327,278 @@ export const TOOLS_CONFIG: ToolDefinition[] = [
   },
 
   // --- PDF TOOLS (WORKING BROWSER ENGINES) ---
+  {
+    id: "pdf-to-excel",
+    slug: "pdf-to-excel",
+    name: "PDF to Excel",
+    category: "pdf",
+    description: "Convert PDF tables into editable Microsoft Excel spreadsheets.",
+    detailedDescription: "Extract tables and structured data from PDF documents into authentic Microsoft Excel (.xlsx) workbooks with separate sheets, column preservation, and number detection.",
+    icon: "FileSpreadsheet",
+    route: "/tools/pdf-to-excel",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    popular: true,
+    supportedFormats: ["PDF"],
+    maxSizeMB: getMaxFileSizeMB("pdf-to-excel"),
+    keywords: [
+      "pdf to excel",
+      "pdf to xlsx",
+      "convert pdf to excel",
+      "make spreadsheet from pdf",
+      "extract table from pdf",
+      "pdf spreadsheet"
+    ],
+    howItWorks: [
+      "Select or drag your PDF document containing tabular data.",
+      "The client engine scans and detects rows, columns, and numeric cells.",
+      "Download your genuine Microsoft Excel (.xlsx) spreadsheet instantly."
+    ],
+    faq: [
+      {
+        question: "What happens if my PDF does not contain tables?",
+        answer: "If no reliable tabular structure is detected, Saarvi will inform you: 'This PDF does not contain a reliably detectable table.' rather than creating an empty file."
+      },
+      {
+        question: "Are multi-page tables supported?",
+        answer: "Yes, multi-page documents create individual sheets for each page with tables."
+      }
+    ],
+    relatedSlugs: ["excel-to-pdf", "pdf-to-word", "pdf-to-jpg", "merge-pdf"]
+  },
+  {
+    id: "excel-to-pdf",
+    slug: "excel-to-pdf",
+    name: "Excel to PDF",
+    category: "pdf",
+    description: "Convert Microsoft Excel spreadsheets into clean PDF documents.",
+    detailedDescription: "Transform Microsoft Excel (.xlsx) workbooks into formatted PDF files with sheet selection, auto-landscape for wide tables, grid borders, and repeated headers.",
+    icon: "FileSpreadsheet",
+    route: "/tools/excel-to-pdf",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    popular: true,
+    supportedFormats: ["XLSX"],
+    maxSizeMB: getMaxFileSizeMB("excel-to-pdf"),
+    keywords: [
+      "excel to pdf",
+      "xlsx to pdf",
+      "convert excel to pdf",
+      "spreadsheet to pdf",
+      "sheet to pdf",
+      "excel converter"
+    ],
+    howItWorks: [
+      "Upload your Microsoft Excel (.xlsx) workbook.",
+      "Choose to convert all sheets or a selected worksheet.",
+      "The local engine formats grid lines, margins, and page breaks into a crisp PDF."
+    ],
+    faq: [
+      {
+        question: "Can I convert wide spreadsheets?",
+        answer: "Yes, tables with more than 6 columns automatically switch to landscape orientation to prevent truncating data."
+      },
+      {
+        question: "Are formulas evaluated?",
+        answer: "Cached formula values and computed cell strings inside the OpenXML package are preserved."
+      }
+    ],
+    relatedSlugs: ["pdf-to-excel", "word-to-pdf", "powerpoint-to-pdf"]
+  },
+  {
+    id: "pdf-to-powerpoint",
+    slug: "pdf-to-powerpoint",
+    name: "PDF to PowerPoint",
+    category: "pdf",
+    description: "Convert PDF documents into editable Microsoft PowerPoint presentations.",
+    detailedDescription: "Convert each page of your PDF into an authentic PowerPoint (.pptx) slide with extracted text boxes, preserved positions, font styles, and slide aspect ratios.",
+    icon: "Presentation",
+    route: "/tools/pdf-to-powerpoint",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    popular: true,
+    supportedFormats: ["PDF"],
+    maxSizeMB: getMaxFileSizeMB("pdf-to-powerpoint"),
+    keywords: [
+      "pdf to powerpoint",
+      "pdf to pptx",
+      "convert pdf to powerpoint",
+      "pdf to slides",
+      "pdf to presentation"
+    ],
+    howItWorks: [
+      "Upload your PDF document.",
+      "Each page is mapped to a PowerPoint slide with extracted text frames.",
+      "Download your authentic .pptx slide deck directly to your device."
+    ],
+    faq: [
+      {
+        question: "Can scanned PDFs be converted into editable slides?",
+        answer: "If the PDF is a scanned image without selectable text, Saarvi explains that OCR is required for editable text."
+      },
+      {
+        question: "Are slide dimensions preserved?",
+        answer: "Yes, slide dimensions are calculated based on the aspect ratio and viewport of the original PDF pages."
+      }
+    ],
+    relatedSlugs: ["powerpoint-to-pdf", "pdf-to-word", "pdf-to-excel"]
+  },
+  {
+    id: "powerpoint-to-pdf",
+    slug: "powerpoint-to-pdf",
+    name: "PowerPoint to PDF",
+    category: "pdf",
+    description: "Convert Microsoft PowerPoint presentations into PDF documents.",
+    detailedDescription: "Transform PowerPoint (.pptx) slide presentations into high-fidelity PDF documents, creating one PDF page per slide while preserving aspect ratios, text frames, shapes, and images.",
+    icon: "Presentation",
+    route: "/tools/powerpoint-to-pdf",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    popular: true,
+    supportedFormats: ["PPTX"],
+    maxSizeMB: getMaxFileSizeMB("powerpoint-to-pdf"),
+    keywords: [
+      "powerpoint to pdf",
+      "turn powerpoint into pdf",
+      "pptx to pdf",
+      "convert powerpoint to pdf",
+      "slides to pdf",
+      "presentation to pdf"
+    ],
+    howItWorks: [
+      "Select your Microsoft PowerPoint (.pptx) file.",
+      "The local engine parses slides, shapes, text, and embedded media.",
+      "Download your publication-ready PDF document instantly."
+    ],
+    faq: [
+      {
+        question: "Is slide widescreen aspect ratio preserved?",
+        answer: "Yes, each PDF page matches the exact width and height proportions of your slides (4:3 or 16:9)."
+      },
+      {
+        question: "Will embedded images remain clear?",
+        answer: "Yes, extracted slide images are embedded directly into the PDF without recompression degradation."
+      }
+    ],
+    relatedSlugs: ["pdf-to-powerpoint", "excel-to-pdf", "word-to-pdf"]
+  },
+  {
+    id: "txt-to-pdf",
+    slug: "txt-to-pdf",
+    name: "TXT to PDF",
+    category: "pdf",
+    description: "Convert plain text files into cleanly paginated PDF documents.",
+    detailedDescription: "Transform plain text (.txt) files into clean, beautifully formatted PDF documents with UTF-8 support, automatic word wrapping, standard margins, and page numbering.",
+    icon: "FileText",
+    route: "/tools/txt-to-pdf",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    supportedFormats: ["TXT"],
+    maxSizeMB: getMaxFileSizeMB("txt-to-pdf"),
+    keywords: [
+      "txt to pdf",
+      "convert txt to pdf",
+      "text to pdf",
+      "plain text to pdf",
+      "notepad to pdf"
+    ],
+    howItWorks: [
+      "Upload your text (.txt) file.",
+      "The client engine applies clean typography, margins, and pagination.",
+      "Download your paginated PDF document with page numbers."
+    ],
+    faq: [
+      {
+        question: "Does it support international characters?",
+        answer: "Yes, files are decoded using UTF-8 text encoding."
+      },
+      {
+        question: "Are line breaks and paragraphs preserved?",
+        answer: "Yes, all line breaks and paragraph separations are maintained."
+      }
+    ],
+    relatedSlugs: ["csv-to-pdf", "word-to-pdf", "pdf-to-word", "html-to-pdf"]
+  },
+  {
+    id: "csv-to-pdf",
+    slug: "csv-to-pdf",
+    name: "CSV to PDF",
+    category: "pdf",
+    description: "Convert CSV data into clean, structured PDF tables.",
+    detailedDescription: "Convert comma-separated, semicolon, or tab-delimited CSV spreadsheets into styled PDF tables with repeated headers, alternating row colors, and auto-landscape orientation.",
+    icon: "Table",
+    route: "/tools/csv-to-pdf",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    supportedFormats: ["CSV", "TXT"],
+    maxSizeMB: getMaxFileSizeMB("csv-to-pdf"),
+    keywords: [
+      "csv to pdf",
+      "convert csv to pdf",
+      "csv to table pdf",
+      "data to pdf",
+      "comma separated to pdf"
+    ],
+    howItWorks: [
+      "Upload your CSV spreadsheet.",
+      "The parser detects delimiters, calculates column widths, and sets page orientation.",
+      "Download your formatted PDF table with repeating headers."
+    ],
+    faq: [
+      {
+        question: "What happens if a table has many columns?",
+        answer: "Saarvi automatically switches to landscape mode to prevent text clipping."
+      },
+      {
+        question: "Are long text fields wrapped?",
+        answer: "Yes, cell text is wrapped within column boundaries without truncation."
+      }
+    ],
+    relatedSlugs: ["excel-to-pdf", "pdf-to-excel", "txt-to-pdf", "word-to-pdf"]
+  },
+  {
+    id: "html-to-pdf",
+    slug: "html-to-pdf",
+    name: "HTML to PDF",
+    category: "pdf",
+    description: "Convert HTML documents into clean, secure PDF files.",
+    detailedDescription: "Transform HTML files and web markup into structured PDF documents with sanitized styling, headings, paragraphs, lists, tables, and pagination.",
+    icon: "FileCode",
+    route: "/tools/html-to-pdf",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    supportedFormats: ["HTML", "HTM"],
+    maxSizeMB: getMaxFileSizeMB("html-to-pdf"),
+    keywords: [
+      "html to pdf",
+      "convert html to pdf",
+      "webpage to pdf",
+      "save html as pdf"
+    ],
+    howItWorks: [
+      "Upload your HTML file.",
+      "The document is sanitized against dangerous scripts and parsed into document blocks.",
+      "Download your converted PDF document instantly."
+    ],
+    faq: [
+      {
+        question: "Is uploaded HTML safe from script execution?",
+        answer: "Yes. All script tags, inline event handlers, and JavaScript URIs are strictly stripped before rendering."
+      },
+      {
+        question: "Are tables and lists supported?",
+        answer: "Yes, HTML tables, unordered lists, ordered lists, and headings are converted into PDF structures."
+      }
+    ],
+    relatedSlugs: ["txt-to-pdf", "word-to-pdf", "pdf-to-word", "excel-to-pdf"]
+  },
   {
     id: "pdf-to-word",
     slug: "pdf-to-word",
@@ -716,6 +988,371 @@ export const TOOLS_CONFIG: ToolDefinition[] = [
       }
     ],
     relatedSlugs: ["pdf-to-jpg", "split-pdf", "merge-pdf"]
+  },
+  {
+    id: "protect-pdf",
+    slug: "protect-pdf",
+    name: "Protect PDF",
+    category: "pdf",
+    description: "Secure PDF documents with custom open and owner passwords.",
+    detailedDescription: "Encrypt sensitive PDF documents directly in your browser using standard 128-bit encryption with custom passwords and access permissions for printing, copying, and modifications.",
+    icon: "Lock",
+    route: "/tools/protect-pdf",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    popular: true,
+    supportedFormats: ["PDF"],
+    maxSizeMB: getMaxFileSizeMB("protect-pdf"),
+    keywords: ["protect pdf", "password protect pdf", "encrypt pdf", "secure pdf", "pdf password", "lock pdf"],
+    howItWorks: [
+      "Upload your PDF document.",
+      "Enter a strong password and choose document permissions.",
+      "Download your encrypted, password-protected PDF."
+    ],
+    faq: [
+      {
+        question: "Is my password sent to a server?",
+        answer: "No. Encryption happens entirely within your browser using local cryptographic algorithms. Passwords never leave your device."
+      },
+      {
+        question: "What encryption standard is used?",
+        answer: "Standard PDF 1.7 128-bit encryption compatible with all major PDF viewers including Adobe Acrobat, Apple Preview, and Chrome."
+      }
+    ],
+    relatedSlugs: ["unlock-pdf", "flatten-pdf", "pdf-metadata"]
+  },
+  {
+    id: "unlock-pdf",
+    slug: "unlock-pdf",
+    name: "Unlock PDF",
+    category: "pdf",
+    description: "Remove password protection and printing restrictions from PDFs.",
+    detailedDescription: "Remove restrictive permissions and passwords from PDFs you have the right to access. Saarvi decrypts files locally without sending data across the network.",
+    icon: "Unlock",
+    route: "/tools/unlock-pdf",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    popular: true,
+    supportedFormats: ["PDF"],
+    maxSizeMB: getMaxFileSizeMB("unlock-pdf"),
+    keywords: ["unlock pdf", "remove pdf password", "decrypt pdf", "unprotect pdf", "pdf restrictions"],
+    howItWorks: [
+      "Select your protected PDF file.",
+      "Enter the known password if prompted or strip restrictions instantly.",
+      "Download the unlocked, unrestricted PDF."
+    ],
+    faq: [
+      {
+        question: "Can Saarvi crack unknown passwords?",
+        answer: "No. Saarvi operates ethically and client-side. If a document requires an open password, you must provide it to unlock and strip permissions."
+      },
+      {
+        question: "Can it remove print and copy restrictions?",
+        answer: "Yes, restriction-only owner locks can be cleared cleanly in your browser."
+      }
+    ],
+    relatedSlugs: ["protect-pdf", "pdf-metadata", "flatten-pdf"]
+  },
+  {
+    id: "watermark-pdf",
+    slug: "watermark-pdf",
+    name: "Watermark PDF",
+    category: "pdf",
+    description: "Add custom text watermarks to your PDF documents.",
+    detailedDescription: "Stamp confidential markers, draft notices, or custom branding on your PDF pages with full control over opacity, angle, font size, position, and page ranges.",
+    icon: "Stamp",
+    route: "/tools/watermark-pdf",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    popular: true,
+    supportedFormats: ["PDF"],
+    maxSizeMB: getMaxFileSizeMB("watermark-pdf"),
+    keywords: ["watermark pdf", "add watermark to pdf", "stamp pdf", "confidential watermark", "pdf text watermark"],
+    howItWorks: [
+      "Upload your PDF file.",
+      "Type your watermark text, pick opacity, rotation angle, and position.",
+      "Download your stamped PDF document."
+    ],
+    faq: [
+      {
+        question: "Can I apply the watermark to only specific pages?",
+        answer: "Yes. You can specify single pages, ranges, or comma-separated lists like 1-3, 5, 8."
+      },
+      {
+        question: "Does watermarking distort the original layout?",
+        answer: "No. Watermarks are rendered as a transparent overlay vector layer, preserving underlying text and images."
+      }
+    ],
+    relatedSlugs: ["page-numbers-pdf", "pdf-header-footer", "protect-pdf"]
+  },
+  {
+    id: "page-numbers-pdf",
+    slug: "page-numbers-pdf",
+    name: "Add Page Numbers",
+    category: "pdf",
+    description: "Insert clean, customizable page numbers into your PDF.",
+    detailedDescription: "Number your PDF pages with professional formatting (Page X of Y, Page X, X), flexible alignments (bottom center, top right, etc.), and custom start offsets.",
+    icon: "ListOrdered",
+    route: "/tools/page-numbers-pdf",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    popular: true,
+    supportedFormats: ["PDF"],
+    maxSizeMB: getMaxFileSizeMB("page-numbers-pdf"),
+    keywords: ["page numbers pdf", "add page numbers", "number pdf pages", "pdf pagination", "page x of y"],
+    howItWorks: [
+      "Upload your PDF document.",
+      "Choose numbering format, placement position, and starting page number.",
+      "Download the neatly paginated PDF."
+    ],
+    faq: [
+      {
+        question: "Can I skip numbering the cover page?",
+        answer: "Yes, set Start Page to 2 or specify custom page ranges."
+      },
+      {
+        question: "Can I show the total page count?",
+        answer: "Yes, the Page X of Y format dynamically counts and prints the total page count."
+      }
+    ],
+    relatedSlugs: ["pdf-header-footer", "watermark-pdf", "merge-pdf"]
+  },
+  {
+    id: "pdf-header-footer",
+    slug: "pdf-header-footer",
+    name: "PDF Header & Footer",
+    category: "pdf",
+    description: "Add custom headers, footers, dates, and page counts to PDFs.",
+    detailedDescription: "Insert running headers and footers across PDF pages. Include document titles, dates, author details, and dynamic {page} and {total} placeholders.",
+    icon: "Heading",
+    route: "/tools/pdf-header-footer",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    popular: false,
+    supportedFormats: ["PDF"],
+    maxSizeMB: getMaxFileSizeMB("pdf-header-footer"),
+    keywords: ["pdf header footer", "add header to pdf", "add footer to pdf", "running header pdf", "pdf document header"],
+    howItWorks: [
+      "Upload your PDF document.",
+      "Enter header and footer text with optional {page} and {total} tags.",
+      "Download the formatted PDF with consistent margins."
+    ],
+    faq: [
+      {
+        question: "Can I leave either header or footer empty?",
+        answer: "Yes, both header and footer fields are optional."
+      },
+      {
+        question: "Does this overwrite existing content?",
+        answer: "Content is placed in page margin zones so it does not occlude existing body text."
+      }
+    ],
+    relatedSlugs: ["page-numbers-pdf", "watermark-pdf", "pdf-metadata"]
+  },
+  {
+    id: "pdf-metadata",
+    slug: "pdf-metadata",
+    name: "PDF Metadata Editor",
+    category: "pdf",
+    description: "View, edit, or strip PDF metadata tags and author information.",
+    detailedDescription: "Inspect and modify PDF metadata properties including Title, Author, Subject, Keywords, Creator, and Producer, or sanitize tags before sharing.",
+    icon: "Tags",
+    route: "/tools/pdf-metadata",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    popular: false,
+    supportedFormats: ["PDF"],
+    maxSizeMB: getMaxFileSizeMB("pdf-metadata"),
+    keywords: ["pdf metadata", "edit pdf metadata", "remove pdf author", "clean pdf metadata", "pdf properties"],
+    howItWorks: [
+      "Upload your PDF file to read current metadata tags.",
+      "Update fields or click Clear All to sanitize properties.",
+      "Download your sanitized PDF."
+    ],
+    faq: [
+      {
+        question: "Can I remove all personal information?",
+        answer: "Yes. Clearing author, producer, and title tags removes identifiable metadata from the document."
+      },
+      {
+        question: "Does editing metadata change page content?",
+        answer: "No. Only document information dictionary properties are modified; page contents remain untouched."
+      }
+    ],
+    relatedSlugs: ["pdf-info", "protect-pdf", "flatten-pdf"]
+  },
+  {
+    id: "flatten-pdf",
+    slug: "flatten-pdf",
+    name: "Flatten PDF",
+    category: "pdf",
+    description: "Flatten interactive fillable forms and annotations into permanent content.",
+    detailedDescription: "Convert interactive AcroForms, form fields, checkboxes, and text inputs into non-editable vector page graphics to prevent accidental edits and ensure uniform printing.",
+    icon: "Layers",
+    route: "/tools/flatten-pdf",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    popular: false,
+    supportedFormats: ["PDF"],
+    maxSizeMB: getMaxFileSizeMB("flatten-pdf"),
+    keywords: ["flatten pdf", "flatten form fields", "lock pdf form", "make pdf non editable", "flatten acroform"],
+    howItWorks: [
+      "Upload a fillable or annotated PDF document.",
+      "Click Flatten to merge all form fields into static page contents.",
+      "Download the secure, unalterable PDF."
+    ],
+    faq: [
+      {
+        question: "Can someone edit the form fields after flattening?",
+        answer: "No. Interactive form fields are converted directly into static page drawing operations."
+      },
+      {
+        question: "Will it reduce print errors?",
+        answer: "Yes, flattened documents render identically on all printers and government submission portals."
+      }
+    ],
+    relatedSlugs: ["protect-pdf", "compress-pdf", "pdf-info"]
+  },
+  {
+    id: "pdf-info",
+    slug: "pdf-info",
+    name: "PDF Info & Inspection",
+    category: "pdf",
+    description: "Inspect PDF properties, page dimensions, encryption status, and metadata.",
+    detailedDescription: "Examine detailed technical information about any PDF: total pages, paper dimensions (A4, Letter), encryption status, creation timestamps, and embedded metadata.",
+    icon: "Info",
+    route: "/tools/pdf-info",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    popular: false,
+    supportedFormats: ["PDF"],
+    maxSizeMB: getMaxFileSizeMB("pdf-info"),
+    keywords: ["pdf info", "pdf inspector", "check pdf pages", "pdf size", "pdf metadata viewer", "pdf details"],
+    howItWorks: [
+      "Upload your PDF file.",
+      "Instantly view page counts, paper dimensions, encryption status, and metadata.",
+      "Export report or inspect page geometry."
+    ],
+    faq: [
+      {
+        question: "Are my files uploaded for analysis?",
+        answer: "Never. All inspection runs locally inside your browser memory using client-side JavaScript."
+      },
+      {
+        question: "Does it show whether a PDF is encrypted?",
+        answer: "Yes, it reports encryption status and whether forms are present."
+      }
+    ],
+    relatedSlugs: ["pdf-metadata", "flatten-pdf", "compress-pdf"]
+  },
+
+  // --- IMAGE & SCAN TOOLKIT — PHASE 35 ---
+  {
+    id: "document-scanner",
+    slug: "document-scanner",
+    name: "Document Scanner",
+    category: "image",
+    description: "Scan documents, receipts, and photos into clear, readable PDFs with camera or uploads.",
+    detailedDescription: "Capture physical papers with your webcam or camera, crop boundaries, apply contrast and black & white document filters, and compile multi-page PDFs.",
+    icon: "Scan",
+    route: "/tools/document-scanner",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    popular: true,
+    supportedFormats: ["JPG", "PNG", "WEBP", "BMP"],
+    maxSizeMB: getMaxFileSizeMB("document-scanner"),
+    keywords: ["document scanner", "scan document", "camera scan", "mobile scan", "pdf scanner", "paper scanner"],
+    howItWorks: [
+      "Capture with your camera or select image files.",
+      "Adjust crop, rotation, brightness, and high-contrast B&W document filters.",
+      "Export as a consolidated, crisp PDF."
+    ],
+    faq: [
+      {
+        question: "Is my camera feed uploaded to the server?",
+        answer: "Never. Camera capture and canvas filters execute entirely inside your local browser."
+      },
+      {
+        question: "Can I scan multiple pages into one PDF?",
+        answer: "Yes, you can queue multiple captures and export them as a single multi-page PDF."
+      }
+    ],
+    relatedSlugs: ["scan-to-pdf", "photo-to-document", "image-to-pdf"]
+  },
+  {
+    id: "scan-to-pdf",
+    slug: "scan-to-pdf",
+    name: "Scan to PDF",
+    category: "image",
+    description: "Convert photos and scanned images into a clean, searchable PDF document.",
+    detailedDescription: "Transform scanned photos into print-ready A4 or proportional PDFs with automatic orientation and contrast enhancement.",
+    icon: "FileCheck",
+    route: "/tools/scan-to-pdf",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    popular: true,
+    supportedFormats: ["JPG", "PNG", "WEBP", "BMP"],
+    maxSizeMB: getMaxFileSizeMB("scan-to-pdf"),
+    keywords: ["scan to pdf", "convert scans", "scanned photos to pdf", "image to pdf", "paper scan"],
+    howItWorks: [
+      "Upload your scanned page photos.",
+      "Reorder pages and apply clean document filters.",
+      "Download the compiled PDF."
+    ],
+    faq: [
+      {
+        question: "Can I rearrange the order of scanned pages?",
+        answer: "Yes, you can reorder pages before compiling."
+      },
+      {
+        question: "What page sizes are supported?",
+        answer: "You can choose standard A4 or match the original image dimensions."
+      }
+    ],
+    relatedSlugs: ["document-scanner", "photo-to-document", "merge-pdf"]
+  },
+  {
+    id: "photo-to-document",
+    slug: "photo-to-document",
+    name: "Photo to Document",
+    category: "image",
+    description: "Enhance smartphone photos of documents, receipts, and whiteboard notes.",
+    detailedDescription: "Equalize uneven lighting, boost contrast, and convert paper phone photos into high-legibility document scans.",
+    icon: "Camera",
+    route: "/tools/photo-to-document",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    popular: true,
+    supportedFormats: ["JPG", "PNG", "WEBP", "BMP"],
+    maxSizeMB: getMaxFileSizeMB("photo-to-document"),
+    keywords: ["photo to document", "clean photo", "receipt scanner", "whiteboard photo enhancer", "paper cleanup"],
+    howItWorks: [
+      "Upload a smartphone photo of any document or receipt.",
+      "The engine boosts contrast and removes background shadows.",
+      "Download as a clean document PDF or enhanced image."
+    ],
+    faq: [
+      {
+        question: "Does this work on handwritten notes?",
+        answer: "Yes, the binarization algorithm highlights ink strokes while eliminating gray paper shadows."
+      },
+      {
+        question: "Can I compare before and after?",
+        answer: "Yes, you can toggle between original and enhanced previews."
+      }
+    ],
+    relatedSlugs: ["document-scanner", "scan-to-pdf", "id-photo"]
   },
 
   // --- STUDENT & ACADEMIC UTILITIES ---
@@ -1423,6 +2060,37 @@ export const TOOLS_CONFIG: ToolDefinition[] = [
     ],
     faq: [],
     relatedSlugs: ["student-copilot", "resume-builder", "career-workspace"]
+  },
+  {
+    id: "student-notes",
+    slug: "student-notes",
+    name: "Study Notes",
+    category: "student",
+    subcategory: "planning",
+    badge: "Local",
+    description: "Create, organize, and search private revision summaries and lecture notes locally.",
+    detailedDescription: "Private, searchable student notes stored entirely in your local browser. Organize lecture summaries, key formulas, and exam prep definitions with zero cloud upload.",
+    icon: "FileText",
+    route: "/student/notes",
+    status: "available",
+    requiresAuth: false,
+    requiresPro: false,
+    popular: true,
+    supportedFormats: ["TXT"],
+    maxSizeMB: 5,
+    keywords: ["student notes", "study notes", "lecture notes", "exam notes", "private notes", "revision notes"],
+    howItWorks: [
+      "Click New Note and enter your title, tags, and content.",
+      "Instant keyword search filters your notes across all subjects.",
+      "Export notes as TXT or backup all records safely as JSON."
+    ],
+    faq: [
+      {
+        question: "Are my study notes saved to the cloud?",
+        answer: "No. All notes are saved 100% locally in your browser storage for complete privacy."
+      }
+    ],
+    relatedSlugs: ["study-planner", "assignment-planner", "exam-tracker"]
   }
 ];
 

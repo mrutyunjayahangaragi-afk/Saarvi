@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function CareerSkillsRedirect() {
-  redirect("/student/career");
+  redirect("/career/skill-gap");
 }

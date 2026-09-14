@@ -1,4 +1,4 @@
-import {
+import type {
   StudentAcademicProfile,
   SemesterRecord,
   AttendanceRecord,
@@ -6,7 +6,7 @@ import {
   CalculationHistoryEntry,
   AcademicExportPayload,
 } from "../types";
-import {
+import type {
   TaskItem,
   Assignment,
   ExamRecord,
@@ -17,7 +17,7 @@ import {
   InternshipApplication,
   HackathonRecord,
 } from "@/types/student";
-import {
+import type {
   CareerProfile,
   ResumeVersion,
   ResumeSnapshot,
@@ -27,7 +27,7 @@ import {
   CareerSkill,
   CareerWorkspaceExportPayload,
 } from "@/types/career";
-import {
+import type {
   Conversation,
   ConversationMessage,
   ConversationExportPayload,

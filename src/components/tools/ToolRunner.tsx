@@ -14,8 +14,13 @@ import {
   Zap,
   Download as DownloadIcon,
   UserCheck,
-  ArrowRight
+  ArrowRight,
+  FileSpreadsheet,
+  Presentation,
+  FileCode,
+  Table
 } from "lucide-react";
+import JSZip from "jszip";
 import { ToolDefinition } from "@/types/tool";
 import { getToolOperation } from "@/lib/tools/registry";
 import { SingleFileResult, MultiFileResult } from "@/lib/tools/types";
@@ -54,6 +59,61 @@ function SelectedFileItem({
   const isImage = file.type.startsWith("image/") || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(file.name);
   const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
   const isDocx = /\.docx$/i.test(file.name) || file.type.includes("word") || file.type.includes("officedocument");
+  const isXlsx = /\.xlsx$/i.test(file.name) || file.type.includes("spreadsheet");
+  const isPptx = /\.pptx$/i.test(file.name) || file.type.includes("presentation");
+  const isCode = /\.(html|htm)$/i.test(file.name);
+  const isTable = /\.csv$/i.test(file.name);
+
+  const [docSummary, setDocSummary] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    async function inspectFile() {
+      if (isPdf && file.size < 50 * 1024 * 1024) {
+        try {
+          const slice = await file.slice(0, 500000).text();
+          const matches = slice.match(/\/Type\s*\/Page\b/g);
+          if (matches && matches.length > 0 && active) {
+            setDocSummary(`${matches.length} page${matches.length === 1 ? "" : "s"}`);
+          }
+        } catch {
+          // ignore
+        }
+      } else if (isXlsx && file.size < 50 * 1024 * 1024) {
+        try {
+          const zip = await JSZip.loadAsync(file.slice(0, 1000000));
+          const wb = zip.file("xl/workbook.xml");
+          if (wb) {
+            const txt = await wb.async("text");
+            const sheetMatches = txt.match(/<sheet\b/g);
+            if (sheetMatches && active) {
+              setDocSummary(`${sheetMatches.length} sheet${sheetMatches.length === 1 ? "" : "s"}`);
+            }
+          }
+        } catch {
+          // ignore
+        }
+      } else if (isPptx && file.size < 50 * 1024 * 1024) {
+        try {
+          const zip = await JSZip.loadAsync(file.slice(0, 1000000));
+          const pres = zip.file("ppt/presentation.xml");
+          if (pres) {
+            const txt = await pres.async("text");
+            const sldMatches = txt.match(/<p:sldId\b/g);
+            if (sldMatches && active) {
+              setDocSummary(`${sldMatches.length} slide${sldMatches.length === 1 ? "" : "s"}`);
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+    inspectFile();
+    return () => {
+      active = false;
+    };
+  }, [file, isPdf, isXlsx, isPptx]);
 
   const previewUrl = useMemo(() => {
     if (isImage) {
@@ -81,7 +141,7 @@ function SelectedFileItem({
   return (
     <div className="flex items-center justify-between p-3 sm:p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 transition-all hover:border-slate-300">
       <div className="flex items-center gap-3.5 min-w-0 pr-2">
-        {/* Preview: Thumbnail for image, icon for PDF / Word */}
+        {/* Preview: Thumbnail for image, icon for PDF / Word / Excel / PPTX / Code */}
         {previewUrl ? (
           <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-slate-200 bg-white shrink-0 shadow-xs">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -93,6 +153,14 @@ function SelectedFileItem({
               <FileText className="w-6 h-6 text-red-500" />
             ) : isDocx ? (
               <FileText className="w-6 h-6 text-blue-600" />
+            ) : isXlsx ? (
+              <FileSpreadsheet className="w-6 h-6 text-emerald-600" />
+            ) : isPptx ? (
+              <Presentation className="w-6 h-6 text-amber-600" />
+            ) : isCode ? (
+              <FileCode className="w-6 h-6 text-indigo-600" />
+            ) : isTable ? (
+              <Table className="w-6 h-6 text-teal-600" />
             ) : (
               <FileIcon className="w-6 h-6" />
             )}
@@ -110,6 +178,12 @@ function SelectedFileItem({
             <span className="font-mono">{formatBytes(file.size)}</span>
             <span>•</span>
             <span className="uppercase font-medium">{file.name.split(".").pop() || "File"}</span>
+            {docSummary && (
+              <>
+                <span>•</span>
+                <span className="text-slate-600 font-medium">{docSummary}</span>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -245,10 +319,69 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
   // Compress PDF
   const [compressPreset, setCompressPreset] = useState<"low" | "balanced" | "high">("balanced");
 
+  // Phase 34 Advanced PDF Toolkit States
+  // Protect PDF
+  const [protectPassword, setProtectPassword] = useState("");
+  const [protectOwnerPassword, setProtectOwnerPassword] = useState("");
+  const [protectAllowPrinting, setProtectAllowPrinting] = useState(true);
+  const [protectAllowCopying, setProtectAllowCopying] = useState(true);
+  const [protectAllowModifying, setProtectAllowModifying] = useState(false);
+
+  // Unlock PDF
+  const [unlockPassword, setUnlockPassword] = useState("");
+
+  // Watermark PDF
+  const [watermarkText, setWatermarkText] = useState("CONFIDENTIAL");
+  const [watermarkOpacity, setWatermarkOpacity] = useState(0.3);
+  const [watermarkRotation, setWatermarkRotation] = useState(45);
+  const [watermarkPosition, setWatermarkPosition] = useState<"center" | "diagonal" | "top" | "bottom">("diagonal");
+  const [watermarkFontSize, setWatermarkFontSize] = useState(48);
+  const [watermarkColor, setWatermarkColor] = useState("#888888");
+  const [watermarkPageRange, setWatermarkPageRange] = useState("all");
+
+  // Page Numbers PDF
+  const [pageNumberFormat, setPageNumberFormat] = useState<"Page {page} of {total}" | "Page {page}" | "{page}">("Page {page} of {total}");
+  const [pageNumberPosition, setPageNumberPosition] = useState<"bottom-center" | "bottom-right" | "bottom-left" | "top-center" | "top-right" | "top-left">("bottom-center");
+  const [pageNumberStart, setPageNumberStart] = useState(1);
+  const [pageNumberRange, setPageNumberRange] = useState("all");
+
+  // PDF Header & Footer
+  const [headerText, setHeaderText] = useState("");
+  const [footerText, setFooterText] = useState("Page {page} of {total}");
+  const [headerPosition, setHeaderPosition] = useState<"center" | "left" | "right">("center");
+  const [footerPosition, setFooterPosition] = useState<"center" | "left" | "right">("center");
+  const [headerFooterRange, setHeaderFooterRange] = useState("all");
+
+  // PDF Metadata Editor
+  const [metadataTitle, setMetadataTitle] = useState("");
+  const [metadataAuthor, setMetadataAuthor] = useState("");
+  const [metadataSubject, setMetadataSubject] = useState("");
+  const [metadataKeywords, setMetadataKeywords] = useState("");
+  const [metadataClearAll, setMetadataClearAll] = useState(false);
+
+  // Phase 35 Scan & Photo States
+  const [scanPageSize, setScanPageSize] = useState<"A4" | "FIT">("A4");
+  const [scanFilterMode, setScanFilterMode] = useState<"clean_bw" | "grayscale" | "enhanced_color">("clean_bw");
+
   const allowsMultiple =
     tool.slug === "multiple-images-to-pdf" ||
     tool.slug === "merge-pdf" ||
-    tool.slug === "notes-to-pdf";
+    tool.slug === "notes-to-pdf" ||
+    tool.slug === "txt-to-pdf" ||
+    tool.slug === "csv-to-pdf" ||
+    tool.slug === "pdf-to-excel" ||
+    tool.slug === "excel-to-pdf" ||
+    tool.slug === "pdf-to-powerpoint" ||
+    tool.slug === "powerpoint-to-pdf" ||
+    tool.slug === "html-to-pdf" ||
+    tool.slug === "protect-pdf" ||
+    tool.slug === "watermark-pdf" ||
+    tool.slug === "page-numbers-pdf" ||
+    tool.slug === "flatten-pdf" ||
+    tool.slug === "pdf-header-footer" ||
+    tool.slug === "pdf-metadata" ||
+    tool.slug === "document-scanner" ||
+    tool.slug === "scan-to-pdf";
 
   // When a file is selected for image operations, auto-detect dimensions
   useEffect(() => {
@@ -504,6 +637,65 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
       };
     } else if (tool.slug === "compress-pdf") {
       config = { preset: compressPreset };
+    } else if (tool.slug === "protect-pdf") {
+      config = {
+        userPassword: protectPassword,
+        ownerPassword: protectOwnerPassword || undefined,
+        permissions: {
+          printing: protectAllowPrinting,
+          copying: protectAllowCopying,
+          modifying: protectAllowModifying,
+        },
+      };
+    } else if (tool.slug === "unlock-pdf") {
+      config = { password: unlockPassword || undefined };
+    } else if (tool.slug === "watermark-pdf") {
+      config = {
+        text: watermarkText,
+        opacity: watermarkOpacity,
+        rotation: watermarkRotation,
+        position: watermarkPosition,
+        fontSize: watermarkFontSize,
+        color: watermarkColor,
+        pageRange: watermarkPageRange === "all" ? undefined : watermarkPageRange,
+      };
+    } else if (tool.slug === "page-numbers-pdf") {
+      config = {
+        format: pageNumberFormat,
+        position: pageNumberPosition,
+        startPage: pageNumberStart,
+        pageRange: pageNumberRange === "all" ? undefined : pageNumberRange,
+      };
+    } else if (tool.slug === "pdf-header-footer") {
+      config = {
+        headerText: headerText || undefined,
+        footerText: footerText || undefined,
+        headerPosition,
+        footerPosition,
+        pageRange: headerFooterRange === "all" ? undefined : headerFooterRange,
+      };
+    } else if (tool.slug === "pdf-metadata") {
+      config = {
+        title: metadataTitle || undefined,
+        author: metadataAuthor || undefined,
+        subject: metadataSubject || undefined,
+        keywords: metadataKeywords ? metadataKeywords.split(",").map((s) => s.trim()) : undefined,
+        clearAll: metadataClearAll,
+      };
+    } else if (tool.slug === "flatten-pdf") {
+      config = {};
+    } else if (tool.slug === "pdf-info") {
+      config = {};
+    } else if (
+      tool.slug === "document-scanner" ||
+      tool.slug === "scan-to-pdf" ||
+      tool.slug === "photo-to-document"
+    ) {
+      config = {
+        pageSize: scanPageSize,
+        binarize: scanFilterMode === "clean_bw",
+        grayscale: scanFilterMode === "grayscale",
+      };
     }
 
     // Engine validation
@@ -1239,6 +1431,425 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
               </div>
               <p className="text-[11px] text-slate-500 leading-relaxed">
                 Note: Client-side compression optimizes embedded raster images. Vector-only documents may experience smaller percentage changes.
+              </p>
+            </div>
+          )}
+
+          {/* Phase 34: Protect PDF */}
+          {tool.slug === "protect-pdf" && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Document Password (Required to Open)
+                </label>
+                <input
+                  type="password"
+                  value={protectPassword}
+                  onChange={(e) => setProtectPassword(e.target.value)}
+                  placeholder="Enter a strong password"
+                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Owner Password (Optional, for permissions)
+                </label>
+                <input
+                  type="password"
+                  value={protectOwnerPassword}
+                  onChange={(e) => setProtectOwnerPassword(e.target.value)}
+                  placeholder="Optional permissions password"
+                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-2">
+                  Document Permissions
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={protectAllowPrinting}
+                      onChange={(e) => setProtectAllowPrinting(e.target.checked)}
+                      className="rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-slate-800 font-medium">Allow Printing</span>
+                  </label>
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={protectAllowCopying}
+                      onChange={(e) => setProtectAllowCopying(e.target.checked)}
+                      className="rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-slate-800 font-medium">Allow Copying</span>
+                  </label>
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={protectAllowModifying}
+                      onChange={(e) => setProtectAllowModifying(e.target.checked)}
+                      className="rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-slate-800 font-medium">Allow Modifying</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Phase 34: Unlock PDF */}
+          {tool.slug === "unlock-pdf" && (
+            <div className="space-y-3">
+              <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-xs text-blue-800 leading-relaxed">
+                If this document is locked with an open password, enter it below to decrypt and remove restrictions. If it only has print/copy restrictions, leave blank to strip restrictions instantly.
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Document Password (If required to open)
+                </label>
+                <input
+                  type="password"
+                  value={unlockPassword}
+                  onChange={(e) => setUnlockPassword(e.target.value)}
+                  placeholder="Leave empty if file opens without password"
+                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Phase 34: Watermark PDF */}
+          {tool.slug === "watermark-pdf" && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Watermark Text</label>
+                <input
+                  type="text"
+                  value={watermarkText}
+                  onChange={(e) => setWatermarkText(e.target.value)}
+                  placeholder="e.g. CONFIDENTIAL, DRAFT, DO NOT COPY"
+                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Position</label>
+                  <select
+                    value={watermarkPosition}
+                    onChange={(e) => setWatermarkPosition(e.target.value as any)}
+                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  >
+                    <option value="diagonal">Center (Diagonal 45°)</option>
+                    <option value="center">Center (Horizontal)</option>
+                    <option value="top">Top Header</option>
+                    <option value="bottom">Bottom Footer</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Font Size ({watermarkFontSize}px)</label>
+                  <input
+                    type="range"
+                    min="16"
+                    max="96"
+                    value={watermarkFontSize}
+                    onChange={(e) => setWatermarkFontSize(Number(e.target.value))}
+                    className="w-full mt-2 accent-blue-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Opacity ({Math.round(watermarkOpacity * 100)}%)</label>
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    value={Math.round(watermarkOpacity * 100)}
+                    onChange={(e) => setWatermarkOpacity(Number(e.target.value) / 100)}
+                    className="w-full mt-2 accent-blue-600"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Watermark Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={watermarkColor}
+                      onChange={(e) => setWatermarkColor(e.target.value)}
+                      className="w-9 h-9 rounded-lg border border-slate-300 cursor-pointer p-0.5"
+                    />
+                    <input
+                      type="text"
+                      value={watermarkColor}
+                      onChange={(e) => setWatermarkColor(e.target.value)}
+                      className="flex-1 text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Page Range</label>
+                  <input
+                    type="text"
+                    value={watermarkPageRange}
+                    onChange={(e) => setWatermarkPageRange(e.target.value)}
+                    placeholder="all or 1-3, 5"
+                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Phase 34: Add Page Numbers */}
+          {tool.slug === "page-numbers-pdf" && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Numbering Format</label>
+                  <select
+                    value={pageNumberFormat}
+                    onChange={(e) => setPageNumberFormat(e.target.value as any)}
+                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  >
+                    <option value="Page {page} of {total}">Page &#123;page&#125; of &#123;total&#125; (e.g. Page 1 of 5)</option>
+                    <option value="Page {page}">Page &#123;page&#125; (e.g. Page 1)</option>
+                    <option value="{page}">&#123;page&#125; (Just Number)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Placement Position</label>
+                  <select
+                    value={pageNumberPosition}
+                    onChange={(e) => setPageNumberPosition(e.target.value as any)}
+                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  >
+                    <option value="bottom-center">Bottom Center</option>
+                    <option value="bottom-right">Bottom Right</option>
+                    <option value="bottom-left">Bottom Left</option>
+                    <option value="top-center">Top Center</option>
+                    <option value="top-right">Top Right</option>
+                    <option value="top-left">Top Left</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Start Number</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={pageNumberStart}
+                    onChange={(e) => setPageNumberStart(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Pages to Number</label>
+                  <input
+                    type="text"
+                    value={pageNumberRange}
+                    onChange={(e) => setPageNumberRange(e.target.value)}
+                    placeholder="all or 2- (skip cover)"
+                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Phase 34: PDF Header & Footer */}
+          {tool.slug === "pdf-header-footer" && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Header Text (Optional)</label>
+                  <input
+                    type="text"
+                    value={headerText}
+                    onChange={(e) => setHeaderText(e.target.value)}
+                    placeholder="Document Title or Subject"
+                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Header Alignment</label>
+                  <select
+                    value={headerPosition}
+                    onChange={(e) => setHeaderPosition(e.target.value as any)}
+                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  >
+                    <option value="center">Center</option>
+                    <option value="left">Left</option>
+                    <option value="right">Right</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Footer Text (Supports &#123;page&#125; and &#123;total&#125;)</label>
+                  <input
+                    type="text"
+                    value={footerText}
+                    onChange={(e) => setFooterText(e.target.value)}
+                    placeholder="Page {page} of {total}"
+                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Footer Alignment</label>
+                  <select
+                    value={footerPosition}
+                    onChange={(e) => setFooterPosition(e.target.value as any)}
+                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  >
+                    <option value="center">Center</option>
+                    <option value="left">Left</option>
+                    <option value="right">Right</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Page Range</label>
+                <input
+                  type="text"
+                  value={headerFooterRange}
+                  onChange={(e) => setHeaderFooterRange(e.target.value)}
+                  placeholder="all or 1-5"
+                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Phase 34: PDF Metadata */}
+          {tool.slug === "pdf-metadata" && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Document Title</label>
+                  <input
+                    type="text"
+                    value={metadataTitle}
+                    onChange={(e) => setMetadataTitle(e.target.value)}
+                    placeholder="Document title"
+                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Author Name</label>
+                  <input
+                    type="text"
+                    value={metadataAuthor}
+                    onChange={(e) => setMetadataAuthor(e.target.value)}
+                    placeholder="Author name"
+                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Subject</label>
+                  <input
+                    type="text"
+                    value={metadataSubject}
+                    onChange={(e) => setMetadataSubject(e.target.value)}
+                    placeholder="Subject or category"
+                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Keywords (Comma-separated)</label>
+                  <input
+                    type="text"
+                    value={metadataKeywords}
+                    onChange={(e) => setMetadataKeywords(e.target.value)}
+                    placeholder="report, finance, 2026"
+                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 p-2.5 rounded-lg border border-amber-200 bg-amber-50 cursor-pointer hover:bg-amber-100/70 text-xs">
+                <input
+                  type="checkbox"
+                  checked={metadataClearAll}
+                  onChange={(e) => setMetadataClearAll(e.target.checked)}
+                  className="rounded text-amber-600 focus:ring-amber-500"
+                />
+                <span className="text-amber-900 font-semibold">Strip all metadata (Sanitize personal identifiable info)</span>
+              </label>
+            </div>
+          )}
+
+          {/* Phase 34: Flatten PDF */}
+          {tool.slug === "flatten-pdf" && (
+            <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-xs text-blue-900 leading-relaxed">
+              <strong>Interactive Form Flattening:</strong> Converts all interactive AcroForms, form fields, checkboxes, and text inputs into permanent static vector graphics. The resulting document is read-only and prints identically on all devices.
+            </div>
+          )}
+
+          {/* Phase 34: PDF Info */}
+          {tool.slug === "pdf-info" && (
+            <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-xs text-blue-900 leading-relaxed">
+              <strong>Client-Side Technical Inspection:</strong> Inspects page counts, physical paper dimensions (A4, Letter), embedded metadata, and encryption status locally in your browser memory without uploading.
+            </div>
+          )}
+
+          {/* Phase 35: Document Scanner / Scan to PDF / Photo to Document */}
+          {(tool.slug === "document-scanner" || tool.slug === "scan-to-pdf" || tool.slug === "photo-to-document") && (
+            <div className="space-y-4 p-4 rounded-xl border border-slate-200 bg-slate-50/50">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Scan & Document Settings
+                </span>
+                <span className="text-[11px] font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                  100% Client-Side
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    Document Filter
+                  </label>
+                  <select
+                    value={scanFilterMode}
+                    onChange={(e) => setScanFilterMode(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  >
+                    <option value="clean_bw">Clean B&W (High Contrast Document)</option>
+                    <option value="grayscale">Grayscale (Smooth Text & Diagrams)</option>
+                    <option value="enhanced_color">Enhanced Color (Original Palette)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    Output Page Layout
+                  </label>
+                  <select
+                    value={scanPageSize}
+                    onChange={(e) => setScanPageSize(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  >
+                    <option value="A4">Standard A4 (Print-Ready Aligned)</option>
+                    <option value="FIT">Fit Exact Image Dimensions</option>
+                  </select>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-slate-500 italic">
+                Camera feed and photos are processed directly in browser canvas memory. Zero frames or document photos are sent to any external server.
               </p>
             </div>
           )}

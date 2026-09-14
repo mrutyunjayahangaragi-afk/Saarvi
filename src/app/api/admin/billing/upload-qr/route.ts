@@ -3,10 +3,12 @@ import { PaymentStore } from '@/lib/billing/payment-store';
 import { getAuthenticatedAdmin } from '@/lib/security/admin-auth';
 import { enforceRateLimit, createRateLimitResponse } from '@/lib/security/rate-limit';
 import { detectFileFormatFromBytes, isExecutableSignature } from '@/lib/security/file-security';
+import { uploadStorageAsset, getSupabaseAdminClient } from '@/lib/supabase/admin';
+import { resolvePaymentQrImage } from '@/lib/billing/qr-resolver';
 
 export const dynamic = 'force-dynamic';
 
-const MAX_QR_FILE_SIZE = 2 * 1024 * 1024; // 2 MB safety cap
+const MAX_QR_FILE_SIZE = 10 * 1024 * 1024; // 10 MB safety cap for scanner and high-res camera images
 const ALLOWED_IMAGE_FORMATS = ['png', 'jpeg', 'webp'];
 
 /**
@@ -46,11 +48,12 @@ export async function POST(request: Request) {
 
       if (file.size > MAX_QR_FILE_SIZE) {
         return NextResponse.json(
-          { success: false, error: 'File size exceeds maximum allowed limit of 2MB' },
+          { success: false, error: 'File size exceeds maximum allowed limit of 10MB' },
           { status: 400 }
         );
       }
 
+      mimeType = file.type || 'image/png';
       const arrayBuffer = await file.arrayBuffer();
       imageBuffer = Buffer.from(arrayBuffer);
     } else {
@@ -79,7 +82,7 @@ export async function POST(request: Request) {
 
       if (imageBuffer.length > MAX_QR_FILE_SIZE) {
         return NextResponse.json(
-          { success: false, error: 'File size exceeds maximum allowed limit of 2MB' },
+          { success: false, error: 'File size exceeds maximum allowed limit of 10MB' },
           { status: 400 }
         );
       }
@@ -95,7 +98,23 @@ export async function POST(request: Request) {
       );
     }
 
-    const detectedFormat = await detectFileFormatFromBytes(uint8);
+    let detectedFormat = await detectFileFormatFromBytes(uint8);
+
+    // Fallback detection for scanner images with EXIF/JFIF/custom headers
+    if (!detectedFormat) {
+      if (uint8.length >= 2 && uint8[0] === 0xff && uint8[1] === 0xd8) {
+        detectedFormat = 'jpeg';
+      } else if (uint8.length >= 4 && uint8[0] === 0x89 && uint8[1] === 0x50 && uint8[2] === 0x4e && uint8[3] === 0x47) {
+        detectedFormat = 'png';
+      } else if (mimeType.includes('jpeg') || mimeType.includes('jpg')) {
+        detectedFormat = 'jpeg';
+      } else if (mimeType.includes('png')) {
+        detectedFormat = 'png';
+      } else if (mimeType.includes('webp')) {
+        detectedFormat = 'webp';
+      }
+    }
+
     if (!detectedFormat || !ALLOWED_IMAGE_FORMATS.includes(detectedFormat)) {
       return NextResponse.json(
         {
@@ -107,11 +126,31 @@ export async function POST(request: Request) {
     }
 
     const finalMime = detectedFormat === 'jpeg' ? 'image/jpeg' : `image/${detectedFormat}`;
-    const generatedDataUrl = `data:${finalMime};base64,${imageBuffer.toString('base64')}`;
+    const timestamp = Date.now();
+    const storagePath = `qr-codes/saarvi-upi-qr-${timestamp}.${detectedFormat}`;
 
-    // Update authoritative payment config
+    // Previous path for safe post-update cleanup
+    const previousConfig = PaymentStore.getPaymentConfig();
+    const oldStoragePath = previousConfig.qrImageUrl;
+
+    // 1. Upload asset to Supabase Storage bucket 'payment-assets' for durability
+    const storageRes = await uploadStorageAsset(
+      'payment-assets',
+      storagePath,
+      imageBuffer,
+      finalMime
+    );
+
+    if (!storageRes.success) {
+      return NextResponse.json(
+        { success: false, error: storageRes.error || 'Failed to upload QR asset to storage' },
+        { status: 500 }
+      );
+    }
+
+    // 2. Update authoritative payment config with the canonical storage path
     const updated = PaymentStore.updateConfig(
-      { qrCodeUrl: generatedDataUrl },
+      { qrCodeUrl: storageRes.path },
       {
         id: authResult.user.id,
         email: authResult.user.email,
@@ -119,9 +158,34 @@ export async function POST(request: Request) {
       }
     );
 
+    // 3. Persist to Supabase database AND verify it succeeded before returning success
+    const persistRes = await PaymentStore.persistConfigToSupabase(authResult.user);
+    if (!persistRes.success) {
+      return NextResponse.json(
+        { success: false, error: `Database persistence failed: ${persistRes.error}` },
+        { status: 500 }
+      );
+    }
+
+    // 4. Safe post-update cleanup of older file (only after new file and DB record are fully committed)
+    if (oldStoragePath && oldStoragePath !== storageRes.path && oldStoragePath.startsWith('qr-codes/')) {
+      try {
+        const supabase = getSupabaseAdminClient();
+        if (supabase) {
+          await supabase.storage.from('payment-assets').remove([oldStoragePath]);
+        }
+      } catch (cleanErr) {
+        console.warn('[Storage Cleanup Warning]:', cleanErr);
+      }
+    }
+
+    // 5. Construct browser-loadable URL with cache-busting timestamp
+    const resolvedUrl = resolvePaymentQrImage(storageRes.path, timestamp);
+
     return NextResponse.json({
       success: true,
-      qrCodeUrl: updated.qrCodeUrl,
+      qrCodeUrl: resolvedUrl,
+      storagePath: storageRes.path,
       format: detectedFormat,
       message: 'UPI QR code uploaded and verified successfully.',
     });
@@ -153,6 +217,10 @@ export async function DELETE(request: Request) {
       );
     }
 
+    const oldConfig = PaymentStore.getPaymentConfig();
+    const oldPath = oldConfig.qrImageUrl;
+
+    // 1. Update in-memory config
     const updated = PaymentStore.updateConfig(
       { qrCodeUrl: '' },
       {
@@ -162,9 +230,31 @@ export async function DELETE(request: Request) {
       }
     );
 
+    // 2. Persist to database AND verify it succeeded
+    const persistRes = await PaymentStore.persistConfigToSupabase(authResult.user);
+    if (!persistRes.success) {
+      return NextResponse.json(
+        { success: false, error: `Failed to remove QR code from database: ${persistRes.error}` },
+        { status: 500 }
+      );
+    }
+
+    // 3. Safe cleanup from storage
+    if (oldPath && oldPath.startsWith('qr-codes/')) {
+      try {
+        const supabase = getSupabaseAdminClient();
+        if (supabase) {
+          await supabase.storage.from('payment-assets').remove([oldPath]);
+        }
+      } catch (cleanErr) {
+        console.warn('[Storage QR Cleanup Warning]:', cleanErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       config: updated,
+      qrCodeUrl: null,
       message: 'UPI QR code removed successfully.',
     });
   } catch (err: any) {

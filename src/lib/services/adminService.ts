@@ -1,12 +1,13 @@
 // DocEase Phase 11: Authoritative Admin Service
 // Centralized Platform Control, Tool Overrides, VTU Curriculum Workflow, and Audit Logging
 
-import { TOOLS_CONFIG } from '@/config/tools';
-import { FILE_LIMITS, getMaxFileSizeMB } from '@/config/limits';
-import { ToolDefinition } from '@/types/tool';
-import { CurriculumCourse } from '@/types/student';
-import { ALL_VERIFIED_VTU_COURSES } from '@/lib/student/vtu/curriculum-data';
-import {
+import { TOOLS_CONFIG } from '../../config/tools';
+import { FILE_LIMITS, getMaxFileSizeMB } from '../../config/limits';
+import type { ToolDefinition } from '@/types/tool';
+import type { CurriculumCourse } from '@/types/student';
+import { ALL_VERIFIED_VTU_COURSES } from '../student/vtu/curriculum-data';
+import { hasPermission } from '../../types/admin';
+import type {
   PlatformSettings,
   ToolOverrideConfig,
   CurriculumVersionRecord,
@@ -17,15 +18,14 @@ import {
   AuditLogRecord,
   FeatureFlag,
   SystemHealthCheck,
-  hasPermission,
   AdminPermission,
+  FeatureFlagStatus,
 } from '@/types/admin';
-import { UserProfile, UserRole, UserAccountStatus } from '@/types/auth';
-import { MockStorageProvider } from '@/lib/supabase/mock-storage';
-import { isSupabaseConfigured } from '@/lib/supabase/config';
-import { createClient } from '@/lib/supabase/client';
-import { featureServerStore } from '@/lib/features/feature-store';
-import { FeatureFlagStatus } from '@/types/admin';
+import type { UserProfile, UserRole, UserAccountStatus } from '@/types/auth';
+import { MockStorageProvider } from '../supabase/mock-storage';
+import { isSupabaseConfigured } from '../supabase/config';
+import { createClient } from '../supabase/client';
+import { featureServerStore } from '../features/feature-store';
 
 export interface AdminActor {
   id: string;
@@ -806,9 +806,20 @@ export const adminService = {
     search?: string;
     role?: UserRole;
     status?: UserAccountStatus;
+    plan?: 'FREE' | 'PRO';
     page?: number;
     limit?: number;
-  }): Promise<{ users: Array<Omit<UserProfile, 'avatarUrl'> & { status: UserAccountStatus }>; total: number }> {
+  }): Promise<{
+    users: Array<
+      Omit<UserProfile, 'avatarUrl'> & {
+        status: UserAccountStatus;
+        authProvider?: 'EMAIL' | 'GOOGLE';
+        plan?: 'FREE' | 'PRO';
+        lastSignInAt?: string;
+      }
+    >;
+    total: number;
+  }> {
     let all = MockStorageProvider.listAllUsers().map((u) => ({
       id: u.id,
       email: u.email,
@@ -817,6 +828,9 @@ export const adminService = {
       status: u.status || 'ACTIVE',
       createdAt: u.createdAt,
       updatedAt: u.updatedAt,
+      authProvider: u.authProvider || (u.email.includes('gmail.com') ? 'GOOGLE' : 'EMAIL'),
+      plan: u.plan || (u.role === 'SUPER_ADMIN' || u.role === 'ADMIN' ? 'PRO' : 'FREE'),
+      lastSignInAt: u.lastSignInAt,
     }));
 
     if (params?.search) {
@@ -830,6 +844,10 @@ export const adminService = {
 
     if (params?.status) {
       all = all.filter((u) => u.status === params.status);
+    }
+
+    if (params?.plan) {
+      all = all.filter((u) => u.plan === params.plan);
     }
 
     const total = all.length;

@@ -15,6 +15,7 @@ import {
   Compass,
 } from 'lucide-react';
 import { ToolDiscoveryResult, DiscoveredToolItem } from '@/lib/ai/tool-discovery-engine';
+import { isValidCanonicalRoute } from '@/lib/ai/ai-assistant-router';
 
 interface ChatMessage {
   id: string;
@@ -147,6 +148,10 @@ export default function GlobalAIAssistant() {
   };
 
   const handleNavigate = (route: string) => {
+    if (!isValidCanonicalRoute(route)) {
+      console.warn('[GlobalAIAssistant] Blocked unverified route:', route);
+      return;
+    }
     setIsOpen(false);
     router.push(route);
   };

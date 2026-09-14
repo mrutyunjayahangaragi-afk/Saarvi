@@ -13,22 +13,40 @@ import {
   UserCheck,
   Trash2,
   Lock,
+  Eye,
+  Mail,
+  Zap,
+  Globe,
+  Clock,
+  X,
+  ShieldCheck,
 } from 'lucide-react';
 import { adminService } from '@/lib/services/adminService';
 import { UserProfile, UserRole, UserAccountStatus } from '@/types/auth';
 import { useAuth } from '@/context/AuthContext';
 import AdminConfirmModal from '@/components/admin/AdminConfirmModal';
 
+interface DisplayUser extends Omit<UserProfile, 'avatarUrl'> {
+  status: UserAccountStatus;
+  authProvider?: 'EMAIL' | 'GOOGLE';
+  plan?: 'FREE' | 'PRO';
+  lastSignInAt?: string;
+}
+
 export default function AdminUsersPage() {
   const { user: currentUser, profile: currentProfile } = useAuth();
-  const [users, setUsers] = useState<Array<Omit<UserProfile, 'avatarUrl'> & { status: UserAccountStatus }>>([]);
+  const [users, setUsers] = useState<DisplayUser[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | UserAccountStatus>('all');
+  const [planFilter, setPlanFilter] = useState<'all' | 'FREE' | 'PRO'>('all');
   const [page, setPage] = useState(1);
   const limit = 10;
+
+  // Selected User for Detail View
+  const [detailUser, setDetailUser] = useState<DisplayUser | null>(null);
 
   // Confirmation Modals State
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
@@ -40,7 +58,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     loadUsers();
-  }, [search, roleFilter, statusFilter, page]);
+  }, [search, roleFilter, statusFilter, planFilter, page]);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -49,6 +67,7 @@ export default function AdminUsersPage() {
         search: search.trim() || undefined,
         role: roleFilter === 'all' ? undefined : roleFilter,
         status: statusFilter === 'all' ? undefined : statusFilter,
+        plan: planFilter === 'all' ? undefined : planFilter,
         page,
         limit,
       });
@@ -101,20 +120,36 @@ export default function AdminUsersPage() {
       setPendingAction(null);
       await loadUsers();
     } catch (err: any) {
-      alert(err?.message || 'Operation failed');
+      alert(`Action failed: ${err.message || 'Unknown error'}`);
     }
   };
 
   const getStatusBadge = (status: UserAccountStatus) => {
     switch (status) {
       case 'ACTIVE':
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">ACTIVE</span>;
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <CheckCircle2 className="w-2.5 h-2.5" /> Active
+          </span>
+        );
       case 'SUSPENDED':
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">SUSPENDED</span>;
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+            <AlertTriangle className="w-2.5 h-2.5" /> Suspended
+          </span>
+        );
       case 'DISABLED':
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">DISABLED</span>;
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200">
+            <XCircle className="w-2.5 h-2.5" /> Disabled
+          </span>
+        );
       case 'PENDING':
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">PENDING</span>;
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+            Pending
+          </span>
+        );
     }
   };
 
@@ -130,7 +165,7 @@ export default function AdminUsersPage() {
             <span>User Account Management</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Manage account lifecycle, account suspension, and roles. Strict privacy: user documents and notes remain on device.
+            Manage account lifecycle, suspension, and plan entitlements. Strict privacy: user documents and notes remain client-side only.
           </p>
         </div>
 
@@ -141,7 +176,7 @@ export default function AdminUsersPage() {
 
       {/* Filters Bar */}
       <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-col sm:flex-row gap-3 items-center justify-between">
-        <div className="relative w-full sm:w-80">
+        <div className="relative w-full sm:w-72">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
             type="text"
@@ -155,7 +190,22 @@ export default function AdminUsersPage() {
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {/* Plan Filter */}
+          <select
+            value={planFilter}
+            onChange={(e) => {
+              setPlanFilter(e.target.value as any);
+              setPage(1);
+            }}
+            className="text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">All Plans</option>
+            <option value="FREE">Free Tier</option>
+            <option value="PRO">Pro Tier</option>
+          </select>
+
+          {/* Role Filter */}
           <select
             value={roleFilter}
             onChange={(e) => {
@@ -170,6 +220,7 @@ export default function AdminUsersPage() {
             <option value="SUPER_ADMIN">Super Admin</option>
           </select>
 
+          {/* Status Filter */}
           <select
             value={statusFilter}
             onChange={(e) => {
@@ -195,21 +246,23 @@ export default function AdminUsersPage() {
               <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
                 <th className="py-3 px-4">User</th>
                 <th className="py-3 px-3">Role</th>
+                <th className="py-3 px-3">Plan</th>
+                <th className="py-3 px-3">Auth</th>
                 <th className="py-3 px-3">Account Status</th>
                 <th className="py-3 px-3">Created</th>
-                <th className="py-3 px-4 text-right">Administrative Actions</th>
+                <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-slate-500">
+                  <td colSpan={7} className="py-8 text-center text-slate-500">
                     Loading user records...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-slate-500">
+                  <td colSpan={7} className="py-8 text-center text-slate-500">
                     No users found matching query.
                   </td>
                 </tr>
@@ -219,7 +272,6 @@ export default function AdminUsersPage() {
                     <td className="py-3 px-4">
                       <div className="font-bold text-slate-900">{u.fullName}</div>
                       <div className="text-[11px] text-slate-500 font-mono">{u.email}</div>
-                      <div className="text-[10px] text-slate-400 font-mono">ID: {u.id}</div>
                     </td>
 
                     <td className="py-3 px-3">
@@ -235,6 +287,26 @@ export default function AdminUsersPage() {
                     </td>
 
                     <td className="py-3 px-3">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        u.plan === 'PRO'
+                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                          : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {u.plan || 'FREE'}
+                      </span>
+                    </td>
+
+                    <td className="py-3 px-3">
+                      <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 font-medium">
+                        {u.authProvider === 'GOOGLE' ? (
+                          <span className="text-blue-600 font-semibold">Google</span>
+                        ) : (
+                          <span>Email</span>
+                        )}
+                      </span>
+                    </td>
+
+                    <td className="py-3 px-3">
                       {getStatusBadge(u.status)}
                     </td>
 
@@ -244,6 +316,16 @@ export default function AdminUsersPage() {
 
                     <td className="py-3 px-4 text-right">
                       <div className="inline-flex items-center gap-1.5">
+                        {/* View Details */}
+                        <button
+                          onClick={() => setDetailUser(u)}
+                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-medium transition flex items-center gap-1"
+                          title="View Safe Profile Details"
+                        >
+                          <Eye className="w-3 h-3" /> View
+                        </button>
+
+                        {/* Suspend / Reactivate */}
                         {u.status === 'ACTIVE' ? (
                           <button
                             onClick={() => handleActionClick('SUSPEND', u)}
@@ -305,6 +387,79 @@ export default function AdminUsersPage() {
           </div>
         )}
       </div>
+
+      {/* Safe User Profile Modal */}
+      {detailUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-base">
+                  {detailUser.fullName.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">{detailUser.fullName}</h3>
+                  <p className="text-xs text-slate-500 font-mono">{detailUser.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDetailUser(null)}
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Account Metadata Details */}
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="text-[10px] uppercase font-bold text-slate-400">User ID</span>
+                <p className="font-mono text-slate-800 font-medium truncate mt-0.5">{detailUser.id}</p>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="text-[10px] uppercase font-bold text-slate-400">Account Status</span>
+                <div className="mt-0.5">{getStatusBadge(detailUser.status)}</div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="text-[10px] uppercase font-bold text-slate-400">Subscription Plan</span>
+                <p className="font-bold text-slate-800 mt-0.5">{detailUser.plan || 'FREE'}</p>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="text-[10px] uppercase font-bold text-slate-400">Auth Provider</span>
+                <p className="font-bold text-slate-800 mt-0.5">{detailUser.authProvider || 'EMAIL'}</p>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="text-[10px] uppercase font-bold text-slate-400">Registered</span>
+                <p className="font-medium text-slate-700 mt-0.5">{new Date(detailUser.createdAt).toLocaleString()}</p>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="text-[10px] uppercase font-bold text-slate-400">Role</span>
+                <p className="font-medium text-slate-700 mt-0.5">{detailUser.role}</p>
+              </div>
+            </div>
+
+            {/* Strict Privacy Guarantee Box */}
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 space-y-1.5">
+              <div className="flex items-center gap-1.5 font-bold text-emerald-950">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>Zero Server Document Access Guarantee</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-emerald-800">
+                Saarvi enforces strict client-side isolation. User conversion files, resume drafts, notes, timetable schedules, and academic calculations are stored purely in local browser storage (IndexedDB) and are inaccessible to platform administrators.
+              </p>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setDetailUser(null)}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Modal */}
       <AdminConfirmModal

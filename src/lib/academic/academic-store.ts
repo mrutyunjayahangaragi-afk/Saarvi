@@ -16,7 +16,7 @@
  * - Safe audit logging
  */
 
-import {
+import type {
   UniversityRecord,
   SchemeRecord,
   BranchRecord,
@@ -25,8 +25,8 @@ import {
   CurriculumPublishStatus,
   AcademicCourseType,
 } from '@/types/admin';
-import { ALL_VERIFIED_VTU_COURSES } from '@/lib/student/vtu/curriculum-data';
-import { MockStorageProvider } from '@/lib/supabase/mock-storage';
+import { ALL_VERIFIED_VTU_COURSES } from '../student/vtu/curriculum-data';
+import { MockStorageProvider } from '../supabase/mock-storage';
 
 export class AcademicServerStore {
   private static instance: AcademicServerStore;

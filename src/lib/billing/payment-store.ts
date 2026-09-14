@@ -7,6 +7,7 @@
 import { MockStorageProvider } from "@/lib/supabase/mock-storage";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { SubscriptionRecord, BillingInvoiceRecord } from "@/types/plan";
 import { isValidUpiId, generatePaymentReference, UpiAppProvider } from "./upi-intent";
 
@@ -83,6 +84,93 @@ const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
 // In-memory runtime cache for high-throughput reads
 let runtimeConfig: PaymentConfig = { ...DEFAULT_PAYMENT_CONFIG };
 let runtimeRequests: PaymentRequestRecord[] = [];
+let hasHydratedFromSupabase = false;
+
+import { resolvePaymentQrImage, isValidQrUrl } from "./qr-resolver";
+
+async function hydratePaymentFromSupabase(): Promise<void> {
+  if (typeof window !== "undefined") return;
+  try {
+    const supabase = getSupabaseAdminClient();
+    if (!supabase) return;
+
+    const [configRes, requestsRes] = await Promise.all([
+      supabase.from("payment_configs").select("*").eq("id", "default").maybeSingle(),
+      supabase.from("manual_payment_requests").select("*").order("created_at", { ascending: false }),
+    ]);
+
+    if (configRes.data && !configRes.error) {
+      const row = configRes.data;
+      let qrUrl = row.qr_code_url || runtimeConfig.qrImageUrl;
+
+      // Auto-recovery: If DB has null qr_code_url, check if files exist in storage bucket
+      if (!qrUrl) {
+        try {
+          const { data: files } = await supabase.storage.from("payment-assets").list("qr-codes");
+          if (files && files.length > 0) {
+            // Sort by updated_at or name descending to pick latest
+            const sorted = [...files].sort((a, b) =>
+              new Date(b.updated_at || b.created_at || 0).getTime() -
+              new Date(a.updated_at || a.created_at || 0).getTime()
+            );
+            if (sorted[0]?.name) {
+              qrUrl = `qr-codes/${sorted[0].name}`;
+              // Update payment_configs so DB is in sync
+              await supabase.from("payment_configs").update({ qr_code_url: qrUrl }).eq("id", "default");
+            }
+          }
+        } catch {}
+      }
+
+      runtimeConfig = {
+        ...runtimeConfig,
+        upiId: row.upi_id || runtimeConfig.upiId,
+        qrImageUrl: qrUrl,
+        monthlyPrice: Number(row.amount_monthly) || runtimeConfig.monthlyPrice,
+        yearlyPrice: Number(row.amount_yearly) || runtimeConfig.yearlyPrice,
+        currency: row.currency || runtimeConfig.currency,
+        paymentInstructions: row.instructions || runtimeConfig.paymentInstructions,
+        manualUpiEnabled: row.status === "ACTIVE",
+        reviewSlaMinutes: row.review_sla_hours ? row.review_sla_hours * 60 : runtimeConfig.reviewSlaMinutes,
+        updatedAt: row.updated_at || runtimeConfig.updatedAt,
+        updatedBy: row.updated_by || runtimeConfig.updatedBy,
+      };
+    }
+
+    if (requestsRes.data && !requestsRes.error && requestsRes.data.length > 0) {
+      runtimeRequests = requestsRes.data.map((r: any) => ({
+        id: r.id,
+        referenceNumber: r.id,
+        userId: r.user_id,
+        userEmail: r.user_email,
+        plan: (r.plan_duration?.toLowerCase() === "yearly" ? "yearly" : "monthly") as "monthly" | "yearly",
+        amount: Number(r.amount) || 0,
+        currency: r.currency || "INR",
+        paymentMethod: "UPI_INTENT" as const,
+        provider: "OTHER_UPI" as const,
+        upiIdSnapshot: r.payee_upi_id || runtimeConfig.upiId,
+        utrNumber: r.utr_number,
+        proofUrl: r.payment_proof_url,
+        status: (r.status === "PENDING" ? "PENDING_REVIEW" : r.status) as PaymentRequestStatus,
+        submittedAt: r.created_at,
+        reviewDeadline: r.sla_deadline,
+        reviewedAt: r.reviewed_at,
+        reviewedBy: r.reviewed_by,
+        reviewReason: r.review_notes,
+        entitlementId: r.subscription_id,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      }));
+    }
+    hasHydratedFromSupabase = true;
+  } catch (err: any) {
+    console.warn("[paymentStore] Supabase hydration error:", err?.message);
+  }
+}
+
+if (typeof window === "undefined") {
+  hydratePaymentFromSupabase().catch(() => {});
+}
 
 // Concurrency mutex set to prevent race-condition double-approvals
 const activeApprovalLocks = new Set<string>();
@@ -92,7 +180,15 @@ export const paymentStore = {
   // 1. CONFIGURATION MANAGEMENT
   // =========================================================================
 
+  async syncFromSupabase(): Promise<PaymentConfig> {
+    await hydratePaymentFromSupabase();
+    return { ...runtimeConfig };
+  },
+
   getPaymentConfig(): PaymentConfig {
+    if (!hasHydratedFromSupabase && typeof window === "undefined") {
+      hydratePaymentFromSupabase().catch(() => {});
+    }
     try {
       const stored = (MockStorageProvider as any).getPaymentConfig?.();
       if (stored) {
@@ -148,6 +244,32 @@ export const paymentStore = {
           newConfig: runtimeConfig,
         },
       });
+    } catch {}
+
+    // Persist to Supabase payment_configs table
+    try {
+      const supabase = getSupabaseAdminClient();
+      if (supabase) {
+        supabase.from("payment_configs").upsert({
+          id: "default",
+          upi_id: runtimeConfig.upiId,
+          payee_name: "Saarvi Educational Services",
+          amount_monthly: runtimeConfig.monthlyPrice,
+          amount_yearly: runtimeConfig.yearlyPrice,
+          currency: runtimeConfig.currency,
+          qr_code_url: runtimeConfig.qrImageUrl,
+          review_sla_hours: Math.round(runtimeConfig.reviewSlaMinutes / 60) || 2,
+          instructions: runtimeConfig.paymentInstructions,
+          status: runtimeConfig.manualUpiEnabled ? "ACTIVE" : "DISABLED",
+          updated_at: runtimeConfig.updatedAt,
+          updated_by: actor.email,
+        }).then(
+          ({ error }) => {
+            if (error) console.warn("[Supabase payment_configs error]:", error.message);
+          },
+          () => {}
+        );
+      }
     } catch {}
 
     return { ...runtimeConfig };
@@ -282,6 +404,33 @@ export const paymentStore = {
           utrNumber: cleanUtr,
         },
       });
+    } catch {}
+
+    // Persist to Supabase manual_payment_requests table
+    try {
+      const supabase = getSupabaseAdminClient();
+      if (supabase) {
+        supabase.from("manual_payment_requests").insert({
+          id: record.id,
+          user_id: record.userId,
+          user_email: record.userEmail,
+          plan_duration: record.plan.toUpperCase(),
+          amount: record.amount,
+          currency: record.currency,
+          payee_upi_id: record.upiIdSnapshot,
+          utr_number: record.utrNumber || "",
+          payment_proof_url: record.proofUrl || null,
+          status: "PENDING",
+          sla_deadline: record.reviewDeadline,
+          created_at: record.submittedAt,
+          updated_at: record.updatedAt,
+        }).then(
+          ({ error }) => {
+            if (error) console.warn("[Supabase manual_payment_requests insert error]:", error.message);
+          },
+          () => {}
+        );
+      }
     } catch {}
 
     return record;
@@ -422,6 +571,50 @@ export const paymentStore = {
         });
       } catch {}
 
+      // Persist to Supabase manual_payment_requests & subscriptions
+      try {
+        const supabase = getSupabaseAdminClient();
+        if (supabase) {
+          supabase.from("manual_payment_requests").update({
+            status: "APPROVED",
+            reviewed_at: periodStart,
+            reviewed_by: actor.email,
+            review_notes: "Approved by administrator",
+            subscription_id: entitlementId,
+            updated_at: periodStart,
+          }).eq("id", requestId).then(
+            ({ error }) => {
+              if (error) console.warn("[Supabase manual_payment_requests approve error]:", error.message);
+            },
+            () => {}
+          );
+
+          supabase.from("subscriptions").upsert({
+            id: subscriptionRecord.id,
+            user_id: subscriptionRecord.userId,
+            provider: "manual_upi",
+            provider_customer_id: subscriptionRecord.providerCustomerId,
+            provider_subscription_id: subscriptionRecord.providerSubscriptionId,
+            plan: subscriptionRecord.plan,
+            status: subscriptionRecord.status,
+            billing_interval: subscriptionRecord.billingInterval,
+            currency: subscriptionRecord.currency,
+            amount_cents: subscriptionRecord.amountCents,
+            current_period_start: subscriptionRecord.currentPeriodStart,
+            current_period_end: subscriptionRecord.currentPeriodEnd,
+            cancel_at_period_end: false,
+            metadata: subscriptionRecord.metadata,
+            created_at: subscriptionRecord.createdAt,
+            updated_at: subscriptionRecord.updatedAt,
+          }).then(
+            ({ error }) => {
+              if (error) console.warn("[Supabase subscriptions upsert error]:", error.message);
+            },
+            () => {}
+          );
+        }
+      } catch {}
+
       return {
         request: updatedRequest,
         subscription: subscriptionRecord,
@@ -485,6 +678,25 @@ export const paymentStore = {
       });
     } catch {}
 
+    // Persist to Supabase manual_payment_requests
+    try {
+      const supabase = getSupabaseAdminClient();
+      if (supabase) {
+        supabase.from("manual_payment_requests").update({
+          status: "REJECTED",
+          reviewed_at: now,
+          reviewed_by: actor.email,
+          review_notes: cleanReason,
+          updated_at: now,
+        }).eq("id", requestId).then(
+          ({ error }) => {
+            if (error) console.warn("[Supabase manual_payment_requests reject error]:", error.message);
+          },
+          () => {}
+        );
+      }
+    } catch {}
+
     return updatedRequest;
   },
 
@@ -542,7 +754,8 @@ export const paymentStore = {
       amountMonthly: c.monthlyPrice,
       amountYearly: c.yearlyPrice,
       currency: c.currency,
-      qrCodeUrl: c.qrImageUrl || "",
+      qrCodeUrl: resolvePaymentQrImage(c.qrImageUrl) || "",
+      rawQrStoragePath: c.qrImageUrl || "",
       reviewSlaHours: Math.round(c.reviewSlaMinutes / 60),
       instructions: c.paymentInstructions,
       supportEmail: "payments@saarvi.in",
@@ -558,11 +771,38 @@ export const paymentStore = {
       amountMonthly: c.monthlyPrice,
       amountYearly: c.yearlyPrice,
       currency: c.currency,
-      qrCodeUrl: c.qrImageUrl || "",
+      qrCodeUrl: resolvePaymentQrImage(c.qrImageUrl) || "",
       reviewSlaHours: Math.round(c.reviewSlaMinutes / 60),
       instructions: c.paymentInstructions,
       supportEmail: "payments@saarvi.in",
     };
+  },
+
+  async persistConfigToSupabase(actor: { id?: string; email: string }): Promise<{ success: boolean; error?: string }> {
+    const supabase = getSupabaseAdminClient();
+    if (!supabase) return { success: true };
+    try {
+      const { error } = await supabase.from("payment_configs").upsert({
+        id: "default",
+        upi_id: runtimeConfig.upiId,
+        payee_name: "Saarvi Educational Services",
+        amount_monthly: runtimeConfig.monthlyPrice,
+        amount_yearly: runtimeConfig.yearlyPrice,
+        currency: runtimeConfig.currency,
+        qr_code_url: runtimeConfig.qrImageUrl,
+        review_sla_hours: Math.round(runtimeConfig.reviewSlaMinutes / 60) || 2,
+        instructions: runtimeConfig.paymentInstructions,
+        status: runtimeConfig.manualUpiEnabled ? "ACTIVE" : "DISABLED",
+        updated_at: runtimeConfig.updatedAt,
+        updated_by: actor.email,
+      });
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Failed to persist payment configuration' };
+    }
   },
 
   updateConfig(

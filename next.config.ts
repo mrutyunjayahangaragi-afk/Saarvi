@@ -5,7 +5,7 @@ const cspHeader = `
   script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src 'self' https://fonts.gstatic.com data:;
-  img-src 'self' data: blob: https://*.razorpay.com https://*.googleusercontent.com;
+  img-src 'self' data: blob: https://*.razorpay.com https://*.googleusercontent.com https://*.supabase.co https://api.qrserver.com;
   connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://lumberjack-cx.razorpay.com https://*.supabase.co;
   frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com;
   frame-ancestors 'self';
@@ -16,6 +16,18 @@ const cspHeader = `
 `.replace(/\s{2,}/g, ' ').trim();
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.qrserver.com',
+      },
+    ],
+  },
   async headers() {
     return [
       {

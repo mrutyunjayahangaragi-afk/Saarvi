@@ -24,7 +24,25 @@ export const FILE_LIMITS = {
     "extract-pdf-pages": 50,
     "compress-pdf": 50,
     "pdf-to-word": 50,
-    "word-to-pdf": 50
+    "word-to-pdf": 50,
+    "pdf-to-excel": 50,
+    "excel-to-pdf": 50,
+    "pdf-to-powerpoint": 50,
+    "powerpoint-to-pdf": 50,
+    "txt-to-pdf": 25,
+    "csv-to-pdf": 25,
+    "html-to-pdf": 25,
+    "protect-pdf": 50,
+    "unlock-pdf": 50,
+    "watermark-pdf": 50,
+    "page-numbers-pdf": 50,
+    "pdf-header-footer": 50,
+    "pdf-metadata": 50,
+    "flatten-pdf": 50,
+    "pdf-info": 50,
+    "document-scanner": 50,
+    "scan-to-pdf": 50,
+    "photo-to-document": 50
   } as Record<string, number>
 };
 

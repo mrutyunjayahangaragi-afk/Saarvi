@@ -16,6 +16,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    await PaymentStore.syncFromSupabase();
     const config = PaymentStore.getPublicConfig();
     return NextResponse.json({
       success: true,
@@ -95,7 +96,7 @@ export async function PUT(request: Request) {
         ...(amountMonthly !== undefined && { amountMonthly }),
         ...(amountYearly !== undefined && { amountYearly }),
         ...(currency && { currency }),
-        ...(qrCodeUrl !== undefined && { qrCodeUrl }),
+        ...(qrCodeUrl ? { qrCodeUrl } : {}),
         ...(reviewSlaHours !== undefined && { reviewSlaHours }),
         ...(instructions && { instructions: instructions.trim() }),
         ...(supportEmail && { supportEmail: supportEmail.trim() }),
@@ -107,6 +108,8 @@ export async function PUT(request: Request) {
         role: authResult.user.role,
       }
     );
+
+    await PaymentStore.persistConfigToSupabase(authResult.user);
 
     return NextResponse.json({
       success: true,

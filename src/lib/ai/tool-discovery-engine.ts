@@ -12,9 +12,11 @@
 import {
   CANONICAL_TOOL_REGISTRY,
   CANONICAL_TOOL_CATEGORIES,
+} from '../tools/tool-registry';
+import type {
   CanonicalTool,
   CanonicalToolCategory,
-} from '@/lib/tools/tool-registry';
+} from '../tools/tool-registry';
 
 export interface DiscoveredToolItem {
   key: string;
@@ -198,6 +200,13 @@ export function resolveToolQuery(
     { synonyms: ['cgpa', 'cgpa calculator', 'cumulative gpa', 'calculate cgpa', 'my cgpa', 'cgpa goal', 'target cgpa'], targetKey: 'cgpa-calculator' },
     { synonyms: ['resume', 'resume builder', 'create resume', 'make resume', 'make a resume', 'cv', 'cv maker', 'ats resume'], targetKey: 'resume-builder' },
     { synonyms: ['cover letter', 'cover letter builder', 'make a cover letter', 'make cover letter', 'job letter', 'internship cover letter'], targetKey: 'cover-letter' },
+    { synonyms: ['pdf to excel', 'convert pdf to excel', 'make spreadsheet from pdf', 'pdf to xlsx', 'extract table from pdf', 'pdf spreadsheet'], targetKey: 'pdf-to-excel' },
+    { synonyms: ['excel to pdf', 'convert excel to pdf', 'xlsx to pdf', 'spreadsheet to pdf', 'sheet to pdf', 'turn excel into pdf'], targetKey: 'excel-to-pdf' },
+    { synonyms: ['pdf to powerpoint', 'convert pdf to powerpoint', 'pdf to pptx', 'pdf to slides', 'pdf to presentation'], targetKey: 'pdf-to-powerpoint' },
+    { synonyms: ['powerpoint to pdf', 'turn powerpoint into pdf', 'convert powerpoint to pdf', 'pptx to pdf', 'slides to pdf', 'presentation to pdf'], targetKey: 'powerpoint-to-pdf' },
+    { synonyms: ['txt to pdf', 'convert txt to pdf', 'text to pdf', 'plain text to pdf', 'notepad to pdf'], targetKey: 'txt-to-pdf' },
+    { synonyms: ['csv to pdf', 'convert csv to pdf', 'csv to table pdf', 'data to pdf'], targetKey: 'csv-to-pdf' },
+    { synonyms: ['html to pdf', 'convert html to pdf', 'webpage to pdf', 'save html as pdf'], targetKey: 'html-to-pdf' },
     { synonyms: ['pdf to jpg', 'convert pdf to jpg', 'pdf to image', 'extract jpg from pdf'], targetKey: 'pdf-to-jpg' },
     { synonyms: ['jpg to pdf', 'convert jpg to pdf', 'photo to pdf', 'image to pdf'], targetKey: 'jpg-to-pdf' },
     { synonyms: ['merge pdf', 'combine pdf', 'join pdf', 'combine pdfs'], targetKey: 'merge-pdf' },
@@ -209,7 +218,23 @@ export function resolveToolQuery(
     { synonyms: ['job tracker', 'job application tracker', 'track jobs', 'job search kanban', 'internship tracker'], targetKey: 'job-tracker' },
     { synonyms: ['timetable', 'class schedule', 'timetable organizer', 'weekly schedule'], targetKey: 'timetable' },
     { synonyms: ['attendance', 'attendance tracker', 'bunk calculator', 'attendance percentage'], targetKey: 'attendance' },
-    { synonyms: ['exam schedule', 'exam countdown', 'exam planner'], targetKey: 'exams' },
+    { synonyms: ['exam schedule', 'exam countdown', 'exam planner', 'exams'], targetKey: 'exams' },
+    { synonyms: ['assignments', 'homework tracker', 'assignment deadline', 'homework'], targetKey: 'assignments' },
+    { synonyms: ['study planner', 'study sessions', 'pomodoro', 'study timer'], targetKey: 'study-planner' },
+    { synonyms: ['student notes', 'study notes', 'revision notes', 'lecture notes', 'notes', 'private notes'], targetKey: 'student-notes' },
+    { synonyms: ['skill gap', 'skill gap analysis', 'analyze skills', 'tech skills gap', 'role readiness', 'skills'], targetKey: 'skill-gap' },
+    { synonyms: ['interview prep', 'interview preparation', 'tech interview questions', 'dsa questions', 'coding questions'], targetKey: 'interview-prep' },
+    { synonyms: ['document scanner', 'scan document', 'camera scanner', 'scan paper', 'scan with camera', 'webcam scan'], targetKey: 'document-scanner' },
+    { synonyms: ['scan to pdf', 'scanned images to pdf', 'convert scan to pdf', 'camera to pdf'], targetKey: 'scan-to-pdf' },
+    { synonyms: ['photo to document', 'clean photo document', 'enhance paper photo', 'photo cleanup', 'paperwork photo'], targetKey: 'photo-to-document' },
+    { synonyms: ['protect pdf', 'encrypt pdf', 'password protect pdf', 'lock pdf', 'set pdf password', 'secure pdf'], targetKey: 'protect-pdf' },
+    { synonyms: ['unlock pdf', 'remove pdf password', 'decrypt pdf', 'unlock protected pdf'], targetKey: 'unlock-pdf' },
+    { synonyms: ['watermark pdf', 'add watermark', 'stamp pdf', 'watermark'], targetKey: 'watermark-pdf' },
+    { synonyms: ['page numbers pdf', 'add page numbers', 'number pdf pages', 'number pages'], targetKey: 'page-numbers-pdf' },
+    { synonyms: ['pdf header footer', 'header and footer', 'add header footer', 'page header'], targetKey: 'pdf-header-footer' },
+    { synonyms: ['pdf metadata', 'edit pdf author', 'change pdf title', 'metadata editor'], targetKey: 'pdf-metadata' },
+    { synonyms: ['flatten pdf', 'flatten form fields', 'flatten annotations'], targetKey: 'flatten-pdf' },
+    { synonyms: ['pdf info', 'inspect pdf', 'pdf details', 'pdf properties'], targetKey: 'pdf-info' },
     { synonyms: ['ocr image', 'image to text', 'extract text from photo', 'photo to text'], targetKey: 'ocr-image' },
     { synonyms: ['ocr pdf', 'scanned pdf to text', 'searchable pdf'], targetKey: 'ocr-pdf' },
     { synonyms: ['ai copilot', 'student copilot', 'academic copilot', 'ai assistant', 'study assistant'], targetKey: 'student-copilot' },

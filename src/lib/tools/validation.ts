@@ -2,8 +2,9 @@
 // Validates client-side generated files before presenting them for download.
 // Prevents corrupted, truncated, or zero-byte outputs from triggering automatic downloads.
 
-import { SingleFileResult, MultiFileResult } from './types';
+import type { SingleFileResult, MultiFileResult } from './types';
 import { PDFDocument } from 'pdf-lib';
+import JSZip from 'jszip';
 
 export interface OutputValidationResult {
   valid: boolean;
@@ -97,6 +98,78 @@ export async function validateZipBlob(blob: Blob): Promise<OutputValidationResul
 }
 
 /**
+ * Validates an XLSX Blob to confirm it is a valid ZIP archive containing OpenXML workbook structures.
+ */
+export async function validateXlsxBlob(blob: Blob): Promise<OutputValidationResult> {
+  if (!blob || blob.size === 0) {
+    return { valid: false, error: 'Generated XLSX spreadsheet is empty (0 bytes).' };
+  }
+
+  const zipCheck = await validateZipBlob(blob);
+  if (!zipCheck.valid) {
+    return { valid: false, error: `Invalid XLSX archive: ${zipCheck.error}` };
+  }
+
+  try {
+    const arrayBuffer = await blob.arrayBuffer();
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    const hasContentTypes = Boolean(zip.file('[Content_Types].xml'));
+    const hasWorkbook = Boolean(
+      zip.file('xl/workbook.xml') ||
+      Object.keys(zip.files).some((k) => k.startsWith('xl/'))
+    );
+
+    if (!hasContentTypes || !hasWorkbook) {
+      return {
+        valid: false,
+        error: 'Generated XLSX is missing essential OpenXML structure ([Content_Types].xml or xl/workbook.xml).',
+      };
+    }
+
+    return { valid: true, details: { byteLength: blob.size, fileCount: Object.keys(zip.files).length } };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Corrupted XLSX package';
+    return { valid: false, error: `Invalid XLSX structure: ${msg}` };
+  }
+}
+
+/**
+ * Validates a PPTX Blob to confirm it is a valid ZIP archive containing OpenXML presentation structures.
+ */
+export async function validatePptxBlob(blob: Blob): Promise<OutputValidationResult> {
+  if (!blob || blob.size === 0) {
+    return { valid: false, error: 'Generated PPTX presentation is empty (0 bytes).' };
+  }
+
+  const zipCheck = await validateZipBlob(blob);
+  if (!zipCheck.valid) {
+    return { valid: false, error: `Invalid PPTX archive: ${zipCheck.error}` };
+  }
+
+  try {
+    const arrayBuffer = await blob.arrayBuffer();
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    const hasContentTypes = Boolean(zip.file('[Content_Types].xml'));
+    const hasPresentation = Boolean(
+      zip.file('ppt/presentation.xml') ||
+      Object.keys(zip.files).some((k) => k.startsWith('ppt/'))
+    );
+
+    if (!hasContentTypes || !hasPresentation) {
+      return {
+        valid: false,
+        error: 'Generated PPTX is missing essential OpenXML structure ([Content_Types].xml or ppt/presentation.xml).',
+      };
+    }
+
+    return { valid: true, details: { byteLength: blob.size, fileCount: Object.keys(zip.files).length } };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Corrupted PPTX package';
+    return { valid: false, error: `Invalid PPTX structure: ${msg}` };
+  }
+}
+
+/**
  * Master output validator for SingleFileResult and MultiFileResult.
  */
 export async function validateToolOutput(
@@ -110,6 +183,12 @@ export async function validateToolOutput(
     const filename = result.filename.toLowerCase();
     if (filename.endsWith('.pdf')) {
       return await validatePdfBlob(result.blob);
+    }
+    if (filename.endsWith('.xlsx')) {
+      return await validateXlsxBlob(result.blob);
+    }
+    if (filename.endsWith('.pptx')) {
+      return await validatePptxBlob(result.blob);
     }
     if (filename.endsWith('.jpg') || filename.endsWith('.jpeg') || filename.endsWith('.png') || filename.endsWith('.webp')) {
       return validateImageBlob(result.blob);

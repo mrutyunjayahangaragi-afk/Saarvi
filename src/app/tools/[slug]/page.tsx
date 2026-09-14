@@ -36,7 +36,19 @@ import {
   Maximize2,
   Camera,
   GraduationCap,
-  Sparkles
+  Sparkles,
+  FileSpreadsheet,
+  Presentation,
+  FileCode,
+  Table,
+  Unlock,
+  Stamp,
+  ListOrdered,
+  Heading,
+  Tags,
+  Info,
+  Scan,
+  FileCheck
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -55,7 +67,20 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Maximize2,
   Camera,
   GraduationCap,
-  Sparkles
+  Sparkles,
+  FileSpreadsheet,
+  Presentation,
+  FileCode,
+  Table,
+  Lock,
+  Unlock,
+  Stamp,
+  ListOrdered,
+  Heading,
+  Tags,
+  Info,
+  Scan,
+  FileCheck
 };
 
 interface PageProps {
