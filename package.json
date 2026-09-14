@@ -15,6 +15,7 @@
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.116.0",
+    "@tailwindcss/postcss": "^4",
     "clsx": "^2.1.1",
     "docx": "^9.7.1",
     "jszip": "^3.10.1",
@@ -27,18 +28,17 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "tailwind-merge": "^3.6.0",
-    "xml-js": "^1.6.11"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "xml-js": "^1.6.11",
     "@types/jszip": "^3.4.0",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.1",
     "@types/react": "^19",
-    "@types/react-dom": "^19",
+    "@types/react-dom": "^19"
+  },
+  "devDependencies": {
     "eslint": "^9",
-    "eslint-config-next": "16.3.4",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "eslint-config-next": "16.3.4"
   }
 }
