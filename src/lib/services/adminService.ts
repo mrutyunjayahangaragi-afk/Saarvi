@@ -725,37 +725,35 @@ export const adminService = {
   // =========================================================================
 
   async getSystemErrors(): Promise<PlatformErrorRecord[]> {
-    const existing = MockStorageProvider.getSystemErrors();
-    if (existing.length === 0) {
-      // Seed a few realistic operational errors
-      const sampleErrors: PlatformErrorRecord[] = [
-        {
-          id: 'err-sample-1',
-          timestamp: new Date(Date.now() - 3600000).toISOString(),
-          service: 'client-pdf-engine',
-          tool: 'compress-pdf',
-          severity: 'WARNING',
-          errorType: 'MEMORY_LIMIT_GUARD',
-          requestId: 'req_pdf_8192a',
-          status: 'RESOLVED',
-          safeMessage: 'Large 48MB PDF triggered memory warning in browser worker.',
-          diagnostics: 'Worker memory approached 450MB heap limit; compression throttled gracefully.',
-        },
-        {
-          id: 'err-sample-2',
-          timestamp: new Date(Date.now() - 7200000).toISOString(),
-          service: 'auth-session',
-          severity: 'INFO',
-          errorType: 'SESSION_EXPIRED',
-          requestId: 'req_auth_1042b',
-          status: 'ACKNOWLEDGED',
-          safeMessage: 'Guest session cookie refreshed after expiration.',
-        },
-      ];
-      sampleErrors.forEach((e) => MockStorageProvider.addSystemError(e));
-      return sampleErrors;
+    if (typeof window === 'undefined' && isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabaseAdminClient();
+        if (supabase) {
+          const { data, error } = await supabase
+            .from('system_errors')
+            .select('*')
+            .order('timestamp', { ascending: false })
+            .limit(100);
+          if (!error && data && data.length > 0) {
+            return data.map((d: any) => ({
+              id: d.id,
+              timestamp: d.timestamp || d.created_at,
+              service: d.service,
+              tool: d.tool,
+              severity: d.severity,
+              errorType: d.error_type || d.errorType,
+              requestId: d.request_id || d.requestId,
+              status: d.status,
+              safeMessage: d.safe_message || d.safeMessage,
+              diagnostics: d.diagnostics,
+            }));
+          }
+        }
+      } catch {
+        // Fallback to local store
+      }
     }
-    return existing;
+    return MockStorageProvider.getSystemErrors();
   },
 
   async recordSystemError(error: Omit<PlatformErrorRecord, 'id' | 'timestamp' | 'status'> & { status?: PlatformErrorRecord['status'] }): Promise<PlatformErrorRecord> {
@@ -780,23 +778,33 @@ export const adminService = {
   // =========================================================================
 
   async getAuditLogs(): Promise<AuditLogRecord[]> {
-    const logs = MockStorageProvider.getAuditLogs();
-    if (logs.length === 0) {
-      // Seed initial audit log
-      const initial: AuditLogRecord = {
-        id: 'audit-init',
-        adminUserId: 'admin_root_super',
-        adminEmail: 'admin@saarvi.in',
-        action: 'PLATFORM_INITIALIZED',
-        targetType: 'SYSTEM',
-        targetId: 'doc_ease_platform',
-        metadata: { phase: 11, version: '11.0.0' },
-        timestamp: '2026-09-01T00:00:00.000Z',
-      };
-      MockStorageProvider.addAuditLog(initial);
-      return [initial];
+    if (typeof window === 'undefined' && isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabaseAdminClient();
+        if (supabase) {
+          const { data, error } = await supabase
+            .from('audit_logs')
+            .select('*')
+            .order('timestamp', { ascending: false })
+            .limit(100);
+          if (!error && data && data.length > 0) {
+            return data.map((d: any) => ({
+              id: d.id,
+              adminUserId: d.admin_user_id || d.adminUserId,
+              adminEmail: d.admin_email || d.adminEmail,
+              action: d.action,
+              targetType: d.target_type || d.targetType,
+              targetId: d.target_id || d.targetId,
+              metadata: d.metadata,
+              timestamp: d.timestamp || d.created_at,
+            }));
+          }
+        }
+      } catch {
+        // Fallback to local store
+      }
     }
-    return logs;
+    return MockStorageProvider.getAuditLogs();
   },
 
   // =========================================================================
@@ -846,7 +854,10 @@ export const adminService = {
             const isBanned = Boolean(u.banned_until && new Date(u.banned_until) > new Date());
             const status: UserAccountStatus = isBanned || u.user_metadata?.status === 'SUSPENDED' ? 'SUSPENDED' : 'ACTIVE';
             const plan: 'FREE' | 'PRO' = proSet.has(u.id) ? 'PRO' : 'FREE';
-            const authProvider = (u.app_metadata?.provider || (u.email?.includes('gmail.com') ? 'google' : 'email')).toUpperCase() as 'EMAIL' | 'GOOGLE';
+            const authProvider: 'EMAIL' | 'GOOGLE' =
+              (u.app_metadata?.provider || u.identities?.[0]?.provider || 'email').toUpperCase() === 'GOOGLE'
+                ? 'GOOGLE'
+                : 'EMAIL';
             const fullName = prof?.full_name || u.user_metadata?.full_name || u.user_metadata?.name || (u.email ? u.email.split('@')[0] : 'User');
 
             return {

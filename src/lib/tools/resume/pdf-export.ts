@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont, PDFString } from "pdf-lib";
 import { CareerProfile, ResumeVersion, ResumeTemplateId } from "@/types/career";
 
 export interface GeneratePdfOptions {
@@ -21,6 +21,67 @@ const MARGIN_TOP = 42;
 const MARGIN_BOTTOM = 42;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_X * 2;
 
+/**
+ * Strictly sanitizes URLs for ISO 32000 PDF URI annotations.
+ * Rejects dangerous schemes like javascript:, data:, vbscript:, file:
+ */
+export function sanitizeUrl(rawUrl?: string): string | null {
+  if (!rawUrl) return null;
+  const trimmed = rawUrl.trim();
+  if (/^(javascript:|data:|file:|vbscript:)/i.test(trimmed)) {
+    return null;
+  }
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  if (/^mailto:/i.test(trimmed)) {
+    return trimmed;
+  }
+  if (/^tel:/i.test(trimmed)) {
+    return trimmed;
+  }
+  if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+  return null;
+}
+
+export const sanitizePdfUrl = sanitizeUrl;
+
+/**
+ * Creates native ISO 32000 URI link annotation on a pdf-lib PDFPage.
+ */
+function addLinkAnnotation(
+  pdfDoc: PDFDocument,
+  page: PDFPage,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  url: string
+) {
+  const sanitized = sanitizeUrl(url);
+  if (!sanitized) return;
+
+  try {
+    const uriAction = pdfDoc.context.obj({
+      Type: "Action",
+      S: "URI",
+      URI: PDFString.of(sanitized),
+    });
+    const linkAnnotation = pdfDoc.context.obj({
+      Type: "Annot",
+      Subtype: "Link",
+      Rect: [x, y - 2, x + width, y + height + 2],
+      Border: [0, 0, 0],
+      A: uriAction,
+    });
+    page.node.addAnnot(pdfDoc.context.register(linkAnnotation));
+  } catch (err) {
+    console.warn("Failed to register PDF link annotation:", err);
+  }
+}
+
 export async function generateResumePdf(options: GeneratePdfOptions): Promise<PdfExportResult> {
   const { profile, version } = options;
   const template: ResumeTemplateId = version.template || "classic-ats";
@@ -35,6 +96,7 @@ export async function generateResumePdf(options: GeneratePdfOptions): Promise<Pd
   let curY = PAGE_HEIGHT - MARGIN_TOP;
 
   // Color schemes per template
+  const isAtsClassic = template === "classic-ats" || template === "ats-latex";
   const isModern = template === "modern-professional";
   const isExecutive = template === "executive";
   const isStudent = template === "student-clean";
@@ -51,7 +113,21 @@ export async function generateResumePdf(options: GeneratePdfOptions): Promise<Pd
 
   const textDark = rgb(0.12, 0.15, 0.2);
   const textMuted = rgb(0.35, 0.4, 0.45);
-  const ruleColor = isMinimal ? rgb(1, 1, 1) : isModern ? rgb(0.8, 0.85, 0.95) : rgb(0.85, 0.85, 0.85);
+  const ruleColor = isMinimal
+    ? rgb(1, 1, 1)
+    : isAtsClassic
+    ? rgb(0.15, 0.15, 0.15) // Crisp dark rule for ATS Classic
+    : isModern
+    ? rgb(0.8, 0.85, 0.95)
+    : rgb(0.85, 0.85, 0.85);
+
+  const linkColor = isModern
+    ? rgb(0.12, 0.35, 0.8) // Royal Blue
+    : isExecutive
+    ? rgb(0.08, 0.25, 0.5) // Navy
+    : isStudent
+    ? rgb(0.05, 0.45, 0.6) // Teal
+    : rgb(0.1, 0.35, 0.75); // ATS Blue
 
   function checkPageBreak(requiredHeight: number) {
     if (curY - requiredHeight < MARGIN_BOTTOM) {
@@ -83,18 +159,18 @@ export async function generateResumePdf(options: GeneratePdfOptions): Promise<Pd
 
   function drawSectionHeader(title: string) {
     checkPageBreak(32);
-    curY -= 12;
+    curY -= isAtsClassic ? 10 : 12;
 
-    const titleText = isMinimal ? title.toUpperCase() : title.toUpperCase();
+    const titleText = title.toUpperCase();
     currentPage.drawText(titleText, {
       x: MARGIN_X,
       y: curY,
-      size: 11,
+      size: isAtsClassic ? 10.5 : 11,
       font: fontBold,
       color: headerColor,
     });
 
-    curY -= 4;
+    curY -= isAtsClassic ? 3 : 4;
     if (!isMinimal) {
       currentPage.drawLine({
         start: { x: MARGIN_X, y: curY },
@@ -103,7 +179,7 @@ export async function generateResumePdf(options: GeneratePdfOptions): Promise<Pd
         color: ruleColor,
       });
     }
-    curY -= 10;
+    curY -= isAtsClassic ? 8 : 10;
   }
 
   // ==========================================
@@ -112,55 +188,139 @@ export async function generateResumePdf(options: GeneratePdfOptions): Promise<Pd
   const name = (profile.fullName || "Your Name").trim();
   const title = (profile.professionalTitle || version.targetRole || "").trim();
 
-  // Name
+  // Name (centered for ATS Classic)
+  const nameSize = isExecutive ? 20 : isAtsClassic ? 17 : 18;
+  const nameWidth = fontBold.widthOfTextAtSize(name.toUpperCase(), nameSize);
+  const nameX = isAtsClassic ? MARGIN_X + (CONTENT_WIDTH - nameWidth) / 2 : MARGIN_X;
+
   currentPage.drawText(name.toUpperCase(), {
-    x: MARGIN_X,
+    x: nameX,
     y: curY,
-    size: isExecutive ? 20 : 18,
+    size: nameSize,
     font: fontBold,
     color: headerColor,
   });
-  curY -= 16;
+  curY -= isAtsClassic ? 15 : 16;
 
-  // Title
-  if (title) {
-    currentPage.drawText(title, {
-      x: MARGIN_X,
+  // Title / Subtitle
+  const subtitle = isAtsClassic
+    ? [title, profile.location].filter(Boolean).join("  |  ")
+    : title;
+
+  if (subtitle) {
+    const subSize = isAtsClassic ? 9.5 : 11;
+    const subFont = isAtsClassic ? fontRegular : fontOblique;
+    const subWidth = subFont.widthOfTextAtSize(subtitle, subSize);
+    const subX = isAtsClassic ? MARGIN_X + (CONTENT_WIDTH - subWidth) / 2 : MARGIN_X;
+
+    currentPage.drawText(subtitle, {
+      x: subX,
       y: curY,
-      size: 11,
-      font: fontOblique,
+      size: subSize,
+      font: subFont,
       color: textMuted,
     });
-    curY -= 14;
+    curY -= isAtsClassic ? 13 : 14;
   }
 
-  // Contact Info Line
-  const contactParts: string[] = [];
-  if (profile.email) contactParts.push(profile.email);
-  if (profile.phone) contactParts.push(profile.phone);
-  if (profile.location) contactParts.push(profile.location);
-  if (profile.linkedin) contactParts.push(profile.linkedin.replace(/^https?:\/\//, ""));
-  if (profile.github) contactParts.push(profile.github.replace(/^https?:\/\//, ""));
-  if (profile.website) contactParts.push(profile.website.replace(/^https?:\/\//, ""));
+  // Contact Info Line with ISO 32000 Clickable Hyperlink Annotations
+  interface ContactItem {
+    label: string;
+    url?: string;
+  }
 
-  const contactLine = contactParts.join("  |  ");
-  if (contactLine) {
-    const contactLines = wrapText(contactLine, fontRegular, 8.5, CONTENT_WIDTH);
-    for (const cline of contactLines) {
-      currentPage.drawText(cline, {
-        x: MARGIN_X,
+  const contactItems: ContactItem[] = [];
+  if (profile.email) {
+    contactItems.push({ label: profile.email, url: `mailto:${profile.email}` });
+  }
+  if (profile.phone) {
+    contactItems.push({ label: profile.phone, url: `tel:${profile.phone}` });
+  }
+  if (profile.location && !isAtsClassic) {
+    contactItems.push({ label: profile.location });
+  }
+  if (profile.linkedin) {
+    contactItems.push({ label: "LinkedIn", url: profile.linkedin });
+  }
+  if (profile.github) {
+    contactItems.push({ label: "GitHub", url: profile.github });
+  }
+  const portfolioLink = profile.portfolio || profile.website;
+  if (portfolioLink) {
+    contactItems.push({ label: "Portfolio", url: portfolioLink });
+  }
+  if (profile.portfolio && profile.website && profile.portfolio !== profile.website) {
+    contactItems.push({ label: "Website", url: profile.website });
+  }
+
+  if (contactItems.length > 0) {
+    const sep = "  |  ";
+    const sepWidth = fontRegular.widthOfTextAtSize(sep, 8.5);
+
+    // Calculate total width to center if it fits on a single line
+    let totalWidth = 0;
+    for (let i = 0; i < contactItems.length; i++) {
+      totalWidth += fontRegular.widthOfTextAtSize(contactItems[i].label, 8.5);
+      if (i > 0) totalWidth += sepWidth;
+    }
+
+    let curX = isAtsClassic && totalWidth <= CONTENT_WIDTH
+      ? MARGIN_X + (CONTENT_WIDTH - totalWidth) / 2
+      : MARGIN_X;
+
+    for (let i = 0; i < contactItems.length; i++) {
+      const item = contactItems[i];
+      const itemWidth = fontRegular.widthOfTextAtSize(item.label, 8.5);
+
+      if (i > 0) {
+        if (curX + sepWidth + itemWidth > MARGIN_X + CONTENT_WIDTH) {
+          curY -= 12;
+          curX = MARGIN_X;
+        } else {
+          currentPage.drawText(sep, {
+            x: curX,
+            y: curY,
+            size: 8.5,
+            font: fontRegular,
+            color: textMuted,
+          });
+          curX += sepWidth;
+        }
+      }
+
+      if (curX + itemWidth > MARGIN_X + CONTENT_WIDTH) {
+        curY -= 12;
+        curX = MARGIN_X;
+      }
+
+      const isLink = Boolean(item.url);
+      currentPage.drawText(item.label, {
+        x: curX,
         y: curY,
         size: 8.5,
         font: fontRegular,
-        color: textDark,
+        color: isLink ? linkColor : textDark,
       });
-      curY -= 11;
+
+      if (isLink && item.url) {
+        // Subtle hyperlink underline
+        currentPage.drawLine({
+          start: { x: curX, y: curY - 1 },
+          end: { x: curX + itemWidth, y: curY - 1 },
+          thickness: 0.5,
+          color: linkColor,
+        });
+        addLinkAnnotation(pdfDoc, currentPage, curX, curY, itemWidth, 8.5, item.url);
+      }
+
+      curX += itemWidth;
     }
+    curY -= 12;
   }
 
-  // Subtle separator below header
-  curY -= 4;
-  if (!isMinimal) {
+  // Subtle separator below header (omitted in ATS classic for clean LaTeX styling)
+  if (!isMinimal && !isAtsClassic) {
+    curY -= 4;
     currentPage.drawLine({
       start: { x: MARGIN_X, y: curY },
       end: { x: MARGIN_X + CONTENT_WIDTH, y: curY },
@@ -408,16 +568,56 @@ export async function generateResumePdf(options: GeneratePdfOptions): Promise<Pd
             color: textDark,
           });
 
-          // Live / GitHub link or Role
-          const linkStr = proj.liveUrl || proj.githubUrl || proj.role || "";
-          if (linkStr) {
-            const cleanLink = linkStr.replace(/^https?:\/\//, "");
-            const lWidth = fontRegular.widthOfTextAtSize(cleanLink, 8.5);
-            currentPage.drawText(cleanLink, {
-              x: MARGIN_X + CONTENT_WIDTH - lWidth,
+          // Role & Links (Live Demo | GitHub)
+          const projLinks: Array<{ label: string; url: string }> = [];
+          if (proj.liveUrl) projLinks.push({ label: "Live Demo", url: proj.liveUrl });
+          if (proj.githubUrl) projLinks.push({ label: "GitHub", url: proj.githubUrl });
+
+          let rightX = MARGIN_X + CONTENT_WIDTH;
+
+          if (projLinks.length > 0) {
+            for (let li = projLinks.length - 1; li >= 0; li--) {
+              const pLink = projLinks[li];
+              const pWidth = fontRegular.widthOfTextAtSize(pLink.label, 8.5);
+              rightX -= pWidth;
+
+              currentPage.drawText(pLink.label, {
+                x: rightX,
+                y: curY,
+                size: 8.5,
+                font: fontRegular,
+                color: linkColor,
+              });
+
+              currentPage.drawLine({
+                start: { x: rightX, y: curY - 1 },
+                end: { x: rightX + pWidth, y: curY - 1 },
+                thickness: 0.5,
+                color: linkColor,
+              });
+
+              addLinkAnnotation(pdfDoc, currentPage, rightX, curY, pWidth, 8.5, pLink.url);
+
+              if (li > 0) {
+                const sep = "  |  ";
+                const sepW = fontRegular.widthOfTextAtSize(sep, 8.5);
+                rightX -= sepW;
+                currentPage.drawText(sep, {
+                  x: rightX,
+                  y: curY,
+                  size: 8.5,
+                  font: fontRegular,
+                  color: textMuted,
+                });
+              }
+            }
+          } else if (proj.role) {
+            const rWidth = fontOblique.widthOfTextAtSize(proj.role, 8.5);
+            currentPage.drawText(proj.role, {
+              x: MARGIN_X + CONTENT_WIDTH - rWidth,
               y: curY,
               size: 8.5,
-              font: fontRegular,
+              font: fontOblique,
               color: textMuted,
             });
           }
@@ -626,4 +826,260 @@ export async function generateResumePdf(options: GeneratePdfOptions): Promise<Pd
     pageCount,
     fitsOnePage,
   };
+}
+
+/**
+ * Strictly sanitizes plain text strings against LaTeX injection.
+ * Strips dangerous compilation commands and escapes reserved syntax characters.
+ */
+export function sanitizeLatexText(text?: string): string {
+  if (!text) return "";
+  return text
+    .replace(/\\(input|include|write18|def|let|catcode|usepackage|openin|openout)/gi, "")
+    .replace(/\\/g, "\\textbackslash{}")
+    .replace(/%/g, "\\%")
+    .replace(/\$/g, "\\$")
+    .replace(/&/g, "\\&")
+    .replace(/#/g, "\\#")
+    .replace(/_/g, "\\_")
+    .replace(/\{/g, "\\{")
+    .replace(/\}/g, "\\}")
+    .replace(/~/g, "\\textasciitilde{}")
+    .replace(/\^/g, "\\textasciicircum{}");
+}
+
+/**
+ * Generates official Saarvi ATS Classic LaTeX source code (.tex)
+ * Single-column, Helvetica sans-serif, standard headings, native hidelinks hyperref.
+ */
+export function generateControlledLatex(
+  optionsOrProfile: { profile: CareerProfile; version?: ResumeVersion | null } | CareerProfile,
+  versionArg?: ResumeVersion | null
+): string {
+  let profile: CareerProfile;
+  let version: ResumeVersion | null | undefined;
+  if ("profile" in optionsOrProfile) {
+    profile = optionsOrProfile.profile;
+    version = optionsOrProfile.version;
+  } else {
+    profile = optionsOrProfile;
+    version = versionArg;
+  }
+
+  const name = sanitizeLatexText(profile.fullName || "Candidate Name");
+  const title = sanitizeLatexText(version?.targetRole || profile.professionalTitle || "");
+  const location = sanitizeLatexText(profile.location || "");
+  const email = sanitizeLatexText(profile.email || "");
+  const phone = sanitizeLatexText(profile.phone || "");
+
+  const safeLinkedin = sanitizeUrl(profile.linkedin);
+  const safeGithub = sanitizeUrl(profile.github);
+  const safePortfolio = sanitizeUrl(profile.portfolio || profile.website);
+
+  const contactPieces: string[] = [];
+  if (email) contactPieces.push(`\\href{mailto:${email}}{${email}}`);
+  if (phone) contactPieces.push(phone);
+  if (location) contactPieces.push(location);
+  if (safeLinkedin) contactPieces.push(`\\href{${safeLinkedin}}{LinkedIn}`);
+  if (safeGithub) contactPieces.push(`\\href{${safeGithub}}{GitHub}`);
+  if (safePortfolio) contactPieces.push(`\\href{${safePortfolio}}{Portfolio}`);
+
+  const activeSkills = version
+    ? profile.skills.filter((s) => version.selectedSkillIds.length === 0 || version.selectedSkillIds.includes(s.id))
+    : profile.skills;
+
+  const activeEdu = version
+    ? profile.education.filter((e) => version.selectedEducationIds.length === 0 || version.selectedEducationIds.includes(e.id))
+    : profile.education;
+
+  const activeExp = version
+    ? profile.experience.filter((e) => version.selectedExperienceIds.length === 0 || version.selectedExperienceIds.includes(e.id))
+    : profile.experience;
+
+  const activeProjects = version
+    ? profile.projects.filter((p) => version.selectedProjectIds.length === 0 || version.selectedProjectIds.includes(p.id))
+    : profile.projects;
+
+  const activeHacks = version
+    ? profile.hackathons.filter((h) => version.selectedHackathonIds.length === 0 || version.selectedHackathonIds.includes(h.id))
+    : profile.hackathons;
+
+  const activeCerts = version
+    ? profile.certifications.filter((c) => version.selectedCertificationIds.length === 0 || version.selectedCertificationIds.includes(c.id))
+    : profile.certifications;
+
+  const summaryText = sanitizeLatexText((version?.summaryOverride || profile.summary || "").trim());
+
+  // Group skills into standard ATS-safe categories
+  const skillCategoryMap: Record<string, string[]> = {};
+  for (const s of activeSkills) {
+    const cat = s.category || "Other";
+    if (!skillCategoryMap[cat]) skillCategoryMap[cat] = [];
+    skillCategoryMap[cat].push(sanitizeLatexText(s.name));
+  }
+
+  let skillsLatex = "";
+  for (const [cat, skillList] of Object.entries(skillCategoryMap)) {
+    if (skillList.length > 0) {
+      skillsLatex += `\\noindent \\textbf{${sanitizeLatexText(cat)}:} ${skillList.join(", ")} \\\\[2pt]\n`;
+    }
+  }
+
+  // Format Education
+  let eduLatex = "";
+  for (const edu of activeEdu) {
+    const dates = sanitizeLatexText(`${edu.startDate || ""} -- ${edu.endDate || (edu.current ? "Present" : "")}`);
+    const deg = sanitizeLatexText(`${edu.degree}${edu.fieldOfStudy ? ` in ${edu.fieldOfStudy}` : ""}`);
+    const score = edu.gpa || edu.score ? sanitizeLatexText(`GPA / Score: ${edu.score || edu.gpa}`) : "";
+    eduLatex += `\\noindent \\textbf{${sanitizeLatexText(edu.institution)}} \\hfill {\\small ${dates}} \\\\\n` +
+      `\\noindent \\textit{${deg}} ${score ? `\\hfill {\\small \\textit{${score}}}` : ""} \\\\[4pt]\n`;
+  }
+
+  // Format Experience
+  let expLatex = "";
+  for (const exp of activeExp) {
+    const dates = sanitizeLatexText(`${exp.startDate || ""} -- ${exp.endDate || (exp.current ? "Present" : "")}`);
+    expLatex += `\\noindent \\textbf{${sanitizeLatexText(exp.role)}} -- \\textit{${sanitizeLatexText(exp.company)}} \\hfill {\\small ${dates}} \\\\\n` +
+      `\\begin{itemize}[leftmargin=1.5em, itemsep=-2pt, topsep=2pt]\n`;
+    for (const b of exp.bullets || []) {
+      expLatex += `  \\item ${sanitizeLatexText(b)}\n`;
+    }
+    expLatex += `\\end{itemize}\n\\vspace{4pt}\n`;
+  }
+
+  // Format Projects
+  let projLatex = "";
+  for (const proj of activeProjects) {
+    const tech = proj.technologies?.length ? `\\textit{(${sanitizeLatexText(proj.technologies.join(", "))})}` : "";
+    const safeLive = sanitizeUrl(proj.liveUrl);
+    const safeGit = sanitizeUrl(proj.githubUrl);
+    const links: string[] = [];
+    if (safeLive) links.push(`\\href{${safeLive}}{Live Demo}`);
+    if (safeGit) links.push(`\\href{${safeGit}}{GitHub}`);
+    const linkStr = links.length ? `\\hfill {\\small ${links.join(" $\\vert$ ")}}` : "";
+
+    projLatex += `\\noindent \\textbf{${sanitizeLatexText(proj.title)}} ${tech} ${linkStr} \\\\\n` +
+      `\\begin{itemize}[leftmargin=1.5em, itemsep=-2pt, topsep=2pt]\n`;
+    for (const h of proj.highlights || [proj.description || ""]) {
+      if (h) projLatex += `  \\item ${sanitizeLatexText(h)}\n`;
+    }
+    projLatex += `\\end{itemize}\n\\vspace{4pt}\n`;
+  }
+
+  // Format Hackathons & Achievements
+  let hackLatex = "";
+  for (const hack of activeHacks) {
+    const date = hack.date ? sanitizeLatexText(hack.date) : "";
+    const outcome = hack.outcome ? sanitizeLatexText(`[${hack.outcome}]`) : "";
+    hackLatex += `\\noindent \\textbf{${sanitizeLatexText(hack.title)}} ${outcome} \\hfill {\\small ${date}} \\\\\n`;
+    if (hack.description) {
+      hackLatex += `\\noindent {\\small ${sanitizeLatexText(hack.description)}} \\\\[3pt]\n`;
+    }
+  }
+
+  // Format Certifications
+  let certLatex = "";
+  if (activeCerts.length > 0) {
+    certLatex += `\\begin{itemize}[leftmargin=1.5em, itemsep=-2pt, topsep=2pt]\n`;
+    for (const cert of activeCerts) {
+      const date = cert.date ? `\\hfill {\\small ${sanitizeLatexText(cert.date)}}` : "";
+      certLatex += `  \\item \\textbf{${sanitizeLatexText(cert.name)}}${cert.issuer ? ` -- ${sanitizeLatexText(cert.issuer)}` : ""} ${date}\n`;
+    }
+    certLatex += `\\end{itemize}\n\\vspace{4pt}\n`;
+  }
+
+  // Format Leadership
+  let leadLatex = "";
+  if (profile.leadership && profile.leadership.length > 0) {
+    for (const lead of profile.leadership) {
+      const dates = sanitizeLatexText(`${lead.startDate || ""} -- ${lead.endDate || (lead.current ? "Present" : "")}`);
+      leadLatex += `\\noindent \\textbf{${sanitizeLatexText(lead.title)}}${lead.organization ? ` -- \\textit{${sanitizeLatexText(lead.organization)}}` : ""} \\hfill {\\small ${dates}} \\\\\n`;
+      if (lead.description) {
+        leadLatex += `\\noindent {\\small ${sanitizeLatexText(lead.description)}} \\\\[3pt]\n`;
+      }
+    }
+  }
+
+  return `% =============================================================================
+% Saarvi ATS Classic — Official LaTeX Template
+% Deterministic, single-column, ATS-parseable resume generated by Saarvi
+% https://saarvi.app
+% =============================================================================
+
+\\documentclass[10pt, a4paper]{article}
+\\usepackage[utf8]{inputenc}
+\\usepackage[margin=0.6in]{geometry}
+\\usepackage[scaled=0.92]{helvet}
+\\renewcommand{\\familydefault}{\\sfdefault}
+\\usepackage[hidelinks]{hyperref}
+\\usepackage{titlesec}
+\\usepackage{enumitem}
+\\usepackage{parskip}
+
+% Section styling: clean uppercase with horizontal rule
+\\titleformat{\\section}{\\large\\bfseries\\uppercase}{}{0em}{}[\\titlerule]
+\\titlespacing*{\\section}{0pt}{10pt}{6pt}
+
+\\pagestyle{empty}
+
+\\begin{document}
+
+% --- HEADER ---
+\\begin{center}
+  {\\LARGE \\textbf{${name}}} \\\\[3pt]
+  ${title ? `{\\small \\textit{${title}}} \\\\[3pt]` : ""}
+  {\\small ${contactPieces.join(" $\\vert$ ")}}
+\\end{center}
+\\vspace{-4pt}
+
+${summaryText ? `
+% --- SUMMARY ---
+\\section{Professional Summary}
+${summaryText}
+` : ""}
+
+${eduLatex ? `
+% --- EDUCATION ---
+\\section{Education}
+${eduLatex}
+` : ""}
+
+${skillsLatex ? `
+% --- TECHNICAL SKILLS ---
+\\section{Technical Skills}
+${skillsLatex}
+` : ""}
+
+${projLatex ? `
+% --- PROJECTS ---
+\\section{Key Projects}
+${projLatex}
+` : ""}
+
+${hackLatex ? `
+% --- HACKATHONS & ACHIEVEMENTS ---
+\\section{Hackathons \\& Achievements}
+${hackLatex}
+` : ""}
+
+${certLatex ? `
+% --- CERTIFICATIONS ---
+\\section{Certifications}
+${certLatex}
+` : ""}
+
+${leadLatex ? `
+% --- LEADERSHIP & ACTIVITIES ---
+\\section{Leadership \\& Activities}
+${leadLatex}
+` : ""}
+
+${expLatex ? `
+% --- EXPERIENCE ---
+\\section{Professional Experience}
+${expLatex}
+` : ""}
+
+\\end{document}
+`;
 }

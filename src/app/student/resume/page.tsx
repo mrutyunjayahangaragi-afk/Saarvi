@@ -17,6 +17,8 @@ import {
   CareerCertification,
   CareerHackathon,
   CareerAchievement,
+  ResumeValidationResult,
+  JobMatchResult,
 } from "@/types/career";
 import {
   careerService,
@@ -25,7 +27,7 @@ import {
   DEFAULT_SECTION_ORDER,
 } from "@/lib/services/careerService";
 import { academicStorage } from "@/lib/academic/storage/academic-db";
-import { generateResumePdf } from "@/lib/tools/resume/pdf-export";
+import { generateResumePdf, generateControlledLatex } from "@/lib/tools/resume/pdf-export";
 import { AIResumeFeedbackModal } from "@/components/career/AIResumeFeedbackModal";
 import { ResumeLivePreview } from "@/components/career/ResumeLivePreview";
 import {
@@ -50,18 +52,25 @@ import {
   Layers,
   Printer,
   ChevronRight,
+  ChevronLeft,
   ExternalLink,
   ShieldCheck,
   RefreshCw,
   Copy,
+  Code,
+  Search,
+  BookOpen,
+  Camera,
+  Image as ImageIcon,
+  Target,
 } from "lucide-react";
 
 const TEMPLATES: Array<{ id: ResumeTemplateId; name: string; description: string; badge: string }> = [
   {
     id: "classic-ats",
-    name: "Classic ATS",
-    description: "Single column, standard headings, pure text layout for maximum ATS parsing accuracy.",
-    badge: "Recruiter Preferred",
+    name: "ATS Classic — Saarvi",
+    description: "Official Saarvi single-column, Helvetica, text-based LaTeX structure with hyperref links and non-table skills flow.",
+    badge: "ATS First & LaTeX",
   },
   {
     id: "modern-professional",
@@ -123,15 +132,26 @@ function ResumeBuilderComponent() {
   const [syncing, setSyncing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"split" | "edit" | "preview">("split");
+  const [mobileWorkflow, setMobileWorkflow] = useState<"editor" | "preview" | "ats" | "export">("editor");
   const [showReorderPanel, setShowReorderPanel] = useState(false);
 
-  // PDF Export States
+  // PDF & LaTeX Export States
   const [exporting, setExporting] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [pdfPageCount, setPdfPageCount] = useState<number>(1);
   const [newVersionName, setNewVersionName] = useState("");
   const [showNewVersionModal, setShowNewVersionModal] = useState(false);
+  const [latexCopied, setLatexCopied] = useState(false);
+
+  // Job Description Matching States
+  const [jobDescriptionInput, setJobDescriptionInput] = useState("");
+  const [jobMatchResult, setJobMatchResult] = useState<JobMatchResult | null>(null);
+  const [isMatchingJob, setIsMatchingJob] = useState(false);
+  const [showJobMatcher, setShowJobMatcher] = useState(false);
+
+  // Profile Image ATS Warning Dialog state
+  const [showImageAtsModal, setShowImageAtsModal] = useState(false);
 
   // Deterministic Summary Builder form
   const [summaryRole, setSummaryRole] = useState("");
@@ -177,8 +197,20 @@ function ResumeBuilderComponent() {
   }, [versions, activeVersionId]);
 
   // Validation & Completeness Score
-  const validationResult = useMemo(() => {
-    if (!profile) return { isValid: false, completenessScore: 0, checks: [], warnings: [], errors: [], estimatedPages: 1 };
+  const validationResult: ResumeValidationResult = useMemo(() => {
+    if (!profile)
+      return {
+        isValid: false,
+        completenessScore: 0,
+        atsScore: 0,
+        scoreLabel: "Needs Work" as const,
+        categoryScores: [],
+        recommendations: [],
+        checks: [],
+        warnings: [],
+        errors: [],
+        estimatedPages: 1,
+      };
     return careerService.validateResume(profile, activeVersion || undefined);
   }, [profile, activeVersion]);
 
@@ -404,6 +436,41 @@ function ResumeBuilderComponent() {
     window.print();
   };
 
+  const handleMatchJobDescription = () => {
+    if (!profile || !jobDescriptionInput.trim()) return;
+    setIsMatchingJob(true);
+    try {
+      const res = careerService.matchJobDescription(profile, activeVersion, jobDescriptionInput);
+      setJobMatchResult(res);
+      // Persist to version in memory
+      updateActiveVersion((v) => ({ ...v, jobDescriptionText: jobDescriptionInput, lastJobMatch: res }));
+    } finally {
+      setIsMatchingJob(false);
+    }
+  };
+
+  const handleExportLatex = () => {
+    if (!profile) return;
+    const latex = generateControlledLatex(profile, activeVersion);
+    const blob = new Blob([latex], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(profile.fullName || "Resume").replace(/\s+/g, "_")}_Saarvi_ATS.tex`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCopyLatex = async () => {
+    if (!profile) return;
+    const latex = generateControlledLatex(profile, activeVersion);
+    await navigator.clipboard.writeText(latex);
+    setLatexCopied(true);
+    setTimeout(() => setLatexCopied(false), 2000);
+  };
+
   if (loading || !profile || !activeVersion) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-8 text-slate-600">
@@ -414,6 +481,144 @@ function ResumeBuilderComponent() {
 
   const renderNavigatorAndAtsChecks = () => (
     <div className="space-y-4">
+      {/* ATS Score & Category Breakdown Card */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+          <div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">
+              ATS Resume Score
+            </span>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-2xl font-black text-slate-900">
+                {validationResult.atsScore}
+              </span>
+              <span className="text-xs text-slate-400 font-semibold">/ 100</span>
+            </div>
+          </div>
+          <span
+            className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+              validationResult.atsScore >= 85
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : validationResult.atsScore >= 70
+                ? "bg-blue-50 text-blue-700 border-blue-200"
+                : validationResult.atsScore >= 50
+                ? "bg-amber-50 text-amber-700 border-amber-200"
+                : "bg-rose-50 text-rose-700 border-rose-200"
+            }`}
+          >
+            {validationResult.scoreLabel}
+          </span>
+        </div>
+
+        {/* Overall Progress Bar */}
+        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden mb-4">
+          <div
+            className={`h-2 rounded-full transition-all duration-300 ${
+              validationResult.atsScore >= 85
+                ? "bg-emerald-500"
+                : validationResult.atsScore >= 70
+                ? "bg-blue-500"
+                : validationResult.atsScore >= 50
+                ? "bg-amber-500"
+                : "bg-rose-500"
+            }`}
+            style={{ width: `${validationResult.atsScore}%` }}
+          />
+        </div>
+
+        {/* Category Breakdown Bars */}
+        <div className="space-y-2 pt-1 border-t border-slate-100">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block mb-1">
+            Category Breakdowns
+          </span>
+          {validationResult.categoryScores.map((cat) => (
+            <div key={cat.id} className="text-xs">
+              <div className="flex items-center justify-between text-slate-700 mb-1">
+                <span className="font-medium text-[11.5px] truncate max-w-[170px]">{cat.name}</span>
+                <span className="font-semibold text-[11px] text-slate-500">
+                  {cat.score}/{cat.maxScore}
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    cat.percentage >= 80
+                      ? "bg-emerald-500"
+                      : cat.percentage >= 50
+                      ? "bg-blue-500"
+                      : "bg-amber-500"
+                  }`}
+                  style={{ width: `${cat.percentage}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Actionable "IMPROVE YOUR SCORE" Checklist */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+            Improve Your Score
+          </span>
+          <span className="text-[11px] text-slate-400">
+            {validationResult.recommendations.length} action(s)
+          </span>
+        </div>
+
+        {validationResult.recommendations.length === 0 ? (
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>Exceptional resume! All ATS score criteria are satisfied.</span>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {validationResult.recommendations.map((rec) => {
+              // Map recommendation category to form tab
+              let targetTab: ResumeSectionId = "contact";
+              if (rec.category.includes("Summary")) targetTab = "summary";
+              else if (rec.category.includes("Skill")) targetTab = "skills";
+              else if (rec.category.includes("Experience") || rec.category.includes("Project")) {
+                targetTab = "projects";
+              } else if (rec.category.includes("Education")) targetTab = "education";
+
+              return (
+                <div
+                  key={rec.id}
+                  onClick={() => {
+                    setActiveTab(targetTab);
+                    setMobileWorkflow("editor");
+                  }}
+                  className="p-2.5 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50/40 transition-all cursor-pointer group flex flex-col gap-1 text-xs"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span
+                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide uppercase ${
+                        rec.impact === "high"
+                          ? "bg-rose-100 text-rose-700"
+                          : rec.impact === "medium"
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {rec.impact} impact
+                    </span>
+                    <span className="text-[10px] text-blue-600 font-medium group-hover:translate-x-0.5 transition-transform inline-flex items-center">
+                      Fix now &rarr;
+                    </span>
+                  </div>
+                  <p className="font-semibold text-slate-800 text-[11.5px] leading-snug">
+                    {rec.text}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Sections & Reordering */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
@@ -438,8 +643,11 @@ function ResumeBuilderComponent() {
                 }`}
               >
                 <button
-                  onClick={() => setActiveTab(secId)}
-                  className="flex-1 text-left truncate flex items-center gap-2 mr-2"
+                  onClick={() => {
+                    setActiveTab(secId);
+                    setMobileWorkflow("editor");
+                  }}
+                  className="flex-1 text-left truncate flex items-center gap-2 mr-2 min-h-[36px]"
                 >
                   <input
                     type="checkbox"
@@ -448,7 +656,7 @@ function ResumeBuilderComponent() {
                       e.stopPropagation();
                       handleToggleSection(secId);
                     }}
-                    className="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                    className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
                   />
                   <span className={!isEnabled ? "line-through text-slate-400" : ""}>
                     {SECTION_LABELS[secId]}
@@ -459,7 +667,7 @@ function ResumeBuilderComponent() {
                   <button
                     onClick={() => handleMoveSection(secId, "up")}
                     disabled={idx === 0}
-                    className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30"
+                    className="p-1.5 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 min-w-[32px] min-h-[32px] flex items-center justify-center"
                     title="Move section up"
                     aria-label={`Move ${SECTION_LABELS[secId]} up`}
                   >
@@ -468,7 +676,7 @@ function ResumeBuilderComponent() {
                   <button
                     onClick={() => handleMoveSection(secId, "down")}
                     disabled={idx === activeVersion.sectionOrder.length - 1}
-                    className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30"
+                    className="p-1.5 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30 min-w-[32px] min-h-[32px] flex items-center justify-center"
                     title="Move section down"
                     aria-label={`Move ${SECTION_LABELS[secId]} down`}
                   >
@@ -557,7 +765,7 @@ function ResumeBuilderComponent() {
 
             <button
               onClick={() => setShowAiFeedbackModal(true)}
-              className="inline-flex items-center px-3.5 py-2 text-xs sm:text-sm font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 shadow-sm transition-colors"
+              className="inline-flex items-center px-3.5 py-2 text-xs sm:text-sm font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 shadow-sm transition-colors cursor-pointer"
               title="Get optional AI suggestions"
             >
               <Sparkles className="w-4 h-4 mr-1.5 text-indigo-600" />
@@ -565,17 +773,39 @@ function ResumeBuilderComponent() {
             </button>
 
             <button
+              onClick={() => setShowJobMatcher((prev) => !prev)}
+              className={`inline-flex items-center px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-lg border shadow-sm transition-colors cursor-pointer ${
+                showJobMatcher
+                  ? "bg-emerald-600 text-white border-emerald-700"
+                  : "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+              }`}
+              title="Analyze Job Description keyword alignment"
+            >
+              <Target className="w-4 h-4 mr-1.5" />
+              Job Match
+            </button>
+
+            <button
               onClick={handlePrint}
-              className="inline-flex items-center px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 shadow-sm transition-colors"
+              className="inline-flex items-center px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 shadow-sm transition-colors cursor-pointer"
             >
               <Printer className="w-4 h-4 mr-1.5 text-slate-500" />
               Print
             </button>
 
             <button
+              onClick={handleExportLatex}
+              className="inline-flex items-center px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 shadow-sm transition-colors cursor-pointer"
+              title="Export official ATS-compliant LaTeX source (.tex)"
+            >
+              <Code className="w-4 h-4 mr-1.5 text-slate-600" />
+              {latexCopied ? "Copied LaTeX!" : "Export LaTeX"}
+            </button>
+
+            <button
               onClick={handleExportPDF}
               disabled={exporting}
-              className="inline-flex items-center px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm transition-colors disabled:opacity-50"
+              className="inline-flex items-center px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
             >
               <FileDown className="w-4 h-4 mr-1.5" />
               {exporting
@@ -588,7 +818,7 @@ function ResumeBuilderComponent() {
             {downloadUrl && (
               <button
                 onClick={handleManualDownloadAgain}
-                className="inline-flex items-center px-3 py-2 text-xs sm:text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                className="inline-flex items-center px-3 py-2 text-xs sm:text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
               >
                 <Download className="w-4 h-4 mr-1" />
                 Download Again
@@ -596,6 +826,98 @@ function ResumeBuilderComponent() {
             )}
           </div>
         </div>
+
+        {/* JOB DESCRIPTION KEYWORD MATCHER DRAWER */}
+        {showJobMatcher && (
+          <div className="bg-white rounded-2xl border border-emerald-200 p-5 shadow-sm my-6 space-y-4 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center font-bold">
+                  <Target className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Job Description Matcher</h3>
+                  <p className="text-xs text-slate-500">
+                    Paste a job posting to run deterministic keyword analysis and compare with your current resume.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowJobMatcher(false)}
+                className="text-slate-400 hover:text-slate-600 text-sm font-semibold px-2 py-1 rounded-md hover:bg-slate-50"
+              >
+                ✕
+              </button>
+            </div>
+
+            <textarea
+              rows={4}
+              value={jobDescriptionInput}
+              onChange={(e) => setJobDescriptionInput(e.target.value)}
+              placeholder="Paste job description requirements, qualifications, and role responsibilities here..."
+              className="w-full text-xs font-mono border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            />
+
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleMatchJobDescription}
+                disabled={!jobDescriptionInput.trim() || isMatchingJob}
+                className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                {isMatchingJob ? "Analyzing..." : "Analyze Match"}
+              </button>
+
+              {jobMatchResult && (
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+                  <span>Job Match Compatibility:</span>
+                  <span className="text-sm font-extrabold text-emerald-700">{jobMatchResult.matchScore} / 100</span>
+                </div>
+              )}
+            </div>
+
+            {jobMatchResult && (
+              <div className="pt-3 border-t border-slate-100 space-y-3">
+                {jobMatchResult.skillsFound.length > 0 && (
+                  <div>
+                    <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+                      Matched Skills & Keywords ({jobMatchResult.skillsFound.length})
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {jobMatchResult.skillsFound.map((kw, i) => (
+                        <span key={i} className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-100 text-emerald-800">
+                          ✓ {kw}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {jobMatchResult.skillsMissing.length > 0 && (
+                  <div>
+                    <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+                      Missing Qualifications Found in Posting ({jobMatchResult.skillsMissing.length})
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {jobMatchResult.skillsMissing.map((kw, i) => (
+                        <span key={i} className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                          + {kw}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {jobMatchResult.recommendations.map((rec, i) => (
+                  <p key={i} className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-200 leading-relaxed">
+                    💡 <span className="font-medium">{rec}</span>
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Top Control Bar: Version Selector & Completeness Indicator */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 my-6">
@@ -643,39 +965,67 @@ function ResumeBuilderComponent() {
             </div>
           </div>
 
-          {/* ATS-Friendly Checks & Completeness */}
+          {/* ATS Resume Score & Status Card */}
           <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Resume Completeness
+                ATS Resume Score
               </span>
-              <span className="text-sm font-bold text-slate-900">
-                {validationResult.completenessScore}%
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-black text-slate-900">
+                  {validationResult.atsScore}/100
+                </span>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    validationResult.atsScore >= 85
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : validationResult.atsScore >= 70
+                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                      : validationResult.atsScore >= 50
+                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                      : "bg-rose-50 text-rose-700 border-rose-200"
+                  }`}
+                >
+                  {validationResult.scoreLabel}
+                </span>
+              </div>
             </div>
 
             {/* Progress Bar */}
             <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden mb-3">
               <div
-                className={`h-2.5 rounded-full transition-all ${
-                  validationResult.completenessScore >= 80
+                className={`h-2.5 rounded-full transition-all duration-300 ${
+                  validationResult.atsScore >= 85
                     ? "bg-emerald-500"
-                    : validationResult.completenessScore >= 50
+                    : validationResult.atsScore >= 70
                     ? "bg-blue-500"
-                    : "bg-amber-500"
+                    : validationResult.atsScore >= 50
+                    ? "bg-amber-500"
+                    : "bg-rose-500"
                 }`}
-                style={{ width: `${validationResult.completenessScore}%` }}
+                style={{ width: `${validationResult.atsScore}%` }}
               />
             </div>
 
             <div className="flex items-center justify-between text-xs">
               <span className="text-slate-600">
-                ATS-Friendly Status:{" "}
-                <strong className={validationResult.isValid ? "text-emerald-700" : "text-amber-700"}>
-                  {validationResult.isValid ? "Passes Standard Checks" : "Action Needed"}
-                </strong>
+                {validationResult.recommendations.length > 0 ? (
+                  <button
+                    onClick={() => {
+                      setMobileWorkflow("ats");
+                      setShowReorderPanel(true);
+                    }}
+                    className="text-amber-700 font-semibold hover:underline text-left"
+                  >
+                    {validationResult.recommendations.length} action(s) to improve
+                  </button>
+                ) : (
+                  <span className="text-emerald-700 font-semibold">Fully ATS-optimized</span>
+                )}
               </span>
-              <span className="text-slate-500">{validationResult.checks.filter((c) => c.passed).length}/{validationResult.checks.length} checks</span>
+              <span className="text-slate-500">
+                {validationResult.checks.filter((c) => c.passed).length}/{validationResult.checks.length} checks
+              </span>
             </div>
           </div>
 
@@ -740,8 +1090,145 @@ function ResumeBuilderComponent() {
           </div>
         </div>
 
-        {/* Workspace View Mode Selector */}
-        <div className="flex items-center justify-between bg-white rounded-xl border border-slate-200 px-4 py-2.5 mb-6 shadow-sm">
+        {/* Mobile Workflow Bar (< md screens: 320px - 767px) */}
+        <div className="md:hidden bg-white rounded-xl border border-slate-200 p-1.5 mb-6 shadow-sm sticky top-16 z-20">
+          <div className="grid grid-cols-4 gap-1">
+            <button
+              onClick={() => setMobileWorkflow("editor")}
+              className={`min-h-[44px] px-2 py-2 text-xs font-bold rounded-lg transition-colors flex flex-col items-center justify-center gap-0.5 ${
+                mobileWorkflow === "editor"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Editor</span>
+            </button>
+            <button
+              onClick={() => setMobileWorkflow("preview")}
+              className={`min-h-[44px] px-2 py-2 text-xs font-bold rounded-lg transition-colors flex flex-col items-center justify-center gap-0.5 ${
+                mobileWorkflow === "preview"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <Eye className="w-4 h-4" />
+              <span>Preview</span>
+            </button>
+            <button
+              onClick={() => setMobileWorkflow("ats")}
+              className={`min-h-[44px] px-2 py-2 text-xs font-bold rounded-lg transition-colors flex flex-col items-center justify-center gap-0.5 ${
+                mobileWorkflow === "ats"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <div className="flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-black px-1 rounded bg-blue-100 text-blue-900">
+                  {validationResult.atsScore}
+                </span>
+              </div>
+              <span>ATS Score</span>
+            </button>
+            <button
+              onClick={() => setMobileWorkflow("export")}
+              className={`min-h-[44px] px-2 py-2 text-xs font-bold rounded-lg transition-colors flex flex-col items-center justify-center gap-0.5 ${
+                mobileWorkflow === "export"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <FileDown className="w-4 h-4" />
+              <span>Export</span>
+            </button>
+          </div>
+        </div>
+
+        {/* MOBILE ATS SCORE VIEW (< md screens) */}
+        {mobileWorkflow === "ats" && (
+          <div className="md:hidden space-y-4 mb-8">
+            {renderNavigatorAndAtsChecks()}
+          </div>
+        )}
+
+        {/* MOBILE EXPORT VIEW (< md screens) */}
+        {mobileWorkflow === "export" && (
+          <div className="md:hidden bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-5 mb-8">
+            <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <FileDown className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Export & Print Resume</h2>
+                <p className="text-xs text-slate-500">Vector PDF with ISO 32000 clickable links</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs space-y-1">
+              <div className="flex justify-between text-slate-700">
+                <span>Version:</span>
+                <strong className="text-slate-900">{activeVersion.name}</strong>
+              </div>
+              <div className="flex justify-between text-slate-700">
+                <span>Target Role:</span>
+                <strong className="text-slate-900">{activeVersion.targetRole}</strong>
+              </div>
+              <div className="flex justify-between text-slate-700">
+                <span>ATS Resume Score:</span>
+                <strong className="text-emerald-700">{validationResult.atsScore}/100 ({validationResult.scoreLabel})</strong>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={handleExportPDF}
+                disabled={exporting}
+                className="w-full min-h-[48px] py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-colors"
+              >
+                <FileDown className="w-4 h-4" />
+                {exporting
+                  ? countdown !== null
+                    ? `Downloading in ${countdown}s...`
+                    : "Generating Vector PDF..."
+                  : "Export PDF Now"}
+              </button>
+
+              {downloadUrl && (
+                <button
+                  onClick={handleManualDownloadAgain}
+                  className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs border border-blue-200 flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  Download PDF Again
+                </button>
+              )}
+
+              <button
+                onClick={handlePrint}
+                className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs border border-slate-300 flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Printer className="w-4 h-4 text-slate-500" />
+                Print via Browser Dialog
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* MOBILE PREVIEW VIEW (< md screens) */}
+        {mobileWorkflow === "preview" && (
+          <div className="md:hidden max-w-4xl mx-auto mb-8">
+            <ResumeLivePreview
+              profile={profile}
+              version={activeVersion}
+              onPrint={handlePrint}
+              onExportPdf={handleExportPDF}
+            />
+          </div>
+        )}
+
+        {/* DESKTOP WORKSPACE VIEW SELECTOR (>= md screens) */}
+        <div className="hidden md:flex items-center justify-between bg-white rounded-xl border border-slate-200 px-4 py-2.5 mb-6 shadow-sm">
           <div className="flex items-center gap-2">
             <Eye className="w-4 h-4 text-blue-600" />
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-600">
@@ -783,9 +1270,9 @@ function ResumeBuilderComponent() {
           </div>
         </div>
 
-        {/* FULL PREVIEW MODE */}
+        {/* DESKTOP FULL PREVIEW MODE (>= md screens) */}
         {viewMode === "preview" && (
-          <div className="max-w-4xl mx-auto mb-8">
+          <div className="hidden md:block max-w-4xl mx-auto mb-8">
             <ResumeLivePreview
               profile={profile}
               version={activeVersion}
@@ -795,12 +1282,12 @@ function ResumeBuilderComponent() {
           </div>
         )}
 
-        {/* SPLIT & EDIT MODES */}
-        {viewMode !== "preview" && (
-          <div className={`grid grid-cols-1 ${viewMode === "split" ? "xl:grid-cols-12" : "lg:grid-cols-12"} gap-6`}>
+        {/* SPLIT & EDIT MODES (Active on desktop, or on mobile when in 'editor' workflow) */}
+        {((viewMode !== "preview") || (mobileWorkflow === "editor")) && (
+          <div className={`grid grid-cols-1 ${viewMode === "split" ? "xl:grid-cols-12" : "lg:grid-cols-12"} gap-6 ${mobileWorkflow !== "editor" ? "hidden md:grid" : ""}`}>
             {/* Left Column in Edit Mode: Navigator & ATS Checklist */}
             {viewMode === "edit" && (
-              <div className="lg:col-span-4 space-y-4">
+              <div className="hidden lg:block lg:col-span-4 space-y-4">
                 {renderNavigatorAndAtsChecks()}
               </div>
             )}
@@ -918,7 +1405,7 @@ function ResumeBuilderComponent() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                       <label className="text-xs font-semibold text-slate-700 block mb-1">Location</label>
                       <input
@@ -949,6 +1436,142 @@ function ResumeBuilderComponent() {
                         className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       />
                     </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">Portfolio / Website</label>
+                      <input
+                        type="text"
+                        value={profile.portfolio || profile.website || ""}
+                        onChange={(e) =>
+                          updateProfile((p) => ({
+                            ...p,
+                            portfolio: e.target.value,
+                            website: e.target.value,
+                          }))
+                        }
+                        placeholder="yourportfolio.dev"
+                        className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Photo & ATS Guidance Section */}
+                  <div className="mt-4 pt-4 border-t border-slate-200">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">
+                          Profile Photo (Optional)
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          Recommended for portfolio & creative formats. ATS-parsed applications typically prefer no photo.
+                        </p>
+                      </div>
+                      {(profile.profileImage || profile.photoUrl) && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateProfile((p) => ({
+                              ...p,
+                              profileImage: undefined,
+                              photoUrl: undefined,
+                            }))
+                          }
+                          className="text-xs font-semibold text-red-600 hover:text-red-700 transition-colors cursor-pointer"
+                        >
+                          Remove Photo
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap sm:flex-nowrap items-center gap-4">
+                      {/* Thumbnail or Placeholder */}
+                      <div className="relative w-16 h-16 rounded-full border-2 border-slate-300 overflow-hidden bg-slate-100 flex items-center justify-center shrink-0 shadow-inner">
+                        {profile.profileImage || profile.photoUrl ? (
+                          <img
+                            src={profile.profileImage || profile.photoUrl}
+                            alt={profile.fullName || "Profile"}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Camera className="w-6 h-6 text-slate-400" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-[200px]">
+                        <input
+                          type="file"
+                          accept="image/png, image/jpeg, image/webp"
+                          id="photo-upload-input"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            if (file.size > 2 * 1024 * 1024) {
+                              alert("Photo size must be under 2MB.");
+                              return;
+                            }
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              const result = event.target?.result as string;
+                              updateProfile((p) => ({
+                                ...p,
+                                profileImage: result,
+                                photoUrl: result,
+                              }));
+                            };
+                            reader.readAsDataURL(file);
+                          }}
+                        />
+                        <div className="flex items-center gap-2">
+                          <label
+                            htmlFor="photo-upload-input"
+                            className="cursor-pointer px-3 py-1.5 text-xs font-medium bg-white border border-slate-300 rounded-lg hover:bg-slate-50 text-slate-700 shadow-xs transition-colors"
+                          >
+                            Upload Photo
+                          </label>
+                          <span className="text-[11px] text-slate-400">PNG, JPG or WebP (max 2MB)</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Non-blocking ATS Guidance Banner if photo is present */}
+                    {(profile.profileImage || profile.photoUrl) && (
+                      <div className="mt-3 p-3 rounded-lg border border-amber-200 bg-amber-50/90 text-amber-900 text-xs flex items-start gap-2.5">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div className="flex-1 space-y-1">
+                          <div className="font-semibold text-amber-900 flex items-center justify-between">
+                            <span>ATS Photo Guidance (-5 pts in ATS Score Mode)</span>
+                            <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-bold">Non-blocking</span>
+                          </div>
+                          <p className="text-amber-800 leading-relaxed text-[11.5px]">
+                            Applicant Tracking Systems (Workday, Greenhouse, Lever, Taleo) do not parse photos, and photos are discouraged in US/UK/EU hiring compliance to prevent unconscious bias.
+                          </p>
+                          <div className="flex items-center gap-3 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                // Keep photo (acknowledged)
+                              }}
+                              className="px-2 py-1 text-[11px] font-medium bg-white border border-amber-300 text-amber-900 rounded hover:bg-amber-100 transition-colors shadow-2xs"
+                            >
+                              Keep photo
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateProfile((p) => ({
+                                  ...p,
+                                  profileImage: undefined,
+                                  photoUrl: undefined,
+                                }))
+                              }
+                              className="text-[11px] font-semibold text-amber-900 underline hover:text-amber-950 cursor-pointer"
+                            >
+                              Remove photo for 100% ATS score
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

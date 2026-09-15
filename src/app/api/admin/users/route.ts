@@ -92,11 +92,14 @@ export async function GET(request: Request) {
           const rawRole = (profile?.role || u.user_metadata?.role || 'USER') as UserRole;
           const userPlan: 'FREE' | 'PRO' = activeSubUsers.has(u.id) ? 'PRO' : 'FREE';
 
-          // Provider detection
-          const rawProvider = (
+          // Accurate provider detection from Supabase auth metadata & identities
+          const detectedProvider = (
             u.app_metadata?.provider ||
-            (u.email?.toLowerCase().includes('gmail.com') ? 'google' : 'email')
+            u.identities?.[0]?.provider ||
+            'email'
           ).toUpperCase();
+          const authProvider: 'EMAIL' | 'GOOGLE' =
+            detectedProvider === 'GOOGLE' ? 'GOOGLE' : 'EMAIL';
 
           const isBanned = Boolean(u.banned_until && new Date(u.banned_until) > new Date());
           const isSuspended = isBanned || u.user_metadata?.status === 'SUSPENDED';
@@ -116,7 +119,7 @@ export async function GET(request: Request) {
             role: rawRole,
             status: userStatus,
             plan: userPlan,
-            authProvider: rawProvider as 'EMAIL' | 'GOOGLE',
+            authProvider,
             createdAt: u.created_at,
             updatedAt: profile?.updated_at || u.updated_at || u.created_at,
             lastSignInAt: u.last_sign_in_at || undefined,

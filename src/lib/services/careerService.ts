@@ -8,8 +8,11 @@ import type {
   CareerSkillCategory,
   ResumeValidationResult,
   AtsFriendlyCheckItem,
+  AtsCategoryScore,
+  AtsRecommendation,
   SkillGapAnalysis,
   ResumeSectionId,
+  JobMatchResult,
 } from "@/types/career";
 import { academicStorage } from "../academic/storage/academic-db";
 
@@ -316,8 +319,10 @@ export const careerService = {
     const checks: AtsFriendlyCheckItem[] = [];
     const warnings: string[] = [];
     const errors: string[] = [];
+    const recommendations: AtsRecommendation[] = [];
 
-    // 1. Full name
+    // --- 1. CONTACT INFORMATION (Max 15) ---
+    let contactScore = 0;
     const hasName = Boolean(profile.fullName && profile.fullName.trim().length > 0);
     checks.push({
       id: "check-name",
@@ -326,9 +331,9 @@ export const careerService = {
       severity: "error",
       tip: hasName ? "Name is clearly specified for ATS header." : "Your full name is required.",
     });
-    if (!hasName) errors.push("Your full name is missing.");
+    if (hasName) contactScore += 5;
+    else errors.push("Your full name is missing.");
 
-    // 2. Email validation
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const hasEmail = Boolean(profile.email && emailPattern.test(profile.email.trim()));
     checks.push({
@@ -338,12 +343,12 @@ export const careerService = {
       severity: "error",
       tip: hasEmail ? "Valid email format detected." : "Provide a valid professional email address.",
     });
-    if (!hasEmail) {
+    if (hasEmail) contactScore += 5;
+    else {
       if (!profile.email) errors.push("Email address is missing.");
       else errors.push("Email address appears invalid.");
     }
 
-    // 3. Phone validation
     const hasPhone = Boolean(profile.phone && profile.phone.trim().length >= 7);
     checks.push({
       id: "check-phone",
@@ -352,23 +357,95 @@ export const careerService = {
       severity: "warning",
       tip: hasPhone ? "Direct phone contact available." : "Include a phone number for recruiter contact.",
     });
-    if (!hasPhone) warnings.push("Phone number is missing or unusually short.");
+    if (hasPhone) contactScore += 3;
+    else {
+      warnings.push("Phone number is missing or unusually short.");
+      recommendations.push({
+        id: "rec-phone",
+        category: "Contact Information",
+        text: "+ Add a phone number for direct recruiter contact",
+        impact: "medium",
+      });
+    }
 
-    // 4. Education or Experience
-    const activeEdu = version
-      ? profile.education.filter((e) => version.selectedEducationIds.length === 0 || version.selectedEducationIds.includes(e.id))
-      : profile.education;
-    const hasEdu = activeEdu.length > 0;
+    const hasLocation = Boolean(profile.location && profile.location.trim().length > 0);
+    if (hasLocation) contactScore += 2;
+    else {
+      recommendations.push({
+        id: "rec-location",
+        category: "Contact Information",
+        text: "+ Include your city and state/country for recruiter location filters",
+        impact: "low",
+      });
+    }
+
+    // --- 2. SUMMARY & ROLE ALIGNMENT (Max 15) ---
+    let summaryScore = 0;
+    const summaryText = (version?.summaryOverride || profile.summary || "").trim();
+    const hasSummary = summaryText.length >= 15;
+    const isOptimalLength = summaryText.length >= 50 && summaryText.length <= 500;
+    const targetRole = version?.targetRole?.trim() || profile.professionalTitle?.trim() || "";
+    
+    // Check keyword alignment with target role or common industry terms
+    const summaryLower = summaryText.toLowerCase();
+    const roleTokens = targetRole.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
+    const hasRoleKeyword = roleTokens.length > 0 && roleTokens.some((token) => summaryLower.includes(token));
+    const hasTechIndustryKeywords = /(engineer|developer|software|analyst|frontend|backend|fullstack|data|machine learning|cloud|design|student|architect)/i.test(summaryText);
+    const roleAligned = hasRoleKeyword || hasTechIndustryKeywords;
+
+    if (hasSummary) summaryScore += 5;
+    if (isOptimalLength) summaryScore += 5;
+    if (roleAligned && hasSummary) summaryScore += 5;
+
     checks.push({
-      id: "check-education",
-      label: "Education Record Included",
-      passed: hasEdu,
-      severity: "warning",
-      tip: hasEdu ? `${activeEdu.length} education item(s) included.` : "Add at least one degree or institution.",
+      id: "check-summary-len",
+      label: "Concise Professional Summary",
+      passed: hasSummary && summaryText.length <= 600,
+      severity: "info",
+      tip: hasSummary
+        ? summaryText.length <= 600
+          ? "Summary length is concise and ATS-readable."
+          : "Your summary is unusually long (>600 chars). Consider shortening."
+        : "Add a 2-3 sentence summary outlining your core strengths.",
     });
-    if (!hasEdu) warnings.push("Your resume contains no education entries.");
+    if (summaryText.length > 600) warnings.push("Your summary is unusually long (>600 characters).");
 
-    // 5. Skills
+    if (!hasSummary) {
+      recommendations.push({
+        id: "rec-summary-add",
+        category: "Summary & Role Alignment",
+        text: "+ Add a targeted 2-3 sentence professional summary",
+        impact: "high",
+      });
+    } else {
+      if (summaryText.length < 50) {
+        recommendations.push({
+          id: "rec-summary-expand",
+          category: "Summary & Role Alignment",
+          text: "+ Expand your summary to at least 50 characters to highlight key strengths",
+          impact: "medium",
+        });
+      }
+      if (summaryText.length > 500) {
+        recommendations.push({
+          id: "rec-summary-trim",
+          category: "Summary & Role Alignment",
+          text: "+ Shorten summary to under 500 characters for optimal ATS scanning",
+          impact: "low",
+        });
+      }
+      if (!roleAligned) {
+        recommendations.push({
+          id: "rec-summary-role",
+          category: "Summary & Role Alignment",
+          text: `+ Mention your target role "${targetRole || 'Software Engineer'}" in your summary`,
+          impact: "medium",
+        });
+      }
+    }
+
+    // --- 3. SKILLS & KEYWORDS (Max 20) ---
+    let skillsScore = 0;
     const activeSkills = version
       ? profile.skills.filter((s) => version.selectedSkillIds.length === 0 || version.selectedSkillIds.includes(s.id))
       : profile.skills;
@@ -382,68 +459,323 @@ export const careerService = {
     });
     if (!hasSkills) warnings.push("Your resume has no listed skills.");
 
-    // 6. Projects or Experience
+    if (activeSkills.length >= 8) {
+      skillsScore += 15;
+    } else if (activeSkills.length >= 5) {
+      skillsScore += 10;
+    } else {
+      skillsScore += activeSkills.length * 2;
+    }
+
+    const uniqueCategories = new Set(activeSkills.map((s) => s.category).filter(Boolean));
+    if (uniqueCategories.size >= 2) {
+      skillsScore += 5;
+    } else if (activeSkills.length > 0) {
+      skillsScore += 2;
+    }
+
+    if (activeSkills.length < 5) {
+      recommendations.push({
+        id: "rec-skills-5",
+        category: "Skills & Keywords",
+        text: `+ Add at least 5 core technical skills (currently ${activeSkills.length})`,
+        impact: "high",
+      });
+    } else if (activeSkills.length < 8) {
+      recommendations.push({
+        id: "rec-skills-8",
+        category: "Skills & Keywords",
+        text: `+ Add 8+ technical skills for comprehensive keyword matching (currently ${activeSkills.length}/8)`,
+        impact: "medium",
+      });
+    }
+    if (uniqueCategories.size < 2 && activeSkills.length >= 4) {
+      recommendations.push({
+        id: "rec-skills-cat",
+        category: "Skills & Keywords",
+        text: "+ Group skills across categories (e.g., Languages, Frontend, Backend, Cloud)",
+        impact: "low",
+      });
+    }
+
+    // --- 4. EXPERIENCE & PROJECTS (Max 25) ---
+    let expScore = 0;
     const activeProjects = version
       ? profile.projects.filter((p) => version.selectedProjectIds.length === 0 || version.selectedProjectIds.includes(p.id))
       : profile.projects;
     const activeExp = version
       ? profile.experience.filter((e) => version.selectedExperienceIds.length === 0 || version.selectedExperienceIds.includes(e.id))
       : profile.experience;
-    const hasProjectsOrExp = activeProjects.length > 0 || activeExp.length > 0;
+    const totalExpProjCount = activeProjects.length + activeExp.length;
+
     checks.push({
       id: "check-projects-experience",
       label: "Projects or Experience Present",
-      passed: hasProjectsOrExp,
+      passed: totalExpProjCount > 0,
       severity: "warning",
-      tip: hasProjectsOrExp
+      tip: totalExpProjCount > 0
         ? `${activeProjects.length} project(s) & ${activeExp.length} experience(s).`
         : "Recruiters look for concrete projects or practical experience.",
     });
-    if (!hasProjectsOrExp) warnings.push("Your resume has no projects or practical experience.");
+    if (totalExpProjCount === 0) warnings.push("Your resume has no projects or practical experience.");
 
-    // 7. URLs validity
+    if (totalExpProjCount >= 2) {
+      expScore += 15;
+    } else if (totalExpProjCount === 1) {
+      expScore += 10;
+    }
+
+    // Detect measurable metrics (percentages, numbers, multipliers, KPIs)
+    const metricRegex = /\b\d+(%|\+|k|ms|s|x)?\b/i;
+    let hasMetrics = false;
+    let hasActionVerbs = false;
+    const actionVerbRegex = /^\s*(built|developed|created|designed|implemented|engineered|optimized|led|architected|deployed|integrated|improved|reduced|increased|automated|managed|spearheaded|researched|refactored|achieved|trained)/i;
+
+    const allBulletTexts: string[] = [
+      ...activeExp.flatMap((e) => e.bullets || []),
+      ...activeProjects.flatMap((p) => p.highlights || []),
+      ...activeProjects.map((p) => p.description || ""),
+      ...activeExp.map((e) => e.description || ""),
+    ].filter(Boolean);
+
+    for (const b of allBulletTexts) {
+      if (metricRegex.test(b)) hasMetrics = true;
+      if (actionVerbRegex.test(b)) hasActionVerbs = true;
+    }
+
+    if (hasMetrics) expScore += 5;
+    if (hasActionVerbs) expScore += 5;
+
+    if (totalExpProjCount === 0) {
+      recommendations.push({
+        id: "rec-exp-none",
+        category: "Experience & Projects",
+        text: "+ Add at least 1 technical project or work experience entry",
+        impact: "high",
+      });
+    } else {
+      if (totalExpProjCount === 1) {
+        recommendations.push({
+          id: "rec-exp-second",
+          category: "Experience & Projects",
+          text: "+ Add a second project or internship to demonstrate engineering breadth",
+          impact: "medium",
+        });
+      }
+      if (!hasMetrics && allBulletTexts.length > 0) {
+        recommendations.push({
+          id: "rec-exp-metrics",
+          category: "Experience & Projects",
+          text: "+ Add measurable metrics or numbers in bullet points (e.g. 20% speedup, 500+ users)",
+          impact: "high",
+        });
+      }
+      if (!hasActionVerbs && allBulletTexts.length > 0) {
+        recommendations.push({
+          id: "rec-exp-verbs",
+          category: "Experience & Projects",
+          text: "+ Begin bullet points with strong action verbs (Built, Deployed, Engineered)",
+          impact: "medium",
+        });
+      }
+    }
+
+    // --- 5. EDUCATION (Max 15) ---
+    let eduScore = 0;
+    const activeEdu = version
+      ? profile.education.filter((e) => version.selectedEducationIds.length === 0 || version.selectedEducationIds.includes(e.id))
+      : profile.education;
+    const hasEdu = activeEdu.length > 0;
+    checks.push({
+      id: "check-education",
+      label: "Education Record Included",
+      passed: hasEdu,
+      severity: "warning",
+      tip: hasEdu ? `${activeEdu.length} education item(s) included.` : "Add at least one degree or institution.",
+    });
+    if (!hasEdu) warnings.push("Your resume contains no education entries.");
+
+    if (hasEdu) {
+      const hasInstitutionAndDegree = activeEdu.some((e) => e.institution?.trim() && e.degree?.trim());
+      if (hasInstitutionAndDegree) eduScore += 10;
+      else eduScore += 5;
+
+      const hasDatesOrGpa = activeEdu.some((e) => e.endDate || e.gpa || e.scheme || e.startDate);
+      if (hasDatesOrGpa) eduScore += 5;
+    }
+
+    if (!hasEdu) {
+      recommendations.push({
+        id: "rec-edu-none",
+        category: "Education",
+        text: "+ Add your university degree and institution",
+        impact: "high",
+      });
+    } else {
+      const hasDatesOrGpa = activeEdu.some((e) => e.endDate || e.gpa || e.scheme);
+      if (!hasDatesOrGpa) {
+        recommendations.push({
+          id: "rec-edu-details",
+          category: "Education",
+          text: "+ Include your graduation year, CGPA, or academic branch",
+          impact: "low",
+        });
+      }
+    }
+
+    // --- 6. PROFESSIONAL LINKS (Max 10) ---
+    let linksScore = 0;
     const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/i;
     let urlIssues = false;
-    if (profile.linkedin && !urlPattern.test(profile.linkedin.trim())) {
+
+    const hasLinkedIn = Boolean(profile.linkedin && profile.linkedin.trim().length > 3);
+    const validLinkedIn = hasLinkedIn && urlPattern.test(profile.linkedin!.trim());
+    if (hasLinkedIn && !validLinkedIn) {
       urlIssues = true;
       warnings.push("LinkedIn URL appears malformed.");
     }
-    if (profile.github && !urlPattern.test(profile.github.trim())) {
+    if (validLinkedIn) linksScore += 4;
+
+    const hasGitHub = Boolean(profile.github && profile.github.trim().length > 3);
+    const validGitHub = hasGitHub && urlPattern.test(profile.github!.trim());
+    if (hasGitHub && !validGitHub) {
       urlIssues = true;
       warnings.push("GitHub URL appears malformed.");
     }
+    if (validGitHub) linksScore += 3;
+
+    const portfolioUrl = profile.portfolio || profile.website;
+    const hasPortfolio = Boolean(portfolioUrl && portfolioUrl.trim().length > 3);
+    const validPortfolio = hasPortfolio && urlPattern.test(portfolioUrl!.trim());
+    if (hasPortfolio && !validPortfolio) {
+      urlIssues = true;
+      warnings.push("Portfolio URL appears malformed.");
+    }
+    if (validPortfolio) linksScore += 3;
+
     checks.push({
       id: "check-links",
       label: "Valid Profile Links",
-      passed: !urlIssues,
+      passed: !urlIssues && (validLinkedIn || validGitHub),
       severity: "info",
-      tip: urlIssues ? "Ensure LinkedIn and GitHub profiles use standard URL format." : "Profile links are well-formed.",
+      tip: urlIssues
+        ? "Ensure LinkedIn and GitHub profiles use standard URL format."
+        : "Professional profile links are well-formed.",
     });
 
-    // 8. Summary Length
-    const summaryText = (version?.summaryOverride || profile.summary || "").trim();
-    const summaryReasonable = summaryText.length <= 600;
-    checks.push({
-      id: "check-summary-len",
-      label: "Concise Professional Summary",
-      passed: summaryReasonable,
-      severity: "info",
-      tip: summaryReasonable ? "Summary length is concise and ATS-readable." : "Your summary is unusually long (>600 chars). Consider shortening.",
-    });
-    if (!summaryReasonable) warnings.push("Your summary is unusually long (>600 characters).");
+    if (!validLinkedIn) {
+      recommendations.push({
+        id: "rec-link-linkedin",
+        category: "Professional Links",
+        text: "+ Add your LinkedIn profile link",
+        impact: "high",
+      });
+    }
+    if (!validGitHub) {
+      recommendations.push({
+        id: "rec-link-github",
+        category: "Professional Links",
+        text: "+ Add your GitHub profile or code repository",
+        impact: "medium",
+      });
+    }
+    if (!validPortfolio) {
+      recommendations.push({
+        id: "rec-link-portfolio",
+        category: "Professional Links",
+        text: "+ Add a portfolio or live personal website link",
+        impact: "medium",
+      });
+    }
 
-    // 9. Completeness Score (0 - 100%)
-    let score = 0;
-    if (hasName) score += 15;
-    if (hasEmail) score += 15;
-    if (hasPhone) score += 10;
-    if (profile.location) score += 5;
-    if (profile.linkedin || profile.github) score += 5;
-    if (summaryText.length > 20) score += 10;
-    if (hasEdu) score += 15;
-    if (hasSkills) score += 10;
-    if (activeProjects.length > 0) score += 10;
-    if (activeExp.length > 0 || profile.certifications.length > 0 || profile.hackathons.length > 0) score += 5;
+    // --- 7. ATS FORMATTING & GRAPHICS CHECK ---
+    const hasPhoto = Boolean(
+      (profile.profileImage || profile.photoUrl) &&
+      (version?.showProfilePhoto !== false)
+    );
+    let formattingPenalty = 0;
+    if (hasPhoto) {
+      formattingPenalty = 5;
+      warnings.push("Profile photo detected: Some ATS parsers struggle with graphics or photos. For an ATS-first resume, avoiding photos is recommended.");
+      recommendations.push({
+        id: "rec-photo-ats",
+        category: "Formatting & Parseability",
+        text: "Consider removing profile photo for ATS-first submissions to prevent parsing errors (-5 pts)",
+        impact: "medium",
+      });
+      checks.push({
+        id: "check-photo",
+        label: "ATS-Safe Formatting (No Photo)",
+        passed: false,
+        severity: "warning",
+        tip: "Some applicant tracking systems may parse graphics inconsistently. Avoid photos for standard ATS submissions.",
+      });
+    } else {
+      checks.push({
+        id: "check-photo",
+        label: "ATS-Safe Formatting (No Photo)",
+        passed: true,
+        severity: "info",
+        tip: "Clean text-only layout ensures reliable scanning across all ATS parsers.",
+      });
+    }
+
+    // --- TOTAL ATS SCORE (0 - 100) ---
+    const rawTotal = contactScore + summaryScore + skillsScore + expScore + eduScore + linksScore;
+    const totalAtsScore = Math.min(
+      100,
+      Math.max(0, rawTotal - formattingPenalty)
+    );
+
+    let scoreLabel: "Needs Work" | "Good" | "Strong" | "Exceptional" = "Needs Work";
+    if (totalAtsScore >= 85) scoreLabel = "Exceptional";
+    else if (totalAtsScore >= 70) scoreLabel = "Strong";
+    else if (totalAtsScore >= 50) scoreLabel = "Good";
+
+    const categoryScores: AtsCategoryScore[] = [
+      {
+        id: "contact",
+        name: "Contact Information",
+        score: contactScore,
+        maxScore: 15,
+        percentage: Math.round((contactScore / 15) * 100),
+      },
+      {
+        id: "summary",
+        name: "Summary & Role Alignment",
+        score: summaryScore,
+        maxScore: 15,
+        percentage: Math.round((summaryScore / 15) * 100),
+      },
+      {
+        id: "skills",
+        name: "Skills & Keywords",
+        score: skillsScore,
+        maxScore: 20,
+        percentage: Math.round((skillsScore / 20) * 100),
+      },
+      {
+        id: "experience",
+        name: "Experience & Projects",
+        score: expScore,
+        maxScore: 25,
+        percentage: Math.round((expScore / 25) * 100),
+      },
+      {
+        id: "education",
+        name: "Education",
+        score: eduScore,
+        maxScore: 15,
+        percentage: Math.round((eduScore / 15) * 100),
+      },
+      {
+        id: "links",
+        name: "Professional Links",
+        score: linksScore,
+        maxScore: 10,
+        percentage: Math.round((linksScore / 10) * 100),
+      },
+    ];
 
     // Estimate page count
     const totalItems =
@@ -457,7 +789,11 @@ export const careerService = {
 
     return {
       isValid: errors.length === 0,
-      completenessScore: Math.min(100, score),
+      completenessScore: totalAtsScore, // Backwards compatibility
+      atsScore: totalAtsScore,
+      scoreLabel,
+      categoryScores,
+      recommendations,
       checks,
       warnings,
       errors,
@@ -562,6 +898,139 @@ export const careerService = {
       missingSkills,
       optionalSkills,
       matchPercentage,
+    };
+  },
+
+  // ==========================================
+  // DETERMINISTIC JOB DESCRIPTION MATCHING (NO HALLUCINATIONS)
+  // ==========================================
+  matchJobDescription(
+    profile: CareerProfile,
+    version: ResumeVersion | null,
+    jobDescription: string
+  ): JobMatchResult {
+    if (!jobDescription || typeof jobDescription !== "string" || !jobDescription.trim()) {
+      return {
+        matchScore: 0,
+        matchedKeywords: [],
+        missingKeywords: [],
+        skillsFound: [],
+        skillsMissing: [],
+        recommendations: ["Paste a job description to calculate keyword match."],
+        analyzedAt: new Date().toISOString(),
+      };
+    }
+
+    const jdText = jobDescription.toLowerCase();
+
+    // 1. Gather all resume words/skills
+    const activeSkills = version
+      ? profile.skills.filter((s) => version.selectedSkillIds.length === 0 || version.selectedSkillIds.includes(s.id))
+      : profile.skills;
+    const candidateSkillNames = activeSkills.map((s) => s.name.toLowerCase());
+    const candidateSkillSet = new Set(candidateSkillNames);
+
+    const resumeFullContent = [
+      profile.fullName,
+      profile.professionalTitle,
+      version?.targetRole,
+      profile.summary,
+      version?.summaryOverride,
+      ...activeSkills.map((s) => s.name),
+      ...profile.experience.flatMap((e) => [e.company, e.role, e.description, ...(e.bullets || [])]),
+      ...profile.projects.flatMap((p) => [p.title, p.description, ...(p.technologies || []), ...(p.highlights || [])]),
+      ...profile.education.flatMap((ed) => [ed.degree, ed.fieldOfStudy, ed.institution]),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    // 2. Comprehensive technical keyword lexicon
+    const COMMON_TECH_KEYWORDS = [
+      "python", "java", "javascript", "typescript", "c++", "c#", "golang", "rust", "sql", "html", "css",
+      "react", "angular", "vue", "next.js", "node.js", "express", "django", "fastapi", "spring", "spring boot",
+      "postgresql", "mysql", "mongodb", "redis", "supabase", "firebase", "sqlite",
+      "docker", "kubernetes", "aws", "azure", "gcp", "ci/cd", "git", "github", "linux",
+      "rest api", "graphql", "microservices", "kafka", "rabbitmq",
+      "machine learning", "deep learning", "nlp", "llm", "ai", "pandas", "numpy", "pytorch", "tensorflow",
+      "unit testing", "jest", "cypress", "agile", "scrum", "jira", "data structures", "algorithms", "oop", "system design"
+    ];
+
+    const jdFoundSkills: string[] = [];
+    const matchedSkills: string[] = [];
+    const missingSkills: string[] = [];
+
+    for (const kw of COMMON_TECH_KEYWORDS) {
+      const regex = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, "i");
+      if (regex.test(jdText)) {
+        jdFoundSkills.push(kw);
+        if (candidateSkillSet.has(kw) || resumeFullContent.includes(kw)) {
+          matchedSkills.push(kw);
+        } else {
+          missingSkills.push(kw);
+        }
+      }
+    }
+
+    // Dynamic keyword extraction from JD for general role terms
+    const rawTokens = jdText.match(/[a-zA-Z]{3,}/g) || [];
+    const stopWords = new Set([
+      "and", "the", "for", "with", "you", "are", "our", "will", "have", "that", "this", "from", "your",
+      "work", "team", "years", "experience", "looking", "candidate", "skills", "ability", "strong",
+      "knowledge", "understanding", "degree", "computer", "science", "engineering", "required", "preferred"
+    ]);
+
+    const jdFreqMap = new Map<string, number>();
+    for (const t of rawTokens) {
+      if (!stopWords.has(t) && t.length > 2) {
+        jdFreqMap.set(t, (jdFreqMap.get(t) || 0) + 1);
+      }
+    }
+
+    const topJdTokens = Array.from(jdFreqMap.entries())
+      .filter(([_, count]) => count >= 2)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 15)
+      .map(([token]) => token);
+
+    const matchedTokens: string[] = [];
+    const missingTokens: string[] = [];
+    for (const t of topJdTokens) {
+      if (resumeFullContent.includes(t)) {
+        matchedTokens.push(t);
+      } else {
+        missingTokens.push(t);
+      }
+    }
+
+    const totalCheckPoints = jdFoundSkills.length + topJdTokens.length;
+    const totalMatched = matchedSkills.length + matchedTokens.length;
+
+    const matchScore = totalCheckPoints > 0
+      ? Math.min(100, Math.max(10, Math.round((totalMatched / totalCheckPoints) * 100)))
+      : 75;
+
+    const recommendations: string[] = [];
+    if (missingSkills.length > 0) {
+      const displayMissing = missingSkills.slice(0, 4).join(", ");
+      recommendations.push(
+        `Consider adding key skills required by this role (${displayMissing}) only if you actually have experience with them.`
+      );
+    }
+    if (matchScore < 60) {
+      recommendations.push("Align your professional summary and project highlights to showcase relevant technical qualifications.");
+    } else if (matchScore >= 80) {
+      recommendations.push("Strong keyword alignment! Your resume demonstrates substantial coverage of key qualifications in this posting.");
+    }
+
+    return {
+      matchScore,
+      matchedKeywords: Array.from(new Set([...matchedSkills, ...matchedTokens])),
+      missingKeywords: Array.from(new Set([...missingSkills, ...missingTokens])),
+      skillsFound: matchedSkills,
+      skillsMissing: missingSkills,
+      recommendations,
+      analyzedAt: new Date().toISOString(),
     };
   },
 

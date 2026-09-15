@@ -16,7 +16,9 @@ import {
   CopilotContextInput,
   CopilotIntentCategory,
   CopilotResponse,
+  CopilotAction,
 } from "@/types/copilot";
+import { validateAction } from "@/lib/ai/copilot/action-planner";
 
 import { getAuthenticatedNotificationUser } from "@/lib/notifications/auth-helper";
 
@@ -214,10 +216,25 @@ export async function POST(req: NextRequest) {
       isDeterministic: false,
       sourceNotice: "AI-generated suggestion based on your local workspace",
       suggestedActions: Array.isArray(parsedResponse.suggestedActions)
-        ? parsedResponse.suggestedActions.map((act: any) => ({
-            ...act,
-            status: "suggested",
-          }))
+        ? parsedResponse.suggestedActions
+            .map((act: any, idx: number) => {
+              if (!act || typeof act !== "object") return null;
+              const cleanAct: CopilotAction = {
+                id: String(act.id || `act_${Date.now()}_${idx}`),
+                type: String(act.type || "").toLowerCase().trim().replace(/-/g, "_") as any,
+                title: String(act.title || "Suggested Action"),
+                description: String(act.description || ""),
+                payload: act.payload && typeof act.payload === "object" ? act.payload : {},
+                status: "suggested",
+              };
+              const validation = validateAction(cleanAct);
+              if (!validation.valid) {
+                console.warn(`[Copilot Chat] Dropped malformed action: ${validation.error}`, act);
+                return null;
+              }
+              return cleanAct;
+            })
+            .filter((act: CopilotAction | null): act is CopilotAction => act !== null)
         : [],
       contextUsed: safeContext.activeCategories || [],
       citations: Array.isArray(parsedResponse.citations) ? parsedResponse.citations : [],

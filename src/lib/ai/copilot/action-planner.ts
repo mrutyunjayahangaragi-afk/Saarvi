@@ -15,9 +15,10 @@ export function validateAction(action: CopilotAction): ActionValidationResult {
     return { valid: false, error: "Action must have a valid ID and type." };
   }
 
+  const normalizedType = String(action.type).toLowerCase().trim().replace(/-/g, "_") as CopilotActionType;
   const payload = action.payload || {};
 
-  switch (action.type) {
+  switch (normalizedType) {
     case "create_study_session": {
       const subject = payload.subject;
       const date = payload.date;
@@ -66,6 +67,18 @@ export function validateAction(action: CopilotAction): ActionValidationResult {
       }
       return { valid: true };
     }
+
+    case "open_tool": {
+      const route = (payload.route as string) || (payload.toolId ? `/student/tools/${payload.toolId}` : "/student/tools");
+      if (!route.startsWith("/")) {
+        return { valid: false, error: "Valid local route starting with '/' is required." };
+      }
+      return { valid: true };
+    }
+
+    case "open_resume":
+    case "run_ats_check":
+      return { valid: true };
 
     default:
       return { valid: false, error: `Unknown action type: ${(action as any).type}` };
@@ -216,8 +229,36 @@ export async function executeAction(
         action.status = "executed";
         return {
           success: true,
-          message: `Navigate to ${payload.route}`,
+          message: `Navigating to ${payload.route}`,
           data: { route: payload.route },
+        };
+      }
+
+      case "open_tool": {
+        const route = (payload.route as string) || (payload.toolId ? `/student/tools/${payload.toolId}` : "/student/tools");
+        action.status = "executed";
+        return {
+          success: true,
+          message: `Opening tool: ${route}`,
+          data: { route },
+        };
+      }
+
+      case "open_resume": {
+        action.status = "executed";
+        return {
+          success: true,
+          message: "Opening Resume Builder",
+          data: { route: "/student/resume" },
+        };
+      }
+
+      case "run_ats_check": {
+        action.status = "executed";
+        return {
+          success: true,
+          message: "Running ATS Check in Resume Builder",
+          data: { route: "/student/resume?tab=ats" },
         };
       }
 

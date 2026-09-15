@@ -264,43 +264,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
-      },
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, fullName }),
     });
 
-    if (error) {
-      throw new Error(error.message || "We couldn't create your account. Please try again.");
+    const result = await res.json();
+    if (!res.ok || !result.success) {
+      throw new Error(result.error || "We couldn't create your account. Please try again.");
     }
-
-    if (data.user && !data.session) {
-      // Email confirmation is required; caller will display 6-digit OTP verification form
-      return;
-    }
-
-    if (data.user && data.session) {
-      const authUser: AuthSessionUser = {
-        id: data.user.id,
-        email: data.user.email || '',
-        fullName,
-        role: 'USER',
-        createdAt: data.user.created_at,
-      };
-      setUser(authUser);
-      await loadProfile(data.user.id, data.user.email || '');
-    }
+    // Server has dispatched branded OTP email via Gmail SMTP; user will now enter 6-digit code
   };
 
   const verifyEmailOtp = async ({ email, code }: { email: string; code: string }) => {
     const cleanCode = code.trim();
-    if (!cleanCode || cleanCode.length !== 6) {
-      throw new Error("Please enter a valid 6-digit verification code.");
+    if (!cleanCode || cleanCode.length < 6) {
+      throw new Error("Please enter a valid verification code.");
     }
 
     if (!isSupabaseConfigured()) {
@@ -322,6 +302,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         createdAt: stored.createdAt,
         updatedAt: stored.updatedAt,
       });
+
+      // Dispatch registration success welcome email asynchronously (non-blocking)
+      fetch('/api/auth/welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: stored.email,
+          fullName: stored.fullName,
+          userId: stored.id,
+        }),
+      }).catch((err) => console.warn('[Auth] Welcome email async dispatch failed:', err));
+
       return;
     }
 
@@ -355,6 +347,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
       setUser(authUser);
       await loadProfile(res.data.user.id, res.data.user.email || '');
+
+      // Dispatch registration success welcome email asynchronously (non-blocking)
+      fetch('/api/auth/welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: res.data.user.email,
+          fullName: res.data.user.user_metadata?.full_name,
+          userId: res.data.user.id,
+        }),
+      }).catch((err) => console.warn('[Auth] Welcome email async dispatch failed:', err));
     }
   };
 
@@ -368,14 +371,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email: cleanEmail,
+    const res = await fetch('/api/auth/resend-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: cleanEmail }),
     });
 
-    if (error) {
-      throw new Error(error.message || "Unable to resend verification code. Please wait a moment and try again.");
+    const result = await res.json();
+    if (!res.ok || !result.success) {
+      throw new Error(result.error || "Unable to resend verification code. Please wait a moment and try again.");
     }
   };
 

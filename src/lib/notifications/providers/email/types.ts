@@ -22,6 +22,7 @@ export interface EmailProviderHealth {
   configured: boolean;
   host?: string;
   port?: number;
+  latencyMs?: number;
 }
 
 export interface NotificationEmailProvider {

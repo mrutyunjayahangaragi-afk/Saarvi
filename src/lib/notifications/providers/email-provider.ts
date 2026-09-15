@@ -122,4 +122,23 @@ export class TransactionalEmailProvider implements NotificationEmailProvider {
   public async sendReminder(message: ReminderEmailMessage): Promise<DeliveryResult> {
     return this.activeProvider.sendReminder(message);
   }
+
+  public async sendAuthVerificationEmail(params: {
+    to: string;
+    fullName?: string;
+    otpCode: string;
+    expiryMinutes?: number;
+  }): Promise<DeliveryResult> {
+    return this.gmailProvider.sendAuthVerificationEmail(params);
+  }
+
+  public async sendRegistrationSuccessEmail(params: {
+    to: string;
+    fullName?: string;
+    idempotencyKey?: string;
+  }): Promise<DeliveryResult> {
+    return this.gmailProvider.sendRegistrationSuccessEmail(params);
+  }
 }
+
+export const transactionalEmailProvider = new TransactionalEmailProvider();

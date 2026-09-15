@@ -15,6 +15,7 @@ export type ResumeSectionId =
 
 export type ResumeTemplateId =
   | "classic-ats"
+  | "ats-latex"
   | "modern-professional"
   | "executive"
   | "student-clean"
@@ -49,6 +50,7 @@ export interface CareerEducation {
   endDate: string;
   current?: boolean;
   gpa?: string; // CGPA or percentage
+  score?: string; // Score / Grade / CGPA alias
   scheme?: string; // e.g., VTU 2022 Scheme
   branch?: string;
   currentSemester?: number;
@@ -82,6 +84,7 @@ export interface CareerProject {
   liveUrl?: string;
   githubUrl?: string;
   highlights: string[];
+  bullets?: string[];
   sourceRefId?: string; // e.g. local project / portfolio reference
   showOnResume?: boolean;
 }
@@ -91,6 +94,7 @@ export interface CareerCertification {
   name: string;
   issuer: string;
   date: string;
+  description?: string;
   expiryDate?: string;
   url?: string;
   credentialId?: string;
@@ -104,7 +108,9 @@ export interface CareerHackathon {
   role?: string;
   outcome: "Winner" | "Runner-up" | "Finalist" | "Participant" | "Special Mention";
   projectTitle?: string;
+  organization?: string;
   date: string;
+  description?: string;
   technologies?: string[];
   sourceRefId?: string; // from local hackathons store
   showOnResume?: boolean;
@@ -158,6 +164,8 @@ export interface CareerProfile {
   linkedin?: string;
   github?: string;
   portfolio?: string;
+  photoUrl?: string;
+  profileImage?: string;
   summary?: string;
   skills: CareerSkill[];
   education: CareerEducation[];
@@ -171,6 +179,16 @@ export interface CareerProfile {
   languages?: CareerLanguage[];
   additionalInfo?: string;
   updatedAt: string;
+}
+
+export interface JobMatchResult {
+  matchScore: number; // 0 to 100
+  matchedKeywords: string[];
+  missingKeywords: string[];
+  skillsFound: string[];
+  skillsMissing: string[];
+  recommendations: string[];
+  analyzedAt: string;
 }
 
 export interface ResumeVersion {
@@ -192,6 +210,10 @@ export interface ResumeVersion {
   selectedLeadershipIds: string[];
   selectedVolunteeringIds: string[];
   preferOnePage: boolean;
+  showProfilePhoto?: boolean;
+  dismissedImageAtsWarning?: boolean;
+  jobDescriptionText?: string;
+  lastJobMatch?: JobMatchResult;
   customSummaryData?: {
     yearsOfExperience?: string;
     specialization?: string;
@@ -337,9 +359,28 @@ export interface AtsFriendlyCheckItem {
   tip: string;
 }
 
+export interface AtsCategoryScore {
+  id: string;
+  name: string;
+  score: number;
+  maxScore: number;
+  percentage: number;
+}
+
+export interface AtsRecommendation {
+  id: string;
+  category: string;
+  text: string;
+  impact: 'high' | 'medium' | 'low';
+}
+
 export interface ResumeValidationResult {
   isValid: boolean;
-  completenessScore: number; // 0 to 100
+  completenessScore: number; // 0 to 100 (kept for backwards compatibility)
+  atsScore: number; // 0 to 100
+  scoreLabel: 'Needs Work' | 'Good' | 'Strong' | 'Exceptional';
+  categoryScores: AtsCategoryScore[];
+  recommendations: AtsRecommendation[];
   checks: AtsFriendlyCheckItem[];
   warnings: string[];
   errors: string[];

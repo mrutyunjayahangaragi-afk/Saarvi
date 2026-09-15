@@ -143,6 +143,18 @@ export default function AdminAnalyticsDashboard() {
           // fallback
         }
 
+        try {
+          const diagRes = await fetch('/api/admin/diagnostics');
+          if (diagRes.ok) {
+            const diagJson = await diagRes.json();
+            if (diagJson.success && Array.isArray(diagJson.probes)) {
+              data.systemHealth = diagJson.probes;
+            }
+          }
+        } catch {
+          // keep service health fallback
+        }
+
         setKpis(data.kpis);
         setUserGrowthSeries(data.userGrowthSeries);
         setNewUsersSeries(data.newUsersSeries);

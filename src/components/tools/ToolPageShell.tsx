@@ -5,7 +5,9 @@ import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import PrivacyBadge, { PrivacyMode } from "@/components/common/PrivacyBadge";
-import { ChevronRight, Lock, RefreshCw, LucideIcon } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { usePathname } from "next/navigation";
+import { LucideIcon, Lock, ChevronRight, RefreshCw } from "lucide-react";
 
 export interface ToolPageShellProps {
   title: string;
@@ -19,6 +21,8 @@ export interface ToolPageShellProps {
   badge?: string;
   isDisabled?: boolean;
   isMaintenance?: boolean;
+  requiresAuth?: boolean;
+  requiresPro?: boolean;
   disabledMessage?: string;
   maintenanceMessage?: string;
   maxWidthClass?: string;
@@ -34,11 +38,25 @@ export default function ToolPageShell({
   badge,
   isDisabled = false,
   isMaintenance = false,
+  requiresAuth = false,
+  requiresPro = false,
   disabledMessage,
   maintenanceMessage,
   maxWidthClass = "max-w-4xl",
   children,
 }: ToolPageShellProps) {
+  const { user, profile } = useAuth();
+  const pathname = usePathname();
+
+  const isPro = Boolean(
+    profile?.role === "ADMIN" ||
+    profile?.role === "SUPER_ADMIN" ||
+    (user as any)?.plan === "PRO" ||
+    (profile as any)?.isPro
+  );
+
+  const showAuthGate = requiresAuth && !user;
+  const showProGate = requiresPro && !isPro;
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900 font-sans antialiased">
       <Navbar />
@@ -128,6 +146,58 @@ export default function ToolPageShell({
               >
                 <span>Browse Available Tools</span>
                 <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+        ) : showAuthGate ? (
+          <div className="p-8 sm:p-10 rounded-3xl border border-blue-200/80 bg-white text-center space-y-5 shadow-sm max-w-md mx-auto my-6">
+            <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center mx-auto shadow-2xs">
+              <Lock className="w-7 h-7" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-extrabold text-slate-900 tracking-tight">
+                Create a free Saarvi account to use this tool
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                Sign up in seconds to access this utility, save your documents locally, and unlock personal workspace tools.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <Link
+                href={`/signup?next=${encodeURIComponent(pathname || category.href)}`}
+                className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>Create account</span>
+                <ChevronRight className="w-4 h-4" />
+              </Link>
+              <Link
+                href={`/login?next=${encodeURIComponent(pathname || category.href)}`}
+                className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs transition-colors flex items-center justify-center cursor-pointer"
+              >
+                Log in
+              </Link>
+            </div>
+          </div>
+        ) : showProGate ? (
+          <div className="p-8 sm:p-10 rounded-3xl border border-indigo-200/80 bg-white text-center space-y-5 shadow-sm max-w-md mx-auto my-6">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center mx-auto shadow-2xs">
+              <Lock className="w-7 h-7" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-extrabold text-slate-900 tracking-tight">
+                This feature is available with Saarvi Pro
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                Upgrade your account to unlock advanced AI capabilities, higher file limits, and complete career suite features.
+              </p>
+            </div>
+            <div className="pt-2">
+              <Link
+                href="/pricing"
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+              >
+                <span>Upgrade to Pro</span>
+                <ChevronRight className="w-4 h-4" />
               </Link>
             </div>
           </div>

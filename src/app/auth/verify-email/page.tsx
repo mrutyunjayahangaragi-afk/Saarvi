@@ -43,14 +43,37 @@ function VerifyEmailForm() {
     return () => clearInterval(interval);
   }, [resendCooldown]);
 
+  const [expiresIn, setExpiresIn] = useState<number>(600); // 10 minutes
+
+  // Expiry countdown timer
+  useEffect(() => {
+    if (expiresIn <= 0) return;
+    const interval = setInterval(() => {
+      setExpiresIn((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [expiresIn]);
+
+  // Format mm:ss
+  const formatExpiryTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setResendNotice(null);
 
     const cleanCode = code.trim();
-    if (!cleanCode || cleanCode.length !== 6) {
-      setError("Please enter the complete 6-digit verification code.");
+    if (!cleanCode || cleanCode.length < 6) {
+      setError("Please enter the verification code sent to your email.");
+      return;
+    }
+
+    if (expiresIn <= 0) {
+      setError("Your verification code has expired. Please click 'Resend Code' below.");
       return;
     }
 
@@ -87,8 +110,9 @@ function VerifyEmailForm() {
     setResending(true);
     try {
       await resendVerificationOtp(email.trim());
-      setResendNotice("A new 6-digit verification code has been dispatched to your inbox.");
+      setResendNotice("A new verification code has been dispatched to your inbox.");
       setResendCooldown(60);
+      setExpiresIn(600); // Reset 10-minute expiry
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unable to resend verification code. Please wait a moment and try again.";
       setError(msg);
@@ -108,18 +132,18 @@ function VerifyEmailForm() {
           Verify your email
         </h1>
         <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
-          Enter the one-time security code dispatched to your email address to activate your Saarvi account.
+          We sent a verification code to your email address to activate your Saarvi account.
         </p>
       </div>
 
       {/* Email Display / Change Email */}
       <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-2">
         <div className="flex items-center justify-between text-xs text-slate-500">
-          <span className="font-semibold uppercase tracking-wider text-[10px]">Verification Email</span>
+          <span className="font-semibold uppercase tracking-wider text-[10px]">Recipient Email</span>
           <button
             type="button"
             onClick={() => setIsEditingEmail(!isEditingEmail)}
-            className="text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1 cursor-pointer"
+            className="text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1 cursor-pointer min-h-[32px] px-1"
           >
             <Edit3 className="w-3 h-3" />
             <span>{isEditingEmail ? "Save" : "Change Email"}</span>
@@ -165,19 +189,24 @@ function VerifyEmailForm() {
         /* Verification Form */
         <form onSubmit={handleVerify} className="space-y-4">
           <div className="space-y-1.5">
-            <label htmlFor="otp-input" className="block text-xs font-bold uppercase tracking-wider text-slate-600">
-              6-Digit Verification Code
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="otp-input" className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+                Verification Code
+              </label>
+              <span className={`text-[11px] font-mono font-medium ${expiresIn <= 60 ? 'text-rose-600 font-bold animate-pulse' : 'text-slate-500'}`}>
+                Code expires in: <strong>{formatExpiryTime(expiresIn)}</strong>
+              </span>
+            </div>
             <input
               id="otp-input"
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
-              maxLength={6}
+              maxLength={8}
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/[^0-9a-zA-Z]/g, "").slice(0, 6))}
+              onChange={(e) => setCode(e.target.value.replace(/[^0-9a-zA-Z]/g, "").slice(0, 8))}
               placeholder="123456"
-              className="w-full text-center tracking-[0.4em] font-mono text-xl font-bold bg-white border border-slate-300 rounded-2xl py-3 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-all"
+              className="w-full text-center tracking-[0.4em] font-mono text-xl sm:text-2xl font-bold bg-white border border-slate-300 rounded-2xl py-3 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-all"
               required
             />
             <p className="text-[11px] text-slate-400 text-center">
@@ -187,8 +216,8 @@ function VerifyEmailForm() {
 
           <button
             type="submit"
-            disabled={loading || code.trim().length !== 6}
-            className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+            disabled={loading || code.trim().length < 6 || expiresIn <= 0}
+            className="w-full min-h-[44px] py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
           >
             {loading ? (
               <>
@@ -204,22 +233,22 @@ function VerifyEmailForm() {
           </button>
 
           {/* Resend Code & Navigation */}
-          <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
+          <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <button
               type="button"
               onClick={handleResend}
               disabled={resendCooldown > 0 || resending || loading}
-              className="text-slate-600 hover:text-blue-600 font-medium inline-flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+              className="min-h-[36px] px-2 text-slate-600 hover:text-blue-600 font-medium inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
             >
               <RotateCcw className={`w-3.5 h-3.5 ${resending ? "animate-spin" : ""}`} />
               <span>
-                {resendCooldown > 0 ? `Resend Code in ${resendCooldown}s` : "Resend Code"}
+                {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Resend code"}
               </span>
             </button>
 
             <Link
               href="/login"
-              className="text-slate-500 hover:text-slate-800 font-medium transition-colors"
+              className="min-h-[36px] flex items-center px-2 text-slate-500 hover:text-slate-800 font-medium transition-colors"
             >
               Back to Login
             </Link>

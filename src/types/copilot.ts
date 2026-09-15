@@ -103,7 +103,10 @@ export type CopilotActionType =
   | "create_study_session"
   | "create_task"
   | "schedule_reminder"
-  | "navigate_to_feature";
+  | "navigate_to_feature"
+  | "open_tool"
+  | "open_resume"
+  | "run_ats_check";
 
 export interface CopilotAction {
   id: string;

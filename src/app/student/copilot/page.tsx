@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   CopilotAction,
   CopilotContextCategory,
@@ -145,6 +146,8 @@ export default function CopilotPage() {
     }
   };
 
+  const router = useRouter();
+
   const handleConfirmAction = async (action: CopilotAction) => {
     try {
       const result = await copilotService.confirmAndExecuteAction(action, "guest");
@@ -154,6 +157,11 @@ export default function CopilotPage() {
       }));
       // Force re-render of action status
       action.status = result.success ? "executed" : "suggested";
+      if (result.success && result.data?.route) {
+        setTimeout(() => {
+          router.push(result.data.route);
+        }, 800);
+      }
     } catch (err: any) {
       setActionFeedback((prev) => ({
         ...prev,
@@ -488,8 +496,14 @@ export default function CopilotPage() {
                                     {action.type === "schedule_reminder" && (
                                       <Bell className="w-4 h-4" />
                                     )}
-                                    {action.type === "navigate_to_feature" && (
+                                    {(action.type === "navigate_to_feature" || action.type === "open_tool") && (
                                       <ExternalLink className="w-4 h-4" />
+                                    )}
+                                    {action.type === "open_resume" && (
+                                      <FileText className="w-4 h-4" />
+                                    )}
+                                    {action.type === "run_ats_check" && (
+                                      <ShieldCheck className="w-4 h-4" />
                                     )}
                                   </div>
                                   <div>

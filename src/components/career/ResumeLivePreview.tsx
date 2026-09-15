@@ -36,6 +36,7 @@ export function ResumeLivePreview({
   const [zoomLevel, setZoomLevel] = useState<number>(100);
 
   const template: ResumeTemplateId = version.template || "classic-ats";
+  const isAtsClassic = template === "classic-ats" || template === "ats-latex";
   const isModern = template === "modern-professional";
   const isExecutive = template === "executive";
   const isStudent = template === "student-clean";
@@ -52,6 +53,8 @@ export function ResumeLivePreview({
 
   const dividerClass = isMinimal
     ? "hidden"
+    : isAtsClassic
+    ? "border-b border-slate-900 pb-0.5 mb-2"
     : isModern
     ? "border-b-2 border-blue-600 pb-1 mb-2.5"
     : isExecutive
@@ -62,6 +65,8 @@ export function ResumeLivePreview({
 
   const headerBorder = isMinimal
     ? "hidden"
+    : isAtsClassic
+    ? "border-b border-slate-400 pb-2 mb-3"
     : isModern
     ? "border-b-2 border-blue-600 pb-2 mb-4"
     : isExecutive
@@ -71,16 +76,42 @@ export function ResumeLivePreview({
     : "border-b border-slate-300 pb-2 mb-4";
 
   // Contact items
-  const contactItems = useMemo(() => {
-    const list: string[] = [];
-    if (profile.email) list.push(profile.email);
-    if (profile.phone) list.push(profile.phone);
-    if (profile.location) list.push(profile.location);
-    if (profile.linkedin) list.push(profile.linkedin.replace(/^https?:\/\//, ""));
-    if (profile.github) list.push(profile.github.replace(/^https?:\/\//, ""));
-    if (profile.website) list.push(profile.website.replace(/^https?:\/\//, ""));
+  interface PreviewContactItem {
+    label: string;
+    url?: string;
+    isLink?: boolean;
+  }
+
+  const contactItems: PreviewContactItem[] = useMemo(() => {
+    const list: PreviewContactItem[] = [];
+    if (profile.email) {
+      list.push({ label: profile.email, url: `mailto:${profile.email}`, isLink: true });
+    }
+    if (profile.phone) {
+      list.push({ label: profile.phone, url: `tel:${profile.phone}`, isLink: true });
+    }
+    if (profile.location && !isAtsClassic) {
+      list.push({ label: profile.location });
+    }
+    if (profile.linkedin) {
+      const url = profile.linkedin.startsWith("http") ? profile.linkedin : `https://${profile.linkedin}`;
+      list.push({ label: "LinkedIn", url, isLink: true });
+    }
+    if (profile.github) {
+      const url = profile.github.startsWith("http") ? profile.github : `https://${profile.github}`;
+      list.push({ label: "GitHub", url, isLink: true });
+    }
+    const portfolioUrl = profile.portfolio || profile.website;
+    if (portfolioUrl) {
+      const url = portfolioUrl.startsWith("http") ? portfolioUrl : `https://${portfolioUrl}`;
+      list.push({ label: "Portfolio", url, isLink: true });
+    }
+    if (profile.portfolio && profile.website && profile.portfolio !== profile.website) {
+      const url = profile.website.startsWith("http") ? profile.website : `https://${profile.website}`;
+      list.push({ label: "Website", url, isLink: true });
+    }
     return list;
-  }, [profile]);
+  }, [profile, isAtsClassic]);
 
   // Handle zoom
   const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev + 10, 140));
@@ -97,7 +128,7 @@ export function ResumeLivePreview({
             <span>Live A4 Preview</span>
           </div>
           <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-600 border border-slate-200 capitalize">
-            {template.replace("-", " ")}
+            {isAtsClassic ? "ATS Classic" : template.replace("-", " ")}
           </span>
         </div>
 
@@ -147,14 +178,14 @@ export function ResumeLivePreview({
               title="Export PDF"
             >
               <FileDown className="w-3.5 h-3.5 mr-1" />
-              PDF
+              Export PDF
             </button>
           )}
         </div>
       </div>
 
-      {/* Preview Scroll Canvas */}
-      <div className="flex-1 overflow-auto p-4 sm:p-6 flex justify-center bg-slate-200/75 min-h-[650px]">
+      {/* Main Preview Container with Zoom Canvas */}
+      <div className="p-4 sm:p-8 flex justify-center overflow-auto max-h-[850px]">
         <div
           style={{
             transform: `scale(${zoomLevel / 100})`,
@@ -173,30 +204,95 @@ export function ResumeLivePreview({
           >
             {/* Header: Name & Title */}
             <div className={headerBorder}>
-              <h1
-                className={`font-bold tracking-tight uppercase ${
-                  isExecutive ? "text-2xl sm:text-3xl" : "text-xl sm:text-2xl"
-                } ${accentTextClass}`}
-              >
-                {profile.fullName || "Your Name"}
-              </h1>
+              {isAtsClassic ? (
+                <div className="text-center">
+                  <h1 className="font-bold tracking-normal uppercase text-xl sm:text-2xl text-slate-900">
+                    {profile.fullName || "Your Name"}
+                  </h1>
 
-              {(profile.professionalTitle || version.targetRole) && (
-                <p className="text-xs font-medium text-slate-500 italic mt-0.5">
-                  {profile.professionalTitle || version.targetRole}
-                </p>
-              )}
+                  {(profile.professionalTitle || version.targetRole || profile.location) && (
+                    <p className="text-xs font-medium text-slate-600 mt-1">
+                      {[profile.professionalTitle || version.targetRole, profile.location].filter(Boolean).join("  |  ")}
+                    </p>
+                  )}
 
-              {/* Contact line */}
-              {contactItems.length > 0 && (
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-600 mt-2">
-                  {contactItems.map((item, idx) => (
-                    <React.Fragment key={idx}>
-                      {idx > 0 && <span className="text-slate-300">•</span>}
-                      <span>{item}</span>
-                    </React.Fragment>
-                  ))}
+                  {/* Contact line */}
+                  {contactItems.length > 0 && (
+                    <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[11px] text-slate-700 mt-2">
+                      {contactItems.map((item, idx) => (
+                        <React.Fragment key={idx}>
+                          {idx > 0 && <span className="text-slate-400">|</span>}
+                          {item.isLink && item.url ? (
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-slate-900 hover:text-blue-700 hover:underline font-medium transition-colors"
+                            >
+                              {item.label}
+                            </a>
+                          ) : (
+                            <span>{item.label}</span>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  )}
                 </div>
+              ) : (
+                <>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <h1
+                        className={`font-bold tracking-tight uppercase ${
+                          isExecutive ? "text-2xl sm:text-3xl" : "text-xl sm:text-2xl"
+                        } ${accentTextClass}`}
+                      >
+                        {profile.fullName || "Your Name"}
+                      </h1>
+
+                      {(profile.professionalTitle || version.targetRole) && (
+                        <p className="text-xs font-medium text-slate-500 italic mt-0.5">
+                          {profile.professionalTitle || version.targetRole}
+                        </p>
+                      )}
+                    </div>
+
+                    {(profile.profileImage || profile.photoUrl) && (
+                      <div className="shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-full border border-slate-300 overflow-hidden shadow-xs">
+                        <img
+                          src={profile.profileImage || profile.photoUrl}
+                          alt={profile.fullName || "Profile"}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Contact line */}
+                  {contactItems.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-600 mt-2">
+                      {contactItems.map((item, idx) => (
+                        <React.Fragment key={idx}>
+                          {idx > 0 && <span className="text-slate-300">•</span>}
+                          {item.isLink && item.url ? (
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-0.5 transition-colors font-medium"
+                            >
+                              {item.label}
+                              <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                            </a>
+                          ) : (
+                            <span>{item.label}</span>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -359,11 +455,29 @@ export function ResumeLivePreview({
                               <div key={proj.id}>
                                 <div className="flex items-baseline justify-between gap-2">
                                   <span className="font-bold text-slate-900 text-[12px]">{proj.title}</span>
-                                  {link && (
-                                    <span className="text-[11px] text-slate-500 truncate max-w-[200px]">
-                                      {link.replace(/^https?:\/\//, "")}
-                                    </span>
-                                  )}
+                                  <div className="flex items-center gap-2 text-[11px]">
+                                    {proj.role && <span className="text-slate-500 italic">{proj.role}</span>}
+                                    {proj.liveUrl && (
+                                      <a
+                                        href={proj.liveUrl.startsWith("http") ? proj.liveUrl : `https://${proj.liveUrl}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-0.5 font-medium"
+                                      >
+                                        Live Demo <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                                      </a>
+                                    )}
+                                    {proj.githubUrl && (
+                                      <a
+                                        href={proj.githubUrl.startsWith("http") ? proj.githubUrl : `https://${proj.githubUrl}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-0.5 font-medium"
+                                      >
+                                        GitHub <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                                      </a>
+                                    )}
+                                  </div>
                                 </div>
                                 {proj.technologies && proj.technologies.length > 0 && (
                                   <div className="text-[11px] text-slate-500 italic mb-1">
