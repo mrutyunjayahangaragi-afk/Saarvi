@@ -21,7 +21,8 @@ import {
   Shield,
   Sparkles,
   MessageSquare,
-  Briefcase
+  Briefcase,
+  Bell
 } from "lucide-react";
 import { SITE_CONFIG } from "@/config/site";
 import { SaarviMark } from "@/components/brand/SaarviLogo";
@@ -40,14 +41,23 @@ export default function Navbar() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [navCategories, setNavCategories] = useState<any[]>([]);
+  const [isMac, setIsMac] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const ua = window.navigator?.userAgent || "";
+      setIsMac(/macintosh|mac os x/i.test(ua));
+    }
+  }, []);
 
   useEffect(() => {
     async function loadNav() {
       try {
-        const res = await fetch("/api/navigation", { cache: "no-store" });
+        const res = await fetch('/api/navigation');
         if (res.ok) {
           const data = await res.json();
-          if (data.categories && Array.isArray(data.categories)) {
+          if (data.categories) {
             setNavCategories(data.categories);
           }
         }
@@ -55,6 +65,22 @@ export default function Navbar() {
     }
     loadNav();
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    let isCancelled = false;
+    fetch('/api/notifications?limit=1', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!isCancelled && data && typeof data.unreadCount === 'number') {
+          setUnreadNotifications(data.unreadCount);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isCancelled = true;
+    };
+  }, [user]);
 
   const handleToolClick = (toolId: string, category: string) => {
     try {
@@ -344,17 +370,44 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 bg-slate-100/80 hover:bg-slate-200/70 rounded-xl transition-all border border-slate-200/80 shadow-2xs cursor-pointer"
+              className="flex items-center gap-2.5 px-3 py-1.5 min-h-[38px] text-xs text-slate-500 hover:text-slate-800 bg-slate-100/80 hover:bg-slate-200/70 rounded-xl transition-all border border-slate-200/80 shadow-2xs cursor-pointer"
               aria-label="Search tools"
-              title="Search tools (Cmd+K)"
+              title={isMac ? "Search tools (Cmd+K)" : "Search tools (Ctrl+K)"}
             >
               <Search className="w-3.5 h-3.5 text-slate-400" />
               <span className="hidden sm:inline font-medium">Search tools...</span>
               <kbd className="hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] text-slate-400 font-semibold shadow-2xs">
-                <Command className="w-2.5 h-2.5" />
-                <span>K</span>
+                {isMac ? (
+                  <>
+                    <Command className="w-2.5 h-2.5" />
+                    <span>K</span>
+                  </>
+                ) : (
+                  <span>Ctrl+K</span>
+                )}
               </kbd>
             </button>
+
+            {/* Notification Bell with Dynamic Unread Badge */}
+            {!isLoading && user && (
+              <Link
+                href="/notifications"
+                className="relative p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 transition-colors shadow-2xs flex items-center justify-center min-w-[38px] min-h-[38px] cursor-pointer"
+                title="Saarvi Notification Center"
+                aria-label={
+                  unreadNotifications > 0
+                    ? `${unreadNotifications} unread notifications`
+                    : "Notification Center"
+                }
+              >
+                <Bell className="w-4 h-4 text-slate-600" />
+                {unreadNotifications > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 bg-red-600 text-white rounded-full text-[9px] font-bold flex items-center justify-center ring-2 ring-white shadow-2xs animate-in zoom-in duration-150">
+                    {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                  </span>
+                )}
+              </Link>
+            )}
 
             {/* Account Dropdown vs Login CTA */}
             {!isLoading && user ? (
@@ -400,6 +453,21 @@ export default function Navbar() {
                           <span>Admin Control Center</span>
                         </Link>
                       )}
+                      <Link
+                        href="/notifications"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className="flex items-center justify-between px-3.5 py-2 text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors font-medium"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Bell className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Notifications</span>
+                        </div>
+                        {unreadNotifications > 0 && (
+                          <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-red-100 text-red-700">
+                            {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                          </span>
+                        )}
+                      </Link>
                       <Link
                         href="/dashboard"
                         onClick={() => setAccountMenuOpen(false)}

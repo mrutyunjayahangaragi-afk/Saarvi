@@ -159,25 +159,18 @@ export async function getAuthenticatedAdmin(
         const email = parsed.email;
 
         if (userId && email) {
-          let role = parsed.role;
-          const superAdminEmails = [
-            'muttuhangaragi161@gmail.com',
-            'admin@saarvi.in',
-            'admin@saarvi.app',
-            'admin@docease.com',
-          ];
-          if (!role || role === 'USER') {
-            if (
-              superAdminEmails.includes(email.toLowerCase()) ||
-              userId.startsWith('admin_')
-            ) {
-              role = 'SUPER_ADMIN';
-            }
+          // Authoritative role lookup from server-managed storage
+          let role: string | undefined = undefined;
+          const stored = MockStorageProvider.getUserById(userId) || MockStorageProvider.getUserByEmail(email);
+          if (stored?.role) {
+            role = stored.role;
+          } else if (parsed.role) {
+            role = parsed.role;
           }
 
-          if (!role) {
-            const stored = MockStorageProvider.getUserById(userId) || MockStorageProvider.getUserByEmail(email);
-            if (stored?.role) role = stored.role;
+          // Authoritative configured active SuperAdmin
+          if (email.toLowerCase() === 'muttuhangaragi161@gmail.com') {
+            role = 'SUPER_ADMIN';
           }
 
           if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
@@ -212,8 +205,8 @@ export async function getAuthenticatedAdmin(
     return {
       success: true,
       user: {
-        id: 'admin_saarvi_super',
-        email: 'admin@saarvi.in',
+        id: 'admin_muttu_super',
+        email: 'muttuhangaragi161@gmail.com',
         role: 'SUPER_ADMIN',
       },
     };

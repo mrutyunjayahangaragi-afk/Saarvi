@@ -88,29 +88,22 @@ export async function getAuthenticatedNotificationUser(
         const userId = parsed.id || parsed.userId;
         const email = parsed.email;
         if (userId && typeof userId === 'string' && email && typeof email === 'string') {
-          let role = parsed.role;
-          if (!role) {
-            try {
-              const stored = MockStorageProvider.getUserById(userId) || MockStorageProvider.getUserByEmail(email);
-              if (stored?.role) {
-                role = stored.role;
-              }
-            } catch {}
-          }
-          const superAdminEmails = [
-            'muttuhangaragi161@gmail.com',
-            'admin@saarvi.in',
-            'admin@saarvi.app',
-            'admin@docease.com',
-          ];
-          if (!role || role === 'USER') {
-            if (
-              superAdminEmails.includes(email.toLowerCase()) ||
-              userId.startsWith('admin_')
-            ) {
-              role = 'SUPER_ADMIN';
+          let role: string | undefined = undefined;
+          try {
+            const stored = MockStorageProvider.getUserById(userId) || MockStorageProvider.getUserByEmail(email);
+            if (stored?.role) {
+              role = stored.role;
             }
+          } catch {}
+
+          if (!role && parsed.role) {
+            role = parsed.role;
           }
+
+          if (email.toLowerCase() === 'muttuhangaragi161@gmail.com') {
+            role = 'SUPER_ADMIN';
+          }
+
           return {
             id: userId,
             email,

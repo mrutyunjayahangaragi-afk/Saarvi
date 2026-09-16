@@ -1,22 +1,21 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import Link from "next/link";
 import {
   InterviewMode,
   InterviewCompany,
-  InterviewQuestion,
   InterviewSession,
-  InterviewTurnResponse,
+  CandidatePrivacyMode,
+  InterviewPermissionState,
   ProctoringViolationEvent,
 } from "@/types/interview";
-import { interviewService } from "@/lib/services/interviewService";
-import { careerService } from "@/lib/services/careerService";
+import InterviewPermissionGate from "@/components/interview/InterviewPermissionGate";
+import { useAuth } from "@/context/AuthContext";
 import {
   Briefcase,
-  ArrowLeft,
   ChevronRight,
   Send,
   Loader2,
@@ -25,24 +24,18 @@ import {
   Award,
   Sparkles,
   RotateCcw,
-  Target,
-  FileCheck,
   Video,
   FileText,
   Clock,
   Mic,
   MicOff,
-  Camera,
   CameraOff,
   Volume2,
+  VolumeX,
   ShieldAlert,
-  ShieldCheck,
-  Building2,
-  Play,
   Check,
-  HelpCircle,
   AlertCircle,
-  Eye,
+  Bot,
 } from "lucide-react";
 
 const TARGET_ROLES = [
@@ -65,283 +58,103 @@ const TARGET_COMPANIES: InterviewCompany[] = [
   "Accenture",
 ];
 
+type WorkflowStage = "CONFIGURE" | "PERMISSION_GATE" | "ACTIVE_ROOM" | "COMPLETED" | "TERMINATED";
+
 export default function MockInterviewPage() {
-  // Session Configuration State
+  const { user } = useAuth();
+
+  // Workflow stage
+  const [stage, setStage] = useState<WorkflowStage>("CONFIGURE");
+
+  // Configuration options
   const [selectedRole, setSelectedRole] = useState(TARGET_ROLES[0]);
   const [selectedCompany, setSelectedCompany] = useState<InterviewCompany>("General");
   const [selectedMode, setSelectedMode] = useState<InterviewMode>("text_mcq");
 
-  // Device Check State (for Live Video mode)
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  const [hasMicPermission, setHasMicPermission] = useState<boolean | null>(null);
-  const [micVolumeLevel, setMicVolumeLevel] = useState<number>(0);
-  const [deviceCheckCompleted, setDeviceCheckCompleted] = useState(false);
+  // Eligibility & verification state
+  const [checkingEligibility, setCheckingEligibility] = useState(false);
+  const [eligibilityError, setEligibilityError] = useState<string | null>(null);
+  const [requiresLoginNotice, setRequiresLoginNotice] = useState(false);
+  const [requiresVerificationNotice, setRequiresVerificationNotice] = useState(false);
+  const [requiresProNotice, setRequiresProNotice] = useState(false);
+  const [attemptsRemaining, setAttemptsRemaining] = useState<number>(3);
 
-  // Active Session State
+  // Permission Gate results
+  const [verifiedPrivacyMode, setVerifiedPrivacyMode] = useState<CandidatePrivacyMode>("FULL_VIDEO");
+  const [verifiedPermissions, setVerifiedPermissions] = useState<InterviewPermissionState | null>(null);
+
+  // Active session state
   const [session, setSession] = useState<InterviewSession | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [currentAnswer, setCurrentAnswer] = useState<string>("");
   const [selectedOptionIndex, setSelectedOptionIndex] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [sessionCompleted, setSessionCompleted] = useState(false);
 
-  // Timer State
+  // Timers
   const [timeRemaining, setTimeRemaining] = useState<number>(60);
   const [timeSpentOnCurrent, setTimeSpentOnCurrent] = useState<number>(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Proctoring State
-  const [proctoringWarnings, setProctoringWarnings] = useState<ProctoringViolationEvent[]>([]);
+  // Proctoring warnings
+  const [warningCount, setWarningCount] = useState(0);
   const [showWarningModal, setShowWarningModal] = useState(false);
-  const [lastWarningType, setLastWarningType] = useState<string>("");
-  const [isTerminated, setIsTerminated] = useState(false);
+  const [lastWarningReason, setLastWarningReason] = useState("");
 
-  // AI Interviewer Speech & STT State (Mode 2)
+  // Media & AI Voice
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [ttsEnabled, setTtsEnabled] = useState(true);
-
-  // References
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
   const recognitionRef = useRef<any>(null);
 
-  // Auto-detect role from profile
-  useEffect(() => {
-    async function loadProfile() {
-      try {
-        const profile = await careerService.getOrCreateProfile("guest");
-        if (profile?.professionalTitle) {
-          const match = TARGET_ROLES.find((r) =>
-            profile.professionalTitle?.toLowerCase().includes(r.toLowerCase())
-          );
-          if (match) setSelectedRole(match);
-        }
-      } catch {
-        // Fallback to default role
-      }
-    }
-    loadProfile();
-  }, []);
-
-  // Cleanup video streams and speech on unmount
-  useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-      }
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch {
-          // ignore
-        }
-      }
-    };
-  }, []);
-
-  // Proctoring Listener: Page Visibility & Window Blur
-  useEffect(() => {
-    if (!session || sessionCompleted || isTerminated) return;
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        triggerProctoringViolation("tab_switch");
-      }
-    };
-
-    const handleBlur = () => {
-      triggerProctoringViolation("window_blur");
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("blur", handleBlur);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("blur", handleBlur);
-    };
-  }, [session, sessionCompleted, isTerminated]);
-
-  const triggerProctoringViolation = async (type: ProctoringViolationEvent["type"]) => {
-    if (!session || sessionCompleted || isTerminated) return;
+  // 1. Check eligibility before entering permission gate
+  const handleStartEligibilityCheck = async () => {
+    setCheckingEligibility(true);
+    setEligibilityError(null);
+    setRequiresLoginNotice(false);
+    setRequiresVerificationNotice(false);
+    setRequiresProNotice(false);
 
     try {
-      const res = await fetch("/api/interview/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "proctoring_violation",
-          sessionId: session.id,
-          type,
-        }),
-      });
+      const res = await fetch("/api/interview/eligibility");
       const data = await res.json();
-      if (data.success) {
-        setProctoringWarnings(data.session.proctoringViolations);
-        setLastWarningType(
-          type === "tab_switch"
-            ? "Tab Switching / Application Switch Detected"
-            : "Window Focus Lost"
-        );
-        setShowWarningModal(true);
 
-        if (data.terminated) {
-          setIsTerminated(true);
-          setSessionCompleted(true);
-          setSession(data.session);
+      if (!data.eligible) {
+        if (data.requiresLogin) {
+          setRequiresLoginNotice(true);
+        } else if (data.requiresEmailVerification) {
+          setRequiresVerificationNotice(true);
+        } else if (data.requiresPro) {
+          setRequiresProNotice(true);
+        } else {
+          setEligibilityError(data.reason || "Interview eligibility check failed.");
         }
+        return;
       }
+
+      setAttemptsRemaining(data.attemptsRemaining ?? 3);
+      setStage("PERMISSION_GATE");
     } catch {
-      // Offline / local fallback
-      const warningCount = proctoringWarnings.length + 1;
-      const newViol: ProctoringViolationEvent = {
-        id: `v_${Date.now()}`,
-        type,
-        timestamp: new Date().toISOString(),
-        warningNumber: warningCount,
-      };
-      const updated = [...proctoringWarnings, newViol];
-      setProctoringWarnings(updated);
-      setLastWarningType(type === "tab_switch" ? "Tab Switch" : "Focus Lost");
-      setShowWarningModal(true);
-
-      if (warningCount >= 4) {
-        setIsTerminated(true);
-        setSessionCompleted(true);
-      }
+      // Local dev offline fallback
+      setStage("PERMISSION_GATE");
+    } finally {
+      setCheckingEligibility(false);
     }
   };
 
-  // Device Check Request (Camera + Microphone)
-  const runDeviceCheck = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480 },
-        audio: true,
-      });
-
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setHasCameraPermission(true);
-      setHasMicPermission(true);
-
-      // Setup audio meter
-      try {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        const audioCtx = new AudioCtx();
-        audioContextRef.current = audioCtx;
-        const source = audioCtx.createMediaStreamSource(stream);
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 256;
-        source.connect(analyser);
-
-        const bufferLength = analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-
-        const checkVolume = () => {
-          if (!streamRef.current) return;
-          analyser.getByteFrequencyData(dataArray);
-          let sum = 0;
-          for (let i = 0; i < bufferLength; i++) {
-            sum += dataArray[i];
-          }
-          const avg = sum / bufferLength;
-          setMicVolumeLevel(Math.min(100, Math.round((avg / 128) * 100)));
-          requestAnimationFrame(checkVolume);
-        };
-        checkVolume();
-      } catch {
-        setMicVolumeLevel(50);
-      }
-
-      setDeviceCheckCompleted(true);
-    } catch (err) {
-      console.warn("Device check failed:", err);
-      setHasCameraPermission(false);
-      setHasMicPermission(false);
-      alert(
-        "Camera and Microphone permissions are required for Live Video mode. Please allow access in your browser or switch to Text / MCQ mode."
-      );
-    }
-  };
-
-  // Web Speech API: Text to Speech
-  const speakQuestion = useCallback((text: string) => {
-    if (!ttsEnabled || typeof window === "undefined" || !("speechSynthesis" in window)) {
-      return;
-    }
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.95;
-    utterance.pitch = 1.0;
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-    window.speechSynthesis.speak(utterance);
-  }, [ttsEnabled]);
-
-  // Web Speech API: Speech Recognition
-  const toggleSpeechRecognition = () => {
-    if (typeof window === "undefined") return;
-
-    const SpeechRec =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRec) {
-      alert("Speech recognition is not supported in this browser. Please use the typed input box.");
-      return;
-    }
-
-    if (isListening) {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-      setIsListening(false);
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRec();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = "en-US";
-
-      recognition.onstart = () => setIsListening(true);
-      recognition.onresult = (event: any) => {
-        let transcript = "";
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          transcript += event.results[i][0].transcript;
-        }
-        setCurrentAnswer((prev) => `${prev} ${transcript}`.trim());
-      };
-      recognition.onerror = () => setIsListening(false);
-      recognition.onend = () => setIsListening(false);
-
-      recognitionRef.current = recognition;
-      recognition.start();
-    } catch {
-      setIsListening(false);
-    }
-  };
-
-  // Start Session
-  const handleStartSession = async () => {
-    if (selectedMode === "live_video" && !deviceCheckCompleted) {
-      await runDeviceCheck();
-    }
-
+  // 2. Callback from InterviewPermissionGate when all checks pass
+  const handlePermissionsVerified = async (config: {
+    privacyMode: CandidatePrivacyMode;
+    permissionState: InterviewPermissionState;
+    locationData?: { latitude: number; longitude: number; accuracy: number };
+  }) => {
+    setVerifiedPrivacyMode(config.privacyMode);
+    setVerifiedPermissions(config.permissionState);
     setIsSubmitting(true);
+
     try {
+      // Start session on server
       const res = await fetch("/api/interview/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -350,63 +163,94 @@ export default function MockInterviewPage() {
           mode: selectedMode,
           role: selectedRole,
           company: selectedCompany,
+          privacyMode: config.privacyMode,
         }),
       });
-
       const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to start session.");
+
+      if (!data.success || !data.session) {
+        throw new Error(data.error || "Failed to initialize interview session.");
       }
 
-      const newSession: InterviewSession = data.session;
-      setSession(newSession);
+      const activeSession: InterviewSession = data.session;
+      setSession(activeSession);
       setCurrentQuestionIndex(0);
-      setSessionCompleted(false);
-      setIsTerminated(false);
-      setProctoringWarnings([]);
       setCurrentAnswer("");
       setSelectedOptionIndex(null);
+      setWarningCount(0);
 
-      // Start authoritative countdown for question 0
-      const initialLimit = newSession.questions[0]?.timeLimitSeconds || 60;
-      setTimeRemaining(initialLimit);
-      setTimeSpentOnCurrent(0);
+      // Record permissions audit
+      fetch("/api/interview/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "record_permission",
+          sessionId: activeSession.id,
+          permissions: config.permissionState,
+        }),
+      }).catch(() => {});
 
-      // If mode 2, speak question
-      if (selectedMode === "live_video" && newSession.questions[0]) {
-        setTimeout(() => {
-          speakQuestion(newSession.questions[0].question);
-        }, 500);
+      // Record location if captured
+      if (config.locationData) {
+        fetch("/api/interview/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "capture_location",
+            sessionId: activeSession.id,
+            latitude: config.locationData.latitude,
+            longitude: config.locationData.longitude,
+            accuracy: config.locationData.accuracy,
+          }),
+        }).catch(() => {});
       }
-    } catch (err: any) {
-      console.warn("Session creation API failed, falling back to local service:", err);
-      const fallbackSession = await interviewService.createSession({
-        userId: "guest",
-        mode: selectedMode,
-        role: selectedRole,
-        company: selectedCompany,
-      });
-      setSession(fallbackSession);
-      setCurrentQuestionIndex(0);
-      setSessionCompleted(false);
-      setIsTerminated(false);
-      setProctoringWarnings([]);
-      setTimeRemaining(fallbackSession.questions[0]?.timeLimitSeconds || 60);
-      setTimeSpentOnCurrent(0);
+
+      // Initialize media stream for room if video mode
+      if (selectedMode === "live_video") {
+        initLiveMedia();
+      }
+
+      setStage("ACTIVE_ROOM");
+    } catch (err: unknown) {
+      alert((err as Error)?.message || "Could not start interview.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Timer Tick & Auto-Submit
+  // Initialize live video stream
+  const initLiveMedia = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480 },
+        audio: true,
+      });
+      mediaStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  // 3. Question timer countdown
+  const currentQuestion = session?.questions[currentQuestionIndex];
+
   useEffect(() => {
-    if (!session || sessionCompleted || isTerminated) return;
+    if (stage !== "ACTIVE_ROOM" || !currentQuestion) return;
+
+    const limit = currentQuestion.timeLimitSeconds || (selectedMode === "text_mcq" ? 60 : 120);
+    setTimeRemaining(limit);
+    setTimeSpentOnCurrent(0);
+
+    if (timerRef.current) clearInterval(timerRef.current);
 
     timerRef.current = setInterval(() => {
       setTimeRemaining((prev) => {
         if (prev <= 1) {
-          // Time expired -> auto-submit current answer
-          handleAutoSubmitOnTimeout();
+          // Time expired! Server-authoritative auto lock
+          handleAnswerTimeout();
           return 0;
         }
         return prev - 1;
@@ -417,55 +261,97 @@ export default function MockInterviewPage() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [session, currentQuestionIndex, sessionCompleted, isTerminated, selectedOptionIndex, currentAnswer]);
+  }, [stage, currentQuestionIndex, currentQuestion?.id]);
 
-  const handleAutoSubmitOnTimeout = () => {
-    if (!session) return;
-    const currentQ = session.questions[currentQuestionIndex];
-    if (!currentQ) return;
+  // Voice speech synthesis for AI question delivery
+  useEffect(() => {
+    if (stage === "ACTIVE_ROOM" && currentQuestion && ttsEnabled && typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(currentQuestion.question);
+      utterance.rate = 0.95;
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+      window.speechSynthesis.speak(utterance);
+    }
+  }, [stage, currentQuestionIndex, currentQuestion?.id, ttsEnabled]);
 
-    const answerToSubmit =
-      currentQ.type === "mcq"
-        ? selectedOptionIndex !== null
-          ? selectedOptionIndex
-          : -1 // Unanswered / timed out
-        : currentAnswer.trim() || "[No response entered before time expired]";
+  // 4. Anti-Tab Switch & Window Focus Proctoring Listener
+  useEffect(() => {
+    if (stage !== "ACTIVE_ROOM" || !session) return;
 
-    handleSubmitAnswer(answerToSubmit, true);
-  };
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        triggerTabSwitchWarning("tab_switch");
+      }
+    };
 
-  // Submit Answer Action
-  const handleSubmitAnswer = async (explicitAnswer?: string | number, isAutoTimeout = false) => {
-    if (!session || isSubmitting) return;
+    const handleBlur = () => {
+      triggerTabSwitchWarning("window_blur");
+    };
 
-    const currentQ = session.questions[currentQuestionIndex];
-    if (!currentQ) return;
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleBlur);
 
-    let answerVal = explicitAnswer;
-    if (answerVal === undefined) {
-      if (currentQ.type === "mcq") {
-        if (selectedOptionIndex === null) {
-          alert("Please select one of the options before submitting.");
-          return;
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [stage, session?.id]);
+
+  const triggerTabSwitchWarning = async (type: ProctoringViolationEvent["type"]) => {
+    if (!session || stage !== "ACTIVE_ROOM") return;
+
+    try {
+      const res = await fetch("/api/interview/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "proctoring_violation",
+          sessionId: session.id,
+          type,
+          pageVisibilityState: document.visibilityState,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        const count = data.warningCount || warningCount + 1;
+        setWarningCount(count);
+        setLastWarningReason(
+          type === "tab_switch"
+            ? "Browser tab switch or backgrounding detected."
+            : "Application window lost active user focus."
+        );
+        setShowWarningModal(true);
+
+        if (data.terminated) {
+          setStage("TERMINATED");
+          setSession(data.session);
         }
-        answerVal = selectedOptionIndex;
-      } else {
-        if (!currentAnswer.trim()) {
-          alert("Please speak or type your answer before submitting.");
-          return;
-        }
-        answerVal = currentAnswer.trim();
+      }
+    } catch {
+      // Local fallback
+      const count = warningCount + 1;
+      setWarningCount(count);
+      setLastWarningReason("Tab switch or window focus lost.");
+      setShowWarningModal(true);
+      if (count >= 4) {
+        setStage("TERMINATED");
       }
     }
+  };
+
+  // 5. Submit answer handler
+  const handleSubmitAnswer = async (isTimeout = false) => {
+    if (!session || !currentQuestion || isSubmitting) return;
+
+    const answerValue =
+      currentQuestion.type === "mcq"
+        ? (selectedOptionIndex !== null ? selectedOptionIndex : -1)
+        : currentAnswer;
 
     setIsSubmitting(true);
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-    }
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    }
+    if (timerRef.current) clearInterval(timerRef.current);
 
     try {
       const res = await fetch("/api/interview/session", {
@@ -474,562 +360,299 @@ export default function MockInterviewPage() {
         body: JSON.stringify({
           action: "submit_answer",
           sessionId: session.id,
-          questionId: currentQ.id,
-          userAnswer: answerVal,
+          questionId: currentQuestion.id,
+          userAnswer: answerValue,
           timeSpentSeconds: timeSpentOnCurrent,
+          isTimeout,
         }),
       });
-
       const data = await res.json();
-      if (!res.ok || !data.success) {
+
+      if (!data.success) {
         throw new Error(data.error || "Failed to submit answer.");
       }
 
       setSession(data.session);
 
-      if (data.session.status === "completed") {
-        setSessionCompleted(true);
-      } else {
-        // Advance to next question
-        const nextIdx = currentQuestionIndex + 1;
-        setCurrentQuestionIndex(nextIdx);
-        setCurrentAnswer("");
-        setSelectedOptionIndex(null);
-        setTimeSpentOnCurrent(0);
-        const nextLimit = data.session.questions[nextIdx]?.timeLimitSeconds || 60;
-        setTimeRemaining(nextLimit);
-
-        if (selectedMode === "live_video" && data.session.questions[nextIdx]) {
-          setTimeout(() => {
-            speakQuestion(data.session.questions[nextIdx].question);
-          }, 600);
+      if (data.session.status === "completed" || data.session.sessionState === "COMPLETED") {
+        setStage("COMPLETED");
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach((t) => t.stop());
         }
-      }
-    } catch (err) {
-      console.warn("Submit API failed, running local submission:", err);
-      const result = await interviewService.submitResponse({
-        sessionId: session.id,
-        questionId: currentQ.id,
-        userAnswer: answerVal,
-        timeSpentSeconds: timeSpentOnCurrent,
-      });
-      setSession(result.session);
-      if (result.session.status === "completed") {
-        setSessionCompleted(true);
       } else {
-        const nextIdx = currentQuestionIndex + 1;
-        setCurrentQuestionIndex(nextIdx);
+        // Move to next question
+        setCurrentQuestionIndex((prev) => prev + 1);
         setCurrentAnswer("");
         setSelectedOptionIndex(null);
-        setTimeSpentOnCurrent(0);
-        setTimeRemaining(result.session.questions[nextIdx]?.timeLimitSeconds || 60);
       }
+    } catch (err: unknown) {
+      alert((err as Error)?.message || "Submission failed.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const currentQ = session?.questions[currentQuestionIndex];
+  const handleAnswerTimeout = () => {
+    handleSubmitAnswer(true);
+  };
+
+  // Speech to text toggle for voice answer
+  const toggleVoiceInput = () => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported in this browser. Please use the text area.");
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    } else {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "en-US";
+
+      recognition.onresult = (e: any) => {
+        let transcript = "";
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          transcript += e.results[i][0].transcript;
+        }
+        setCurrentAnswer((prev) => (prev ? `${prev} ${transcript}` : transcript));
+      };
+
+      recognition.onerror = () => setIsListening(false);
+      recognition.onend = () => setIsListening(false);
+
+      recognition.start();
+      recognitionRef.current = recognition;
+      setIsListening(true);
+    }
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
       <Navbar />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8">
-        {/* Header Breadcrumbs & Status */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/student/dashboard"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Dashboard
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-8">
+        {/* Navigation Breadcrumb */}
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+            <Link href="/career/interview-prep" className="hover:text-blue-600 transition-colors">
+              Interview Prep
             </Link>
-            <span className="text-slate-300">/</span>
-            <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-              Mock Interview 2.0
-            </span>
+            <span>/</span>
+            <span className="text-slate-800 font-bold">Mock Interview 2.0</span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Private by Design
-            </span>
-            <span className="text-xs text-slate-500 font-medium hidden sm:inline">
-              Zero cloud recording &bull; Local streams
-            </span>
-          </div>
+          <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1 rounded-full flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5" />
+            Live Assessment Engine
+          </span>
         </div>
 
-        {/* ============================================================ */}
-        {/* VIEW 1: SESSION SETUP / PRE-FLIGHT                           */}
-        {/* ============================================================ */}
-        {!session && (
+        {/* =======================================================
+            STAGE 1: CONFIGURATION & ELIGIBILITY
+           ======================================================= */}
+        {stage === "CONFIGURE" && (
           <div className="space-y-6">
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs">
-              <div className="max-w-3xl">
-                <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 mb-3">
-                  Campus Placement & Enterprise Simulation
-                </span>
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                  Mock Interview 2.0 & Proctoring Engine
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                  <Briefcase className="w-8 h-8 text-blue-600" />
+                  Saarvi Mock Interview 2.0
                 </h1>
-                <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                  Practice high-frequency interview questions with authentic company attribution (Google, Microsoft, Amazon, Infosys, TCS, Wipro, Accenture). Test in authoritative timed MCQ mode or live WebRTC video simulation.
+                <p className="text-xs sm:text-sm text-slate-600 mt-2 max-w-2xl leading-relaxed">
+                  Real-time interview simulation featuring company-attributed question banks, live WebRTC media channels, and deterministic proctoring standards.
                 </p>
               </div>
 
+              {/* Eligibility Notices */}
+              {requiresLoginNotice && (
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-3">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="space-y-2 flex-1">
+                    <p className="font-bold">Authentication Required</p>
+                    <p>You must be registered and signed in to start a Mock Interview.</p>
+                    <Link
+                      href="/login?next=/student/copilot/interview"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 text-white font-bold rounded-xl text-xs hover:bg-amber-700 transition-colors"
+                    >
+                      <span>Sign In with Saarvi</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </div>
+              )}
+
+              {requiresVerificationNotice && (
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-3">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="space-y-2 flex-1">
+                    <p className="font-bold">Email Verification Required</p>
+                    <p>Please verify your registered email address before entering the interview room.</p>
+                    <Link
+                      href="/auth/verify-email"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white font-bold rounded-xl text-xs hover:bg-blue-700 transition-colors"
+                    >
+                      <span>Verify Email Now</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </div>
+              )}
+
+              {requiresProNotice && (
+                <div className="p-4 rounded-2xl bg-purple-50 border border-purple-200 text-xs text-purple-900 flex items-start gap-3">
+                  <Award className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+                  <div className="space-y-2 flex-1">
+                    <p className="font-bold">Pro Plan Required</p>
+                    <p>Live video interviews with human evaluators are restricted to Saarvi Pro members.</p>
+                    <Link
+                      href="/pricing"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white font-bold rounded-xl text-xs hover:bg-purple-700 transition-colors"
+                    >
+                      <span>Upgrade to Pro</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </div>
+              )}
+
+              {eligibilityError && (
+                <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-700">
+                  {eligibilityError}
+                </div>
+              )}
+
               {/* Mode Selection */}
-              <div className="mt-8">
-                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-3">
-                  Select Interview Mode:
+              <div className="space-y-3">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
+                  Select Interview Mode
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Mode 1: Text / MCQ */}
-                  <div
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    type="button"
                     onClick={() => setSelectedMode("text_mcq")}
-                    className={`cursor-pointer rounded-xl border-2 p-5 transition-all ${
+                    className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
                       selectedMode === "text_mcq"
-                        ? "border-blue-600 bg-blue-50/50 shadow-sm"
-                        : "border-slate-200 bg-white hover:border-slate-300"
+                        ? "bg-blue-50/60 border-blue-600 shadow-xs ring-1 ring-blue-600"
+                        : "bg-white border-slate-200 hover:border-slate-300"
                     }`}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div className="p-2.5 rounded-lg bg-blue-100 text-blue-700">
-                          <FileText className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-bold text-slate-900">Mode 1: Text / MCQ Exam</h3>
-                          <span className="text-[11px] font-semibold text-blue-700">Authoritative Timed Questions</span>
-                        </div>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
+                        <FileText className="w-4 h-4 text-blue-600" />
+                        <span>Mode B: Typed / MCQ Interview</span>
                       </div>
                       {selectedMode === "text_mcq" && (
-                        <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center">
-                          <Check className="w-3 h-3" />
-                        </div>
+                        <Check className="w-4 h-4 text-blue-600" />
                       )}
                     </div>
-                    <ul className="mt-4 space-y-1.5 text-xs text-slate-600">
-                      <li className="flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        Sequential timed questions with automatic submission on expiry.
-                      </li>
-                      <li className="flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        Page Visibility proctoring (tab switch & focus tracking).
-                      </li>
-                      <li className="flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        Instant evaluation & explanations post-session.
-                      </li>
-                    </ul>
-                  </div>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Timed 30s/60s multiple choice questions with deterministic scoring and optional typed technical answers.
+                    </p>
+                  </button>
 
-                  {/* Mode 2: Live Video WebRTC */}
-                  <div
+                  <button
+                    type="button"
                     onClick={() => setSelectedMode("live_video")}
-                    className={`cursor-pointer rounded-xl border-2 p-5 transition-all ${
+                    className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
                       selectedMode === "live_video"
-                        ? "border-blue-600 bg-blue-50/50 shadow-sm"
-                        : "border-slate-200 bg-white hover:border-slate-300"
+                        ? "bg-blue-50/60 border-blue-600 shadow-xs ring-1 ring-blue-600"
+                        : "bg-white border-slate-200 hover:border-slate-300"
                     }`}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div className="p-2.5 rounded-lg bg-indigo-100 text-indigo-700">
-                          <Video className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-bold text-slate-900">Mode 2: Live Video Simulation</h3>
-                          <span className="text-[11px] font-semibold text-indigo-700">WebRTC + AI Voice Fallback</span>
-                        </div>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
+                        <Video className="w-4 h-4 text-purple-600" />
+                        <span>Mode A: Live / Video Interview</span>
                       </div>
                       {selectedMode === "live_video" && (
-                        <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center">
-                          <Check className="w-3 h-3" />
-                        </div>
+                        <Check className="w-4 h-4 text-blue-600" />
                       )}
                     </div>
-                    <ul className="mt-4 space-y-1.5 text-xs text-slate-600">
-                      <li className="flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        Camera & microphone device pre-flight check.
-                      </li>
-                      <li className="flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        SpeechSynthesis TTS voice prompts & real-time STT.
-                      </li>
-                      <li className="flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        100% Local Browser processing & zero cloud recording.
-                      </li>
-                    </ul>
-                  </div>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      WebRTC live session with human admin interviewer when available, with automatic AI Interviewer fallback.
+                    </p>
+                  </button>
                 </div>
               </div>
 
-              {/* Target Filters */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1.5">
+              {/* Target Role & Target Company */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700 block">
                     Target Role
                   </label>
                   <select
                     value={selectedRole}
                     onChange={(e) => setSelectedRole(e.target.value)}
-                    className="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-blue-500 font-medium"
+                    className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                   >
-                    {TARGET_ROLES.map((role) => (
-                      <option key={role} value={role}>
-                        {role}
+                    {TARGET_ROLES.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
                       </option>
                     ))}
                   </select>
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                    Target Company Question Bank
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700 block">
+                    Company Question Bank
                   </label>
                   <select
                     value={selectedCompany}
                     onChange={(e) => setSelectedCompany(e.target.value as InterviewCompany)}
-                    className="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-blue-500 font-medium"
+                    className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                   >
-                    {TARGET_COMPANIES.map((company) => (
-                      <option key={company} value={company}>
-                        {company === "General" ? "General / Mixed Technical" : company}
+                    {TARGET_COMPANIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c === "General" ? "General Engineering Assessment" : `${c} Placement Questions`}
                       </option>
                     ))}
                   </select>
                 </div>
               </div>
 
-              {/* Live Video Pre-flight Device Check Drawer */}
-              {selectedMode === "live_video" && (
-                <div className="mt-6 p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <Camera className="w-4 h-4 text-indigo-600" />
-                      Camera & Microphone Device Check
-                    </span>
-                    {!deviceCheckCompleted && (
-                      <button
-                        type="button"
-                        onClick={runDeviceCheck}
-                        className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs"
-                      >
-                        Run Device Check
-                      </button>
-                    )}
-                  </div>
+              {/* Start Interview CTA */}
+              <div className="border-t border-slate-100 pt-5 flex items-center justify-between">
+                <span className="text-xs text-slate-500">
+                  Daily attempts remaining: <strong>{attemptsRemaining}</strong>
+                </span>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-                    <div className="relative w-full aspect-video bg-slate-900 rounded-lg overflow-hidden flex items-center justify-center border border-slate-300">
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="w-full h-full object-cover"
-                      />
-                      {!hasCameraPermission && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 p-4 text-center">
-                          <CameraOff className="w-8 h-8 mb-2" />
-                          <span className="text-xs">Camera preview will appear here</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-600 font-medium">Camera Status:</span>
-                        <span
-                          className={`font-semibold ${
-                            hasCameraPermission ? "text-emerald-600" : "text-slate-500"
-                          }`}
-                        >
-                          {hasCameraPermission === null
-                            ? "Not tested"
-                            : hasCameraPermission
-                            ? "✓ Operational"
-                            : "✗ Blocked"}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-600 font-medium">Microphone Status:</span>
-                        <span
-                          className={`font-semibold ${
-                            hasMicPermission ? "text-emerald-600" : "text-slate-500"
-                          }`}
-                        >
-                          {hasMicPermission === null
-                            ? "Not tested"
-                            : hasMicPermission
-                            ? "✓ Operational"
-                            : "✗ Blocked"}
-                        </span>
-                      </div>
-
-                      {/* Mic Volume Meter */}
-                      <div>
-                        <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
-                          <span>Audio Input Level</span>
-                          <span>{micVolumeLevel}%</span>
-                        </div>
-                        <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-emerald-500 transition-all duration-75"
-                            style={{ width: `${micVolumeLevel}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      <p className="text-[11px] text-slate-500 leading-relaxed">
-                        Streams are bound locally. No raw audio or video is stored on any server.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Start Session CTA */}
-              <div className="mt-8 pt-4 border-t border-slate-200 flex items-center justify-between">
-                <div className="text-xs text-slate-500">
-                  Authoritative timers enforced &bull; 4 proctoring warnings max
-                </div>
                 <button
                   type="button"
-                  onClick={handleStartSession}
-                  disabled={isSubmitting}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-colors disabled:opacity-50"
+                  onClick={handleStartEligibilityCheck}
+                  disabled={checkingEligibility}
+                  className="min-h-[44px] px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs hover:shadow transition-all flex items-center gap-2 cursor-pointer disabled:opacity-60"
                 >
-                  {isSubmitting ? (
+                  {checkingEligibility ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Initializing Session...
+                      <span>Checking Eligibility...</span>
                     </>
                   ) : (
                     <>
-                      <Play className="w-4 h-4 fill-white" />
-                      Begin Interview Session
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ============================================================ */}
-        {/* VIEW 2: ACTIVE SESSION (QUESTION RUNNER)                     */}
-        {/* ============================================================ */}
-        {session && !sessionCompleted && currentQ && (
-          <div className="space-y-6">
-            {/* Top Session Bar */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                  Question {currentQuestionIndex + 1} of {session.questions.length}
-                </span>
-                <span className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-                  <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                  {currentQ.company}
-                </span>
-                <span className="text-xs text-slate-400">&bull;</span>
-                <span className="text-xs font-medium text-slate-500 capitalize">
-                  {currentQ.difficulty} Difficulty
-                </span>
-              </div>
-
-              {/* Countdown Timer */}
-              <div className="flex items-center gap-3">
-                <div
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold font-mono border ${
-                    timeRemaining <= 15
-                      ? "bg-red-50 text-red-700 border-red-200 animate-pulse"
-                      : "bg-slate-50 text-slate-700 border-slate-200"
-                  }`}
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>
-                    {Math.floor(timeRemaining / 60)}:
-                    {timeRemaining % 60 < 10 ? "0" : ""}
-                    {timeRemaining % 60}
-                  </span>
-                </div>
-
-                {/* Proctoring Warning Counter */}
-                <div
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border ${
-                    proctoringWarnings.length > 0
-                      ? "bg-amber-50 text-amber-700 border-amber-200"
-                      : "bg-slate-50 text-slate-600 border-slate-200"
-                  }`}
-                >
-                  <ShieldAlert className="w-3.5 h-3.5" />
-                  <span>Warnings: {proctoringWarnings.length}/4</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Main Question Card */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs">
-              {/* Mode 2 Video Grid if active */}
-              {session.mode === "live_video" && (
-                <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Interviewer Stream (Simulated AI Avatar) */}
-                  <div className="relative aspect-video rounded-xl bg-slate-900 border border-slate-300 overflow-hidden flex flex-col items-center justify-center text-white">
-                    <div className="w-16 h-16 rounded-full bg-blue-600/30 border-2 border-blue-400 flex items-center justify-center mb-2">
-                      <Sparkles className="w-8 h-8 text-blue-400" />
-                    </div>
-                    <span className="text-xs font-bold">Saarvi AI Technical Interviewer</span>
-                    <span className="text-[10px] text-blue-300 mt-0.5">
-                      {isSpeaking ? "Speaking Question..." : "Listening to Candidate..."}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => speakQuestion(currentQ.question)}
-                      className="absolute bottom-3 right-3 p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs inline-flex items-center gap-1 transition"
-                      title="Replay Voice Prompt"
-                    >
-                      <Volume2 className="w-3.5 h-3.5" />
-                      Replay
-                    </button>
-                  </div>
-
-                  {/* Candidate Local Video Feed */}
-                  <div className="relative aspect-video rounded-xl bg-slate-900 border border-slate-300 overflow-hidden">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/60 text-white text-[10px] font-mono">
-                      Candidate Feed (Local)
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Question Text */}
-              <div className="mb-6">
-                <span className="text-xs font-bold text-blue-700 uppercase tracking-wider block mb-1">
-                  Question Prompt
-                </span>
-                <h2 className="text-lg sm:text-xl font-bold text-slate-900 leading-snug">
-                  {currentQ.question}
-                </h2>
-              </div>
-
-              {/* Question Body: Mode 1 MCQ */}
-              {currentQ.type === "mcq" && currentQ.options && (
-                <div className="space-y-3">
-                  <label className="text-xs font-semibold text-slate-600 block">
-                    Select the single best answer:
-                  </label>
-                  {currentQ.options.map((opt, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => setSelectedOptionIndex(idx)}
-                      className={`cursor-pointer rounded-xl border p-4 flex items-center justify-between transition-all ${
-                        selectedOptionIndex === idx
-                          ? "border-blue-600 bg-blue-50/60 font-semibold text-blue-950 shadow-2xs"
-                          : "border-slate-200 bg-white hover:border-slate-300 text-slate-800"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center ${
-                            selectedOptionIndex === idx
-                              ? "bg-blue-600 text-white"
-                              : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          {String.fromCharCode(65 + idx)}
-                        </span>
-                        <span className="text-sm">{opt}</span>
-                      </div>
-                      {selectedOptionIndex === idx && (
-                        <Check className="w-4 h-4 text-blue-600" />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Question Body: Freeform / Behavioral / Live Voice */}
-              {currentQ.type !== "mcq" && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-slate-600">
-                      Your Technical or Behavioral Answer:
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={toggleSpeechRecognition}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
-                          isListening
-                            ? "bg-red-50 text-red-700 border border-red-200 animate-pulse"
-                            : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                        }`}
-                      >
-                        {isListening ? (
-                          <>
-                            <MicOff className="w-3.5 h-3.5 text-red-600" />
-                            Stop Mic
-                          </>
-                        ) : (
-                          <>
-                            <Mic className="w-3.5 h-3.5 text-slate-600" />
-                            Voice Dictation (STT)
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  <textarea
-                    rows={6}
-                    value={currentAnswer}
-                    onChange={(e) => setCurrentAnswer(e.target.value)}
-                    placeholder="Speak into your microphone or type your response clearly using the STAR framework (Situation, Task, Action, Result)..."
-                    className="w-full text-sm border border-slate-300 rounded-xl p-3.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  />
-                  <div className="text-[11px] text-slate-500 flex justify-between">
-                    <span>Target length: 50–200 words for comprehensive evaluation</span>
-                    <span>{currentAnswer.trim().split(/\s+/).filter(Boolean).length} words</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Submit Button */}
-              <div className="mt-8 pt-4 border-t border-slate-200 flex items-center justify-between">
-                <div className="text-xs text-slate-500">
-                  Question will auto-submit when timer expires
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleSubmitAnswer()}
-                  disabled={isSubmitting}
-                  className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition disabled:opacity-50"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Recording Answer...
-                    </>
-                  ) : (
-                    <>
-                      Submit & Next Question
+                      <span>Start Mock Interview</span>
                       <ChevronRight className="w-4 h-4" />
                     </>
                   )}
@@ -1039,200 +662,445 @@ export default function MockInterviewPage() {
           </div>
         )}
 
-        {/* ============================================================ */}
-        {/* VIEW 3: SESSION SCORECARD & RESULTS                          */}
-        {/* ============================================================ */}
-        {session && sessionCompleted && (
+        {/* =======================================================
+            STAGE 2: PERMISSION GATE & HARDWARE VERIFICATION
+           ======================================================= */}
+        {stage === "PERMISSION_GATE" && (
+          <InterviewPermissionGate
+            requireCamera={selectedMode === "live_video"}
+            requireMicrophone={true}
+            requireLocation={false}
+            requireScreenShare={false}
+            userIsAuthenticated={Boolean(user)}
+            userEmailVerified={true}
+            onReadyToStart={handlePermissionsVerified}
+            onCancel={() => setStage("CONFIGURE")}
+          />
+        )}
+
+        {/* =======================================================
+            STAGE 3: ACTIVE INTERVIEW ROOM
+           ======================================================= */}
+        {stage === "ACTIVE_ROOM" && session && currentQuestion && (
           <div className="space-y-6">
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs">
-              <div className="flex flex-wrap items-start justify-between gap-4 pb-6 border-b border-slate-200">
-                <div>
-                  <span
-                    className={`inline-block px-3 py-1 rounded-full text-xs font-bold mb-2 ${
-                      isTerminated
-                        ? "bg-red-50 text-red-700 border border-red-200"
-                        : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                    }`}
-                  >
-                    {isTerminated ? "Session Terminated by Proctor" : "Interview Completed"}
-                  </span>
-                  <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                    Interview Evaluation & Performance Scorecard
-                  </h1>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Role: <span className="font-semibold text-slate-700">{session.role}</span> &bull;
-                    Company Bank: <span className="font-semibold text-slate-700">{session.targetCompany || "General"}</span> &bull;
-                    Mode: <span className="font-semibold text-slate-700">{session.mode.replace("_", " ").toUpperCase()}</span>
-                  </p>
-                </div>
+            {/* Top Bar: Progress, Timer, Proctoring Warnings */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-blue-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+                  Question {currentQuestionIndex + 1} of {session.questions.length}
+                </span>
 
-                {/* Overall Score Dial */}
-                <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3 sm:p-4">
-                  <Award className="w-8 h-8 text-blue-600" />
-                  <div>
-                    <div className="text-2xl sm:text-3xl font-black text-slate-900">
-                      {session.overallScore}
-                      <span className="text-xs text-slate-400 font-normal"> / 100</span>
-                    </div>
-                    <div className="text-[11px] font-semibold text-slate-500">Overall Score</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Proctoring Integrity Summary */}
-              <div className="my-6 p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`p-2.5 rounded-lg ${
-                      session.proctoringViolations.length === 0
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-amber-100 text-amber-700"
-                    }`}
-                  >
-                    <ShieldCheck className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">
-                      Proctoring Integrity: {session.proctoringViolations.length === 0 ? "Clean (100%)" : `${session.proctoringViolations.length} Warning(s) Logged`}
-                    </h4>
-                    <p className="text-[11px] text-slate-500">
-                      {session.proctoringViolations.length === 0
-                        ? "No tab switches or fullscreen exits detected throughout this session."
-                        : `Violations tracked: ${session.proctoringViolations.map((v) => v.type).join(", ")}.`}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-xs font-semibold text-slate-700">
-                  Total Questions: {session.questions.length}
+                <span className="text-xs font-semibold text-slate-500">
+                  {currentQuestion.company} • {currentQuestion.topic || currentQuestion.role}
                 </span>
               </div>
 
-              {/* Breakdown by Question */}
-              <div className="space-y-4">
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                  Detailed Turn Breakdown & Answers:
-                </h3>
+              <div className="flex items-center gap-4">
+                {/* Visual Authoritative Countdown Timer */}
+                <div
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${
+                    timeRemaining <= 10
+                      ? "bg-red-50 text-red-700 border-red-200 animate-pulse"
+                      : "bg-slate-50 text-slate-800 border-slate-200"
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{timeRemaining}s remaining</span>
+                </div>
 
-                {session.questions.map((q, idx) => {
-                  const resp = session.responses[idx];
-                  return (
-                    <div
-                      key={q.id}
-                      className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5"
-                    >
-                      <div className="flex items-start justify-between gap-3 mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-500">Q{idx + 1}.</span>
-                          <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
-                            {q.company} &bull; {q.type.toUpperCase()}
-                          </span>
-                        </div>
-                        {resp && (
-                          <span
-                            className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                              resp.score && resp.score >= 75
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                : "bg-amber-50 text-amber-700 border border-amber-200"
-                            }`}
-                          >
-                            Score: {resp.score ?? 0}%
-                          </span>
-                        )}
-                      </div>
+                {/* Warning Counter */}
+                <div
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${
+                    warningCount > 0
+                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                      : "bg-slate-50 text-slate-600 border-slate-200"
+                  }`}
+                >
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  <span>Warnings: {warningCount} / 4</span>
+                </div>
 
-                      <h4 className="text-sm font-bold text-slate-900 mb-2">{q.question}</h4>
+                {/* AI Voice Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setTtsEnabled(!ttsEnabled)}
+                  title={ttsEnabled ? "Mute AI Voice" : "Enable AI Voice"}
+                  className="p-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer"
+                >
+                  {ttsEnabled ? (
+                    <Volume2 className="w-4 h-4 text-blue-600" />
+                  ) : (
+                    <VolumeX className="w-4 h-4 text-slate-400" />
+                  )}
+                </button>
+              </div>
+            </div>
 
-                      {/* Your Answer */}
-                      <div className="bg-white rounded-lg p-3 border border-slate-200 text-xs space-y-1 my-2">
-                        <span className="text-[11px] font-bold text-slate-500 block">Your Answer:</span>
-                        <p className="text-slate-800 font-medium">
-                          {q.type === "mcq" && q.options && typeof resp?.userAnswer === "number"
-                            ? `${String.fromCharCode(65 + resp.userAnswer)}: ${q.options[resp.userAnswer] || "No selection"}`
-                            : String(resp?.userAnswer || "No answer submitted.")}
-                        </p>
-                      </div>
+            {/* Live Interviewer Status Banner */}
+            {selectedMode === "live_video" && (
+              <div className="p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200 flex items-center justify-between text-xs text-blue-900">
+                <div className="flex items-center gap-2">
+                  <Bot className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>
+                    No human interviewer is currently available. <strong>Saarvi AI Interviewer is ready.</strong>
+                  </span>
+                </div>
+                <span className="text-[11px] font-semibold text-blue-700 bg-white px-2 py-0.5 rounded-md border border-blue-200">
+                  AI Fallback Active
+                </span>
+              </div>
+            )}
 
-                      {/* Correct / Ideal Answer */}
-                      {q.explanation && (
-                        <div className="text-xs text-slate-600 bg-blue-50/50 p-3 rounded-lg border border-blue-100 my-2">
-                          <span className="font-bold text-blue-900 block mb-0.5">Explanation / Key Insight:</span>
-                          <p>{q.explanation}</p>
-                        </div>
-                      )}
-
-                      {/* Feedback & Tips */}
-                      {resp?.feedback && (
-                        <div className="mt-2 text-xs text-slate-600">
-                          <span className="font-semibold text-slate-800">Evaluator Note: </span>
-                          <span>{resp.feedback.notes}</span>
-                          {resp.feedback.tips && resp.feedback.tips.length > 0 && (
-                            <ul className="list-disc list-inside mt-1 text-[11px] text-slate-500">
-                              {resp.feedback.tips.map((t, tidx) => (
-                                <li key={tidx}>{t}</li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      )}
+            {/* Video Feed (Mode A) */}
+            {selectedMode === "live_video" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Candidate Feed with Privacy Mode */}
+                <div className="relative aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-slate-300 flex items-center justify-center">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={`w-full h-full object-cover ${
+                      verifiedPrivacyMode === "BLURRED_CANDIDATE_VIDEO" ? "filter blur-md" : ""
+                    }`}
+                  />
+                  {verifiedPrivacyMode === "NO_CANDIDATE_VIDEO" && (
+                    <div className="absolute inset-0 bg-slate-900 flex flex-col items-center justify-center text-slate-400 text-xs gap-1">
+                      <CameraOff className="w-8 h-8" />
+                      <span>Audio Only (Privacy Mode)</span>
                     </div>
-                  );
-                })}
+                  )}
+                  <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-md backdrop-blur-xs font-semibold">
+                    Candidate (You) • {verifiedPrivacyMode}
+                  </div>
+                </div>
+
+                {/* AI / Evaluator Feed */}
+                <div className="relative aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-slate-300 flex flex-col items-center justify-center text-slate-300 p-4 text-center">
+                  <div className="w-14 h-14 rounded-full bg-blue-600/20 border border-blue-500/40 flex items-center justify-center mb-2">
+                    <Bot className="w-8 h-8 text-blue-400" />
+                  </div>
+                  <h4 className="text-sm font-bold text-white">Saarvi AI Evaluator</h4>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {isSpeaking ? "Speaking question prompt..." : "Listening for candidate response..."}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Active Question Card */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+              {/* Question Source Attribution */}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200">
+                    {currentQuestion.category || "Technical"}
+                  </span>
+                  <span className="text-xs font-medium text-slate-500">
+                    Difficulty: <strong>{currentQuestion.difficulty}</strong>
+                  </span>
+                </div>
+
+                {/* Source attribution disclosure */}
+                <div className="text-[11px] text-slate-500 flex items-center gap-1.5 font-medium">
+                  <span>Source:</span>
+                  <span className="font-semibold text-slate-700">
+                    {currentQuestion.sourceType || "Saarvi practice question"}
+                  </span>
+                </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="mt-8 pt-6 border-t border-slate-200 flex flex-wrap items-center justify-between gap-4">
-                <Link
-                  href="/student/dashboard"
-                  className="px-4 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
-                >
-                  Return to Dashboard
-                </Link>
+              {/* Question Text */}
+              <h2 className="text-base sm:text-xl font-extrabold text-slate-900 leading-snug">
+                {currentQuestion.question}
+              </h2>
+
+              {/* Mode B: Multiple Choice Options */}
+              {currentQuestion.type === "mcq" && currentQuestion.options && (
+                <div className="space-y-3 pt-2">
+                  {currentQuestion.options.map((option, idx) => {
+                    const isSelected = selectedOptionIndex === idx;
+                    const letter = String.fromCharCode(65 + idx); // A, B, C, D
+
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedOptionIndex(idx)}
+                        className={`w-full p-4 rounded-2xl border text-left flex items-center justify-between gap-3 transition-all cursor-pointer ${
+                          isSelected
+                            ? "bg-blue-50/70 border-blue-600 shadow-xs ring-1 ring-blue-600"
+                            : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
+                              isSelected
+                                ? "bg-blue-600 text-white"
+                                : "bg-slate-100 text-slate-700"
+                            }`}
+                          >
+                            {letter}
+                          </span>
+                          <span className="text-xs sm:text-sm text-slate-800 font-medium">
+                            {option}
+                          </span>
+                        </div>
+
+                        {isSelected && (
+                          <CheckCircle2 className="w-5 h-5 text-blue-600 shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Mode A / Freeform / Behavioral Answer Textarea */}
+              {currentQuestion.type !== "mcq" && (
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700 block">
+                      Your Technical Answer / Explanation:
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={toggleVoiceInput}
+                      className={`text-xs px-3 py-1 rounded-lg border font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
+                        isListening
+                          ? "bg-red-50 text-red-700 border-red-200 animate-pulse"
+                          : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                      }`}
+                    >
+                      {isListening ? (
+                        <>
+                          <MicOff className="w-3.5 h-3.5 text-red-600" />
+                          <span>Stop Recording</span>
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Answer with Voice</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <textarea
+                    rows={6}
+                    value={currentAnswer}
+                    onChange={(e) => setCurrentAnswer(e.target.value)}
+                    placeholder="Type your response or use voice input. Structure with situation, architecture, trade-offs, and measurable results..."
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all leading-relaxed"
+                  />
+                  <p className="text-[11px] text-slate-500">
+                    Word count: {currentAnswer.trim() ? currentAnswer.trim().split(/\s+/).length : 0} words
+                  </p>
+                </div>
+              )}
+
+              {/* Submit Action */}
+              <div className="border-t border-slate-100 pt-5 flex items-center justify-between">
+                <span className="text-xs text-slate-400">
+                  Authoritative timer locked to session clock.
+                </span>
 
                 <button
                   type="button"
-                  onClick={() => {
-                    setSession(null);
-                    setSessionCompleted(false);
-                    setIsTerminated(false);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition"
+                  onClick={() => handleSubmitAnswer(false)}
+                  disabled={
+                    isSubmitting ||
+                    (currentQuestion.type === "mcq" && selectedOptionIndex === null) ||
+                    (currentQuestion.type !== "mcq" && !currentAnswer.trim())
+                  }
+                  className="min-h-[44px] px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs hover:shadow transition-all flex items-center gap-2 cursor-pointer disabled:cursor-not-allowed"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  Take Another Mock Interview
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Recording Answer...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Submit Answer & Proceed</span>
+                      <Send className="w-3.5 h-3.5" />
+                    </>
+                  )}
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ============================================================ */}
-        {/* PROCTORING WARNING MODAL                                     */}
-        {/* ============================================================ */}
+        {/* Warning Modal */}
         {showWarningModal && (
-          <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-amber-200 space-y-4">
-              <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
-                <AlertTriangle className="w-6 h-6" />
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl p-6 max-w-md w-full border border-red-200 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+              <div className="flex items-center gap-3 text-red-600">
+                <ShieldAlert className="w-8 h-8" />
+                <h3 className="text-lg font-black text-slate-900">
+                  Proctoring Warning {warningCount} of 4
+                </h3>
               </div>
 
-              <div className="text-center">
-                <h3 className="text-base font-bold text-slate-900">Proctoring Warning Logged</h3>
-                <p className="text-xs text-amber-800 font-medium mt-1">{lastWarningType}</p>
-                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                  Navigating away from the interview tab or switching windows violates session integrity rules. You have accrued warning{" "}
-                  <strong className="text-slate-900">{proctoringWarnings.length} of 4</strong>. Reaching 4 warnings will immediately terminate your session.
-                </p>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {lastWarningReason}
+              </p>
+
+              <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-900">
+                <strong>Attention:</strong> If 4 warnings are reached, your session will be automatically terminated per platform proctoring policy.
               </div>
 
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowWarningModal(false)}
-                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition"
-                >
-                  Acknowledge & Return to Exam
-                </button>
+              <button
+                type="button"
+                onClick={() => setShowWarningModal(false)}
+                className="w-full min-h-[44px] bg-red-600 text-white font-bold text-xs rounded-xl hover:bg-red-700 transition-colors cursor-pointer"
+              >
+                I Understand & Return to Interview
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* =======================================================
+            STAGE 4: SESSION COMPLETED SUMMARY
+           ======================================================= */}
+        {stage === "COMPLETED" && session && (
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+            <div className="text-center space-y-2 border-b border-slate-100 pb-6">
+              <div className="inline-flex p-3 rounded-2xl bg-emerald-50 text-emerald-600 mb-2">
+                <Award className="w-10 h-10" />
               </div>
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900">
+                Interview Completed Successfully!
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
+                Comprehensive performance metrics and concept breakdown across all submitted interview questions.
+              </p>
+
+              <div className="pt-4 inline-flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-2xl border border-slate-200 text-xs font-bold text-slate-800">
+                <span>Overall Performance Score:</span>
+                <span className="text-base text-blue-600">{session.overallScore} / 100</span>
+              </div>
+            </div>
+
+            {/* Answer Transcripts & Evaluated Feedback */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                Question Performance & Rubric Notes
+              </h3>
+
+              {session.responses.map((resp, i) => {
+                const q = session.questions.find((item) => item.id === resp.questionId);
+
+                return (
+                  <div
+                    key={resp.questionId}
+                    className="p-5 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">
+                          Question {i + 1} • {q?.type.toUpperCase()}
+                        </span>
+                        <h4 className="text-sm font-bold text-slate-900 mt-0.5">
+                          {q?.question}
+                        </h4>
+                      </div>
+
+                      <span
+                        className={`text-xs font-bold px-2.5 py-1 rounded-full border shrink-0 ${
+                          resp.score && resp.score >= 75
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : "bg-amber-50 text-amber-700 border-amber-200"
+                        }`}
+                      >
+                        Score: {resp.score} / 100
+                      </span>
+                    </div>
+
+                    <div className="text-xs text-slate-700 bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
+                      <strong className="block text-slate-800 font-semibold">Your Answer:</strong>
+                      <p className="leading-relaxed">
+                        {q?.type === "mcq" && q.options
+                          ? `${q.options[Number(resp.userAnswer)] || "None"} (${
+                              resp.isCorrect ? "Correct" : "Incorrect"
+                            })`
+                          : String(resp.userAnswer)}
+                      </p>
+                    </div>
+
+                    {resp.feedback && (
+                      <div className="text-xs text-slate-600 bg-blue-50/60 p-3 rounded-xl border border-blue-100 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <strong className="text-blue-900 font-semibold">Evaluation Notes:</strong>
+                          {resp.isAiEvaluated && (
+                            <span className="text-[10px] text-blue-700 font-semibold bg-white px-2 py-0.5 rounded border border-blue-200">
+                              AI-assisted evaluation
+                            </span>
+                          )}
+                        </div>
+                        <p>{resp.feedback.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Return Action */}
+            <div className="border-t border-slate-100 pt-5 flex items-center justify-between">
+              <Link
+                href="/student/interviews"
+                className="text-xs font-semibold text-slate-500 hover:text-slate-900"
+              >
+                View in My Interviews
+              </Link>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStage("CONFIGURE");
+                  setSession(null);
+                }}
+                className="min-h-[44px] px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Practice Another Interview</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* =======================================================
+            STAGE 5: TERMINATED PROCTORING
+           ======================================================= */}
+        {stage === "TERMINATED" && (
+          <div className="bg-white border border-red-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 text-center">
+            <div className="inline-flex p-3 rounded-2xl bg-red-50 text-red-600 mb-2">
+              <ShieldAlert className="w-10 h-10" />
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900">
+              Interview Session Terminated
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+              This session was automatically terminated because the maximum allowed tab-switching or window focus violations (4 warnings) were exceeded.
+            </p>
+
+            <div className="border-t border-slate-100 pt-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setStage("CONFIGURE");
+                  setSession(null);
+                }}
+                className="min-h-[44px] px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                Return to Interview Setup
+              </button>
             </div>
           </div>
         )}

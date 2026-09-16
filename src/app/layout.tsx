@@ -23,8 +23,12 @@ export const viewport: Viewport = {
   themeColor: "#2563eb"
 };
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://saarvi-beta.vercel.app";
+const googleVerification = process.env.GOOGLE_SITE_VERIFICATION?.trim();
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://saarvi.app"),
+  // Configured dynamically for production (legacy reference: metadataBase: new URL("https://saarvi.app"))
+  metadataBase: new URL(siteUrl),
   title: {
     default: "Saarvi — Study. Work. Grow.",
     template: "%s — Saarvi",
@@ -33,8 +37,13 @@ export const metadata: Metadata = {
     "Convert, compress and manage documents with simple tools designed for students and everyday users.",
   applicationName: "Saarvi",
   alternates: {
-    canonical: "https://saarvi.app",
+    canonical: siteUrl,
   },
+  verification: googleVerification
+    ? {
+        google: googleVerification,
+      }
+    : undefined,
   keywords: ["saarvi", "pdf tools", "image converter", "student tools", "compress pdf", "merge pdf", "id photo", "resume builder"],
   authors: [{ name: "Saarvi Team" }],
   manifest: "/manifest.webmanifest",

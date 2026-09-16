@@ -30,11 +30,29 @@ export async function GET(request: Request) {
       if (!error) {
         const forwardedHost = request.headers.get('x-forwarded-host');
         const isLocalEnv = process.env.NODE_ENV === 'development';
-        const allowedHosts = new Set(['saarvi.in', 'www.saarvi.in', 'saarvi.app', 'www.saarvi.app']);
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+        let configuredHost: string | null = null;
+        if (siteUrl) {
+          try {
+            configuredHost = new URL(siteUrl).host;
+          } catch {}
+        }
+
+        const allowedHosts = new Set([
+          'saarvi.in',
+          'www.saarvi.in',
+          'saarvi.app',
+          'www.saarvi.app',
+          ...(configuredHost ? [configuredHost] : []),
+        ]);
+
+        const isAllowedHost =
+          forwardedHost &&
+          (allowedHosts.has(forwardedHost) || forwardedHost.endsWith('.vercel.app'));
 
         if (isLocalEnv) {
           return NextResponse.redirect(`${origin}${safeNext}`);
-        } else if (forwardedHost && allowedHosts.has(forwardedHost)) {
+        } else if (isAllowedHost) {
           return NextResponse.redirect(`https://${forwardedHost}${safeNext}`);
         } else {
           return NextResponse.redirect(`${origin}${safeNext}`);

@@ -36,6 +36,25 @@ import type {
   BillingEventRecord,
   BillingInvoiceRecord,
 } from '@/types/plan';
+import type {
+  NotificationRecord,
+  NotificationRecipientRecord,
+  NotificationTemplateRecord,
+  NotificationPreferenceRecord,
+  NotificationSystemSettings,
+  NotificationAuditLogRecord,
+} from '@/types/notifications-v2';
+
+export interface RoleAuditLogRecord {
+  id: string;
+  actor_user_id: string;
+  target_user_id: string;
+  old_role: string;
+  new_role: string;
+  action: string;
+  reason?: string;
+  timestamp: string;
+}
 
 const STORAGE_KEYS = {
   USERS: 'saarvi_users_v1',
@@ -65,6 +84,14 @@ const STORAGE_KEYS = {
   SUBSCRIPTIONS: 'saarvi_subscriptions_v1',
   BILLING_EVENTS: 'saarvi_billing_events_v1',
   INVOICES: 'saarvi_invoices_v1',
+  // Role & Notification Keys
+  ROLE_AUDIT_LOGS: 'saarvi_role_audit_logs_v1',
+  NOTIFICATIONS_V2: 'saarvi_notifications_v2',
+  NOTIFICATION_RECIPIENTS_V2: 'saarvi_notification_recipients_v2',
+  NOTIFICATION_TEMPLATES_V2: 'saarvi_notification_templates_v2',
+  NOTIFICATION_PREFERENCES_V2: 'saarvi_notification_preferences_v2',
+  NOTIFICATION_AUDIT_LOGS_V2: 'saarvi_notification_audit_logs_v2',
+  NOTIFICATION_SETTINGS_V2: 'saarvi_notification_settings_v2',
 };
 
 interface StoredUser {
@@ -94,21 +121,21 @@ const DEFAULT_SUPER_ADMINS: StoredUser[] = [
     updatedAt: '2026-01-01T00:00:00.000Z',
   },
   {
-    id: 'admin_saarvi_super',
+    id: 'user_saarvi_standard',
     email: 'admin@saarvi.in',
     passwordHash: btoa('admin123'),
-    fullName: 'Saarvi SuperAdmin',
-    role: 'SUPER_ADMIN',
+    fullName: 'Saarvi Standard User',
+    role: 'USER',
     status: 'ACTIVE',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
   },
   {
-    id: 'admin_root_super',
+    id: 'user_legacy_standard',
     email: 'admin@docease.com',
     passwordHash: btoa('admin123'),
-    fullName: 'Legacy SuperAdmin',
-    role: 'SUPER_ADMIN',
+    fullName: 'Legacy Standard User',
+    role: 'USER',
     status: 'ACTIVE',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
@@ -226,17 +253,24 @@ function getUsersList(): StoredUser[] {
   const users = getStored<StoredUser[]>(STORAGE_KEYS.USERS, []);
   let changed = false;
 
-  for (const defaultAdmin of DEFAULT_SUPER_ADMINS) {
-    const existingIdx = users.findIndex((u) => u.email.toLowerCase() === defaultAdmin.email.toLowerCase());
+  for (const defaultUser of DEFAULT_SUPER_ADMINS) {
+    const existingIdx = users.findIndex((u) => u.email.toLowerCase() === defaultUser.email.toLowerCase());
     if (existingIdx === -1) {
-      users.unshift(defaultAdmin);
+      users.unshift(defaultUser);
       changed = true;
     } else {
-      // Ensure seeded super admins always maintain SUPER_ADMIN role & expected password credentials
-      if (users[existingIdx].role !== 'SUPER_ADMIN' || users[existingIdx].passwordHash !== defaultAdmin.passwordHash) {
+      // Ensure muttuhangaragi161@gmail.com is SUPER_ADMIN and legacy admin@saarvi.in / admin@docease.com are normal USERs
+      if (defaultUser.role === 'SUPER_ADMIN' && users[existingIdx].role !== 'SUPER_ADMIN') {
         users[existingIdx].role = 'SUPER_ADMIN';
-        users[existingIdx].passwordHash = defaultAdmin.passwordHash;
         users[existingIdx].status = 'ACTIVE';
+        changed = true;
+      } else if (defaultUser.role === 'USER' && users[existingIdx].role === 'SUPER_ADMIN') {
+        // Explicitly revoke administrative authorization while preserving user account data
+        users[existingIdx].role = 'USER';
+        changed = true;
+      }
+      if (users[existingIdx].passwordHash !== defaultUser.passwordHash) {
+        users[existingIdx].passwordHash = defaultUser.passwordHash;
         changed = true;
       }
     }
@@ -498,8 +532,19 @@ export const MockStorageProvider = {
   },
 
   deleteAccount(userId: string): void {
+    const allUsers = getStored<StoredUser[]>(STORAGE_KEYS.USERS, []);
+    const targetUser = allUsers.find((u) => u.id === userId);
+    if (targetUser && targetUser.role === 'SUPER_ADMIN' && targetUser.status === 'ACTIVE') {
+      const otherActiveSuperAdmins = allUsers.filter(
+        (u) => u.id !== userId && u.role === 'SUPER_ADMIN' && u.status === 'ACTIVE'
+      );
+      if (otherActiveSuperAdmins.length === 0) {
+        throw new Error('At least one active SuperAdmin is required.');
+      }
+    }
+
     // 1. Delete user from users table
-    const users = getStored<StoredUser[]>(STORAGE_KEYS.USERS, []).filter((u) => u.id !== userId);
+    const users = allUsers.filter((u) => u.id !== userId);
     setStored(STORAGE_KEYS.USERS, users);
 
     // 2. Cascade delete history
@@ -945,6 +990,16 @@ export const MockStorageProvider = {
     const users = getUsersList();
     const idx = users.findIndex((u) => u.id === userId);
     if (idx === -1) throw new Error('User not found.');
+
+    if (users[idx].role === 'SUPER_ADMIN' && users[idx].status === 'ACTIVE' && status !== 'ACTIVE') {
+      const otherActiveSuperAdmins = users.filter(
+        (u) => u.id !== userId && u.role === 'SUPER_ADMIN' && u.status === 'ACTIVE'
+      );
+      if (otherActiveSuperAdmins.length === 0) {
+        throw new Error('At least one active SuperAdmin is required.');
+      }
+    }
+
     users[idx].status = status;
     users[idx].updatedAt = new Date().toISOString();
     setStored(STORAGE_KEYS.USERS, users);
@@ -954,6 +1009,16 @@ export const MockStorageProvider = {
     const users = getUsersList();
     const idx = users.findIndex((u) => u.id === userId);
     if (idx === -1) throw new Error('User not found.');
+
+    if (users[idx].role === 'SUPER_ADMIN' && users[idx].status === 'ACTIVE' && role !== 'SUPER_ADMIN') {
+      const otherActiveSuperAdmins = users.filter(
+        (u) => u.id !== userId && u.role === 'SUPER_ADMIN' && u.status === 'ACTIVE'
+      );
+      if (otherActiveSuperAdmins.length === 0) {
+        throw new Error('At least one active SuperAdmin is required.');
+      }
+    }
+
     users[idx].role = role;
     users[idx].updatedAt = new Date().toISOString();
     setStored(STORAGE_KEYS.USERS, users);
@@ -1346,6 +1411,187 @@ export const MockStorageProvider = {
     }
     setStored(STORAGE_KEYS.INVOICES, all);
     return invoice;
+  },
+
+  // =========================================================================
+  // ROLE AUDIT LOGS (PART A)
+  // =========================================================================
+  getRoleAuditLogs(): RoleAuditLogRecord[] {
+    return getStored<RoleAuditLogRecord[]>(STORAGE_KEYS.ROLE_AUDIT_LOGS, []);
+  },
+
+  addRoleAuditLog(record: Omit<RoleAuditLogRecord, 'id' | 'timestamp'> & { id?: string; timestamp?: string }): RoleAuditLogRecord {
+    const logs = this.getRoleAuditLogs();
+    const entry: RoleAuditLogRecord = {
+      id: record.id || `audit_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      actor_user_id: record.actor_user_id,
+      target_user_id: record.target_user_id,
+      old_role: record.old_role,
+      new_role: record.new_role,
+      action: record.action,
+      reason: record.reason,
+      timestamp: record.timestamp || new Date().toISOString(),
+    };
+    logs.unshift(entry);
+    if (logs.length > 1000) logs.length = 1000;
+    setStored(STORAGE_KEYS.ROLE_AUDIT_LOGS, logs);
+    return entry;
+  },
+
+  // =========================================================================
+  // NOTIFICATION CENTER 2.0 STORAGE METHODS
+  // =========================================================================
+  getNotifications(): NotificationRecord[] {
+    return getStored<NotificationRecord[]>(STORAGE_KEYS.NOTIFICATIONS_V2, []);
+  },
+
+  getNotificationById(id: string): NotificationRecord | null {
+    const all = this.getNotifications();
+    return all.find((n) => n.id === id) || null;
+  },
+
+  saveNotification(notification: NotificationRecord): NotificationRecord {
+    const all = this.getNotifications();
+    const idx = all.findIndex((n) => n.id === notification.id);
+    if (idx !== -1) {
+      all[idx] = notification;
+    } else {
+      all.unshift(notification);
+    }
+    setStored(STORAGE_KEYS.NOTIFICATIONS_V2, all);
+    return notification;
+  },
+
+  deleteNotification(id: string): boolean {
+    const all = this.getNotifications();
+    const filtered = all.filter((n) => n.id !== id);
+    setStored(STORAGE_KEYS.NOTIFICATIONS_V2, filtered);
+
+    // Also remove recipient jobs
+    const recipients = this.getNotificationRecipients().filter((r) => r.notification_id !== id);
+    setStored(STORAGE_KEYS.NOTIFICATION_RECIPIENTS_V2, recipients);
+    return true;
+  },
+
+  getNotificationRecipients(notificationId?: string, userId?: string): NotificationRecipientRecord[] {
+    let all = getStored<NotificationRecipientRecord[]>(STORAGE_KEYS.NOTIFICATION_RECIPIENTS_V2, []);
+    if (notificationId) {
+      all = all.filter((r) => r.notification_id === notificationId);
+    }
+    if (userId) {
+      all = all.filter((r) => r.user_id === userId);
+    }
+    return all;
+  },
+
+  saveNotificationRecipient(recipient: NotificationRecipientRecord): NotificationRecipientRecord {
+    const all = getStored<NotificationRecipientRecord[]>(STORAGE_KEYS.NOTIFICATION_RECIPIENTS_V2, []);
+    const idx = all.findIndex((r) => r.id === recipient.id || r.idempotency_key === recipient.idempotency_key);
+    if (idx !== -1) {
+      all[idx] = recipient;
+    } else {
+      all.push(recipient);
+    }
+    setStored(STORAGE_KEYS.NOTIFICATION_RECIPIENTS_V2, all);
+    return recipient;
+  },
+
+  saveNotificationRecipientsBatch(recipients: NotificationRecipientRecord[]): void {
+    const all = getStored<NotificationRecipientRecord[]>(STORAGE_KEYS.NOTIFICATION_RECIPIENTS_V2, []);
+    const keyMap = new Map<string, number>();
+    all.forEach((r, idx) => keyMap.set(r.idempotency_key, idx));
+
+    for (const r of recipients) {
+      if (keyMap.has(r.idempotency_key)) {
+        all[keyMap.get(r.idempotency_key)!] = r;
+      } else {
+        all.push(r);
+        keyMap.set(r.idempotency_key, all.length - 1);
+      }
+    }
+    setStored(STORAGE_KEYS.NOTIFICATION_RECIPIENTS_V2, all);
+  },
+
+  updateNotificationRecipient(id: string, updates: Partial<NotificationRecipientRecord>): NotificationRecipientRecord | null {
+    const all = getStored<NotificationRecipientRecord[]>(STORAGE_KEYS.NOTIFICATION_RECIPIENTS_V2, []);
+    const idx = all.findIndex((r) => r.id === id);
+    if (idx === -1) return null;
+    all[idx] = { ...all[idx], ...updates };
+    setStored(STORAGE_KEYS.NOTIFICATION_RECIPIENTS_V2, all);
+    return all[idx];
+  },
+
+  getNotificationTemplates(): NotificationTemplateRecord[] {
+    return getStored<NotificationTemplateRecord[]>(STORAGE_KEYS.NOTIFICATION_TEMPLATES_V2, []);
+  },
+
+  saveNotificationTemplate(template: NotificationTemplateRecord): NotificationTemplateRecord {
+    const all = this.getNotificationTemplates();
+    const idx = all.findIndex((t) => t.id === template.id || t.name === template.name);
+    if (idx !== -1) {
+      all[idx] = template;
+    } else {
+      all.push(template);
+    }
+    setStored(STORAGE_KEYS.NOTIFICATION_TEMPLATES_V2, all);
+    return template;
+  },
+
+  getNotificationPreferences(userId: string): NotificationPreferenceRecord[] {
+    const all = getStored<NotificationPreferenceRecord[]>(STORAGE_KEYS.NOTIFICATION_PREFERENCES_V2, []);
+    return all.filter((p) => p.user_id === userId);
+  },
+
+  saveNotificationPreference(pref: NotificationPreferenceRecord): NotificationPreferenceRecord {
+    const all = getStored<NotificationPreferenceRecord[]>(STORAGE_KEYS.NOTIFICATION_PREFERENCES_V2, []);
+    const idx = all.findIndex((p) => p.user_id === pref.user_id && p.category === pref.category);
+    if (idx !== -1) {
+      all[idx] = pref;
+    } else {
+      all.push(pref);
+    }
+    setStored(STORAGE_KEYS.NOTIFICATION_PREFERENCES_V2, all);
+    return pref;
+  },
+
+  getNotificationAuditLogs(): NotificationAuditLogRecord[] {
+    return getStored<NotificationAuditLogRecord[]>(STORAGE_KEYS.NOTIFICATION_AUDIT_LOGS_V2, []);
+  },
+
+  addNotificationAuditLog(log: NotificationAuditLogRecord): NotificationAuditLogRecord {
+    const all = this.getNotificationAuditLogs();
+    all.unshift(log);
+    if (all.length > 1000) all.length = 1000;
+    setStored(STORAGE_KEYS.NOTIFICATION_AUDIT_LOGS_V2, all);
+    return log;
+  },
+
+  getNotificationSystemSettings(): NotificationSystemSettings {
+    const defaults: NotificationSystemSettings = {
+      id: 'global',
+      global_enabled: true,
+      email_enabled: true,
+      in_app_enabled: true,
+      max_broadcast_size: 50000,
+      require_superadmin_approval: true,
+      promotional_email_enabled: true,
+      default_sender_name: 'Saarvi',
+      rate_limit_per_hour: 5000,
+      updated_at: new Date().toISOString(),
+    };
+    return getStored<NotificationSystemSettings>(STORAGE_KEYS.NOTIFICATION_SETTINGS_V2, defaults);
+  },
+
+  updateNotificationSystemSettings(updates: Partial<NotificationSystemSettings>, updatedBy?: string): NotificationSystemSettings {
+    const current = this.getNotificationSystemSettings();
+    const updated: NotificationSystemSettings = {
+      ...current,
+      ...updates,
+      updated_at: new Date().toISOString(),
+      updated_by: updatedBy || current.updated_by,
+    };
+    setStored(STORAGE_KEYS.NOTIFICATION_SETTINGS_V2, updated);
+    return updated;
   },
 };
 

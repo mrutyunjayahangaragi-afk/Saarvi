@@ -152,7 +152,23 @@ export async function POST(
         }
       }
 
-      MockStorageProvider.updateUserStatus(id, status as UserAccountStatus);
+      try {
+        MockStorageProvider.updateUserStatus(id, status as UserAccountStatus);
+      } catch (err: any) {
+        if (err?.message?.includes('At least one active SuperAdmin is required')) {
+          MockStorageProvider.addRoleAuditLog({
+            actor_user_id: authResult.user.id,
+            target_user_id: id,
+            old_role: 'SUPER_ADMIN',
+            new_role: 'SUPER_ADMIN',
+            action: 'LAST_SUPERADMIN_PROTECTION_TRIGGERED',
+            reason: err.message,
+          });
+          return NextResponse.json({ error: 'At least one active SuperAdmin is required.' }, { status: 400 });
+        }
+        throw err;
+      }
+
       MockStorageProvider.addAuditLog({
         adminUserId: authResult.user.id,
         adminEmail: authResult.user.email,
@@ -166,11 +182,39 @@ export async function POST(
     }
 
     if (action === 'UPDATE_ROLE' && role) {
+      const targetUser = MockStorageProvider.getUserById(id);
+      const oldRole = targetUser?.role || 'USER';
+
       if (authResult.user.role !== 'SUPER_ADMIN') {
+        MockStorageProvider.addRoleAuditLog({
+          actor_user_id: authResult.user.id,
+          target_user_id: id,
+          old_role: oldRole,
+          new_role: role,
+          action: 'ROLE_CHANGE_DENIED',
+          reason: 'Non-superadmin attempted role elevation',
+        });
         return NextResponse.json(
           { error: 'Forbidden: Only Super Admins can alter user roles' },
           { status: 403 }
         );
+      }
+
+      try {
+        MockStorageProvider.updateUserRole(id, role as UserRole);
+      } catch (err: any) {
+        if (err?.message?.includes('At least one active SuperAdmin is required')) {
+          MockStorageProvider.addRoleAuditLog({
+            actor_user_id: authResult.user.id,
+            target_user_id: id,
+            old_role: oldRole,
+            new_role: role,
+            action: 'LAST_SUPERADMIN_PROTECTION_TRIGGERED',
+            reason: err.message,
+          });
+          return NextResponse.json({ error: 'At least one active SuperAdmin is required.' }, { status: 400 });
+        }
+        throw err;
       }
 
       if (isSupabaseConfigured()) {
@@ -183,14 +227,35 @@ export async function POST(
         }
       }
 
-      MockStorageProvider.updateUserRole(id, role as UserRole);
+      let eventAction = `USER_ROLE_${role}`;
+      if (role === 'SUPER_ADMIN' && oldRole !== 'SUPER_ADMIN') {
+        eventAction = 'SUPERADMIN_CREATED';
+      } else if (oldRole === 'SUPER_ADMIN' && role === 'ADMIN') {
+        eventAction = 'SUPERADMIN_REVOKED';
+      } else if (oldRole === 'SUPER_ADMIN' && role === 'USER') {
+        eventAction = 'SUPERADMIN_REVOKED';
+      } else if (role === 'ADMIN' && oldRole === 'USER') {
+        eventAction = 'ADMIN_CREATED';
+      } else if (oldRole === 'ADMIN' && role === 'USER') {
+        eventAction = 'ADMIN_REVOKED';
+      }
+
+      MockStorageProvider.addRoleAuditLog({
+        actor_user_id: authResult.user.id,
+        target_user_id: id,
+        old_role: oldRole,
+        new_role: role,
+        action: eventAction,
+        reason: `Role changed to ${role} via admin API`,
+      });
+
       MockStorageProvider.addAuditLog({
         adminUserId: authResult.user.id,
         adminEmail: authResult.user.email,
-        action: `USER_ROLE_${role}`,
+        action: eventAction,
         targetType: 'USER',
         targetId: id,
-        metadata: { role },
+        metadata: { oldRole, newRole: role },
       });
 
       return NextResponse.json({ success: true, message: `User role set to ${role}` });

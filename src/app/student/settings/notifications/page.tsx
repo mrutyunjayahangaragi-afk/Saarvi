@@ -48,6 +48,14 @@ export default function StudentNotificationSettingsPage() {
   const [quietHoursStart, setQuietHoursStart] = useState("22:00");
   const [quietHoursEnd, setQuietHoursEnd] = useState("07:00");
 
+  // Broadcast & Opportunity Categories Preferences
+  const [prefAnnouncements, setPrefAnnouncements] = useState(true);
+  const [prefFeatures, setPrefFeatures] = useState(true);
+  const [prefOffers, setPrefOffers] = useState(true);
+  const [prefCareer, setPrefCareer] = useState(true);
+  const [prefAcademic, setPrefAcademic] = useState(true);
+  const [prefInterview, setPrefInterview] = useState(true);
+
   // History State
   const [history, setHistory] = useState<NotificationHistoryEntry[]>([]);
 
@@ -410,6 +418,117 @@ export default function StudentNotificationSettingsPage() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Platform & Broadcast Communication Categories */}
+            <div className="pt-4 border-t border-slate-100 space-y-4">
+              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <Bell className="w-4 h-4 text-blue-600" />
+                Platform & Opportunity Topics
+              </h2>
+              <p className="text-xs text-slate-500">
+                Choose which types of platform notices, releases, and opportunities you receive. System and security notices remain active by default.
+              </p>
+
+              <div className="space-y-3">
+                {/* System & Security Notifications */}
+                <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/50">
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                      <span>System & Security Notices</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-purple-50 text-purple-700">
+                        Mandatory
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Critical security notices and essential account maintenance alerts.</p>
+                  </div>
+                  <div className="text-[11px] font-bold text-slate-400">Always On</div>
+                </div>
+
+                {/* Announcements */}
+                <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-white">
+                  <div>
+                    <div className="text-xs font-bold text-slate-900">Platform Announcements</div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Important Saarvi updates and ecosystem news.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={prefAnnouncements}
+                    onChange={(e) => setPrefAnnouncements(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                  />
+                </div>
+
+                {/* Product Updates */}
+                <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-white">
+                  <div>
+                    <div className="text-xs font-bold text-slate-900">Product & Feature Updates</div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">New tools, calculators, and workflow improvements.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={prefFeatures}
+                    onChange={(e) => setPrefFeatures(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                  />
+                </div>
+
+                {/* Offers & Promotions */}
+                <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-white">
+                  <div>
+                    <div className="text-xs font-bold text-slate-900">Offers & Benefits</div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Discounts, student perks, and promotional opportunities.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={prefOffers}
+                    onChange={(e) => setPrefOffers(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                  />
+                </div>
+
+                {/* Interviews */}
+                <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-white">
+                  <div>
+                    <div className="text-xs font-bold text-slate-900">Mock Interview Releases</div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Interview preparation drives, question bank additions, and test centers.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={prefInterview}
+                    onChange={(e) => setPrefInterview(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                  />
+                </div>
+
+                {/* Career & Scholarships */}
+                <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-white">
+                  <div>
+                    <div className="text-xs font-bold text-slate-900">Career & Scholarships</div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Internship deadlines, campus drive notices, and scholarship openings.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={prefCareer}
+                    onChange={(e) => setPrefCareer(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                  />
+                </div>
+
+                {/* Academic & Exams */}
+                <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-white">
+                  <div>
+                    <div className="text-xs font-bold text-slate-900">Academic & Exam Alerts</div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">VTU updates, examination schedules, and timetable reminders.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={prefAcademic}
+                    onChange={(e) => setPrefAcademic(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Save Button & Feedback */}

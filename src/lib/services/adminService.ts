@@ -937,28 +937,111 @@ export const adminService = {
   },
 
   async updateUserRole(userId: string, role: UserRole, actor: AdminActor): Promise<void> {
+    const targetUser = MockStorageProvider.getUserById(userId);
+    const oldRole = targetUser?.role || 'USER';
+
     if (actor.role !== 'SUPER_ADMIN') {
+      MockStorageProvider.addRoleAuditLog({
+        actor_user_id: actor.id,
+        target_user_id: userId,
+        old_role: oldRole,
+        new_role: role,
+        action: 'ROLE_CHANGE_DENIED',
+        reason: 'Actor lacks SUPER_ADMIN privileges',
+      });
       throw new Error('Permission denied: Only SUPER_ADMIN can modify administrator roles.');
     }
 
-    MockStorageProvider.updateUserRole(userId, role);
+    // Determine specific role transition event
+    let eventAction = `USER_ROLE_${role}`;
+    if (role === 'SUPER_ADMIN' && oldRole !== 'SUPER_ADMIN') {
+      eventAction = 'SUPERADMIN_CREATED';
+    } else if (oldRole === 'SUPER_ADMIN' && role === 'ADMIN') {
+      eventAction = 'SUPERADMIN_REVOKED';
+    } else if (oldRole === 'SUPER_ADMIN' && role === 'USER') {
+      eventAction = 'SUPERADMIN_REVOKED';
+    } else if (role === 'ADMIN' && oldRole === 'USER') {
+      eventAction = 'ADMIN_CREATED';
+    } else if (oldRole === 'ADMIN' && role === 'USER') {
+      eventAction = 'ADMIN_REVOKED';
+    }
+
+    try {
+      MockStorageProvider.updateUserRole(userId, role);
+    } catch (err: any) {
+      if (err?.message?.includes('At least one active SuperAdmin is required')) {
+        MockStorageProvider.addRoleAuditLog({
+          actor_user_id: actor.id,
+          target_user_id: userId,
+          old_role: oldRole,
+          new_role: role,
+          action: 'LAST_SUPERADMIN_PROTECTION_TRIGGERED',
+          reason: err.message,
+        });
+      }
+      throw err;
+    }
+
+    // Record structured role audit log
+    MockStorageProvider.addRoleAuditLog({
+      actor_user_id: actor.id,
+      target_user_id: userId,
+      old_role: oldRole,
+      new_role: role,
+      action: eventAction,
+      reason: `Assigned role ${role} by ${actor.email}`,
+    });
 
     MockStorageProvider.addAuditLog({
       adminUserId: actor.id,
       adminEmail: actor.email,
-      action: `USER_ROLE_${role}`,
+      action: eventAction,
       targetType: 'USER',
       targetId: userId,
-      metadata: { role },
+      metadata: { oldRole, newRole: role },
     });
   },
 
   async deleteUser(userId: string, actor: AdminActor): Promise<void> {
+    const targetUser = MockStorageProvider.getUserById(userId);
+    const oldRole = targetUser?.role || 'USER';
+
     if (actor.role !== 'SUPER_ADMIN') {
+      MockStorageProvider.addRoleAuditLog({
+        actor_user_id: actor.id,
+        target_user_id: userId,
+        old_role: oldRole,
+        new_role: 'DELETED',
+        action: 'ROLE_CHANGE_DENIED',
+        reason: 'Actor lacks SUPER_ADMIN privileges to delete account',
+      });
       throw new Error('Permission denied: Only SUPER_ADMIN can delete user accounts.');
     }
 
-    MockStorageProvider.deleteAccount(userId);
+    try {
+      MockStorageProvider.deleteAccount(userId);
+    } catch (err: any) {
+      if (err?.message?.includes('At least one active SuperAdmin is required')) {
+        MockStorageProvider.addRoleAuditLog({
+          actor_user_id: actor.id,
+          target_user_id: userId,
+          old_role: oldRole,
+          new_role: 'DELETED',
+          action: 'LAST_SUPERADMIN_PROTECTION_TRIGGERED',
+          reason: err.message,
+        });
+      }
+      throw err;
+    }
+
+    MockStorageProvider.addRoleAuditLog({
+      actor_user_id: actor.id,
+      target_user_id: userId,
+      old_role: oldRole,
+      new_role: 'DELETED',
+      action: oldRole === 'SUPER_ADMIN' ? 'SUPERADMIN_REVOKED' : oldRole === 'ADMIN' ? 'ADMIN_REVOKED' : 'USER_DELETED',
+      reason: `Account deleted by ${actor.email}`,
+    });
 
     MockStorageProvider.addAuditLog({
       adminUserId: actor.id,
