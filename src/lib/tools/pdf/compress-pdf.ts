@@ -1,3 +1,4 @@
+import "@/lib/polyfills/iterator";
 import * as pdfjsLib from "pdfjs-dist";
 import { PDFDocument } from "pdf-lib";
 import { ToolOperation, SingleFileResult, ValidationResult } from "../types";

@@ -1,3 +1,4 @@
+import "../polyfills/iterator";
 import { ToolOperation, SingleFileResult, MultiFileResult } from "./types";
 import { formatConverterOperation } from "./image/format-converter";
 import { imageResizeOperation } from "./image/resizer";

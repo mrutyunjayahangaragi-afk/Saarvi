@@ -1,5 +1,12 @@
 import type { NextConfig } from "next";
 
+// Global Iterator polyfill for Node.js build workers and pdfjs-dist
+const g = globalThis as unknown as Record<string, unknown>;
+if (typeof g.Iterator === "undefined") {
+  class CustomIterator {}
+  g.Iterator = CustomIterator;
+}
+
 const cspHeader = `
   default-src 'self';
   script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com;

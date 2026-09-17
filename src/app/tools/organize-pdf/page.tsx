@@ -1,5 +1,6 @@
 "use client";
 
+import "@/lib/polyfills/iterator";
 import { useState, useRef, useCallback } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 import { PDFDocument, degrees } from "pdf-lib";
