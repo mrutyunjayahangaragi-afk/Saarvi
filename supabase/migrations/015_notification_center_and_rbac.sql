@@ -43,18 +43,45 @@ CREATE POLICY "SuperAdmins can view role audit logs"
 -- 2. LAST SUPERADMIN PROTECTION INVARIANT (DATABASE TRIGGER)
 -- ============================================================================
 
+-- Ensure 'status' column exists on public.profiles before trigger installation
+ALTER TABLE IF EXISTS public.profiles
+    ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'ACTIVE';
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'profiles_status_check'
+    ) THEN
+        ALTER TABLE public.profiles
+            ADD CONSTRAINT profiles_status_check
+            CHECK (status IN ('ACTIVE', 'SUSPENDED', 'DISABLED', 'PENDING'));
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_profiles_status ON public.profiles(status);
+
 CREATE OR REPLACE FUNCTION public.check_last_superadmin_protection()
 RETURNS TRIGGER AS $$
 DECLARE
     active_super_count INTEGER;
+    old_role TEXT;
+    new_role TEXT;
+    old_status TEXT;
+    new_status TEXT;
 BEGIN
+    -- Extract values safely using to_jsonb to prevent "record has no field" errors
+    old_role := to_jsonb(OLD) ->> 'role';
+    new_role := to_jsonb(NEW) ->> 'role';
+    old_status := COALESCE(to_jsonb(OLD) ->> 'status', 'ACTIVE');
+    new_status := COALESCE(to_jsonb(NEW) ->> 'status', 'ACTIVE');
+
     -- If demoting, suspending, or deactivating a SUPER_ADMIN
     IF (TG_OP = 'UPDATE') THEN
-        IF (OLD.role = 'SUPER_ADMIN' AND (NEW.role <> 'SUPER_ADMIN' OR NEW.status <> 'ACTIVE')) THEN
+        IF (old_role = 'SUPER_ADMIN' AND (new_role <> 'SUPER_ADMIN' OR new_status <> 'ACTIVE')) THEN
             SELECT COUNT(*) INTO active_super_count
             FROM public.profiles
             WHERE role = 'SUPER_ADMIN'
-              AND status = 'ACTIVE'
+              AND COALESCE(to_jsonb(profiles) ->> 'status', 'ACTIVE') = 'ACTIVE'
               AND id <> OLD.id;
 
             IF (active_super_count = 0) THEN
@@ -65,11 +92,11 @@ BEGIN
 
     -- If deleting a SUPER_ADMIN
     IF (TG_OP = 'DELETE') THEN
-        IF (OLD.role = 'SUPER_ADMIN') THEN
+        IF (old_role = 'SUPER_ADMIN') THEN
             SELECT COUNT(*) INTO active_super_count
             FROM public.profiles
             WHERE role = 'SUPER_ADMIN'
-              AND status = 'ACTIVE'
+              AND COALESCE(to_jsonb(profiles) ->> 'status', 'ACTIVE') = 'ACTIVE'
               AND id <> OLD.id;
 
             IF (active_super_count = 0) THEN

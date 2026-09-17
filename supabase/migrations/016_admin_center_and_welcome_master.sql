@@ -13,10 +13,12 @@
 ALTER TABLE IF EXISTS public.profiles
     ADD COLUMN IF NOT EXISTS avatar_path TEXT,
     ADD COLUMN IF NOT EXISTS welcome_sent_at TIMESTAMPTZ,
-    ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'FREE' CHECK (plan IN ('FREE', 'PRO'));
+    ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'FREE' CHECK (plan IN ('FREE', 'PRO')),
+    ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'ACTIVE';
 
 CREATE INDEX IF NOT EXISTS idx_profiles_welcome_sent ON public.profiles(welcome_sent_at);
 CREATE INDEX IF NOT EXISTS idx_profiles_plan ON public.profiles(plan);
+CREATE INDEX IF NOT EXISTS idx_profiles_status ON public.profiles(status);
 
 -- 2. UNIFIED PLATFORM EVENTS TABLE (ANALYTICS TELEMETRY)
 -- Strictly privacy-safe: logs event_name, tool_key, category, and success status.
