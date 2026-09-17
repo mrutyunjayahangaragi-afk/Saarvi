@@ -23,7 +23,7 @@ export const viewport: Viewport = {
   themeColor: "#2563eb"
 };
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://saarvi-beta.vercel.app";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://saarvi.app";
 const googleVerification = process.env.GOOGLE_SITE_VERIFICATION?.trim();
 
 export const metadata: Metadata = {

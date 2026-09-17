@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileText, Eye, EyeOff, Loader2, CheckCircle2, ArrowRight } from "lucide-react";
+import { SaarviMark } from "@/components/brand/SaarviLogo";
 import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -71,8 +72,8 @@ export default function ResetPasswordPage() {
             ) : (
               <>
                 <div className="text-center space-y-2">
-                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-600 text-white shadow-xs mb-1">
-                    <FileText className="w-6 h-6" />
+                  <div className="inline-flex items-center justify-center mb-1">
+                    <SaarviMark size={48} />
                   </div>
                   <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
                     Set new password

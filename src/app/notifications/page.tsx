@@ -135,11 +135,19 @@ export default function NotificationCenterPage() {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     setUnreadCount(0);
 
-    for (const item of unreadItems) {
-      fetch(`/api/notifications/${item.id}/read`, {
+    try {
+      await fetch('/api/notifications/read-all', {
         method: 'POST',
         credentials: 'include',
-      }).catch(() => {});
+      });
+    } catch {
+      // Fallback per-item
+      for (const item of unreadItems) {
+        fetch(`/api/notifications/${item.id}/read`, {
+          method: 'POST',
+          credentials: 'include',
+        }).catch(() => {});
+      }
     }
   };
 
@@ -360,14 +368,27 @@ export default function NotificationCenterPage() {
                       {/* CTA Button */}
                       {item.cta_url && item.cta_text && (
                         <div className="mt-3.5 flex items-center gap-3">
-                          <Link
-                            href={item.cta_url}
-                            onClick={() => handleCtaClick(item)}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs hover:shadow transition-all"
-                          >
-                            <span>{item.cta_text}</span>
-                            <ChevronRight className="w-3.5 h-3.5" />
-                          </Link>
+                          {item.cta_url.startsWith('http://') || item.cta_url.startsWith('https://') ? (
+                            <a
+                              href={item.cta_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={() => handleCtaClick(item)}
+                              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs hover:shadow transition-all"
+                            >
+                              <span>{item.cta_text}</span>
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          ) : (
+                            <Link
+                              href={item.cta_url.startsWith('/') ? item.cta_url : `/${item.cta_url}`}
+                              onClick={() => handleCtaClick(item)}
+                              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs hover:shadow transition-all"
+                            >
+                              <span>{item.cta_text}</span>
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </Link>
+                          )}
 
                           {!item.read && (
                             <button

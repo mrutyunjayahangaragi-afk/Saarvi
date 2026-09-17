@@ -69,16 +69,29 @@ export default function Navbar() {
   useEffect(() => {
     if (!user) return;
     let isCancelled = false;
-    fetch('/api/notifications?limit=1', { credentials: 'include' })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!isCancelled && data && typeof data.unreadCount === 'number') {
-          setUnreadNotifications(data.unreadCount);
-        }
-      })
-      .catch(() => {});
+
+    const fetchUnread = () => {
+      fetch('/api/notifications?limit=1', { credentials: 'include' })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!isCancelled && data && typeof data.unreadCount === 'number') {
+            setUnreadNotifications(data.unreadCount);
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchUnread();
+
+    // Refresh on window focus and every 30 seconds
+    const interval = setInterval(fetchUnread, 30000);
+    const onFocus = () => fetchUnread();
+    window.addEventListener('focus', onFocus);
+
     return () => {
       isCancelled = true;
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
     };
   }, [user]);
 
@@ -403,7 +416,7 @@ export default function Navbar() {
                 <Bell className="w-4 h-4 text-slate-600" />
                 {unreadNotifications > 0 && (
                   <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 bg-red-600 text-white rounded-full text-[9px] font-bold flex items-center justify-center ring-2 ring-white shadow-2xs animate-in zoom-in duration-150">
-                    {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                    {unreadNotifications > 99 ? "99+" : unreadNotifications}
                   </span>
                 )}
               </Link>
@@ -464,7 +477,7 @@ export default function Navbar() {
                         </div>
                         {unreadNotifications > 0 && (
                           <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-red-100 text-red-700">
-                            {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                            {unreadNotifications > 99 ? "99+" : unreadNotifications}
                           </span>
                         )}
                       </Link>

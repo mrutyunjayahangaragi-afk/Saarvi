@@ -37,8 +37,9 @@ import {
   CurriculumPublishStatus
 } from "@/types/admin";
 import AdminConfirmModal from "@/components/admin/AdminConfirmModal";
+import { useAuth } from "@/context/AuthContext";
 
-type ActiveTab = "universities" | "schemes" | "branches" | "subjects" | "import";
+type ActiveTab = "universities" | "schemes" | "branches" | "subjects" | "import" | "vtu-sync";
 
 export default function MultiUniversityAcademicPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("subjects");
@@ -99,8 +100,19 @@ export default function MultiUniversityAcademicPage() {
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
+  const { user, profile } = useAuth();
+  const isSuperAdmin = profile?.role === "SUPER_ADMIN" || user?.role === "SUPER_ADMIN";
+
+  // VTU Curriculum Engine State
+  const [vtuUrl, setVtuUrl] = useState("https://vtu.ac.in/en/b-e-scheme-syllabus/");
+  const [vtuSyncing, setVtuSyncing] = useState(false);
+  const [vtuVersions, setVtuVersions] = useState<any[]>([]);
+  const [vtuLoadingVersions, setVtuLoadingVersions] = useState(false);
+  const [selectedVtuVersionId, setSelectedVtuVersionId] = useState<string | null>(null);
+
   useEffect(() => {
     loadHierarchy();
+    loadVtuVersions();
   }, []);
 
   useEffect(() => {
@@ -446,6 +458,90 @@ export default function MultiUniversityAcademicPage() {
     }
   }
 
+  // Load synced VTU versions
+  async function loadVtuVersions() {
+    setVtuLoadingVersions(true);
+    try {
+      const res = await fetch("/api/admin/academic/vtu-sync");
+      const data = await res.json();
+      if (data.success && Array.isArray(data.versions)) {
+        setVtuVersions(data.versions);
+        if (data.versions.length > 0 && !selectedVtuVersionId) {
+          setSelectedVtuVersionId(data.versions[0].id);
+        }
+      }
+    } catch (err: any) {
+      console.error("Failed to load VTU versions:", err);
+    } finally {
+      setVtuLoadingVersions(false);
+    }
+  }
+
+  // Sync Official VTU Syllabus
+  async function handleSyncVtu() {
+    if (!vtuUrl.trim()) {
+      setErrorNotice("Please provide an official VTU syllabus URL.");
+      return;
+    }
+    setVtuSyncing(true);
+    setErrorNotice(null);
+    setSuccessNotice(null);
+    try {
+      const res = await fetch("/api/admin/academic/vtu-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "SYNC_VTU",
+          url: vtuUrl.trim(),
+          schemeId: selectedSchemeId,
+          branchId: selectedBranchId,
+          semester: selectedSemester,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to sync VTU syllabus");
+      }
+      setSuccessNotice(`Official VTU syllabus successfully synced (${data.version?.courses?.length || 0} courses parsed, ${data.version?.totalCredits || 0} credits).`);
+      await loadVtuVersions();
+      if (data.version?.id) {
+        setSelectedVtuVersionId(data.version.id);
+      }
+    } catch (err: any) {
+      setErrorNotice(err.message || "VTU synchronization failed");
+    } finally {
+      setVtuSyncing(false);
+    }
+  }
+
+  // Transition VTU Version Status (Draft -> Approved -> Published)
+  async function handleTransitionVtu(versionId: string, targetStatus: "APPROVED" | "PUBLISHED") {
+    setErrorNotice(null);
+    setSuccessNotice(null);
+    try {
+      const res = await fetch("/api/admin/academic/vtu-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "TRANSITION_STATUS",
+          versionId,
+          targetStatus,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || `Failed to update status to ${targetStatus}`);
+      }
+      setSuccessNotice(`VTU curriculum status successfully updated to ${targetStatus}.`);
+      await loadVtuVersions();
+      if (targetStatus === "PUBLISHED") {
+        await loadSubjects();
+      }
+    } catch (err: any) {
+      setErrorNotice(err.message || "Failed to transition curriculum status");
+    }
+  }
+
   // Filtered subjects
   const filteredSubjects = subjects.filter((s) => {
     if (!searchQuery.trim()) return true;
@@ -571,6 +667,17 @@ export default function MultiUniversityAcademicPage() {
         >
           <FileSpreadsheet className="w-3.5 h-3.5" />
           <span>Batch Import (CSV/JSON)</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("vtu-sync")}
+          className={`pb-2.5 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+            activeTab === "vtu-sync"
+              ? "border-purple-600 text-purple-700 font-bold"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+          <span>VTU Curriculum Engine ({vtuVersions.length})</span>
         </button>
       </div>
 
@@ -839,6 +946,14 @@ export default function MultiUniversityAcademicPage() {
 
               <div className="flex items-center gap-2 flex-wrap">
                 <button
+                  onClick={() => setActiveTab("vtu-sync")}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Sync Official VTU</span>
+                </button>
+
+                <button
                   onClick={() => {
                     setEditingSubject(null);
                     setSubjectForm({
@@ -1096,6 +1211,361 @@ export default function MultiUniversityAcademicPage() {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* 6. VTU CURRICULUM ENGINE TAB */}
+      {activeTab === "vtu-sync" && (
+        <div className="space-y-5">
+          {/* Header Banner */}
+          <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-950 rounded-2xl p-5 text-white shadow-md relative overflow-hidden">
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1 max-w-xl">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-slate-950 uppercase tracking-wide">
+                    Anti-SSRF Protected
+                  </span>
+                  <span className="text-xs text-purple-200 font-mono">visvesvaraya technological university</span>
+                </div>
+                <h2 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-400" />
+                  <span>VTU Curriculum Ingestion &amp; Verification Engine</span>
+                </h2>
+                <p className="text-xs text-purple-200/80 leading-relaxed">
+                  Automated extraction pipeline for official VTU syllabus circulars and scheme distributions.
+                  Eliminates credit hallucination and enforces strict governance (Draft → Approved → SuperAdmin Published).
+                </p>
+              </div>
+
+              <div className="p-3 bg-white/10 backdrop-blur-md rounded-xl border border-white/10 text-right shrink-0">
+                <div className="text-[10px] uppercase font-bold text-purple-200">Security Invariant</div>
+                <div className="text-xs font-semibold text-white mt-0.5">Private by Design</div>
+                <div className="text-[10px] text-purple-300/80">Only academic schemes stored</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Sync Ingestion Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-purple-600" />
+                <span>Ingest Official Syllabus Document</span>
+              </h3>
+              <div className="flex items-center gap-2 text-xs">
+                {vtuUrl.trim().startsWith("https://") && (vtuUrl.includes("vtu.ac.in") || vtuUrl.includes(".vtu.ac.in")) ? (
+                  <span className="inline-flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Verified VTU Host (SSRF Safe)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded-md border border-red-200">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    Restricted: Only https://*.vtu.ac.in allowed
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Target Scheme</label>
+                <select
+                  value={selectedSchemeId}
+                  onChange={(e) => setSelectedSchemeId(e.target.value)}
+                  className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800"
+                >
+                  {schemes.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.year})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Target Branch</label>
+                <select
+                  value={selectedBranchId}
+                  onChange={(e) => setSelectedBranchId(e.target.value)}
+                  className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800"
+                >
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Target Semester</label>
+                <select
+                  value={selectedSemester}
+                  onChange={(e) => setSelectedSemester(parseInt(e.target.value, 10))}
+                  className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800"
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
+                    <option key={s} value={s}>
+                      Semester {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
+                Official VTU Document URL (PDF or Syllabus Webpage) *
+              </label>
+              <div className="flex flex-col sm:flex-row items-stretch gap-2">
+                <input
+                  type="url"
+                  value={vtuUrl}
+                  onChange={(e) => setVtuUrl(e.target.value)}
+                  placeholder="https://vtu.ac.in/en/b-e-scheme-syllabus/"
+                  className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-purple-500/20"
+                />
+                <button
+                  onClick={handleSyncVtu}
+                  disabled={vtuSyncing || !vtuUrl.trim()}
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${vtuSyncing ? "animate-spin" : ""}`} />
+                  <span>{vtuSyncing ? "Ingesting..." : "Ingest Official Syllabus"}</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 mt-2 flex-wrap text-[11px]">
+                <span className="text-slate-400 font-medium">Quick Presets:</span>
+                <button
+                  onClick={() => setVtuUrl("https://vtu.ac.in/en/b-e-scheme-syllabus/")}
+                  className="text-purple-600 hover:underline font-medium"
+                >
+                  2022 Scheme B.E. Syllabus
+                </button>
+                <span className="text-slate-300">•</span>
+                <button
+                  onClick={() => setVtuUrl("https://vtu.ac.in/wp-content/uploads/2022/10/2022-Scheme-CSE-Syllabus.pdf")}
+                  className="text-purple-600 hover:underline font-medium"
+                >
+                  2022 CSE Official PDF
+                </button>
+                <span className="text-slate-300">•</span>
+                <button
+                  onClick={() => setVtuUrl("https://vtu.ac.in/en/circulars/")}
+                  className="text-purple-600 hover:underline font-medium"
+                >
+                  VTU Circulars Portal
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Synced Versions & Review Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            {/* Version List */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <h4 className="text-xs font-bold uppercase text-slate-600 tracking-wider">
+                  Ingested Versions ({vtuVersions.length})
+                </h4>
+                <button
+                  onClick={loadVtuVersions}
+                  disabled={vtuLoadingVersions}
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
+                  title="Refresh versions"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${vtuLoadingVersions ? "animate-spin" : ""}`} />
+                </button>
+              </div>
+
+              {vtuVersions.length === 0 ? (
+                <div className="py-8 text-center space-y-1">
+                  <Clock className="w-6 h-6 text-slate-300 mx-auto" />
+                  <p className="text-xs font-semibold text-slate-600">No versions ingested yet.</p>
+                  <p className="text-[11px] text-slate-400">Use the form above to ingest official VTU schemes.</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+                  {vtuVersions.map((v) => {
+                    const isSelected = selectedVtuVersionId === v.id;
+                    return (
+                      <div
+                        key={v.id}
+                        onClick={() => setSelectedVtuVersionId(v.id)}
+                        className={`p-3 rounded-xl border transition-all cursor-pointer text-xs space-y-1.5 ${
+                          isSelected
+                            ? "bg-purple-50/70 border-purple-300 ring-1 ring-purple-400/40"
+                            : "bg-slate-50/60 hover:bg-slate-100/70 border-slate-200"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900">
+                            Sem {v.semester} • {v.branchId.toUpperCase()}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              v.status === "PUBLISHED"
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                : v.status === "APPROVED"
+                                ? "bg-blue-100 text-blue-800 border border-blue-200"
+                                : "bg-amber-100 text-amber-800 border border-amber-200"
+                            }`}
+                          >
+                            {v.status}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-mono truncate">
+                          {v.schemeId} • {v.courses?.length || 0} courses • {v.totalCredits} credits
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          {new Date(v.createdAt).toLocaleDateString()} at{" "}
+                          {new Date(v.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Version Detail & Governance Workflow */}
+            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+              {(() => {
+                const currentVersion = vtuVersions.find((v) => v.id === selectedVtuVersionId) || vtuVersions[0];
+                if (!currentVersion) {
+                  return (
+                    <div className="py-16 text-center text-slate-400 text-xs">
+                      Select or ingest a VTU syllabus version to inspect course mappings and publish.
+                    </div>
+                  );
+                }
+
+                return (
+                  <>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-bold text-slate-900">
+                            VTU Scheme {currentVersion.schemeId} • Semester {currentVersion.semester} (
+                            {currentVersion.branchId.toUpperCase()})
+                          </h4>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              currentVersion.status === "PUBLISHED"
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                : currentVersion.status === "APPROVED"
+                                ? "bg-blue-100 text-blue-800 border border-blue-200"
+                                : "bg-amber-100 text-amber-800 border border-amber-200"
+                            }`}
+                          >
+                            {currentVersion.status}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 font-mono mt-0.5 truncate max-w-md">
+                          Source: {currentVersion.sourceUrl}
+                        </p>
+                      </div>
+
+                      {/* Governance Action Buttons */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {currentVersion.status === "DRAFT" && (
+                          <button
+                            onClick={() => handleTransitionVtu(currentVersion.id, "APPROVED")}
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                          >
+                            Approve Syllabus
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => {
+                            if (!isSuperAdmin) {
+                              setErrorNotice("SuperAdmin privilege required to publish curriculum to production.");
+                              return;
+                            }
+                            handleTransitionVtu(currentVersion.id, "PUBLISHED");
+                          }}
+                          disabled={currentVersion.status === "PUBLISHED" || !isSuperAdmin}
+                          title={!isSuperAdmin ? "SuperAdmin role required to publish" : undefined}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          <span>
+                            {currentVersion.status === "PUBLISHED"
+                              ? "Live in Production"
+                              : isSuperAdmin
+                              ? "Publish to Live SGPA"
+                              : "Publish (SuperAdmin Req)"}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Non-SuperAdmin notice banner if draft/approved */}
+                    {!isSuperAdmin && currentVersion.status !== "PUBLISHED" && (
+                      <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+                        <span>
+                          <strong>SuperAdmin Policy:</strong> Normal administrators can inspect and approve syllabus schemes. Final publishing to live student SGPA calculations is strictly reserved for SuperAdmins.
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Courses Preview Table */}
+                    <div className="rounded-xl border border-slate-200 overflow-hidden">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                            <th className="py-2.5 px-3">Course Code</th>
+                            <th className="py-2.5 px-3">Title</th>
+                            <th className="py-2.5 px-2 text-center">Credits</th>
+                            <th className="py-2.5 px-2 text-center">CIE</th>
+                            <th className="py-2.5 px-2 text-center">SEE</th>
+                            <th className="py-2.5 px-2 text-center">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {currentVersion.courses && currentVersion.courses.length > 0 ? (
+                            currentVersion.courses.map((c: any, idx: number) => (
+                              <tr key={idx} className="hover:bg-slate-50/50">
+                                <td className="py-2 px-3 font-mono font-bold text-purple-700">{c.courseCode}</td>
+                                <td className="py-2 px-3 font-medium text-slate-800">{c.courseTitle}</td>
+                                <td className="py-2 px-2 font-mono font-bold text-center text-slate-900">{c.credits}</td>
+                                <td className="py-2 px-2 font-mono text-center text-slate-500">{c.cieMarks}</td>
+                                <td className="py-2 px-2 font-mono text-center text-slate-500">{c.seeMarks}</td>
+                                <td className="py-2 px-2 font-mono font-bold text-center text-slate-700">{c.totalMarks}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={6} className="py-6 text-center text-slate-400">
+                                No course details parsed for this version.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-slate-50 font-bold text-slate-800 border-t border-slate-200 text-xs">
+                            <td colSpan={2} className="py-2 px-3">
+                              Total Verified Semester Credits
+                            </td>
+                            <td className="py-2 px-2 font-mono text-center text-purple-700 text-sm">
+                              {currentVersion.totalCredits || 0}
+                            </td>
+                            <td colSpan={3} className="py-2 px-3 text-right text-[11px] text-slate-500">
+                              Deterministic VTU Scheme
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
         </div>
       )}
 

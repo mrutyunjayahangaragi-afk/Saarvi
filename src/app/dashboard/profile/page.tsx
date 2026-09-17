@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { User, Mail, Calendar, Trash2, Key, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { User, Mail, Calendar, Trash2, Key, CheckCircle2, AlertTriangle, Loader2, Camera } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import AvatarUploadModal from "@/components/profile/AvatarUploadModal";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -21,6 +22,12 @@ export default function ProfilePage() {
   const [isUpdatingPass, setIsUpdatingPass] = useState(false);
   const [passSuccess, setPassSuccess] = useState(false);
   const [passError, setPassError] = useState<string | null>(null);
+
+  // Avatar state
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(
+    profile?.avatarUrl || (user as any)?.user_metadata?.avatar_url || null
+  );
 
   // Account deletion modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -133,6 +140,40 @@ export default function ProfilePage() {
             {nameError}
           </div>
         )}
+
+        {/* Avatar Presentation & Upload Trigger */}
+        <div className="flex items-center gap-4 pb-2 border-b border-slate-100">
+          <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xl font-bold overflow-hidden shadow-xs shrink-0 select-none">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt="Profile Avatar"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span>
+                {(fullName || "S")
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2)}
+              </span>
+            )}
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-slate-800">Profile Photo</h4>
+            <p className="text-xs text-slate-500 mb-2">WebP, PNG, or JPG up to 5MB</p>
+            <button
+              type="button"
+              onClick={() => setShowAvatarModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+            >
+              <Camera className="w-3.5 h-3.5 text-slate-600" />
+              <span>Change Photo</span>
+            </button>
+          </div>
+        </div>
 
         <form onSubmit={handleUpdateName} className="space-y-4">
           <div className="space-y-1.5">
@@ -333,6 +374,18 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* AVATAR UPLOAD MODAL */}
+      <AvatarUploadModal
+        isOpen={showAvatarModal}
+        onClose={() => setShowAvatarModal(false)}
+        currentAvatarUrl={avatarUrl}
+        userFullName={fullName || user?.fullName}
+        onAvatarUpdated={(newUrl) => {
+          setAvatarUrl(newUrl);
+          updateProfile({ avatarUrl: newUrl || undefined } as any).catch(() => {});
+        }}
+      />
 
     </div>
   );

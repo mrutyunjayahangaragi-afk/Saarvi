@@ -39,7 +39,9 @@ import {
   ExternalLink,
   Check,
   X,
+  Upload,
 } from "lucide-react";
+import QuestionImportModal from "@/components/admin/interview/QuestionImportModal";
 
 type AdminTab = "QUESTIONS" | "LIVE_SESSIONS" | "ANALYTICS" | "CENTERS" | "SETTINGS";
 
@@ -82,6 +84,7 @@ export default function AdminMockInterviewPage() {
 
   // Question modal state
   const [showQuestionModal, setShowQuestionModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<Partial<InterviewQuestion>>({
     id: `q_custom_${Date.now()}`,
     role: "Software Engineer",
@@ -425,6 +428,15 @@ export default function AdminMockInterviewPage() {
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Question</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowImportModal(true)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-200"
+              >
+                <Upload className="w-4 h-4 text-blue-600" />
+                <span>Import Dataset (CSV/JSON)</span>
               </button>
             </div>
 
@@ -1048,6 +1060,17 @@ export default function AdminMockInterviewPage() {
             </div>
           </div>
         )}
+
+        {/* Question Import Modal */}
+        <QuestionImportModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          existingQuestions={questions}
+          onImportComplete={(count) => {
+            alert(`Successfully imported ${count} questions!`);
+            loadData();
+          }}
+        />
       </main>
 
       <Footer />

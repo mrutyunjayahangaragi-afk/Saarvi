@@ -668,11 +668,12 @@ export default function MockInterviewPage() {
         {stage === "PERMISSION_GATE" && (
           <InterviewPermissionGate
             requireCamera={selectedMode === "live_video"}
-            requireMicrophone={true}
+            requireMicrophone={selectedMode === "live_video"}
             requireLocation={false}
             requireScreenShare={false}
             userIsAuthenticated={Boolean(user)}
             userEmailVerified={true}
+            onSwitchToTextMode={() => setSelectedMode("text_mcq")}
             onReadyToStart={handlePermissionsVerified}
             onCancel={() => setStage("CONFIGURE")}
           />

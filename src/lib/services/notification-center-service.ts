@@ -1,5 +1,7 @@
 import { MockStorageProvider } from '../supabase/mock-storage';
 import { providerFactory } from '../notifications/providers/provider-factory';
+import { getSupabaseAdminClient } from '../supabase/admin';
+import { isSupabaseConfigured } from '../supabase/config';
 import type {
   NotificationRecord,
   NotificationRecipientRecord,
@@ -174,7 +176,7 @@ export class NotificationCenterService {
     }
 
     // 5. Create authoritative Notification Record
-    const notificationId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const notificationId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `notif_${Date.now()}`;
     const now = new Date().toISOString();
 
     const isScheduled = Boolean(payload.scheduled_at && !payload.sendNow);
@@ -213,23 +215,76 @@ export class NotificationCenterService {
 
     // 6. Create Recipient Delivery Jobs (Immutable Snapshot)
     const recipientJobs: NotificationRecipientRecord[] = [];
+    const supabaseRecipientJobs: any[] = [];
+
     for (const user of deduplicatedUsers) {
       for (const ch of channels) {
+        const jobId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
         const idempotencyKey = `${notificationId}_${user.id}_${ch}`;
+        const deliveryStatus = isDraft ? 'PENDING' : isScheduled ? 'PENDING' : 'DELIVERED';
+        const deliveredAt = !isDraft && !isScheduled ? now : undefined;
+
         recipientJobs.push({
-          id: `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          id: jobId,
           notification_id: notificationId,
           user_id: user.id,
           recipient_email: user.email,
-          delivery_status: isDraft ? 'PENDING' : isScheduled ? 'PENDING' : 'DELIVERED',
+          delivery_status: deliveryStatus,
           channel: ch,
           idempotency_key: idempotencyKey,
-          delivered_at: !isDraft && !isScheduled ? now : undefined,
+          delivered_at: deliveredAt,
+        });
+
+        supabaseRecipientJobs.push({
+          id: jobId,
+          notification_id: notificationId,
+          user_id: user.id,
+          delivery_status: deliveryStatus,
+          channel: ch,
+          idempotency_key: idempotencyKey,
+          delivered_at: deliveredAt,
         });
       }
     }
 
     MockStorageProvider.saveNotificationRecipientsBatch(recipientJobs);
+
+    // Persist to Supabase if configured
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabaseAdminClient();
+      if (supabase) {
+        try {
+          await supabase.from('notifications').insert({
+            id: notificationId,
+            created_by: actor.id,
+            type: payload.type || payload.category,
+            category: payload.category,
+            title: payload.title.trim(),
+            subtitle: payload.subtitle?.trim(),
+            body: payload.body.trim(),
+            logo_url: payload.logo_url || '/brand/saarvi-mark.png',
+            image_url: payload.image_url,
+            cta_text: payload.cta_text?.trim(),
+            cta_url: payload.cta_url?.trim(),
+            priority: payload.priority || 'NORMAL',
+            status: initialStatus,
+            audience_type: payload.audience_type,
+            audience_definition: payload.audience_definition || {},
+            channels,
+            created_at: now,
+            scheduled_at: isScheduled ? payload.scheduled_at : undefined,
+            sent_at: !isDraft && !isScheduled ? now : undefined,
+            expires_at: payload.expires_at,
+          });
+
+          if (supabaseRecipientJobs.length > 0) {
+            await supabase.from('notification_recipients').insert(supabaseRecipientJobs);
+          }
+        } catch (dbErr) {
+          console.warn('[NotificationCenterService] Supabase insert warning:', dbErr);
+        }
+      }
+    }
 
     // 7. Audit Log
     MockStorageProvider.addNotificationAuditLog({
@@ -305,7 +360,7 @@ export class NotificationCenterService {
    * Generates responsive, accessible, branded Saarvi HTML email
    */
   public static renderEmailHtml(notification: NotificationRecord, recipientName?: string): string {
-    const primaryLink = notification.cta_url || 'https://saarvi-beta.vercel.app';
+    const primaryLink = notification.cta_url || 'https://saarvi.app';
     const ctaText = notification.cta_text || 'Open Saarvi';
 
     return `<!DOCTYPE html>
@@ -347,7 +402,7 @@ export class NotificationCenterService {
     <div class="footer">
       <strong>Saarvi — Study. Work. Grow.</strong><br>
       Private by design. Fast by design. Simple by design.<br>
-      <a href="https://saarvi-beta.vercel.app/student/settings/notifications">Notification Preferences</a> &bull; <a href="https://saarvi-beta.vercel.app/privacy">Privacy Policy</a>
+      <a href="https://saarvi.app/dashboard/settings">Notification Preferences</a> &bull; <a href="https://saarvi.app/privacy">Privacy Policy</a>
     </div>
   </div>
 </body>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { analyticsStore, AnalyticsEventType } from '@/lib/analytics/analytics-store';
 import { enforceRateLimit, createRateLimitResponse } from '@/lib/security/rate-limit';
+import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +22,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Valid eventType is required.' }, { status: 400 });
     }
 
+    // Auto-resolve authenticated user from session if not explicitly supplied
+    let resolvedUserId: string | null = userId ? String(userId).slice(0, 60) : null;
+    if (!resolvedUserId) {
+      try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          resolvedUserId = user.id;
+        }
+      } catch {
+        // Visitor is unauthenticated
+      }
+    }
+
     // Sanitize metadata to avoid accepting any large or private data
     const safeMetadata: Record<string, any> = {};
     if (metadata && typeof metadata === 'object') {
@@ -34,7 +49,7 @@ export async function POST(request: Request) {
       eventType: eventType as AnalyticsEventType,
       toolId: toolId ? String(toolId).slice(0, 60) : undefined,
       toolSlug: toolSlug ? String(toolSlug).slice(0, 60) : undefined,
-      userId: userId ? String(userId).slice(0, 60) : null,
+      userId: resolvedUserId,
       metadata: safeMetadata,
     });
 

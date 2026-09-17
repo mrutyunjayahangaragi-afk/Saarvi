@@ -73,7 +73,8 @@ interface PaymentConfigForm {
 }
 
 export default function AdminBillingPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const isSuperAdmin = profile?.role === 'SUPER_ADMIN' || user?.role === 'SUPER_ADMIN';
 
   const [activeTab, setActiveTab] = useState<AdminTab>('REQUESTS');
   const [loading, setLoading] = useState(true);
@@ -170,6 +171,14 @@ export default function AdminBillingPage() {
   // Handle Review Action (Approve / Reject)
   const handleReviewAction = async (action: 'APPROVE' | 'REJECT') => {
     if (!selectedRequest) return;
+    if (!isSuperAdmin) {
+      setFeedbackMsg({ type: 'error', text: 'Forbidden: SuperAdmin authorization required to approve or reject payments.' });
+      return;
+    }
+    if (action === 'REJECT' && (!reviewNotes || !reviewNotes.trim())) {
+      setFeedbackMsg({ type: 'error', text: 'A rejection reason is required to reject a payment request.' });
+      return;
+    }
     setActionLoading(true);
     setFeedbackMsg(null);
 
@@ -586,30 +595,48 @@ export default function AdminBillingPage() {
 
                           <td className="p-3.5 text-right space-x-1.5">
                             {isPending ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedRequest(req);
-                                    setModalMode('APPROVE');
-                                    setReviewNotes('');
-                                  }}
-                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-2xs"
-                                >
-                                  Approve
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedRequest(req);
-                                    setModalMode('REJECT');
-                                    setReviewNotes('');
-                                  }}
-                                  className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition shadow-2xs"
-                                >
-                                  Reject
-                                </button>
-                              </>
+                              isSuperAdmin ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedRequest(req);
+                                      setModalMode('APPROVE');
+                                      setReviewNotes('');
+                                    }}
+                                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer"
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedRequest(req);
+                                      setModalMode('REJECT');
+                                      setReviewNotes('');
+                                    }}
+                                    className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer"
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              ) : (
+                                <div className="inline-flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedRequest(req);
+                                      setModalMode('DETAILS');
+                                    }}
+                                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition"
+                                  >
+                                    View
+                                  </button>
+                                  <span className="text-[10px] text-slate-400 font-semibold italic">
+                                    SuperAdmin required
+                                  </span>
+                                </div>
+                              )
                             ) : (
                               <button
                                 type="button"

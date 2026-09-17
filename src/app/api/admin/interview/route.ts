@@ -50,6 +50,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, question: saved });
     }
 
+    if (action === "import_questions") {
+      const { questions } = body;
+      if (!Array.isArray(questions) || questions.length === 0) {
+        return NextResponse.json(
+          { success: false, error: "Valid questions array is required." },
+          { status: 400 }
+        );
+      }
+
+      let importedCount = 0;
+      for (const q of questions) {
+        if (q.question && (q.role || q.category)) {
+          await interviewService.upsertQuestion({
+            id: q.id || `q_imp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            role: q.role || "Software Engineer",
+            type: (q.type === "behavioral" || q.type === "technical_coding" || q.type === "communication" ? q.type : "mcq") as any,
+            difficulty: q.difficulty || "Medium",
+            company: (["Google", "Microsoft", "Amazon", "Infosys", "TCS", "Wipro", "Accenture"].includes(q.company) ? q.company : "General") as any,
+            topic: q.topic || "Core Engineering",
+            subtopic: q.subtopic || "Placement Preparation",
+            category: q.category || "Technical",
+            question: q.question.trim(),
+            options: Array.isArray(q.options) && q.options.length > 0 ? q.options : ["Option A", "Option B", "Option C", "Option D"],
+            correctAnswer: typeof q.correctAnswer === "number" ? q.correctAnswer : 0,
+            explanation: q.explanation || "Standard interview question assessment rubric.",
+            timeLimitSeconds: q.timeLimitSeconds || 60,
+            exposureCount: 0,
+            sourceName: q.sourceName || "Curated Dataset",
+            sourceType: "Reported interview question",
+            isFree: q.isFree !== false,
+            isPro: true,
+            isActive: true,
+          });
+          importedCount++;
+        }
+      }
+
+      return NextResponse.json({ success: true, count: importedCount });
+    }
+
     if (action === "update_settings") {
       const { settings } = body;
       const updated = interviewService.updateSettings(settings || {});

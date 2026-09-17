@@ -6,12 +6,14 @@
 
 export type UpiAppProvider = "PHONEPE" | "GOOGLE_PAY" | "PAYTM" | "QR_MANUAL" | "OTHER_UPI";
 
+export const DEFAULT_SAARVI_UPI_VPA = process.env.UPI_VPA || "9036745164-3@axl";
+
 export interface CreateUpiIntentOptions {
   provider: UpiAppProvider;
   plan: "monthly" | "yearly";
   amount: number;
   currency?: string; // Default: 'INR'
-  payeeUpiId: string;
+  payeeUpiId?: string; // Default: DEFAULT_SAARVI_UPI_VPA
   payeeName?: string; // Default: 'Saarvi'
   transactionReference: string;
 }
@@ -57,7 +59,7 @@ export function createUpiPaymentIntent(options: CreateUpiIntentOptions): UpiInte
     provider,
     amount,
     currency = "INR",
-    payeeUpiId,
+    payeeUpiId = DEFAULT_SAARVI_UPI_VPA,
     payeeName = "Saarvi",
     transactionReference,
   } = options;
@@ -66,16 +68,17 @@ export function createUpiPaymentIntent(options: CreateUpiIntentOptions): UpiInte
     throw new Error("Payment amount must be greater than zero.");
   }
 
-  if (!isValidUpiId(payeeUpiId)) {
+  const effectivePayeeUpiId = payeeUpiId.trim();
+  if (!isValidUpiId(effectivePayeeUpiId)) {
     throw new Error(`Invalid payee UPI ID format: "${payeeUpiId}".`);
   }
 
   // Common URL-encoded query parameters according to NPCI UPI specifications
   const params = new URLSearchParams({
-    pa: payeeUpiId.trim(),
+    pa: effectivePayeeUpiId,
     pn: payeeName.trim(),
     am: amount.toFixed(2),
-    cu: currency.toUpperCase(),
+    cu: (options.currency || "INR").toUpperCase(),
     tn: transactionReference.trim(),
   });
 

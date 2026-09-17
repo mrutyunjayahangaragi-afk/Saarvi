@@ -36,6 +36,7 @@ interface InterviewPermissionGateProps {
   userEmailVerified?: boolean;
   userIsAuthenticated?: boolean;
   centerName?: string;
+  onSwitchToTextMode?: () => void;
   onReadyToStart: (config: {
     privacyMode: CandidatePrivacyMode;
     permissionState: InterviewPermissionState;
@@ -56,6 +57,7 @@ export default function InterviewPermissionGate({
   userEmailVerified = true,
   userIsAuthenticated = true,
   centerName,
+  onSwitchToTextMode,
   onReadyToStart,
   onCancel,
 }: InterviewPermissionGateProps) {
@@ -82,6 +84,7 @@ export default function InterviewPermissionGate({
   const [isCheckingMic, setIsCheckingMic] = useState(false);
   const [isCheckingLocation, setIsCheckingLocation] = useState(false);
   const [isCheckingScreen, setIsCheckingScreen] = useState(false);
+  const [isSimulatedMode, setIsSimulatedMode] = useState(false);
   const [locationCoordinates, setLocationCoordinates] = useState<{
     latitude: number;
     longitude: number;
@@ -92,6 +95,42 @@ export default function InterviewPermissionGate({
   const [privacyMode, setPrivacyMode] = useState<CandidatePrivacyMode>("FULL_VIDEO");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Enable simulated practice hardware (for devices without camera/mic or restricted browser permissions)
+  const handleEnableSimulatedHardware = useCallback(() => {
+    setIsSimulatedMode(true);
+    setErrorMessage(null);
+
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 640;
+      canvas.height = 480;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "#0f172a";
+        ctx.fillRect(0, 0, 640, 480);
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "bold 22px -apple-system, BlinkMacSystemFont, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Saarvi Candidate Video Feed", 320, 220);
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "14px -apple-system, BlinkMacSystemFont, sans-serif";
+        ctx.fillText("Simulated Practice Media Active", 320, 260);
+      }
+      const stream = (canvas as any).captureStream ? (canvas as any).captureStream(15) : null;
+      if (stream && videoPreviewRef.current) {
+        cameraStreamRef.current = stream;
+        videoPreviewRef.current.srcObject = stream;
+      }
+    } catch {}
+
+    setMicLevel(68);
+    setPermissions((prev) => ({
+      ...prev,
+      camera: "granted",
+      microphone: "granted",
+    }));
+  }, []);
 
   // Check browser API compatibility on mount
   useEffect(() => {
@@ -273,25 +312,24 @@ export default function InterviewPermissionGate({
     }
   }, [requireScreenShare]);
 
-  // Initial trigger for checks on mount
-  useEffect(() => {
-    if (permissions.browserSupported) {
-      if (requireCamera && permissions.camera === "requested") verifyCamera();
-      if (requireMicrophone && permissions.microphone === "requested") verifyMicrophone();
-      if (requireLocation && permissions.location === "requested") verifyLocation();
-      if (requireScreenShare && permissions.screen === "requested") verifyScreenShare();
+  // User-gesture triggered verification
+  const [hasInitiatedCheck, setHasInitiatedCheck] = useState(false);
+
+  const handleEnableHardware = async () => {
+    setHasInitiatedCheck(true);
+    if (requireCamera && permissions.camera !== "granted") {
+      await verifyCamera();
     }
-  }, [
-    permissions.browserSupported,
-    requireCamera,
-    requireMicrophone,
-    requireLocation,
-    requireScreenShare,
-    verifyCamera,
-    verifyMicrophone,
-    verifyLocation,
-    verifyScreenShare,
-  ]);
+    if (requireMicrophone && permissions.microphone !== "granted") {
+      await verifyMicrophone();
+    }
+    if (requireLocation && permissions.location !== "granted") {
+      await verifyLocation();
+    }
+    if (requireScreenShare && permissions.screen !== "granted") {
+      await verifyScreenShare();
+    }
+  };
 
   // Check if all required prerequisites are satisfied
   const cameraOk = !requireCamera || permissions.camera === "granted";
@@ -361,13 +399,69 @@ export default function InterviewPermissionGate({
         </span>
       </div>
 
+      {/* Pre-Check Explanation Banner (User Gesture Prompt) */}
+      {!hasInitiatedCheck && (permissions.camera !== "granted" || permissions.microphone !== "granted") && (
+        <div className="p-5 rounded-2xl bg-blue-50/80 border border-blue-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
+          <div className="space-y-1">
+            <h4 className="font-bold text-blue-950 text-sm flex items-center gap-1.5">
+              <Camera className="w-4 h-4 text-blue-600" />
+              <span>Camera & Microphone Verification</span>
+            </h4>
+            <p className="text-blue-800 leading-relaxed max-w-xl">
+              Saarvi Mock Interview analyzes your spoken delivery, pacing, and visual presence in real-time. Media streams are processed strictly for this session and never saved on the server.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleEnableHardware}
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold rounded-xl shadow-xs transition-colors shrink-0 cursor-pointer"
+          >
+            Enable Camera & Mic
+          </button>
+        </div>
+      )}
+
       {/* Error alert if any permission is denied */}
       {errorMessage && (
-        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 flex items-start gap-3 text-xs text-red-700">
-          <ShieldAlert className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-          <div className="flex-1 space-y-1">
-            <p className="font-semibold text-red-900">Permission Action Required</p>
-            <p className="leading-relaxed">{errorMessage}</p>
+        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 space-y-3 text-xs text-red-700">
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1 space-y-1">
+              <p className="font-semibold text-red-900">Permission Action Required</p>
+              <p className="leading-relaxed">{errorMessage}</p>
+            </div>
+          </div>
+
+          {/* Step-by-step browser unblock guide */}
+          <div className="p-3 bg-white rounded-xl border border-red-200/80 text-slate-700 space-y-1.5 text-[11px]">
+            <span className="font-bold text-slate-900 block">How to unblock in your browser:</span>
+            <ol className="list-decimal list-inside space-y-1 text-slate-600">
+              <li>Click the <strong>Lock / Tune icon</strong> in your browser&apos;s address bar.</li>
+              <li>Toggle <strong>Camera</strong> and <strong>Microphone</strong> permissions to <strong>Allow</strong>.</li>
+              <li>Click <strong>&quot;Try Again&quot;</strong> below or refresh the page.</li>
+            </ol>
+          </div>
+
+          {/* Practice & Simulation Quick Actions */}
+          <div className="pt-2 border-t border-red-200/80 flex flex-wrap items-center gap-2.5">
+            {onSwitchToTextMode && (
+              <button
+                type="button"
+                onClick={onSwitchToTextMode}
+                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              >
+                <span>Switch to Text MCQ Mode (No Hardware Needed)</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleEnableSimulatedHardware}
+              className="px-3.5 py-2 bg-white hover:bg-slate-100 active:bg-slate-200 border border-slate-300 text-slate-800 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Enable Simulated Practice Mode (For Restricted Devices)</span>
+            </button>
           </div>
         </div>
       )}
@@ -423,19 +517,30 @@ export default function InterviewPermissionGate({
             </div>
 
             {permissions.camera !== "granted" && (
-              <button
-                type="button"
-                onClick={verifyCamera}
-                disabled={isCheckingCamera}
-                className="w-full min-h-[38px] px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
-              >
-                {isCheckingCamera ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-3.5 h-3.5" />
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={verifyCamera}
+                  disabled={isCheckingCamera}
+                  className="w-full min-h-[38px] px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                >
+                  {isCheckingCamera ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  )}
+                  <span>Try Camera Again</span>
+                </button>
+                {permissions.camera === "denied" && (
+                  <button
+                    type="button"
+                    onClick={handleEnableSimulatedHardware}
+                    className="w-full px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold rounded-xl transition-colors cursor-pointer"
+                  >
+                    Use Simulated Camera for Practice
+                  </button>
                 )}
-                <span>Try Camera Again</span>
-              </button>
+              </div>
             )}
           </div>
         )}
@@ -486,19 +591,30 @@ export default function InterviewPermissionGate({
             </div>
 
             {permissions.microphone !== "granted" && (
-              <button
-                type="button"
-                onClick={verifyMicrophone}
-                disabled={isCheckingMic}
-                className="w-full min-h-[38px] mt-3 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
-              >
-                {isCheckingMic ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-3.5 h-3.5" />
+              <div className="space-y-2 mt-3">
+                <button
+                  type="button"
+                  onClick={verifyMicrophone}
+                  disabled={isCheckingMic}
+                  className="w-full min-h-[38px] px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                >
+                  {isCheckingMic ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  )}
+                  <span>Try Microphone Again</span>
+                </button>
+                {permissions.microphone === "denied" && (
+                  <button
+                    type="button"
+                    onClick={handleEnableSimulatedHardware}
+                    className="w-full px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold rounded-xl transition-colors cursor-pointer"
+                  >
+                    Use Simulated Audio for Practice
+                  </button>
                 )}
-                <span>Try Microphone Again</span>
-              </button>
+              </div>
             )}
           </div>
         )}

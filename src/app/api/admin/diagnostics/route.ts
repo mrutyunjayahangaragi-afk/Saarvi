@@ -5,6 +5,7 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { transactionalEmailProvider } from '@/lib/notifications/providers/email-provider';
 import { authEmailLogger } from '@/lib/observability/auth-email-logger';
+import { checkGeminiHealth } from '@/lib/ai/gemini';
 import { SystemHealthCheck } from '@/types/admin';
 
 export const dynamic = 'force-dynamic';
@@ -181,15 +182,16 @@ export async function GET(request: Request) {
   }
 
   // 5. Saarvi AI Engine Probe (Gemini API)
-  const aiStart = performance.now();
-  const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+  const geminiHealth = await checkGeminiHealth(3000);
   probes.push({
     id: 'ai-engine',
     name: 'Saarvi AI 2.0 Engine (Gemini)',
-    status: hasGeminiKey ? 'HEALTHY' : 'WARNING',
-    latencyMs: Math.round(performance.now() - aiStart),
-    message: hasGeminiKey
-      ? 'Gemini Generative AI configured. Tool discovery & assistant routes active.'
+    status: geminiHealth.configured ? (geminiHealth.status === 'connected' ? 'HEALTHY' : 'WARNING') : 'WARNING',
+    latencyMs: geminiHealth.latencyMs,
+    message: geminiHealth.configured
+      ? (geminiHealth.status === 'connected'
+          ? `Saarvi AI 2.0 Gemini Connected (${geminiHealth.latencyMs}ms). Tool discovery & assistant routes active.`
+          : `Saarvi AI 2.0 (${geminiHealth.message})`)
       : 'GEMINI_API_KEY not set. Offline deterministic tool discovery active.',
     lastChecked: now,
   });

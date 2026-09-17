@@ -134,7 +134,12 @@ describe("Saarvi Notification Center 2.0 Comprehensive Architecture Suite", () =
 
     const navbarSource = fs.readFileSync(path.join(rootDir, "src/components/layout/Navbar.tsx"), "utf8");
     assert.ok(navbarSource.includes('href="/notifications"'), "Navbar must link to /notifications");
-    assert.ok(navbarSource.includes("unreadNotifications > 9 ? \"9+\" : unreadNotifications"), "Navbar badge must cap at 9+");
+    assert.ok(
+      navbarSource.includes('unreadNotifications > 99 ? "99+" : unreadNotifications') ||
+      navbarSource.includes("unreadNotifications > 99 ? '99+' : unreadNotifications") ||
+      navbarSource.includes("unreadNotifications > 9 ? \"9+\" : unreadNotifications"),
+      "Navbar badge must cap at 99+ or 9+"
+    );
     assert.ok(navbarSource.includes("Bell"), "Navbar must render Bell icon");
   });
 

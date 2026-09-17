@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import { SaarviMark } from "@/components/brand/SaarviLogo";
 import { ArrowLeft, Home, Wrench, GraduationCap, LayoutDashboard } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -20,8 +21,11 @@ export default function NotFound() {
 
       <main className="flex-1 flex items-center justify-center px-4 py-16 sm:py-24">
         <div className="max-w-lg w-full text-center space-y-6">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-blue-50 text-blue-600 font-extrabold text-3xl ring-8 ring-blue-50/50 shadow-sm">
-            404
+          <div className="flex flex-col items-center justify-center gap-3">
+            <SaarviMark size={48} />
+            <div className="inline-flex items-center justify-center px-4 py-1.5 rounded-2xl bg-blue-50 text-blue-600 font-extrabold text-2xl ring-4 ring-blue-50/50 shadow-xs">
+              404
+            </div>
           </div>
 
           <div className="space-y-2">

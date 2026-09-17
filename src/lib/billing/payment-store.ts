@@ -68,7 +68,7 @@ export interface CreatePaymentRequestParams {
 
 const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
   manualUpiEnabled: true,
-  upiId: "saarvi@okhdfcbank",
+  upiId: process.env.UPI_VPA || "9036745164-3@axl",
   qrImageUrl: null,
   monthlyPrice: 99,
   yearlyPrice: 899,

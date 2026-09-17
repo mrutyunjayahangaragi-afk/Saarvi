@@ -73,11 +73,11 @@ export async function PUT(
   }
 
   try {
-    const authResult = await getAuthenticatedAdmin(request, 'MANAGE');
+    const authResult = await getAuthenticatedAdmin(request, 'SUPER_ADMIN');
     if (!authResult.success) {
       return NextResponse.json(
-        { success: false, error: authResult.error },
-        { status: authResult.status }
+        { success: false, error: 'Forbidden: SuperAdmin privileges are strictly required to approve or reject payments.' },
+        { status: 403 }
       );
     }
 

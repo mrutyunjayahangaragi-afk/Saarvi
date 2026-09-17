@@ -313,9 +313,12 @@ https://saarvi.app`;
             <td style="padding: 28px 32px 20px 32px; border-bottom: 1px solid #f1f5f9;">
               <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td>
+                  <td style="vertical-align: middle; padding-right: 12px; width: 40px;">
+                    <img src="https://saarvi.app/brand/saarvi-mark.png" alt="Saarvi — Study. Work. Grow." width="36" height="36" style="display: block; border: 0; border-radius: 8px;" />
+                  </td>
+                  <td style="vertical-align: middle;">
                     <span style="font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: #0f172a;">SAARVI</span>
-                    <div style="font-size: 11px; font-weight: 500; color: #64748b; margin-top: 2px;">Study. Work. Grow.</div>
+                    <div style="font-size: 11px; font-weight: 500; color: #2563eb; margin-top: 2px;">Study. Work. Grow.</div>
                   </td>
                 </tr>
               </table>
@@ -370,6 +373,7 @@ https://saarvi.app`;
 
   /**
    * Sends a registration success welcome email after user verification.
+   * Strictly adheres to Saarvi Production Welcome Email specification.
    */
   public async sendRegistrationSuccessEmail({
     to,
@@ -380,22 +384,42 @@ https://saarvi.app`;
     fullName?: string;
     idempotencyKey?: string;
   }): Promise<DeliveryResult> {
-    const displayName = fullName ? fullName.trim() : "Student";
-    const subject = "Welcome to Saarvi — Study. Work. Grow.";
-    const text = `Hi ${displayName},
+    const rawName = fullName?.trim() || to.split('@')[0] || 'there';
+    // Safe HTML escaping
+    const safeDisplayName = rawName
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
 
-Welcome to Saarvi! Your account has been verified and is ready.
+    const subject = "Welcome to Saarvi — Your account is ready!";
+    const text = `Welcome to Saarvi!
 
-Saarvi is built private by design, fast by design, and simple by design:
-- Academic Tracker: VTU / engineering semester GPA calculations, CIE & SEE forecasting, and attendance recovery.
-- Resume Builder 2.0: Single-column ATS Classic LaTeX format, live A4 preview, clickable PDF links, and job description matcher.
-- Mock Interview 2.0: MCQ and live video proctored practice with real company questions.
-- Saarvi Copilot: Your private, local-first academic and career companion.
+Hi ${rawName},
 
-Get started now at: https://saarvi.app/student/dashboard
+Your Saarvi account has been successfully created.
+Welcome to Saarvi — Study. Work. Grow.
 
-Saarvi — Private by design • Fast by design • Simple by design
-https://saarvi.app`;
+Saarvi brings useful tools for study, productivity, documents, career preparation and professional growth together in one place.
+
+What you can do with Saarvi:
+- Document & Image Tools: Convert, organize and work with supported files.
+- Student Tools: Academic and productivity tools for everyday study.
+- Career Tools: Resume, ATS, interview and career preparation tools.
+- Mock Interviews: Practice interview questions and improve your preparation.
+
+Open Saarvi: https://saarvi.app
+
+Privacy by Design:
+Saarvi is designed with privacy in mind. Supported tools process files locally in the browser whenever practical, without unnecessary uploads or automatic cloud synchronization.
+
+Saarvi
+Study. Work. Grow.
+support@saarvi.app
+https://saarvi.app
+
+© 2026 Saarvi. All rights reserved.`;
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -405,73 +429,106 @@ https://saarvi.app`;
   <title>Welcome to Saarvi</title>
 </head>
 <body style="margin: 0; padding: 32px 16px; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; line-height: 1.6;">
+  <div style="display: none; font-size: 1px; color: #f8fafc; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
+    You successfully registered with Saarvi. Study. Work. Grow.
+  </div>
   <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" style="max-width: 520px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.04);" border="0" cellspacing="0" cellpadding="0">
+        <table role="presentation" width="100%" style="max-width: 560px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.03);" border="0" cellspacing="0" cellpadding="0">
           <!-- Header -->
           <tr>
-            <td style="padding: 28px 32px 20px 32px; border-bottom: 1px solid #f1f5f9; background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);">
-              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
+            <td style="padding: 28px 32px; border-bottom: 1px solid #f1f5f9; background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);">
+              <table role="presentation" border="0" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td>
-                    <span style="font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #0f172a;">SAARVI</span>
+                  <td style="vertical-align: middle; padding-right: 14px;">
+                    <img src="https://saarvi.app/brand/saarvi-mark.png" alt="Saarvi — Study. Work. Grow." width="44" height="44" style="display: block; border: 0; border-radius: 10px;" />
+                  </td>
+                  <td style="vertical-align: middle;">
+                    <div style="font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #0f172a; line-height: 1.1;">Saarvi</div>
                     <div style="font-size: 12px; font-weight: 600; color: #2563eb; margin-top: 2px;">Study. Work. Grow.</div>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
-          <!-- Body Content -->
+          <!-- Main Content -->
           <tr>
-            <td style="padding: 32px;">
-              <h1 style="margin: 0 0 14px 0; font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.3;">
-                Welcome aboard, ${displayName}!
+            <td style="padding: 36px 32px 28px 32px;">
+              <h1 style="margin: 0 0 16px 0; font-size: 22px; font-weight: 700; color: #0f172a; line-height: 1.25;">
+                Welcome to Saarvi!
               </h1>
-              <p style="margin: 0 0 16px 0; font-size: 14px; color: #475569; line-height: 1.6;">
-                Your account is confirmed and ready. Saarvi is your private-by-design workspace engineered to accelerate your studies and career journey without compromise.
+              <p style="margin: 0 0 16px 0; font-size: 15px; color: #334155; font-weight: 500;">
+                Hi ${safeDisplayName},
+              </p>
+              <p style="margin: 0 0 14px 0; font-size: 14px; color: #475569; line-height: 1.6;">
+                Your Saarvi account has been successfully created.
+              </p>
+              <p style="margin: 0 0 20px 0; font-size: 14px; color: #475569; line-height: 1.6;">
+                <strong>Welcome to Saarvi — Study. Work. Grow.</strong><br>
+                Saarvi brings useful tools for study, productivity, documents, career preparation and professional growth together in one place.
               </p>
 
-              <!-- Highlights list -->
+              <!-- Feature Section -->
               <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 24px 0;">
-                <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
-                  What you can do right now:
-                </div>
-                <div style="font-size: 13px; color: #334155; margin-bottom: 10px; line-height: 1.5;">
-                  🎓 <strong>Academic Tracker:</strong> Verified VTU / engineering SGPA/CGPA calculations, CIE & SEE forecasting, and attendance recovery plans.
-                </div>
-                <div style="font-size: 13px; color: #334155; margin-bottom: 10px; line-height: 1.5;">
-                  📄 <strong>Resume Builder 2.0:</strong> Single-column ATS Classic LaTeX format, live preview, clickable links, and job description matcher.
-                </div>
-                <div style="font-size: 13px; color: #334155; margin-bottom: 10px; line-height: 1.5;">
-                  🎙️ <strong>Mock Interview 2.0:</strong> Proctored MCQ tests and live WebRTC video simulations with real company questions.
-                </div>
-                <div style="font-size: 13px; color: #334155; line-height: 1.5;">
-                  🤖 <strong>Saarvi Copilot:</strong> Grounded academic guidance, local-first notes, and zero personal data leakage.
-                </div>
+                <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td style="padding-bottom: 12px;">
+                      <div style="font-size: 13px; font-weight: 700; color: #0f172a;">📄 Document &amp; Image Tools</div>
+                      <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Convert, organize and work with supported files.</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding-bottom: 12px;">
+                      <div style="font-size: 13px; font-weight: 700; color: #0f172a;">🎓 Student Tools</div>
+                      <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Academic and productivity tools for everyday study.</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding-bottom: 12px;">
+                      <div style="font-size: 13px; font-weight: 700; color: #0f172a;">💼 Career Tools</div>
+                      <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Resume, ATS, interview and career preparation tools.</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div style="font-size: 13px; font-weight: 700; color: #0f172a;">🎙️ Mock Interviews</div>
+                      <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Practice interview questions and improve your preparation.</div>
+                    </td>
+                  </tr>
+                </table>
               </div>
 
-              <!-- CTA Button -->
-              <div style="text-align: center; margin: 30px 0 20px 0;">
-                <a href="https://saarvi.app/student/dashboard" style="background-color: #2563eb; color: #ffffff; padding: 14px 32px; border-radius: 10px; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-block; box-shadow: 0 2px 4px rgba(37,99,235,0.2);">
-                  Open Student Dashboard &rarr;
+              <!-- Primary CTA -->
+              <div style="text-align: center; margin: 32px 0 24px 0;">
+                <a href="https://saarvi.app" style="background-color: #2563eb; color: #ffffff; padding: 14px 36px; border-radius: 10px; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-block; box-shadow: 0 2px 6px rgba(37,99,235,0.25);">
+                  Open Saarvi &rarr;
                 </a>
               </div>
 
-              <p style="margin: 24px 0 0 0; font-size: 12px; color: #94a3b8; text-align: center;">
-                Zero telemetry on documents. All confidential workspace data remains local to your device.
-              </p>
+              <!-- Privacy Section -->
+              <div style="margin-top: 28px; padding-top: 20px; border-top: 1px solid #f1f5f9;">
+                <div style="font-size: 12px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">
+                  🔒 Privacy by Design
+                </div>
+                <div style="font-size: 12px; color: #64748b; line-height: 1.5;">
+                  Saarvi is designed with privacy in mind. Supported tools process files locally in the browser whenever practical, without unnecessary uploads or automatic cloud synchronization.
+                </div>
+              </div>
             </td>
           </tr>
           <!-- Footer -->
           <tr>
-            <td style="padding: 20px 32px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center;">
-              <p style="margin: 0; font-size: 12px; color: #64748b;">
-                <a href="https://saarvi.app" style="color: #2563eb; text-decoration: none; font-weight: 600;">Saarvi</a> &mdash; Private by design &bull; Fast by design &bull; Simple by design
-              </p>
-              <p style="margin: 4px 0 0 0; font-size: 11px; color: #94a3b8;">
-                https://saarvi.app
-              </p>
+            <td style="padding: 24px 32px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center;">
+              <div style="font-size: 12px; font-weight: 700; color: #0f172a;">Saarvi</div>
+              <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Study. Work. Grow.</div>
+              <div style="margin: 10px 0; font-size: 11px; color: #64748b;">
+                <a href="mailto:support@saarvi.app" style="color: #2563eb; text-decoration: none;">support@saarvi.app</a> &bull; 
+                <a href="https://saarvi.app" style="color: #2563eb; text-decoration: none;">https://saarvi.app</a>
+              </div>
+              <div style="font-size: 11px; color: #94a3b8;">
+                &copy; 2026 Saarvi. All rights reserved.
+              </div>
             </td>
           </tr>
         </table>
