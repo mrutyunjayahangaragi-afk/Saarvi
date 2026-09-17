@@ -51,6 +51,7 @@ export interface AuthSessionUser {
   id: string;
   email: string;
   fullName: string;
+  avatarUrl?: string;
   role: UserRole;
   status?: UserAccountStatus;
   createdAt: string;

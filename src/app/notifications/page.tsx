@@ -301,13 +301,23 @@ export default function NotificationCenterPage() {
                     {/* Saarvi Brand Logo / Category Icon */}
                     <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200/90 flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
                       {item.logo_url ? (
-                        <Image
-                          src={item.logo_url}
+                        <img
+                          src={
+                            item.logo_url.includes('brand/saarvi') || item.logo_url.includes('saarvi-mark')
+                              ? '/brand/saarvi-mark.png'
+                              : item.logo_url
+                          }
                           alt="Saarvi"
                           width={24}
                           height={24}
                           className="object-contain"
-                          unoptimized
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                            const parent = (e.target as HTMLElement).parentElement;
+                            if (parent) {
+                              parent.innerHTML = '<span class="text-blue-600 font-bold text-xs">S</span>';
+                            }
+                          }}
                         />
                       ) : (
                         getCategoryIcon(item.category)
@@ -354,13 +364,18 @@ export default function NotificationCenterPage() {
                       {/* Optional Image */}
                       {item.image_url && (
                         <div className="mt-3 rounded-xl overflow-hidden border border-slate-200 max-w-md">
-                          <Image
-                            src={item.image_url}
+                          <img
+                            src={
+                              item.image_url.includes('brand/saarvi')
+                                ? '/brand/saarvi-mark.png'
+                                : item.image_url
+                            }
                             alt={item.title}
-                            width={500}
-                            height={250}
-                            className="w-full h-auto object-cover"
-                            unoptimized
+                            className="w-full h-auto object-cover max-h-72"
+                            onError={(e) => {
+                              const parent = (e.target as HTMLElement).parentElement;
+                              if (parent) parent.style.display = 'none';
+                            }}
                           />
                         </div>
                       )}

@@ -70,6 +70,12 @@ export default function DashboardLayoutClient({ children }: DashboardLayoutProps
     .join("")
     .toUpperCase() || "U";
 
+  const userAvatar =
+    profile?.avatarUrl ||
+    user.avatarUrl ||
+    (user as any)?.user_metadata?.avatar_url ||
+    null;
+
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc]">
       <Navbar />
@@ -81,7 +87,23 @@ export default function DashboardLayoutClient({ children }: DashboardLayoutProps
           {/* Top Bar: User Welcome + Initials Badge + Logout */}
           <div className="pt-6 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+              {userAvatar ? (
+                <img
+                  src={userAvatar}
+                  alt={displayName}
+                  className="w-11 h-11 rounded-2xl object-cover shadow-xs shrink-0 border border-slate-200"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = "none";
+                    const fallback = (e.target as HTMLElement).nextElementSibling as HTMLElement;
+                    if (fallback) fallback.style.display = "flex";
+                  }}
+                />
+              ) : null}
+              <div
+                className={`w-11 h-11 rounded-2xl bg-blue-600 text-white items-center justify-center font-bold text-sm shadow-xs shrink-0 ${
+                  userAvatar ? "hidden" : "flex"
+                }`}
+              >
                 {initials}
               </div>
               <div>
@@ -89,8 +111,14 @@ export default function DashboardLayoutClient({ children }: DashboardLayoutProps
                   <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
                     {displayName}
                   </h1>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase tracking-wider">
-                    Free Plan
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                      (profile as any)?.plan === "PRO"
+                        ? "bg-purple-50 text-purple-700 border-purple-200"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    }`}
+                  >
+                    {(profile as any)?.plan === "PRO" ? "Pro Plan" : "Free Plan"}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 font-medium">{user.email}</p>

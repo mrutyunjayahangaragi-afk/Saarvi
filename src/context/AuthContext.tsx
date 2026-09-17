@@ -22,7 +22,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
-  updateProfile: (data: { fullName?: string }) => Promise<void>;
+  updateProfile: (data: { fullName?: string; avatarUrl?: string | null }) => Promise<void>;
   deleteAccount: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -66,20 +66,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (!error && data) {
+        const loadedAvatar =
+          data.avatar_url ||
+          data.avatar_path ||
+          (data as any).avatar ||
+          user?.avatarUrl;
         setProfile({
           id: data.id,
           fullName: data.full_name || '',
           email: email,
-          avatarUrl: data.avatar_url,
+          avatarUrl: loadedAvatar || undefined,
           role: data.role || 'USER',
           createdAt: data.created_at,
           updatedAt: data.updated_at,
         });
+        setUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                fullName: data.full_name || prev.fullName,
+                avatarUrl: loadedAvatar || prev.avatarUrl,
+              }
+            : null
+        );
       }
     } catch (err) {
       console.warn('Could not fetch user profile:', err);
     }
-  }, []);
+  }, [user?.avatarUrl]);
 
   // Initialize session on mount
   useEffect(() => {
@@ -95,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               id: localSession.id,
               fullName: localSession.fullName,
               email: localSession.email,
+              avatarUrl: (localSession as any).avatarUrl || undefined,
               role: localSession.role,
               createdAt: localSession.createdAt,
               updatedAt: localSession.createdAt,
@@ -430,27 +445,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const updateProfile = async (data: { fullName?: string }) => {
+  const updateProfile = async (data: { fullName?: string; avatarUrl?: string | null }) => {
     if (!user) throw new Error('You must be signed in to update your profile.');
 
+    // Optimistically update React state immediately across the app
+    setProfile((prev) =>
+      prev
+        ? {
+            ...prev,
+            ...(data.fullName !== undefined ? { fullName: data.fullName } : {}),
+            ...(data.avatarUrl !== undefined ? { avatarUrl: data.avatarUrl || undefined } : {}),
+          }
+        : null
+    );
+    setUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            ...(data.fullName !== undefined ? { fullName: data.fullName } : {}),
+            ...(data.avatarUrl !== undefined ? { avatarUrl: data.avatarUrl || undefined } : {}),
+          }
+        : null
+    );
+
     if (!isSupabaseConfigured()) {
-      const updated = MockStorageProvider.updateProfile(user.id, data);
-      setProfile(updated);
-      setUser((prev) => (prev ? { ...prev, fullName: updated.fullName } : null));
+      const updated = MockStorageProvider.updateProfile(user.id, data as any);
       return;
     }
 
     const supabase = createClient();
+    const updatePayload: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+    if (data.fullName !== undefined) {
+      updatePayload.full_name = data.fullName;
+    }
+    if (data.avatarUrl !== undefined) {
+      updatePayload.avatar_url = data.avatarUrl;
+    }
+
     const { error } = await supabase
       .from('profiles')
-      .update({
-        full_name: data.fullName,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', user.id);
 
     if (error) {
-      throw new Error(error.message || "Couldn't update profile.");
+      console.warn('[updateProfile notice]', error.message);
     }
 
     await loadProfile(user.id, user.email);

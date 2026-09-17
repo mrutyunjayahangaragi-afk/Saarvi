@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { DeliveryResult, ReminderEmailMessage } from '@/types/notifications';
@@ -219,12 +221,24 @@ export class GmailSmtpEmailProvider implements NotificationEmailProvider {
     // 4. Dispatch Email via Transporter
     try {
       const transporter = this.getTransporter();
-      const mailOptions = {
+      const logoPath = path.join(process.cwd(), 'public/brand/saarvi-mark.png');
+      const attachments = fs.existsSync(logoPath)
+        ? [
+            {
+              filename: 'saarvi-mark.png',
+              path: logoPath,
+              cid: 'saarvi-logo-mark',
+            },
+          ]
+        : [];
+
+      const mailOptions: any = {
         from: this.getFromAddress(), // Enforces fixed configured sender address
         to: cleanTo,
         subject: cleanSubject,
         text: options.text || '',
         html: options.html,
+        attachments,
         headers: options.idempotencyKey
           ? {
               'X-Entity-Ref-ID': options.idempotencyKey,
@@ -264,6 +278,27 @@ export class GmailSmtpEmailProvider implements NotificationEmailProvider {
   }
 
   /**
+   * Resolves the production or deployment base URL for emails.
+   */
+  private getAppBaseUrl(): string {
+    const rawUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://saarvi.app');
+    return rawUrl.replace(/\/+$/, '');
+  }
+
+  /**
+   * Resolves the logo source for emails: inline CID if local image exists, otherwise public URL.
+   */
+  private getLogoSrc(): string {
+    const logoPath = path.join(process.cwd(), 'public/brand/saarvi-mark.png');
+    if (fs.existsSync(logoPath)) {
+      return 'cid:saarvi-logo-mark';
+    }
+    return `${this.getAppBaseUrl()}/brand/saarvi-mark.png`;
+  }
+
+  /**
    * Sends an authentication email verification OTP with professional Saarvi branding.
    * Strictly adheres to Phase 23 guidelines: no marketing fluff, clear 10m expiry, monospace code.
    */
@@ -276,6 +311,8 @@ export class GmailSmtpEmailProvider implements NotificationEmailProvider {
     const { to, fullName, otpCode, expiryMinutes = 10 } = params;
     const cleanName = fullName?.trim() ? ` ${fullName.trim()}` : '';
     const subject = 'Verify your Saarvi account';
+    const appBaseUrl = this.getAppBaseUrl();
+    const logoSrc = this.getLogoSrc();
 
     const text = `SAARVI
 Study. Work. Grow.
@@ -294,7 +331,7 @@ If you did not request a Saarvi account, you can ignore this email.
 
 ------------------------------------------------
 Saarvi
-https://saarvi.app`;
+${appBaseUrl}`;
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -314,7 +351,7 @@ https://saarvi.app`;
               <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
                 <tr>
                   <td style="vertical-align: middle; padding-right: 12px; width: 40px;">
-                    <img src="https://saarvi.app/brand/saarvi-mark.png" alt="Saarvi — Study. Work. Grow." width="36" height="36" style="display: block; border: 0; border-radius: 8px;" />
+                    <img src="${logoSrc}" alt="Saarvi — Study. Work. Grow." width="36" height="36" style="display: block; border: 0; border-radius: 8px;" />
                   </td>
                   <td style="vertical-align: middle;">
                     <span style="font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: #0f172a;">SAARVI</span>
@@ -349,10 +386,10 @@ https://saarvi.app`;
           <tr>
             <td style="padding: 20px 32px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center;">
               <p style="margin: 0; font-size: 12px; color: #64748b;">
-                <a href="https://saarvi.app" style="color: #2563eb; text-decoration: none; font-weight: 600;">Saarvi</a> &mdash; Private by design &bull; Fast by design
+                <a href="${appBaseUrl}" style="color: #2563eb; text-decoration: none; font-weight: 600;">Saarvi</a> &mdash; Private by design &bull; Fast by design
               </p>
               <p style="margin: 4px 0 0 0; font-size: 11px; color: #94a3b8;">
-                https://saarvi.app
+                ${appBaseUrl}
               </p>
             </td>
           </tr>
@@ -393,6 +430,9 @@ https://saarvi.app`;
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
 
+    const appBaseUrl = this.getAppBaseUrl();
+    const logoSrc = this.getLogoSrc();
+
     const subject = "Welcome to Saarvi — Your account is ready!";
     const text = `Welcome to Saarvi!
 
@@ -409,7 +449,7 @@ What you can do with Saarvi:
 - Career Tools: Resume, ATS, interview and career preparation tools.
 - Mock Interviews: Practice interview questions and improve your preparation.
 
-Open Saarvi: https://saarvi.app
+Open Saarvi: ${appBaseUrl}/dashboard
 
 Privacy by Design:
 Saarvi is designed with privacy in mind. Supported tools process files locally in the browser whenever practical, without unnecessary uploads or automatic cloud synchronization.
@@ -417,7 +457,7 @@ Saarvi is designed with privacy in mind. Supported tools process files locally i
 Saarvi
 Study. Work. Grow.
 support@saarvi.app
-https://saarvi.app
+${appBaseUrl}
 
 © 2026 Saarvi. All rights reserved.`;
 
@@ -442,7 +482,7 @@ https://saarvi.app
               <table role="presentation" border="0" cellspacing="0" cellpadding="0">
                 <tr>
                   <td style="vertical-align: middle; padding-right: 14px;">
-                    <img src="https://saarvi.app/brand/saarvi-mark.png" alt="Saarvi — Study. Work. Grow." width="44" height="44" style="display: block; border: 0; border-radius: 10px;" />
+                    <img src="${logoSrc}" alt="Saarvi — Study. Work. Grow." width="44" height="44" style="display: block; border: 0; border-radius: 10px;" />
                   </td>
                   <td style="vertical-align: middle;">
                     <div style="font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #0f172a; line-height: 1.1;">Saarvi</div>
@@ -501,7 +541,7 @@ https://saarvi.app
 
               <!-- Primary CTA -->
               <div style="text-align: center; margin: 32px 0 24px 0;">
-                <a href="https://saarvi.app" style="background-color: #2563eb; color: #ffffff; padding: 14px 36px; border-radius: 10px; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-block; box-shadow: 0 2px 6px rgba(37,99,235,0.25);">
+                <a href="${appBaseUrl}/dashboard" style="background-color: #2563eb; color: #ffffff; padding: 14px 36px; border-radius: 10px; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-block; box-shadow: 0 2px 6px rgba(37,99,235,0.25);">
                   Open Saarvi &rarr;
                 </a>
               </div>
@@ -524,7 +564,7 @@ https://saarvi.app
               <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Study. Work. Grow.</div>
               <div style="margin: 10px 0; font-size: 11px; color: #64748b;">
                 <a href="mailto:support@saarvi.app" style="color: #2563eb; text-decoration: none;">support@saarvi.app</a> &bull; 
-                <a href="https://saarvi.app" style="color: #2563eb; text-decoration: none;">https://saarvi.app</a>
+                <a href="${appBaseUrl}" style="color: #2563eb; text-decoration: none;">${appBaseUrl}</a>
               </div>
               <div style="font-size: 11px; color: #94a3b8;">
                 &copy; 2026 Saarvi. All rights reserved.

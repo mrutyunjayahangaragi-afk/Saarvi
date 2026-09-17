@@ -174,7 +174,7 @@ export class UserOnboardingService {
             title: 'Welcome to Saarvi!',
             subtitle: 'Study. Work. Grow.',
             body: 'Your Saarvi account has been successfully created. Welcome to Saarvi — Study. Work. Grow.',
-            logo_url: 'https://saarvi.app/brand/saarvi-mark.png',
+            logo_url: '/brand/saarvi-mark.png',
             cta_text: 'Explore Tools',
             cta_url: '/dashboard',
             priority: 'NORMAL',

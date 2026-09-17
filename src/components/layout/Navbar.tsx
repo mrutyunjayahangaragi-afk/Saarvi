@@ -44,6 +44,12 @@ export default function Navbar() {
   const [isMac, setIsMac] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
 
+  const userAvatar =
+    profile?.avatarUrl ||
+    user?.avatarUrl ||
+    (user as any)?.user_metadata?.avatar_url ||
+    null;
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const ua = window.navigator?.userAgent || "";
@@ -432,7 +438,23 @@ export default function Navbar() {
                   aria-expanded={accountMenuOpen}
                   aria-haspopup="true"
                 >
-                  <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                  {userAvatar ? (
+                    <img
+                      src={userAvatar}
+                      alt={profile?.fullName || user.fullName || "User"}
+                      className="w-5 h-5 rounded-full object-cover shrink-0 ring-1 ring-slate-200"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = "none";
+                        const fallback = (e.target as HTMLElement).nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = "flex";
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className={`w-5 h-5 rounded-full bg-blue-600 text-white items-center justify-center text-[10px] font-bold shrink-0 ${
+                      userAvatar ? "hidden" : "flex"
+                    }`}
+                  >
                     {(profile?.fullName || user.fullName || "U").charAt(0).toUpperCase()}
                   </div>
                   <span className="hidden sm:inline max-w-[100px] truncate">
@@ -892,7 +914,23 @@ export default function Navbar() {
               {!isLoading && user ? (
                 <div className="space-y-1 bg-slate-50 p-3 rounded-2xl border border-slate-200">
                   <div className="flex items-center gap-2 pb-2 border-b border-slate-200 text-xs font-bold text-slate-800">
-                    <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">
+                    {userAvatar ? (
+                      <img
+                        src={userAvatar}
+                        alt={profile?.fullName || user.fullName || "User"}
+                        className="w-6 h-6 rounded-full object-cover shrink-0 ring-1 ring-slate-200"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = "none";
+                          const fallback = (e.target as HTMLElement).nextElementSibling as HTMLElement;
+                          if (fallback) fallback.style.display = "flex";
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className={`w-6 h-6 rounded-full bg-blue-600 text-white items-center justify-center text-[10px] font-bold shrink-0 ${
+                        userAvatar ? "hidden" : "flex"
+                      }`}
+                    >
                       {(profile?.fullName || user.fullName || "U").charAt(0).toUpperCase()}
                     </div>
                     <span className="truncate">{profile?.fullName || user.fullName || "Account"}</span>
