@@ -32,6 +32,7 @@ import { ERROR_MESSAGES } from "@/config/limits";
 import { conversionHistoryService } from "@/lib/services/conversionHistoryService";
 import { adminService } from "@/lib/services/adminService";
 import { useAuth } from "@/context/AuthContext";
+import { usePlatform } from "@/context/PlatformContext";
 import { planService } from "@/lib/services/planService";
 import UpgradePrompt from "@/components/plan/UpgradePrompt";
 import Link from "next/link";
@@ -232,16 +233,25 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
   const [runtimeStatus, setRuntimeStatus] = useState<ToolDefinition['status']>(tool.status);
   const [runtimeMaxSizeMB, setRuntimeMaxSizeMB] = useState<number>(tool.maxSizeMB);
 
-  useEffect(() => {
-    adminService.getEffectiveTool(tool.slug).then((eff) => {
-      if (eff) {
-        setRuntimeStatus(eff.status);
-        setRuntimeMaxSizeMB(eff.maxSizeMB);
-      }
-    }).catch(() => {});
-  }, [tool.slug, tool.status, tool.maxSizeMB]);
-
+  const { isMaintenance, maintenanceMessage, isGuestAccessEnabled } = usePlatform();
   const { user } = useAuth();
+
+  useEffect(() => {
+    const checkTool = () => {
+      adminService.getEffectiveTool(tool.slug).then((eff) => {
+        if (eff) {
+          setRuntimeStatus(eff.status);
+          setRuntimeMaxSizeMB(eff.maxSizeMB);
+        }
+      }).catch(() => {});
+    };
+
+    checkTool();
+    window.addEventListener('saarvi_platform_change', checkTool);
+    return () => {
+      window.removeEventListener('saarvi_platform_change', checkTool);
+    };
+  }, [tool.slug, tool.status, tool.maxSizeMB]);
   const entitlement = planService.canUseTool(tool.slug, user);
   const userPlan = planService.getUserPlan(user);
   const planLimits = planService.getPlanLimits(userPlan);
@@ -249,6 +259,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [state, setState] = useState<ProcessingState>("IDLE");
   const [progress, setProgress] = useState(0);
+  const [stageMessage, setStageMessage] = useState<string | undefined>();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<SingleFileResult | MultiFileResult | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -540,6 +551,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
     setResult(null);
     setState("IDLE");
     setProgress(0);
+    setStageMessage(undefined);
     setErrorMessage(null);
     setOrigDimensions(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -711,9 +723,12 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
     const startTime = performance.now();
 
     try {
-      const res = await operation.execute(files, config as never, (pct: number) => {
+      const res = await operation.execute(files, config as never, (pct: number, stage?: string) => {
         if (!isCancelledRef.current) {
           setProgress(pct);
+          if (stage) {
+            setStageMessage(stage);
+          }
         }
       });
 
@@ -848,11 +863,13 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
         <ProcessingProgress
           state={state}
           percent={progress}
+          statusMessage={stageMessage}
           errorMessage={errorMessage || undefined}
           onCancel={() => {
             isCancelledRef.current = true;
             setState("IDLE");
             setProgress(0);
+            setStageMessage(undefined);
           }}
         />
       ) : (

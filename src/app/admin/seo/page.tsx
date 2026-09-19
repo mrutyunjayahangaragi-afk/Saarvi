@@ -24,21 +24,25 @@ export default function AdminSeoPage() {
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('saarvi_admin_seo_v1') || localStorage.getItem('docease_admin_seo_v1');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed.siteTitle) setSiteTitle(parsed.siteTitle);
-        if (parsed.siteDescription) setSiteDescription(parsed.siteDescription);
-        if (parsed.canonicalBase) setCanonicalBase(parsed.canonicalBase);
-        if (parsed.ogTitle) setOgTitle(parsed.ogTitle);
-        if (parsed.ogDescription) setOgDescription(parsed.ogDescription);
-        if (parsed.robotsIndexable !== undefined) setRobotsIndexable(parsed.robotsIndexable);
+    async function loadSeo() {
+      try {
+        const s = await adminService.getSeoSettings();
+        if (s) {
+          if (s.siteTitle) setSiteTitle(s.siteTitle);
+          if (s.siteDescription) setSiteDescription(s.siteDescription);
+          if (s.canonicalBase) setCanonicalBase(s.canonicalBase);
+          if (s.ogTitle) setOgTitle(s.ogTitle);
+          if (s.ogDescription) setOgDescription(s.ogDescription);
+          if (s.robotsIndexable !== undefined) setRobotsIndexable(s.robotsIndexable);
+        }
+      } catch (err) {
+        console.error('Failed to load SEO settings:', err);
       }
-    } catch {}
+    }
+    loadSeo();
   }, []);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const payload = {
       siteTitle: siteTitle.trim(),
@@ -50,7 +54,9 @@ export default function AdminSeoPage() {
     };
     localStorage.setItem('saarvi_admin_seo_v1', JSON.stringify(payload));
     if (user && profile) {
-      adminService.updatePlatformSettings({}, { id: user.id, email: user.email, role: profile.role });
+      await adminService.updateSeoSettings(payload, { id: user.id, email: user.email, role: profile.role });
+    } else {
+      adminService.broadcastPlatformUpdate('seo', payload);
     }
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);

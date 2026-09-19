@@ -1,9 +1,14 @@
+"use client";
+
 import Link from "next/link";
-import { Shield, ExternalLink } from "lucide-react";
+import { Shield, ExternalLink, Mail } from "lucide-react";
 import { SITE_CONFIG } from "@/config/site";
 import { SaarviMark } from "@/components/brand/SaarviLogo";
+import { usePlatform } from "@/context/PlatformContext";
 
 export default function Footer() {
+  const { appName, tagline, supportEmail } = usePlatform();
+
   return (
     <footer className="w-full bg-slate-100/70 text-slate-600 text-xs border-t border-slate-200/90 no-print">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
@@ -21,12 +26,12 @@ export default function Footer() {
               <SaarviMark size={32} className="group-hover:scale-105 transition-transform" />
 
               <span className="text-base font-extrabold tracking-tight">
-                {SITE_CONFIG.name}
+                {appName || SITE_CONFIG.name}
               </span>
             </Link>
 
             <p className="text-slate-700 text-xs font-semibold leading-relaxed max-w-xs">
-              Saarvi — Study. Work. Grow.
+              {tagline || "Saarvi — Study. Work. Grow."}
             </p>
 
             <p className="text-[11px] text-slate-500 leading-relaxed max-w-xs">

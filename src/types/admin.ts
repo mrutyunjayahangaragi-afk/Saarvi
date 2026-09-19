@@ -74,6 +74,19 @@ export interface ToolOverrideConfig {
   updatedBy: string;
 }
 
+export interface SeoSettings {
+  siteTitle: string;
+  siteDescription: string;
+  canonicalBase: string;
+  ogTitle: string;
+  ogDescription: string;
+  robotsIndexable: boolean;
+  keywords?: string[];
+  twitterHandle?: string;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
 export interface PlatformSettings {
   appName: string;
   tagline: string;
@@ -90,6 +103,14 @@ export interface PlatformSettings {
   guestAccessEnabled: boolean;
   defaultAutoDownload: boolean;
   publicToolAvailability: boolean;
+  // Dynamic SEO Fields
+  siteTitle?: string;
+  siteDescription?: string;
+  canonicalBase?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  robotsIndexable?: boolean;
+  keywords?: string[];
   updatedAt: string;
   updatedBy: string;
   version: number;

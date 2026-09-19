@@ -9,6 +9,7 @@ import { ALL_VERIFIED_VTU_COURSES } from '../student/vtu/curriculum-data';
 import { hasPermission } from '../../types/admin';
 import type {
   PlatformSettings,
+  SeoSettings,
   ToolOverrideConfig,
   CurriculumVersionRecord,
   CurriculumValidationResult,
@@ -141,6 +142,8 @@ export const adminService = {
         accessMode: override.accessMode,
       },
     });
+
+    this.broadcastPlatformUpdate('tools', saved);
 
     return saved;
   },
@@ -485,6 +488,8 @@ export const adminService = {
 
     const updated = MockStorageProvider.updatePlatformSettings(updates, actor.email);
 
+    this.broadcastPlatformUpdate('platform', updated);
+
     MockStorageProvider.addAuditLog({
       adminUserId: actor.id,
       adminEmail: actor.email,
@@ -510,6 +515,8 @@ export const adminService = {
       actor.email
     );
 
+    this.broadcastPlatformUpdate('platform', updated);
+
     MockStorageProvider.addAuditLog({
       adminUserId: actor.id,
       adminEmail: actor.email,
@@ -532,6 +539,8 @@ export const adminService = {
       actor.email
     );
 
+    this.broadcastPlatformUpdate('platform', updated);
+
     MockStorageProvider.addAuditLog({
       adminUserId: actor.id,
       adminEmail: actor.email,
@@ -542,6 +551,45 @@ export const adminService = {
     });
 
     return updated;
+  },
+
+  async getSeoSettings(): Promise<SeoSettings> {
+    return MockStorageProvider.getSeoSettings();
+  },
+
+  async updateSeoSettings(updates: Partial<SeoSettings>, actor: AdminActor): Promise<SeoSettings> {
+    if (!hasPermission(actor.role, 'settings.update')) {
+      throw new Error('Permission denied: settings.update is required.');
+    }
+
+    const updated = MockStorageProvider.updateSeoSettings(updates, actor.email);
+
+    this.broadcastPlatformUpdate('seo', updated);
+
+    MockStorageProvider.addAuditLog({
+      adminUserId: actor.id,
+      adminEmail: actor.email,
+      action: 'SEO_SETTINGS_UPDATED',
+      targetType: 'SETTING',
+      targetId: 'seo_config',
+      metadata: updates,
+    });
+
+    return updated;
+  },
+
+  broadcastPlatformUpdate(type: 'platform' | 'seo' | 'tools', payload: any): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const detail = { type, payload, timestamp: Date.now() };
+      window.dispatchEvent(new CustomEvent('saarvi_platform_change', { detail }));
+      if (type === 'platform') {
+        window.dispatchEvent(new CustomEvent('saarvi_platform_settings_updated', { detail: payload }));
+      } else if (type === 'seo') {
+        window.dispatchEvent(new CustomEvent('saarvi_seo_updated', { detail: payload }));
+      }
+      localStorage.setItem('saarvi_platform_sync_trigger', JSON.stringify(detail));
+    } catch {}
   },
 
   // =========================================================================

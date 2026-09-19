@@ -3,30 +3,18 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, Bell, Radio, X, Sparkles } from 'lucide-react';
 import { adminService } from '@/lib/services/adminService';
-import { AnnouncementRecord, PlatformSettings } from '@/types/admin';
+import { AnnouncementRecord } from '@/types/admin';
+import { usePlatform } from '@/context/PlatformContext';
 
 export default function AnnouncementBanner() {
+  const { isMaintenance, maintenanceMessage } = usePlatform();
   const [announcement, setAnnouncement] = useState<AnnouncementRecord | null>(null);
-  const [maintenance, setMaintenance] = useState<{ active: boolean; message: string }>({
-    active: false,
-    message: '',
-  });
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    async function loadBanner() {
+    async function loadAnnouncements() {
       try {
-        const [settings, announcements] = await Promise.all([
-          adminService.getPlatformSettings(),
-          adminService.getActivePublicAnnouncements(),
-        ]);
-
-        if (settings.maintenanceMode) {
-          setMaintenance({
-            active: true,
-            message: settings.maintenanceMessage || 'Saarvi is temporarily under maintenance. Please try again shortly.',
-          });
-        }
+        const announcements = await adminService.getActivePublicAnnouncements();
 
         if (announcements.length > 0) {
           // Select highest priority announcement
@@ -41,13 +29,22 @@ export default function AnnouncementBanner() {
       }
     }
 
-    loadBanner();
+    loadAnnouncements();
+
+    const handleUpdate = () => {
+      loadAnnouncements();
+    };
+
+    window.addEventListener('saarvi_platform_change', handleUpdate);
+    return () => {
+      window.removeEventListener('saarvi_platform_change', handleUpdate);
+    };
   }, []);
 
   if (dismissed) return null;
 
-  // 1. Maintenance Mode has top precedence
-  if (maintenance.active) {
+  // 1. Maintenance Mode has top precedence (reactively driven by usePlatform)
+  if (isMaintenance) {
     return (
       <div
         className="bg-amber-500 text-white px-4 py-2.5 text-xs font-semibold shadow-xs flex items-center justify-between gap-3 z-50 sticky top-0"
@@ -55,7 +52,7 @@ export default function AnnouncementBanner() {
       >
         <div className="flex items-center gap-2 max-w-5xl mx-auto">
           <Radio className="w-4 h-4 animate-pulse shrink-0" />
-          <span>{maintenance.message}</span>
+          <span>{maintenanceMessage}</span>
         </div>
       </div>
     );

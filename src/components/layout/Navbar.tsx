@@ -27,12 +27,14 @@ import {
 import { SITE_CONFIG } from "@/config/site";
 import { SaarviMark } from "@/components/brand/SaarviLogo";
 import { useAuth } from "@/context/AuthContext";
+import { usePlatform } from "@/context/PlatformContext";
 import MegaMenu, { ActiveMenuCategory } from "./MegaMenu";
 import GlobalSearchModal from "@/components/tools/GlobalSearchModal";
 import AnnouncementBanner from "./AnnouncementBanner";
 
 export default function Navbar() {
   const { user, profile, signOut, isLoading } = useAuth();
+  const { appName, tagline } = usePlatform();
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState<ActiveMenuCategory>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -73,18 +75,37 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setUnreadNotifications(0);
+      return;
+    }
     let isCancelled = false;
 
-    const fetchUnread = () => {
-      fetch('/api/notifications?limit=1', { credentials: 'include' })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (!isCancelled && data && typeof data.unreadCount === 'number') {
-            setUnreadNotifications(data.unreadCount);
+    const fetchUnread = async () => {
+      try {
+        const { dataClient } = await import('@/lib/data/data-client');
+        const res = await dataClient.fetch(
+          '/api/notifications?limit=1',
+          async (signal) => {
+            const response = await fetch('/api/notifications?limit=1', {
+              credentials: 'include',
+              signal,
+            });
+            if (!response.ok) return null;
+            return response.json();
+          },
+          {
+            userId: user.id,
+            scope: 'notifications',
+            ttlMs: 30_000,
+            timeoutMs: 6_000,
           }
-        })
-        .catch(() => {});
+        );
+
+        if (!isCancelled && res?.data && typeof res.data.unreadCount === 'number') {
+          setUnreadNotifications(res.data.unreadCount);
+        }
+      } catch {}
     };
 
     fetchUnread();
@@ -226,10 +247,10 @@ export default function Navbar() {
             <SaarviMark size={36} className="group-hover:shadow-md group-hover:-translate-y-0.5 transition-all duration-200" />
             <div className="flex flex-col">
               <span className="font-extrabold text-lg text-slate-900 tracking-tight leading-tight">
-                {SITE_CONFIG.name}
+                {appName || SITE_CONFIG.name}
               </span>
               <span className="text-[10px] text-slate-500 font-medium hidden sm:inline">
-                {SITE_CONFIG.tagline}
+                {tagline || SITE_CONFIG.tagline}
               </span>
             </div>
           </Link>

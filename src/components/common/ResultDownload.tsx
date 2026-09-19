@@ -241,6 +241,38 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
             </div>
 
           </div>
+
+          {/* CONVERSION QUALITY REPORT */}
+          {isSingle && result.details && (
+            <div className="pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              {result.details["Document Type"] && (
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <span className="text-[11px] text-slate-400 font-medium block">Document Type</span>
+                  <span className="font-semibold text-slate-800">{String(result.details["Document Type"])}</span>
+                </div>
+              )}
+              {result.details["OCR Used"] && (
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <span className="text-[11px] text-slate-400 font-medium block">OCR</span>
+                  <span className="font-semibold text-slate-800">{String(result.details["OCR Used"])}</span>
+                </div>
+              )}
+              {result.details["Formatting"] && (
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <span className="text-[11px] text-slate-400 font-medium block">Formatting</span>
+                  <span className="font-semibold text-emerald-700">{String(result.details["Formatting"])}</span>
+                </div>
+              )}
+              {result.details["Quality State"] && (
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <span className="text-[11px] text-slate-400 font-medium block">Quality State</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                    {String(result.details["Quality State"])}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

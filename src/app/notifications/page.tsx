@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { useAuth } from '@/context/AuthContext';
+import { useDataFetch } from '@/hooks/useDataFetch';
+import { SaarviLoadingLogo } from '@/components/brand/SaarviLoadingLogo';
 import {
   Bell,
   CheckCircle2,
@@ -22,6 +23,8 @@ import {
   Tag,
   Check,
   RefreshCw,
+  AlertCircle,
+  LogIn,
 } from 'lucide-react';
 
 interface NotificationItem {
@@ -44,6 +47,13 @@ interface NotificationItem {
   clicked: boolean;
 }
 
+interface NotificationsApiResponse {
+  success: boolean;
+  unreadCount: number;
+  total: number;
+  notifications: NotificationItem[];
+}
+
 const CATEGORY_TABS = [
   { key: 'ALL', label: 'All' },
   { key: 'UNREAD', label: 'Unread' },
@@ -56,84 +66,125 @@ const CATEGORY_TABS = [
 ];
 
 export default function NotificationCenterPage() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('ALL');
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(true);
 
-  const loadNotifications = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      let url = '/api/notifications?limit=100';
-      if (activeTab === 'UNREAD') {
-        url += '&unread=true';
-      } else if (activeTab !== 'ALL') {
-        url += `&category=${encodeURIComponent(activeTab)}`;
-      }
-
-      const res = await fetch(url, { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data.notifications || []);
-        setUnreadCount(data.unreadCount || 0);
-      }
-    } catch (err) {
-      console.error('Failed to load notifications:', err);
-    } finally {
-      setLoading(false);
+  // Build the request endpoint with current filter
+  const endpoint = useMemo(() => {
+    let url = '/api/notifications?limit=100';
+    if (activeTab === 'UNREAD') {
+      url += '&unread=true';
+    } else if (activeTab !== 'ALL') {
+      url += `&category=${encodeURIComponent(activeTab)}`;
     }
-  }, [user, activeTab]);
+    return url;
+  }, [activeTab]);
 
-  useEffect(() => {
-    if (!isLoading) {
-      loadNotifications();
+  // Centralized async fetcher with SWR, deduplication, and timeout
+  const fetcher = useCallback(async (signal: AbortSignal): Promise<NotificationsApiResponse> => {
+    const res = await fetch(endpoint, {
+      credentials: 'include',
+      signal,
+    });
+
+    if (!res.ok) {
+      if (res.status === 401) {
+        return { success: false, unreadCount: 0, total: 0, notifications: [] };
+      }
+      throw new Error(`Failed to load notifications (status: ${res.status})`);
     }
-  }, [isLoading, loadNotifications]);
 
+    const json = await res.json();
+    return {
+      success: true,
+      unreadCount: json.unreadCount || 0,
+      total: json.total || 0,
+      notifications: json.notifications || [],
+    };
+  }, [endpoint]);
+
+  const {
+    data,
+    state,
+    isLoading,
+    isEmpty,
+    isError,
+    error,
+    retry,
+    mutate,
+  } = useDataFetch<NotificationsApiResponse>(endpoint, fetcher, {
+    enabled: !isAuthLoading && Boolean(user),
+    userId: user?.id,
+    scope: 'notifications',
+    ttlMs: 30_000,
+    timeoutMs: 8_000,
+    isEmpty: (res) => !res || !res.notifications || res.notifications.length === 0,
+  });
+
+  const notifications = data?.notifications || [];
+  const unreadCount = data?.unreadCount || 0;
+
+  // Optimistic Read Action
   const handleMarkAsRead = async (notificationId: string) => {
-    try {
-      // Optimistic update
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
+    mutate((prev) => {
+      if (!prev) return prev as unknown as NotificationsApiResponse;
+      const updated = prev.notifications.map((n) =>
+        n.id === notificationId ? { ...n, read: true } : n
       );
-      setUnreadCount((c) => Math.max(0, c - 1));
+      return {
+        ...prev,
+        unreadCount: Math.max(0, prev.unreadCount - 1),
+        notifications: updated,
+      };
+    });
 
+    try {
       await fetch(`/api/notifications/${notificationId}/read`, {
         method: 'POST',
         credentials: 'include',
       });
     } catch (err) {
-      console.error('Failed to mark read:', err);
+      console.warn('Failed to mark notification read:', err);
     }
   };
 
+  // Optimistic CTA Click Action
   const handleCtaClick = async (notification: NotificationItem) => {
+    mutate((prev) => {
+      if (!prev) return prev as unknown as NotificationsApiResponse;
+      const updated = prev.notifications.map((n) =>
+        n.id === notification.id ? { ...n, clicked: true, read: true } : n
+      );
+      return {
+        ...prev,
+        unreadCount: Math.max(0, prev.unreadCount - 1),
+        notifications: updated,
+      };
+    });
+
     try {
       await fetch(`/api/notifications/${notification.id}/click`, {
         method: 'POST',
         credentials: 'include',
       });
-      // Also update read state
-      setNotifications((prev) =>
-        prev.map((n) =>
-          n.id === notification.id ? { ...n, clicked: true, read: true } : n
-        )
-      );
-      setUnreadCount((c) => Math.max(0, c - 1));
     } catch (err) {
-      console.error('Failed to track click:', err);
+      console.warn('Failed to track notification click:', err);
     }
   };
 
+  // Optimistic Mark All Read Action
   const handleMarkAllAsRead = async () => {
-    const unreadItems = notifications.filter((n) => !n.read);
-    if (unreadItems.length === 0) return;
+    if (notifications.length === 0 || unreadCount === 0) return;
 
-    // Optimistically mark all read
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    setUnreadCount(0);
+    mutate((prev) => {
+      if (!prev) return prev as unknown as NotificationsApiResponse;
+      const updated = prev.notifications.map((n) => ({ ...n, read: true }));
+      return {
+        ...prev,
+        unreadCount: 0,
+        notifications: updated,
+      };
+    });
 
     try {
       await fetch('/api/notifications/read-all', {
@@ -141,8 +192,8 @@ export default function NotificationCenterPage() {
         credentials: 'include',
       });
     } catch {
-      // Fallback per-item
-      for (const item of unreadItems) {
+      // Per-item fallback
+      for (const item of notifications.filter((n) => !n.read)) {
         fetch(`/api/notifications/${item.id}/read`, {
           method: 'POST',
           credentials: 'include',
@@ -175,10 +226,11 @@ export default function NotificationCenterPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
+      {/* 1. IMMEDIATE UI SHELL: Navbar renders immediately */}
       <Navbar />
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-8">
-        {/* Header */}
+        {/* 2. IMMEDIATE UI SHELL: Header renders immediately */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
           <div>
             <div className="flex items-center gap-2.5">
@@ -198,9 +250,9 @@ export default function NotificationCenterPage() {
             <button
               type="button"
               onClick={handleMarkAllAsRead}
-              disabled={unreadCount === 0}
+              disabled={unreadCount === 0 || !user}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
-                unreadCount > 0
+                unreadCount > 0 && user
                   ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200 shadow-2xs'
                   : 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
               }`}
@@ -210,17 +262,18 @@ export default function NotificationCenterPage() {
             </button>
             <button
               type="button"
-              onClick={loadNotifications}
-              className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 shadow-2xs cursor-pointer"
+              onClick={() => retry()}
+              disabled={isLoading || !user}
+              className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 shadow-2xs cursor-pointer disabled:opacity-50"
               title="Refresh notifications"
               aria-label="Refresh notifications"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
             </button>
           </div>
         </div>
 
-        {/* Categories Tab Bar */}
+        {/* 3. IMMEDIATE UI SHELL: Category Tabs render immediately */}
         <div className="flex items-center gap-1.5 overflow-x-auto py-4 scrollbar-none">
           {CATEGORY_TABS.map((tab) => {
             const isActive = activeTab === tab.key;
@@ -250,24 +303,71 @@ export default function NotificationCenterPage() {
           })}
         </div>
 
-        {/* Notifications Feed */}
-        <div className="space-y-3 mt-2">
-          {loading && notifications.length === 0 ? (
-            <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-2xl border border-slate-200">
-              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600" />
-              <span>Loading your notifications...</span>
+        {/* 4. SECTION-LEVEL CONTENT AREA */}
+        <div className="space-y-3 mt-2 min-h-[300px]">
+          {/* Guest / Unauthenticated State */}
+          {!isAuthLoading && !user ? (
+            <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-xs space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+                <LogIn className="w-6 h-6" />
+              </div>
+              <div className="space-y-1 max-w-sm mx-auto">
+                <h2 className="text-sm font-bold text-slate-900">Sign in to view your notifications</h2>
+                <p className="text-xs text-slate-500">
+                  Access your personalized platform updates, academic notices, and interview releases.
+                </p>
+              </div>
+              <Link
+                href="/login?next=/notifications"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-colors"
+              >
+                <span>Sign in to Saarvi</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
-          ) : notifications.length === 0 ? (
+          ) : isLoading && notifications.length === 0 ? (
+            /* Official Saarvi S-Logo Section-Level Loading State */
+            <div className="p-16 text-center bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col items-center justify-center">
+              <SaarviLoadingLogo
+                size="md"
+                state="loading"
+                message="Loading your notifications..."
+              />
+            </div>
+          ) : isError ? (
+            /* Error State with Isolated Retry */
+            <div className="p-12 text-center bg-white rounded-2xl border border-red-200 shadow-xs space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div className="space-y-1 max-w-sm mx-auto">
+                <h2 className="text-sm font-bold text-slate-900">We couldn&apos;t load your notifications</h2>
+                <p className="text-xs text-slate-500">
+                  {error?.message || 'A network error occurred while fetching notifications.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => retry()}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Retry notifications</span>
+              </button>
+            </div>
+          ) : isEmpty || notifications.length === 0 ? (
+            /* Empty State */
             <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-xs">
               <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
                 <Inbox className="w-6 h-6" />
               </div>
-              <h2 className="text-sm font-bold text-slate-800">No notifications here</h2>
+              <h2 className="text-sm font-bold text-slate-800">You&apos;re all caught up</h2>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                You&apos;re completely up to date! New platform releases and notices will appear here.
+                New platform announcements, academic notices, and interview updates will appear here automatically.
               </p>
             </div>
           ) : (
+            /* Notification Cards */
             notifications.map((item) => {
               const formattedDate = new Date(item.created_at).toLocaleDateString('en-US', {
                 day: 'numeric',
@@ -412,7 +512,7 @@ export default function NotificationCenterPage() {
                                 e.stopPropagation();
                                 handleMarkAsRead(item.id);
                               }}
-                              className="text-[11px] font-semibold text-slate-500 hover:text-slate-700"
+                              className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 cursor-pointer"
                             >
                               Mark as read
                             </button>

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { AuthProvider } from "@/context/AuthContext";
+import { PlatformProvider } from "@/context/PlatformContext";
 import AdvertisementGate from "@/components/advertising/AdvertisementGate";
 import GlobalAIAssistant from "@/components/ai/GlobalAIAssistant";
 
@@ -98,11 +99,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-full flex flex-col transition-colors duration-200">
         <ThemeProvider>
-          <AuthProvider>
-            <AdvertisementGate />
-            {children}
-            <GlobalAIAssistant />
-          </AuthProvider>
+          <PlatformProvider>
+            <AuthProvider>
+              <AdvertisementGate />
+              {children}
+              <GlobalAIAssistant />
+            </AuthProvider>
+          </PlatformProvider>
         </ThemeProvider>
       </body>
     </html>

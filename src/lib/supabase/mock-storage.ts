@@ -22,6 +22,7 @@ import type {
 } from '@/types/student';
 import type {
   PlatformSettings,
+  SeoSettings,
   ToolOverrideConfig,
   CurriculumVersionRecord,
   AnnouncementRecord,
@@ -73,6 +74,8 @@ const STORAGE_KEYS = {
   ACADEMIC_RECORDS: 'saarvi_academic_snapshots_v1',
   // Phase 11 Admin Platform Keys
   PLATFORM_SETTINGS: 'saarvi_platform_settings_v1',
+  SEO_SETTINGS: 'saarvi_seo_settings_v1',
+  PLATFORM_SYNC_TRIGGER: 'saarvi_platform_sync_trigger',
   TOOL_OVERRIDES: 'saarvi_tool_overrides_v1',
   CURRICULUM_VERSIONS: 'saarvi_curriculum_versions_v1',
   ANNOUNCEMENTS: 'saarvi_announcements_v1',
@@ -1042,6 +1045,13 @@ export const MockStorageProvider = {
       guestAccessEnabled: true,
       defaultAutoDownload: true,
       publicToolAvailability: true,
+      siteTitle: 'Saarvi — Study. Work. Grow.',
+      siteDescription: 'High-performance browser-based PDF and image conversion tools with VTU CBCS/NEP academic calculators and resume builders.',
+      canonicalBase: 'https://saarvi.app',
+      ogTitle: 'Saarvi — Study. Work. Grow.',
+      ogDescription: 'Fast client-side document utilities, SGPA/CGPA calculators, and career organizers.',
+      robotsIndexable: true,
+      keywords: ['saarvi', 'pdf tools', 'image converter', 'student tools', 'compress pdf', 'merge pdf', 'resume builder'],
       version: 1,
       updatedBy: 'system',
       updatedAt: new Date().toISOString(),
@@ -1059,6 +1069,17 @@ export const MockStorageProvider = {
       updatedAt: new Date().toISOString(),
     };
     setStored(STORAGE_KEYS.PLATFORM_SETTINGS, updated);
+
+    // Cross-tab and active window synchronization
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(
+          STORAGE_KEYS.PLATFORM_SYNC_TRIGGER,
+          JSON.stringify({ type: 'platform', timestamp: Date.now() })
+        );
+        window.dispatchEvent(new CustomEvent('saarvi_platform_settings_updated', { detail: updated }));
+      } catch {}
+    }
 
     try {
       const supabase = getAdminClientSafe();
@@ -1088,6 +1109,63 @@ export const MockStorageProvider = {
         }).catch(() => {});
       }
     } catch {}
+
+    return updated;
+  },
+
+  // --- SEO Settings ---
+  getSeoSettings(): SeoSettings {
+    const currentPlatform = this.getPlatformSettings();
+    const defaults: SeoSettings = {
+      siteTitle: currentPlatform.siteTitle || 'Saarvi — Study. Work. Grow.',
+      siteDescription: currentPlatform.siteDescription || 'High-performance browser-based PDF and image conversion tools with VTU CBCS/NEP academic calculators and resume builders.',
+      canonicalBase: currentPlatform.canonicalBase || 'https://saarvi.app',
+      ogTitle: currentPlatform.ogTitle || 'Saarvi — Study. Work. Grow.',
+      ogDescription: currentPlatform.ogDescription || 'Fast client-side document utilities, SGPA/CGPA calculators, and career organizers.',
+      robotsIndexable: currentPlatform.robotsIndexable !== undefined ? currentPlatform.robotsIndexable : true,
+      keywords: currentPlatform.keywords || ['saarvi', 'pdf tools', 'image converter', 'student tools', 'compress pdf', 'merge pdf', 'resume builder'],
+      twitterHandle: '@saarviapp',
+      updatedBy: currentPlatform.updatedBy || 'system',
+      updatedAt: currentPlatform.updatedAt || new Date().toISOString(),
+    };
+    return getStored<SeoSettings>(STORAGE_KEYS.SEO_SETTINGS, defaults);
+  },
+
+  updateSeoSettings(updates: Partial<SeoSettings>, updatedBy = 'admin'): SeoSettings {
+    const current = this.getSeoSettings();
+    const updated: SeoSettings = {
+      ...current,
+      ...updates,
+      updatedBy,
+      updatedAt: new Date().toISOString(),
+    };
+    setStored(STORAGE_KEYS.SEO_SETTINGS, updated);
+
+    // Keep platform settings SEO fields in lock-step
+    try {
+      this.updatePlatformSettings(
+        {
+          siteTitle: updated.siteTitle,
+          siteDescription: updated.siteDescription,
+          canonicalBase: updated.canonicalBase,
+          ogTitle: updated.ogTitle,
+          ogDescription: updated.ogDescription,
+          robotsIndexable: updated.robotsIndexable,
+          keywords: updated.keywords,
+        },
+        updatedBy
+      );
+    } catch {}
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(
+          STORAGE_KEYS.PLATFORM_SYNC_TRIGGER,
+          JSON.stringify({ type: 'seo', timestamp: Date.now() })
+        );
+        window.dispatchEvent(new CustomEvent('saarvi_seo_updated', { detail: updated }));
+      } catch {}
+    }
 
     return updated;
   },

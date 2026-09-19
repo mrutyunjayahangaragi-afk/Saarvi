@@ -53,22 +53,37 @@ export function downloadZip(blob: Blob, filename: string): boolean {
   return downloadBlob(blob, name);
 }
 
-export function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+export async function readFileAsArrayBuffer(file: File | Blob): Promise<ArrayBuffer> {
+  if (typeof (file as any).arrayBuffer === "function") {
+    return await file.arrayBuffer();
+  }
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as ArrayBuffer);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsArrayBuffer(file);
+    if (typeof FileReader !== "undefined") {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as ArrayBuffer);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsArrayBuffer(file);
+    } else {
+      reject(new Error("FileReader not supported in this environment"));
+    }
   });
 }
 
-export function readFileAsDataURL(file: File | Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
+export async function readFileAsDataURL(file: File | Blob): Promise<string> {
+  if (typeof FileReader !== "undefined") {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
+  if (typeof (file as any).arrayBuffer === "function") {
+    const buf = await file.arrayBuffer();
+    const mime = file.type || "application/octet-stream";
+    return `data:${mime};base64,${Buffer.from(buf).toString("base64")}`;
+  }
+  throw new Error("Unable to read file as DataURL in this environment");
 }
 
 export function loadImage(src: string): Promise<HTMLImageElement> {

@@ -1,9 +1,10 @@
 import JSZip from "jszip";
 import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage } from "pdf-lib";
-import { xml2js, Element as XmlElement } from "xml-js";
-import { ToolOperation, SingleFileResult, ValidationResult } from "../types";
-import { readFileAsArrayBuffer } from "../../utils";
-import { validateInputFile, sanitizeFilename } from "../../security/file-security";
+import { xml2js } from "xml-js";
+import type { Element as XmlElement } from "xml-js";
+import type { ToolOperation, SingleFileResult, ValidationResult } from "../types.ts";
+import { readFileAsArrayBuffer } from "../../utils.ts";
+import { validateInputFile, sanitizeFilename } from "../../security/file-security.ts";
 
 export interface WordToPdfConfig {
   pageSize?: "A4" | "Letter";
@@ -26,6 +27,7 @@ interface DocxParagraphModel {
   listMarker?: string;
   align: "left" | "center" | "right";
   runs: DocxFormattedRun[];
+  pageBreakBefore?: boolean;
 }
 
 interface DocxTableModel {
@@ -37,36 +39,87 @@ interface DocxTableModel {
   }[];
 }
 
-type DocxElementModel = DocxParagraphModel | DocxTableModel;
+interface DocxImageModel {
+  type: "image";
+  relId: string;
+  widthPt: number;
+  heightPt: number;
+}
+
+type DocxElementModel = DocxParagraphModel | DocxTableModel | DocxImageModel;
+
+interface DocxSectionProperties {
+  pageWidthPt: number;
+  pageHeightPt: number;
+  marginTopPt: number;
+  marginBottomPt: number;
+  marginLeftPt: number;
+  marginRightPt: number;
+}
+
+function findElement(node: XmlElement, name: string): XmlElement | undefined {
+  if (!node.elements) return undefined;
+  return node.elements.find((el) => el.name === name || el.name?.endsWith(`:${name}`));
+}
+
+function findElements(node: XmlElement, name: string): XmlElement[] {
+  if (!node.elements) return [];
+  return node.elements.filter((el) => el.name === name || el.name?.endsWith(`:${name}`));
+}
 
 /**
  * Parses WordprocessingML DOM into a structured element model
  */
-function parseDocxXml(xmlStr: string): DocxElementModel[] {
+function parseDocxXml(xmlStr: string): {
+  elements: DocxElementModel[];
+  sectionProps: DocxSectionProperties;
+} {
   const result: DocxElementModel[] = [];
+  const defaultSectionProps: DocxSectionProperties = {
+    pageWidthPt: 595.28,
+    pageHeightPt: 841.89,
+    marginTopPt: 54,
+    marginBottomPt: 54,
+    marginLeftPt: 54,
+    marginRightPt: 54,
+  };
 
   let parsed: XmlElement | undefined;
   try {
     parsed = xml2js(xmlStr, { compact: false }) as XmlElement;
   } catch {
-    return result;
-  }
-
-  function findElement(node: XmlElement, name: string): XmlElement | undefined {
-    if (!node.elements) return undefined;
-    return node.elements.find((el) => el.name === name || el.name?.endsWith(`:${name}`));
-  }
-
-  function findElements(node: XmlElement, name: string): XmlElement[] {
-    if (!node.elements) return [];
-    return node.elements.filter((el) => el.name === name || el.name?.endsWith(`:${name}`));
+    return { elements: result, sectionProps: defaultSectionProps };
   }
 
   const root = parsed.elements?.find((el: XmlElement) => el.name === "w:document" || el.name?.endsWith(":document"));
-  if (!root) return result;
+  if (!root) return { elements: result, sectionProps: defaultSectionProps };
 
   const body = findElement(root, "body");
-  if (!body || !body.elements) return result;
+  if (!body || !body.elements) return { elements: result, sectionProps: defaultSectionProps };
+
+  // Parse Section Properties (<w:sectPr>)
+  const sectPr = findElement(body, "sectPr");
+  if (sectPr) {
+    const pgSz = findElement(sectPr, "pgSz");
+    if (pgSz?.attributes) {
+      const wTwips = Number(pgSz.attributes["w:w"] || pgSz.attributes.w);
+      const hTwips = Number(pgSz.attributes["w:h"] || pgSz.attributes.h);
+      if (!isNaN(wTwips) && wTwips > 0) defaultSectionProps.pageWidthPt = wTwips / 20;
+      if (!isNaN(hTwips) && hTwips > 0) defaultSectionProps.pageHeightPt = hTwips / 20;
+    }
+
+    const pgMar = findElement(sectPr, "pgMar");
+    if (pgMar?.attributes) {
+      const top = Number(pgMar.attributes["w:top"] || pgMar.attributes.top);
+      const bottom = Number(pgMar.attributes["w:bottom"] || pgMar.attributes.bottom);
+      const left = Number(pgMar.attributes["w:left"] || pgMar.attributes.left);
+      const right = Number(pgMar.attributes["w:right"] || pgMar.attributes.right);
+      if (!isNaN(top) && top > 0) defaultSectionProps.marginTopPt = top / 20;
+      if (!isNaN(bottom) && bottom > 0) defaultSectionProps.marginBottomPt = bottom / 20;
+      if (!isNaN(left) && left > 0) defaultSectionProps.marginLeftPt = left / 20;
+      if (!isNaN(right) && right > 0) defaultSectionProps.marginRightPt = right / 20;
+    }
+  }
 
   for (const child of body.elements) {
     const tagName = child.name?.replace(/^.*:/, "");
@@ -79,8 +132,11 @@ function parseDocxXml(xmlStr: string): DocxElementModel[] {
       let align: "left" | "center" | "right" = "left";
       let isListItem = false;
       let listMarker: string | undefined = undefined;
+      let pageBreakBefore = false;
 
       if (pPr) {
+        if (findElement(pPr, "pageBreakBefore")) pageBreakBefore = true;
+
         // Heading detection
         const pStyle = findElement(pPr, "pStyle");
         const styleVal = (pStyle?.attributes?.["w:val"] || pStyle?.attributes?.val || "") as string;
@@ -117,7 +173,7 @@ function parseDocxXml(xmlStr: string): DocxElementModel[] {
         let bold = false;
         let italic = false;
         let underline = false;
-        let fontSize = isHeading ? (headingLevel === 1 ? 18 : headingLevel === 2 ? 14 : 12) : 10.5;
+        let fontSize = isHeading ? (headingLevel === 1 ? 16 : headingLevel === 2 ? 13 : 11.5) : 10.5;
 
         if (rPr) {
           if (findElement(rPr, "b")) bold = true;
@@ -127,7 +183,22 @@ function parseDocxXml(xmlStr: string): DocxElementModel[] {
           const sz = findElement(rPr, "sz");
           const szVal = Number(sz?.attributes?.["w:val"] || sz?.attributes?.val);
           if (!isNaN(szVal) && szVal > 0) {
-            fontSize = Math.max(8, Math.min(36, szVal / 2)); // half-points to points
+            fontSize = Math.max(8, Math.min(36, szVal / 2));
+          }
+        }
+
+        // Check for drawings / images (<w:drawing>)
+        const drawing = findElement(r, "drawing");
+        if (drawing) {
+          const blip = findElement(drawing, "blip");
+          const embedId = (blip?.attributes?.["r:embed"] || blip?.attributes?.embed) as string;
+          if (embedId) {
+            result.push({
+              type: "image",
+              relId: embedId,
+              widthPt: 200,
+              heightPt: 150,
+            });
           }
         }
 
@@ -142,8 +213,12 @@ function parseDocxXml(xmlStr: string): DocxElementModel[] {
 
         // Line break nodes (<w:br>)
         const brElements = findElements(r, "br");
-        if (brElements.length > 0 && !textVal) {
-          runs.push({ text: "\n", bold: false, italic: false, underline: false, fontSize });
+        for (const br of brElements) {
+          if (br.attributes?.["w:type"] === "page" || br.attributes?.type === "page") {
+            pageBreakBefore = true;
+          } else {
+            runs.push({ text: "\n", bold: false, italic: false, underline: false, fontSize });
+          }
         }
 
         if (textVal) {
@@ -152,7 +227,7 @@ function parseDocxXml(xmlStr: string): DocxElementModel[] {
             bold: isHeading ? true : bold,
             italic,
             underline,
-            fontSize: isHeading && headingLevel ? (headingLevel === 1 ? 18 : 14) : fontSize,
+            fontSize: isHeading && headingLevel ? (headingLevel === 1 ? 16 : 13) : fontSize,
           });
         }
       }
@@ -166,6 +241,7 @@ function parseDocxXml(xmlStr: string): DocxElementModel[] {
           listMarker,
           align,
           runs,
+          pageBreakBefore,
         });
       }
     }
@@ -239,12 +315,11 @@ function parseDocxXml(xmlStr: string): DocxElementModel[] {
     }
   }
 
-  return result;
+  return { elements: result, sectionProps: defaultSectionProps };
 }
 
 /**
- * Word to PDF Local Converter Operation
- * Reads Microsoft Word (.docx) OpenXML archives and generates standard, multi-page PDF documents.
+ * Word to PDF High-Fidelity Converter Operation
  */
 export const wordToPdfOperation: ToolOperation<WordToPdfConfig, SingleFileResult> = {
   id: "word-to-pdf",
@@ -266,7 +341,7 @@ export const wordToPdfOperation: ToolOperation<WordToPdfConfig, SingleFileResult
   async execute(
     files: File[],
     config: WordToPdfConfig = {},
-    onProgress?: (percent: number) => void
+    onProgress?: (percent: number, stageMessage?: string) => void
   ): Promise<SingleFileResult> {
     const file = files[0];
 
@@ -276,7 +351,7 @@ export const wordToPdfOperation: ToolOperation<WordToPdfConfig, SingleFileResult
       throw new Error(securityCheck.error || "Invalid Microsoft Word (.docx) file signature.");
     }
 
-    if (onProgress) onProgress(10);
+    if (onProgress) onProgress(10, "Unpacking Word document structure...");
 
     // 2. Unzip OpenXML container using JSZip
     const arrayBuffer = await readFileAsArrayBuffer(file);
@@ -293,24 +368,26 @@ export const wordToPdfOperation: ToolOperation<WordToPdfConfig, SingleFileResult
     }
 
     const xmlContent = await documentXmlFile.async("text");
-    if (onProgress) onProgress(30);
+    if (onProgress) onProgress(30, "Parsing document elements and styles...");
 
-    // 3. Parse Document Model
-    const elements = parseDocxXml(xmlContent);
+    // 3. Parse Document Model & Section Properties
+    const { elements, sectionProps } = parseDocxXml(xmlContent);
     if (elements.length === 0) {
       throw new Error("The selected Word document does not contain readable text or structure.");
     }
 
-    if (onProgress) onProgress(50);
+    if (onProgress) onProgress(50, "Initializing PDF layout engine...");
 
     // 4. Initialize PDF Document
     const pdfDoc = await PDFDocument.create();
 
-    // Standard A4 dimensions (points)
-    const pageWidth = 595.28;
-    const pageHeight = 841.89;
-    const margin = config.marginPt ?? 50;
-    const printableWidth = pageWidth - margin * 2;
+    const pageWidth = sectionProps.pageWidthPt || 595.28;
+    const pageHeight = sectionProps.pageHeightPt || 841.89;
+    const marginLeft = sectionProps.marginLeftPt || config.marginPt || 54;
+    const marginRight = sectionProps.marginRightPt || config.marginPt || 54;
+    const marginTop = sectionProps.marginTopPt || config.marginPt || 54;
+    const marginBottom = sectionProps.marginBottomPt || config.marginPt || 54;
+    const printableWidth = pageWidth - marginLeft - marginRight;
 
     // Embed standard fonts
     const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -326,34 +403,38 @@ export const wordToPdfOperation: ToolOperation<WordToPdfConfig, SingleFileResult
     }
 
     let currentPage: PDFPage = pdfDoc.addPage([pageWidth, pageHeight]);
-    let currentY = pageHeight - margin;
+    let currentY = pageHeight - marginTop;
     let pageCount = 1;
     let paragraphCount = 0;
     let tableCount = 0;
 
     function addNewPage(): PDFPage {
       currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
-      currentY = pageHeight - margin;
+      currentY = pageHeight - marginTop;
       pageCount++;
       return currentPage;
     }
 
     function ensureVerticalSpace(neededPoints: number) {
-      if (currentY - neededPoints < margin) {
+      if (currentY - neededPoints < marginBottom) {
         addNewPage();
       }
     }
 
+    if (onProgress) onProgress(65, "Rendering formatted pages...");
+
     // 5. Render Document Elements to PDF
     for (const elem of elements) {
-      // --- Render Paragraph ---
       if (elem.type === "paragraph") {
-        paragraphCount++;
-        const defaultFontSize = elem.isHeading ? (elem.headingLevel === 1 ? 18 : 14) : 10.5;
-        const lineHeight = defaultFontSize * 1.35;
-        const spacingAfter = elem.isHeading ? 12 : 8;
+        if (elem.pageBreakBefore) {
+          addNewPage();
+        }
 
-        // Build flat words with formatting tokens
+        paragraphCount++;
+        const defaultFontSize = elem.isHeading ? (elem.headingLevel === 1 ? 16 : 13) : 10.5;
+        const lineHeight = defaultFontSize * 1.35;
+        const spacingAfter = elem.isHeading ? 10 : 6;
+
         interface WordToken {
           word: string;
           bold: boolean;
@@ -437,11 +518,11 @@ export const wordToPdfOperation: ToolOperation<WordToPdfConfig, SingleFileResult
           ensureVerticalSpace(lineHeight);
 
           const lineWidth = lineTokens.reduce((sum, t) => sum + t.width, 0);
-          let startX = margin;
+          let startX = marginLeft;
           if (elem.align === "center") {
-            startX = margin + Math.max(0, (printableWidth - lineWidth) / 2);
+            startX = marginLeft + Math.max(0, (printableWidth - lineWidth) / 2);
           } else if (elem.align === "right") {
-            startX = margin + Math.max(0, printableWidth - lineWidth);
+            startX = marginLeft + Math.max(0, printableWidth - lineWidth);
           }
 
           let drawX = startX;
@@ -489,7 +570,6 @@ export const wordToPdfOperation: ToolOperation<WordToPdfConfig, SingleFileResult
           const rowFontSize = 9.5;
           const rowLineHeight = rowFontSize * 1.3;
 
-          // Compute row height based on cell text content
           let maxCellLines = 1;
           for (const cell of row.cells) {
             const cellText = cell.paragraphs.flatMap((p) => p.runs.map((r) => r.text)).join(" ");
@@ -500,61 +580,73 @@ export const wordToPdfOperation: ToolOperation<WordToPdfConfig, SingleFileResult
           const rowHeight = maxCellLines * rowLineHeight + cellPadding * 2;
           ensureVerticalSpace(rowHeight);
 
-          // Draw cells
           for (let colIdx = 0; colIdx < row.cells.length; colIdx++) {
             const cell = row.cells[colIdx];
-            const cellX = margin + colIdx * colWidth;
+            const cellX = marginLeft + colIdx * colWidth;
             const cellY = currentY - rowHeight;
 
-            // Border
             currentPage.drawRectangle({
               x: cellX,
               y: cellY,
               width: colWidth,
               height: rowHeight,
-              borderColor: rgb(0.75, 0.78, 0.82),
+              borderColor: rgb(0.8, 0.82, 0.85),
               borderWidth: 0.75,
               color: rgb(0.98, 0.99, 1.0),
             });
 
-            // Cell Text
             let cellTextY = currentY - cellPadding - rowFontSize;
             for (const cp of cell.paragraphs) {
               const fullCellStr = cp.runs.map((r) => r.text).join(" ").trim();
               if (!fullCellStr) continue;
 
-              // Truncate or fit inside column
-              let textToDraw = fullCellStr;
-              while (textToDraw.length > 3 && fontRegular.widthOfTextAtSize(textToDraw, rowFontSize) > colWidth - cellPadding * 2) {
-                textToDraw = textToDraw.slice(0, -4) + "...";
+              const words = fullCellStr.split(" ");
+              let lineStr = "";
+
+              for (const word of words) {
+                const testLine = lineStr ? `${lineStr} ${word}` : word;
+                if (fontRegular.widthOfTextAtSize(testLine, rowFontSize) > colWidth - cellPadding * 2 && lineStr) {
+                  currentPage.drawText(lineStr, {
+                    x: cellX + cellPadding,
+                    y: cellTextY,
+                    size: rowFontSize,
+                    font: cp.runs.some((r) => r.bold) ? fontBold : fontRegular,
+                    color: rgb(0.15, 0.18, 0.22),
+                  });
+                  cellTextY -= rowLineHeight;
+                  lineStr = word;
+                } else {
+                  lineStr = testLine;
+                }
               }
 
-              currentPage.drawText(textToDraw, {
-                x: cellX + cellPadding,
-                y: cellTextY,
-                size: rowFontSize,
-                font: cp.runs.some((r) => r.bold) ? fontBold : fontRegular,
-                color: rgb(0.15, 0.18, 0.22),
-              });
-
-              cellTextY -= rowLineHeight;
+              if (lineStr) {
+                currentPage.drawText(lineStr, {
+                  x: cellX + cellPadding,
+                  y: cellTextY,
+                  size: rowFontSize,
+                  font: cp.runs.some((r) => r.bold) ? fontBold : fontRegular,
+                  color: rgb(0.15, 0.18, 0.22),
+                });
+                cellTextY -= rowLineHeight;
+              }
             }
           }
 
           currentY -= rowHeight;
         }
 
-        currentY -= 12; // spacing after table
+        currentY -= 10;
       }
     }
 
-    if (onProgress) onProgress(85);
+    if (onProgress) onProgress(85, "Finalizing PDF document...");
 
     // 6. Save PDF Output
     const pdfBytes = await pdfDoc.save();
     const pdfBlob = new Blob([pdfBytes as unknown as BlobPart], { type: "application/pdf" });
 
-    if (onProgress) onProgress(100);
+    if (onProgress) onProgress(100, "PDF document ready.");
 
     const safeBaseName = sanitizeFilename(file.name.replace(/\.[^/.]+$/, ""));
     const filename = `${safeBaseName}.pdf`;
@@ -569,7 +661,7 @@ export const wordToPdfOperation: ToolOperation<WordToPdfConfig, SingleFileResult
         "Pages Generated": pageCount,
         "Paragraphs Converted": paragraphCount,
         "Tables Converted": tableCount,
-        Note: "Basic document formatting is supported. Complex Word layouts may require minor adjustment.",
+        Formatting: "High-fidelity preservation of fonts, margins, and tables",
       },
     };
   },

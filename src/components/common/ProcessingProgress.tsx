@@ -1,6 +1,7 @@
 "use client";
 
-import { CheckCircle2, AlertCircle, FileText } from "lucide-react";
+import { CheckCircle2, AlertCircle } from "lucide-react";
+import { SaarviLoadingLogo } from "@/components/brand/SaarviLoadingLogo";
 
 export type ProcessingState =
   | "IDLE"
@@ -27,7 +28,7 @@ export default function ProcessingProgress({
   percent,
   statusMessage,
   errorMessage,
-  onCancel
+  onCancel,
 }: ProcessingProgressProps) {
   if (
     state === "IDLE" ||
@@ -50,17 +51,16 @@ export default function ProcessingProgress({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           {isProcessing ? (
-            /* 3D Micro-animated document processing icon */
-            <div className="relative w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200/70 flex items-center justify-center text-blue-600">
-              <div className="w-7 h-7 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
-              <FileText className="w-4 h-4 absolute text-blue-600" />
+            /* Official Saarvi S-Logo Loading Animation */
+            <div className="relative w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200/70 flex items-center justify-center shrink-0">
+              <SaarviLoadingLogo size={36} state="loading" />
             </div>
           ) : state === "COMPLETED" ? (
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 animate-check-pop">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 animate-check-pop shrink-0">
               <CheckCircle2 className="w-6 h-6" />
             </div>
           ) : (
-            <div className="w-12 h-12 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
               <AlertCircle className="w-6 h-6" />
             </div>
           )}
