@@ -478,6 +478,18 @@ export const adminService = {
   // =========================================================================
 
   async getPlatformSettings(): Promise<PlatformSettings> {
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch('/api/platform/settings');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.platform) {
+            MockStorageProvider.updatePlatformSettings(json.platform);
+            return json.platform;
+          }
+        }
+      } catch {}
+    }
     return MockStorageProvider.getPlatformSettings();
   },
 
@@ -486,9 +498,28 @@ export const adminService = {
       throw new Error('Permission denied: settings.update is required.');
     }
 
-    const updated = MockStorageProvider.updatePlatformSettings(updates, actor.email);
+    let saved = MockStorageProvider.updatePlatformSettings(updates, actor.email);
 
-    this.broadcastPlatformUpdate('platform', updated);
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch('/api/platform/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platform: updates }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.platform) {
+            saved = json.platform;
+            MockStorageProvider.updatePlatformSettings(saved, actor.email);
+          }
+        }
+      } catch (e) {
+        console.warn('[AdminService] Remote platform settings sync warning:', e);
+      }
+    }
+
+    this.broadcastPlatformUpdate('platform', saved);
 
     MockStorageProvider.addAuditLog({
       adminUserId: actor.id,
@@ -499,7 +530,7 @@ export const adminService = {
       metadata: updates,
     });
 
-    return updated;
+    return saved;
   },
 
   async toggleMaintenanceMode(enabled: boolean, message: string, actor: AdminActor): Promise<PlatformSettings> {
@@ -507,26 +538,13 @@ export const adminService = {
       throw new Error('Permission denied: settings.update is required.');
     }
 
-    const updated = MockStorageProvider.updatePlatformSettings(
+    return this.updatePlatformSettings(
       {
         maintenanceMode: enabled,
         maintenanceMessage: message.trim() || 'Saarvi is temporarily under maintenance. Please try again shortly.',
       },
-      actor.email
+      actor
     );
-
-    this.broadcastPlatformUpdate('platform', updated);
-
-    MockStorageProvider.addAuditLog({
-      adminUserId: actor.id,
-      adminEmail: actor.email,
-      action: enabled ? 'MAINTENANCE_MODE_ENABLED' : 'MAINTENANCE_MODE_DISABLED',
-      targetType: 'SETTING',
-      targetId: 'maintenance_mode',
-      metadata: { enabled, message },
-    });
-
-    return updated;
   },
 
   async toggleGuestAccess(enabled: boolean, actor: AdminActor): Promise<PlatformSettings> {
@@ -534,26 +552,25 @@ export const adminService = {
       throw new Error('Permission denied: settings.update is required.');
     }
 
-    const updated = MockStorageProvider.updatePlatformSettings(
+    return this.updatePlatformSettings(
       { guestAccessEnabled: enabled },
-      actor.email
+      actor
     );
-
-    this.broadcastPlatformUpdate('platform', updated);
-
-    MockStorageProvider.addAuditLog({
-      adminUserId: actor.id,
-      adminEmail: actor.email,
-      action: enabled ? 'GUEST_ACCESS_ENABLED' : 'GUEST_ACCESS_DISABLED',
-      targetType: 'SETTING',
-      targetId: 'guest_access',
-      metadata: { enabled },
-    });
-
-    return updated;
   },
 
   async getSeoSettings(): Promise<SeoSettings> {
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch('/api/platform/settings');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.seo) {
+            MockStorageProvider.updateSeoSettings(json.seo);
+            return json.seo;
+          }
+        }
+      } catch {}
+    }
     return MockStorageProvider.getSeoSettings();
   },
 
@@ -562,9 +579,28 @@ export const adminService = {
       throw new Error('Permission denied: settings.update is required.');
     }
 
-    const updated = MockStorageProvider.updateSeoSettings(updates, actor.email);
+    let saved = MockStorageProvider.updateSeoSettings(updates, actor.email);
 
-    this.broadcastPlatformUpdate('seo', updated);
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch('/api/platform/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ seo: updates }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.seo) {
+            saved = json.seo;
+            MockStorageProvider.updateSeoSettings(saved, actor.email);
+          }
+        }
+      } catch (e) {
+        console.warn('[AdminService] Remote SEO settings sync warning:', e);
+      }
+    }
+
+    this.broadcastPlatformUpdate('seo', saved);
 
     MockStorageProvider.addAuditLog({
       adminUserId: actor.id,
@@ -575,7 +611,7 @@ export const adminService = {
       metadata: updates,
     });
 
-    return updated;
+    return saved;
   },
 
   broadcastPlatformUpdate(type: 'platform' | 'seo' | 'tools', payload: any): void {
@@ -886,6 +922,32 @@ export const adminService = {
       }
     > = [];
 
+    // If running in the browser, call the authoritative /api/admin/users endpoint
+    if (typeof window !== 'undefined') {
+      try {
+        const query = new URLSearchParams();
+        if (params?.search) query.set('search', params.search);
+        if (params?.role) query.set('role', params.role);
+        if (params?.status) query.set('status', params.status);
+        if (params?.plan) query.set('plan', params.plan);
+        if (params?.page) query.set('page', String(params.page));
+        if (params?.limit) query.set('limit', String(params.limit));
+
+        const res = await fetch(`/api/admin/users?${query.toString()}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.users)) {
+            return {
+              users: json.users,
+              total: json.total ?? json.users.length,
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('[AdminService] Browser fetch users error, falling back:', err);
+      }
+    }
+
     if (typeof window === 'undefined' && isSupabaseConfigured()) {
       try {
         const supabase = getSupabaseAdminClient();
@@ -972,6 +1034,23 @@ export const adminService = {
       throw new Error('Permission denied: users.update is required.');
     }
 
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch(`/api/admin/users/${userId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'UPDATE_STATUS', status }),
+        });
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}));
+          throw new Error(errJson.error || 'Failed to update user status on server');
+        }
+      } catch (err: any) {
+        console.warn('[AdminService] Server status update failed:', err);
+        throw err;
+      }
+    }
+
     MockStorageProvider.updateUserStatus(userId, status);
 
     MockStorageProvider.addAuditLog({
@@ -998,6 +1077,23 @@ export const adminService = {
         reason: 'Actor lacks SUPER_ADMIN privileges',
       });
       throw new Error('Permission denied: Only SUPER_ADMIN can modify administrator roles.');
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch(`/api/admin/users/${userId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'UPDATE_ROLE', role }),
+        });
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}));
+          throw new Error(errJson.error || 'Failed to update user role on server');
+        }
+      } catch (err: any) {
+        console.warn('[AdminService] Server role update failed:', err);
+        throw err;
+      }
     }
 
     // Determine specific role transition event

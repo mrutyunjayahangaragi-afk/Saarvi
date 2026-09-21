@@ -123,12 +123,36 @@ export default function AdminAnalyticsDashboard() {
           data.kpis.totalUsers = apiOverview.userMetrics.totalUsers;
           data.kpis.newUsers = apiOverview.userMetrics.newUsers;
           data.kpis.previousPeriodNewUsers = apiOverview.userMetrics.previousNewUsers;
-          data.kpis.newUsersChangePct = apiOverview.userMetrics.trend.percentage;
-          data.kpis.newUsersDiff = apiOverview.userMetrics.trend.diff;
+          data.kpis.newUsersChangePct = apiOverview.userMetrics.trend?.percentage ?? 0;
+          data.kpis.newUsersDiff = apiOverview.userMetrics.trend?.diff ?? 0;
           data.kpis.activeUsers = apiOverview.userMetrics.activeUsers;
           data.kpis.freeUsers = apiOverview.userMetrics.freeUsers;
           data.kpis.proUsers = apiOverview.userMetrics.proUsers;
           data.kpis.suspendedUsers = apiOverview.userMetrics.suspendedUsers;
+
+          const totalU = apiOverview.userMetrics.totalUsers || 1;
+          data.accountStatusDist = [
+            {
+              label: 'Active',
+              count: apiOverview.userMetrics.activeUsers,
+              color: '#10b981',
+              percentage: Math.round((apiOverview.userMetrics.activeUsers / totalU) * 100),
+            },
+            {
+              label: 'Suspended',
+              count: apiOverview.userMetrics.suspendedUsers,
+              color: '#f59e0b',
+              percentage: Math.round((apiOverview.userMetrics.suspendedUsers / totalU) * 100),
+            },
+          ];
+        }
+
+        if (apiOverview?.metrics?.userGrowthTrend && Array.isArray(apiOverview.metrics.userGrowthTrend) && apiOverview.metrics.userGrowthTrend.length > 0) {
+          data.userGrowthSeries = apiOverview.metrics.userGrowthTrend.map((p: any) => ({
+            date: p.date,
+            label: p.label,
+            value: p.count,
+          }));
         }
 
         try {
