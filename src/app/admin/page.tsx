@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
   Users,
@@ -18,18 +18,12 @@ import {
   Sliders,
   Radio,
   RefreshCw,
-  Calendar,
-  Download,
-  Printer,
   Info,
   TrendingUp,
   TrendingDown,
   ShieldCheck,
   Server,
-  Layers,
   ChevronRight,
-  AlertOctagon,
-  FileCheck,
   ToggleLeft,
 } from 'lucide-react';
 import { adminAnalyticsService } from '@/lib/services/adminAnalyticsService';
@@ -52,7 +46,19 @@ export default function AdminAnalyticsDashboard() {
   // Global Period & Refresh State
   const [period, setPeriod] = useState<DateRangePeriod>('30d');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [lastUpdatedTime, setLastUpdatedTime] = useState<string>('');
+
+  // Independent Section Loading States
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [growthLoading, setGrowthLoading] = useState(true);
+  const [activityLoading, setActivityLoading] = useState(true);
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(true);
+  const [errorsLoading, setErrorsLoading] = useState(true);
+  const [toolsLoading, setToolsLoading] = useState(true);
+  const [recentLoading, setRecentLoading] = useState(true);
+
+  // Section-Level Error Isolation
+  const [sectionErrors, setSectionErrors] = useState<Record<string, string | null>>({});
 
   // Core Aggregated Data States
   const [kpis, setKpis] = useState<DashboardKPIs | null>(null);
@@ -94,139 +100,220 @@ export default function AdminAnalyticsDashboard() {
   const [recentAudit, setRecentAudit] = useState<AuditLogRecord[]>([]);
   const [recentErrors, setRecentErrors] = useState<PlatformErrorRecord[]>([]);
 
-  // Section error states for partial isolation
-  const [sectionErrors, setSectionErrors] = useState<Record<string, string | null>>({});
-
   // Activity filter state
   const [activityFilter, setActivityFilter] = useState<'all' | 'tool' | 'student' | 'account' | 'system'>('all');
 
-  const loadDashboardData = useCallback(
-    async (selectedPeriod: DateRangePeriod) => {
-      setIsRefreshing(true);
+  // Tab visibility tracking
+  const isTabVisibleRef = useRef(true);
+
+  // =========================================================================
+  // INDEPENDENT SECTION LOADERS (PARALLEL & NON-BLOCKING)
+  // =========================================================================
+
+  // P0: Dashboard Summary (KPIs) - Authoritative endpoint with /api/admin/analytics/overview fallback
+  const loadSummary = useCallback(async (selectedPeriod: DateRangePeriod, force = false) => {
+    setSummaryLoading(true);
+    setSectionErrors((prev) => ({ ...prev, summary: null }));
+    try {
+      const summaryKpis = await adminAnalyticsService.getDashboardSummary(selectedPeriod, force);
+      setKpis(summaryKpis);
+      setLastUpdatedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    } catch (err: unknown) {
+      // Fallback check to /api/admin/analytics/overview if primary summary endpoint fails
       try {
-        let apiOverview: any = null;
-        try {
-          const res = await fetch(`/api/admin/analytics/overview?period=${selectedPeriod}`);
-          if (res.ok) {
-            const json = await res.json();
-            if (json.success) {
-              apiOverview = json;
-            }
+        const res = await fetch(`/api/admin/analytics/overview?period=${selectedPeriod}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.userMetrics) {
+            setKpis(json.userMetrics);
+            return;
           }
-        } catch {
-          // fallback to client-side service
         }
+      } catch {
+        // ignore fallback error
+      }
+      setSectionErrors((prev) => ({
+        ...prev,
+        summary: err instanceof Error ? err.message : 'Failed to load summary KPIs.',
+      }));
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, []);
 
-        const data = await adminAnalyticsService.getDashboardOverview(selectedPeriod);
+  // P1: User Growth Time Series
+  const loadUserGrowth = useCallback(async (selectedPeriod: DateRangePeriod, force = false) => {
+    setGrowthLoading(true);
+    setSectionErrors((prev) => ({ ...prev, growth: null }));
+    try {
+      const data = await adminAnalyticsService.getUserGrowthData(selectedPeriod, force);
+      setUserGrowthSeries(data.series);
+      setNewUsersSeries(data.newUsersSeries);
+      setAccountStatusDist(data.accountStatusDist);
+    } catch (err: unknown) {
+      setSectionErrors((prev) => ({
+        ...prev,
+        growth: err instanceof Error ? err.message : 'Failed to load user growth data.',
+      }));
+    } finally {
+      setGrowthLoading(false);
+    }
+  }, []);
 
-        if (apiOverview?.userMetrics) {
-          data.kpis.totalUsers = apiOverview.userMetrics.totalUsers;
-          data.kpis.newUsers = apiOverview.userMetrics.newUsers;
-          data.kpis.previousPeriodNewUsers = apiOverview.userMetrics.previousNewUsers;
-          data.kpis.newUsersChangePct = apiOverview.userMetrics.trend?.percentage ?? 0;
-          data.kpis.newUsersDiff = apiOverview.userMetrics.trend?.diff ?? 0;
-          data.kpis.activeUsers = apiOverview.userMetrics.activeUsers;
-          data.kpis.freeUsers = apiOverview.userMetrics.freeUsers;
-          data.kpis.proUsers = apiOverview.userMetrics.proUsers;
-          data.kpis.suspendedUsers = apiOverview.userMetrics.suspendedUsers;
-
-          const totalU = apiOverview.userMetrics.totalUsers || 1;
-          data.accountStatusDist = [
-            {
-              label: 'Active',
-              count: apiOverview.userMetrics.activeUsers,
-              color: '#10b981',
-              percentage: Math.round((apiOverview.userMetrics.activeUsers / totalU) * 100),
-            },
-            {
-              label: 'Suspended',
-              count: apiOverview.userMetrics.suspendedUsers,
-              color: '#f59e0b',
-              percentage: Math.round((apiOverview.userMetrics.suspendedUsers / totalU) * 100),
-            },
-          ];
-        }
-
-        if (apiOverview?.metrics?.userGrowthTrend && Array.isArray(apiOverview.metrics.userGrowthTrend) && apiOverview.metrics.userGrowthTrend.length > 0) {
-          data.userGrowthSeries = apiOverview.metrics.userGrowthTrend.map((p: any) => ({
-            date: p.date,
-            label: p.label,
-            value: p.count,
-          }));
-        }
-
-        try {
-          const usersRes = await fetch('/api/admin/users?limit=6');
-          if (usersRes.ok) {
-            const usersJson = await usersRes.json();
-            if (usersJson.success && Array.isArray(usersJson.users)) {
-              data.recentUsers = usersJson.users;
-            }
-          }
-        } catch {
-          // fallback
-        }
-
-        try {
-          const diagRes = await fetch('/api/admin/diagnostics');
-          if (diagRes.ok) {
-            const diagJson = await diagRes.json();
-            if (diagJson.success && Array.isArray(diagJson.probes)) {
-              data.systemHealth = diagJson.probes;
-            }
-          }
-        } catch {
-          // keep service health fallback
-        }
-
-        setKpis(data.kpis);
-        setUserGrowthSeries(data.userGrowthSeries);
-        setNewUsersSeries(data.newUsersSeries);
-        setAccountStatusDist(data.accountStatusDist);
-        setToolMetrics(data.toolMetrics);
-        setStudentToolsDist(data.studentToolsDist);
-        setCurriculumMetrics(data.curriculumMetrics);
-        setActivityMetrics(data.activityMetrics);
-        setErrorMetrics(data.errorMetrics);
-        setSystemHealth(data.systemHealth);
-        setRecentUsers(data.recentUsers);
-        setRecentAudit(data.recentAudit);
-        setRecentErrors(data.recentErrors);
-
-        // Reset any section errors
-        setSectionErrors({});
+  // P1: Platform Activity
+  const loadActivity = useCallback(
+    async (selectedPeriod: DateRangePeriod, filter: 'all' | 'tool' | 'student' | 'account' | 'system', force = false) => {
+      setActivityLoading(true);
+      setSectionErrors((prev) => ({ ...prev, activity: null }));
+      try {
+        const data = await adminAnalyticsService.getPlatformActivityData(selectedPeriod, filter, force);
+        setActivityMetrics({
+          totalEvents: data.totalEvents,
+          timeSeries: data.timeSeries,
+          typeCounts: data.typeCounts,
+        });
       } catch (err: unknown) {
-        console.error('Failed to load dashboard overview data:', err);
         setSectionErrors((prev) => ({
           ...prev,
-          global: err instanceof Error ? err.message : 'Failed to synchronize analytics metrics.',
+          activity: err instanceof Error ? err.message : 'Failed to load platform activity.',
         }));
       } finally {
-        setIsRefreshing(false);
-        setInitialLoading(false);
+        setActivityLoading(false);
       }
     },
     []
   );
 
-  useEffect(() => {
-    loadDashboardData(period);
-  }, [period, loadDashboardData]);
+  // P2: System Diagnostics
+  const loadDiagnostics = useCallback(async (force = false) => {
+    setDiagnosticsLoading(true);
+    setSectionErrors((prev) => ({ ...prev, diagnostics: null }));
+    try {
+      const probes = await adminAnalyticsService.getSystemHealth(force);
+      setSystemHealth(probes);
+    } catch (err: unknown) {
+      setSectionErrors((prev) => ({
+        ...prev,
+        diagnostics: err instanceof Error ? err.message : 'Failed to load system diagnostics.',
+      }));
+    } finally {
+      setDiagnosticsLoading(false);
+    }
+  }, []);
 
-  // Load activity metrics when category filter changes
+  // P2: Error Analytics
+  const loadErrors = useCallback(async (selectedPeriod: DateRangePeriod, force = false) => {
+    setErrorsLoading(true);
+    setSectionErrors((prev) => ({ ...prev, errors: null }));
+    try {
+      const data = await adminAnalyticsService.getErrorAnalyticsData(selectedPeriod, force);
+      setErrorMetrics({
+        totalInPeriod: data.totalInPeriod,
+        unresolved: data.unresolved,
+        severityDistribution: data.severityDistribution,
+        timeSeries: data.timeSeries,
+      });
+    } catch (err: unknown) {
+      setSectionErrors((prev) => ({
+        ...prev,
+        errors: err instanceof Error ? err.message : 'Failed to load error metrics.',
+      }));
+    } finally {
+      setErrorsLoading(false);
+    }
+  }, []);
+
+  // P2: Tools and Curriculum Configuration
+  const loadToolsAndCurriculum = useCallback(async () => {
+    setToolsLoading(true);
+    try {
+      const [tMetrics, sDist, cMetrics] = await Promise.all([
+        adminAnalyticsService.getToolMetrics(),
+        adminAnalyticsService.getStudentToolsDistribution(),
+        adminAnalyticsService.getCurriculumMetrics(),
+      ]);
+      setToolMetrics(tMetrics);
+      setStudentToolsDist(sDist);
+      setCurriculumMetrics(cMetrics);
+    } catch (err) {
+      console.warn('[AdminDashboard] Tools/Curriculum load notice:', err);
+    } finally {
+      setToolsLoading(false);
+    }
+  }, []);
+
+  // P2: Recent Tables (Users, Audit Logs, Errors)
+  const loadRecentData = useCallback(async () => {
+    setRecentLoading(true);
+    try {
+      const [u, a, e] = await Promise.all([
+        adminAnalyticsService.getRecentUsers(6),
+        adminAnalyticsService.getRecentAuditLogs(6),
+        adminAnalyticsService.getRecentErrors(6),
+      ]);
+      setRecentUsers(u);
+      setRecentAudit(a);
+      setRecentErrors(e);
+    } catch (err) {
+      console.warn('[AdminDashboard] Recent data load notice:', err);
+    } finally {
+      setRecentLoading(false);
+    }
+  }, []);
+
+  // =========================================================================
+  // TRIGGER LIFECYCLES ON PERIOD CHANGE
+  // =========================================================================
+
   useEffect(() => {
-    async function loadFilteredActivity() {
-      try {
-        const res = await adminAnalyticsService.getPlatformActivityMetrics(period, activityFilter);
-        setActivityMetrics(res);
-      } catch (e) {
-        console.error('Failed to filter activity metrics:', e);
-      }
+    // P0: Summary loads first
+    loadSummary(period);
+
+    // P1: In parallel
+    loadUserGrowth(period);
+    loadActivity(period, activityFilter);
+
+    // P2: Background
+    loadDiagnostics();
+    loadErrors(period);
+    loadToolsAndCurriculum();
+    loadRecentData();
+  }, [period, loadSummary, loadUserGrowth, loadActivity, loadDiagnostics, loadErrors, loadToolsAndCurriculum, loadRecentData, activityFilter]);
+
+  // Handle activity category change without refetching other sections
+  const handleActivityFilterChange = (newCat: 'all' | 'tool' | 'student' | 'account' | 'system') => {
+    setActivityFilter(newCat);
+    loadActivity(period, newCat);
+  };
+
+  // =========================================================================
+  // SOFT REFRESH (NO BROWSER RELOAD)
+  // =========================================================================
+
+  const handleRefreshAnalytics = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.allSettled([
+        loadSummary(period, true),
+        loadUserGrowth(period, true),
+        loadActivity(period, activityFilter, true),
+        loadDiagnostics(true),
+        loadErrors(period, true),
+        loadRecentData(),
+      ]);
+    } finally {
+      setIsRefreshing(false);
     }
-    if (!initialLoading) {
-      loadFilteredActivity();
-    }
-  }, [activityFilter, period, initialLoading]);
+  };
+
+  // Tab visibility management to pause background work when hidden
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      isTabVisibleRef.current = document.visibilityState === 'visible';
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   // Export summary report
   const handleExportSummary = () => {
@@ -269,7 +356,7 @@ export default function AdminAnalyticsDashboard() {
   return (
     <div className="space-y-6 print:p-0">
       {/* ========================================================================= */}
-      {/* 1. TOP HEADER & OPERATIONAL CONTROLS                                       */}
+      {/* 1. TOP HEADER & OPERATIONAL CONTROLS (Renders Immediately)                 */}
       {/* ========================================================================= */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200/80 pb-5 print:border-none">
         <div>
@@ -301,8 +388,8 @@ export default function AdminAnalyticsDashboard() {
                 onClick={() => setPeriod(p)}
                 className={`px-3 py-1.5 rounded-lg transition-all ${
                   period === p
-                    ? 'bg-white text-blue-700 shadow-xs font-bold'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    ? 'bg-white text-blue-700 font-bold shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
                 }`}
               >
                 {periodLabels[p]}
@@ -310,46 +397,49 @@ export default function AdminAnalyticsDashboard() {
             ))}
           </div>
 
-          {/* Refresh Button */}
+          {/* Soft In-Place Refresh Button (Zero Page Reload) */}
           <button
             type="button"
-            onClick={() => loadDashboardData(period)}
+            onClick={handleRefreshAnalytics}
             disabled={isRefreshing}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-2xs disabled:opacity-60"
-            title="Reload real platform metrics"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold shadow-2xs transition-all disabled:opacity-50"
+            title="Refresh analytics data in-place without page reload"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-blue-600' : 'text-slate-500'}`} />
-            <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
           </button>
 
-          {/* Export & Print */}
+          {/* Export Summary JSON */}
           <button
             type="button"
             onClick={handleExportSummary}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-2xs"
-            title="Export aggregate platform summary JSON"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold shadow-2xs transition-all"
+            title="Export full analytics snapshot as JSON"
           >
-            <Download className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Export</span>
           </button>
 
+          {/* Print Dashboard */}
           <button
             type="button"
             onClick={handlePrint}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-2xs"
-            title="Print dashboard report"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold shadow-2xs transition-all"
+            title="Print or export dashboard as PDF"
           >
-            <Printer className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Print</span>
           </button>
         </div>
       </div>
 
-      {/* Last Updated & Real Data Badge Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500 bg-slate-50/80 rounded-xl px-3.5 py-2 border border-slate-200/60">
+      {/* Freshness & System Health Badge Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500 bg-slate-50/70 p-3 rounded-xl border border-slate-200/60 print:hidden">
         <div className="flex items-center gap-2">
           <Clock className="w-3.5 h-3.5 text-slate-400" />
           <span>
-            Last updated: <strong className="text-slate-700 font-mono">{kpis?.lastUpdated || 'Loading...'}</strong>
+            Last updated:{' '}
+            <strong className="text-slate-700 font-mono">
+              {summaryLoading ? 'Updating...' : lastUpdatedTime || kpis?.lastUpdated || 'Just now'}
+            </strong>
           </span>
           <span className="text-slate-300">•</span>
           <span className="text-slate-500">Period: {periodLabels[period]}</span>
@@ -371,31 +461,28 @@ export default function AdminAnalyticsDashboard() {
                   : 'bg-red-50 text-red-700 border border-red-200'
               }`}
             >
-              {kpis?.systemStatus || 'Checking...'}
+              {summaryLoading ? 'Checking...' : kpis?.systemStatus || 'Healthy'}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Global Error Banner if any */}
-      {sectionErrors.global && (
+      {/* Section-level summary error notice */}
+      {sectionErrors.summary && (
         <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center justify-between gap-3">
-          <span>{sectionErrors.global}</span>
+          <span>{sectionErrors.summary}</span>
           <button
             type="button"
-            onClick={() => loadDashboardData(period)}
+            onClick={() => loadSummary(period, true)}
             className="underline font-bold hover:text-red-900"
           >
-            Retry
+            Retry Summary
           </button>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* 2. REUSABLE KPI CARDS (Real Values Only)                                   */}
-      {/* ========================================================================= */}
-      {/* ========================================================================= */}
-      {/* 2. REAL USER COUNT DASHBOARD (The 5 Core Real Metrics)                      */}
+      {/* 2. REAL USER COUNT DASHBOARD (P0: Loads Immediately in <100ms)             */}
       {/* ========================================================================= */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -421,7 +508,7 @@ export default function AdminAnalyticsDashboard() {
             </div>
             <div>
               <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
-                {initialLoading ? '...' : kpis?.totalUsers ?? 0}
+                {summaryLoading ? '...' : kpis?.totalUsers ?? 0}
               </div>
               <p className="text-[11px] text-slate-500 mt-1">Registered accounts</p>
             </div>
@@ -452,7 +539,7 @@ export default function AdminAnalyticsDashboard() {
             </div>
             <div>
               <div className="text-2xl sm:text-3xl font-extrabold text-purple-600 font-mono tracking-tight">
-                {initialLoading ? '...' : kpis?.activeUsers ?? 0}
+                {summaryLoading ? '...' : kpis?.activeUsers ?? 0}
               </div>
               <p className="text-[11px] text-slate-500 mt-1">Active in {periodLabels[period]}</p>
             </div>
@@ -471,7 +558,7 @@ export default function AdminAnalyticsDashboard() {
             </div>
             <div>
               <div className="text-2xl sm:text-3xl font-extrabold text-slate-800 font-mono tracking-tight">
-                {initialLoading ? '...' : kpis?.freeUsers ?? Math.max(0, (kpis?.totalUsers ?? 0) - (kpis?.proUsers ?? 0))}
+                {summaryLoading ? '...' : kpis?.freeUsers ?? Math.max(0, (kpis?.totalUsers ?? 0) - (kpis?.proUsers ?? 0))}
               </div>
               <p className="text-[11px] text-slate-500 mt-1">Free plan accounts</p>
             </div>
@@ -490,7 +577,7 @@ export default function AdminAnalyticsDashboard() {
             </div>
             <div>
               <div className="text-2xl sm:text-3xl font-extrabold text-amber-700 font-mono tracking-tight">
-                {initialLoading ? '...' : kpis?.proUsers ?? 0}
+                {summaryLoading ? '...' : kpis?.proUsers ?? 0}
               </div>
               <p className="text-[11px] text-slate-500 mt-1">Active Pro subscriptions</p>
             </div>
@@ -510,9 +597,9 @@ export default function AdminAnalyticsDashboard() {
             <div>
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl sm:text-3xl font-extrabold text-emerald-700 font-mono tracking-tight">
-                  {initialLoading ? '...' : kpis?.newUsers ?? 0}
+                  {summaryLoading ? '...' : kpis?.newUsers ?? 0}
                 </span>
-                {!initialLoading && kpis && kpis.newUsersChangePct !== null && (
+                {!summaryLoading && kpis && kpis.newUsersChangePct !== null && (
                   <span
                     className={`inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded-md ${
                       kpis.newUsersDiff > 0
@@ -556,10 +643,10 @@ export default function AdminAnalyticsDashboard() {
           </div>
           <div>
             <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
-              {initialLoading ? '...' : `${kpis?.enabledTools ?? 0} / ${kpis?.totalTools ?? 0}`}
+              {toolsLoading ? '...' : `${toolMetrics?.available ?? kpis?.enabledTools ?? 0} / ${toolMetrics?.total ?? kpis?.totalTools ?? 0}`}
             </div>
             <p className="text-[11px] text-slate-500 mt-1">
-              {kpis?.disabledTools ? `${kpis.disabledTools} disabled` : 'All tools available'}
+              {toolMetrics?.disabled ? `${toolMetrics.disabled} disabled` : 'All tools available'}
             </p>
           </div>
           <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
@@ -588,7 +675,7 @@ export default function AdminAnalyticsDashboard() {
           <div>
             <div className="text-xs font-semibold text-slate-500">VTU Curricula</div>
             <div className="text-xl font-extrabold text-slate-900 font-mono mt-0.5">
-              {kpis?.verifiedCurriculumCount ?? 0}
+              {curriculumMetrics?.total ?? kpis?.curriculumCount ?? 0}
             </div>
             <div className="text-[11px] text-slate-400">Verified & Active packages</div>
           </div>
@@ -600,12 +687,12 @@ export default function AdminAnalyticsDashboard() {
           <div>
             <div className="text-xs font-semibold text-slate-500">Open Errors</div>
             <div className="text-xl font-extrabold text-slate-900 font-mono mt-0.5">
-              {kpis?.openErrorsCount ?? 0}
+              {errorsLoading ? '...' : errorMetrics?.unresolved ?? kpis?.openErrorsCount ?? 0}
             </div>
             <div className="text-[11px] text-slate-400">Pending investigation</div>
           </div>
           <AlertTriangle
-            className={`w-6 h-6 ${kpis && kpis.openErrorsCount > 0 ? 'text-amber-500' : 'text-slate-300'}`}
+            className={`w-6 h-6 ${errorMetrics && errorMetrics.unresolved > 0 ? 'text-amber-500' : 'text-slate-300'}`}
           />
         </div>
 
@@ -659,7 +746,7 @@ export default function AdminAnalyticsDashboard() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 3. CHARTS ROW 1: USER GROWTH & USER SIGNUPS                              */}
+      {/* 3. CHARTS ROW 1: USER GROWTH & USER SIGNUPS (P1: Independent Loading)     */}
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* User Growth (Line Chart) */}
@@ -668,18 +755,31 @@ export default function AdminAnalyticsDashboard() {
           subtitle={`Cumulative registered accounts over ${periodLabels[period]}`}
           badge="Real Data"
           badgeColor="blue"
-          loading={initialLoading}
+          loading={growthLoading}
           footerInfo="Tracks authentic user account creation timestamps."
         >
-          <AdminLineChart
-            data={userGrowthSeries}
-            metricLabel="Registered Users"
-            strokeColor="#2563eb"
-            fillGradientStart="rgba(37, 99, 235, 0.2)"
-            fillGradientEnd="rgba(37, 99, 235, 0.01)"
-            emptyMessage="No registration timeline data recorded yet."
-            height={220}
-          />
+          {sectionErrors.growth ? (
+            <div className="h-[220px] flex flex-col items-center justify-center text-xs text-red-600 gap-2">
+              <span>{sectionErrors.growth}</span>
+              <button
+                type="button"
+                onClick={() => loadUserGrowth(period, true)}
+                className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded-md font-semibold"
+              >
+                Retry
+              </button>
+            </div>
+          ) : (
+            <AdminLineChart
+              data={userGrowthSeries}
+              metricLabel="Registered Users"
+              strokeColor="#2563eb"
+              fillGradientStart="rgba(37, 99, 235, 0.2)"
+              fillGradientEnd="rgba(37, 99, 235, 0.01)"
+              emptyMessage="No registration timeline data recorded yet."
+              height={220}
+            />
+          )}
         </ChartCardWrapper>
 
         {/* New Users Registrations (Bar Chart) */}
@@ -688,17 +788,30 @@ export default function AdminAnalyticsDashboard() {
           subtitle={`New user signups grouped by day for ${periodLabels[period]}`}
           badge="Daily Cadence"
           badgeColor="emerald"
-          loading={initialLoading}
+          loading={growthLoading}
           footerInfo="Calculated directly from account registration timestamps."
         >
-          <AdminBarChart
-            data={newUsersSeries}
-            metricLabel="New Users"
-            barColor="#10b981"
-            hoverColor="#059669"
-            emptyMessage="No user registrations recorded for this period."
-            height={220}
-          />
+          {sectionErrors.growth ? (
+            <div className="h-[220px] flex flex-col items-center justify-center text-xs text-red-600 gap-2">
+              <span>{sectionErrors.growth}</span>
+              <button
+                type="button"
+                onClick={() => loadUserGrowth(period, true)}
+                className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded-md font-semibold"
+              >
+                Retry
+              </button>
+            </div>
+          ) : (
+            <AdminBarChart
+              data={newUsersSeries}
+              metricLabel="New Users"
+              barColor="#10b981"
+              hoverColor="#059669"
+              emptyMessage="No user registrations recorded for this period."
+              height={220}
+            />
+          )}
         </ChartCardWrapper>
       </div>
 
@@ -710,7 +823,7 @@ export default function AdminAnalyticsDashboard() {
         <ChartCardWrapper
           title="Account Status"
           subtitle="Distribution of registered user roles & health"
-          loading={initialLoading}
+          loading={growthLoading}
           footerInfo="Enforces ACTIVE, SUSPENDED, and DISABLED accounts."
         >
           <AdminDonutChart
@@ -726,7 +839,7 @@ export default function AdminAnalyticsDashboard() {
         <ChartCardWrapper
           title="Tools by Category"
           subtitle="Document processing engines breakdown"
-          loading={initialLoading}
+          loading={toolsLoading}
           footerInfo="Static tool registry configuration."
         >
           <AdminDonutChart
@@ -742,7 +855,7 @@ export default function AdminAnalyticsDashboard() {
         <ChartCardWrapper
           title="Tool Operational Status"
           subtitle="Current operational readiness of engines"
-          loading={initialLoading}
+          loading={toolsLoading}
           footerInfo="Governed by platform overrides in admin tool settings."
         >
           <AdminDonutChart
@@ -763,7 +876,7 @@ export default function AdminAnalyticsDashboard() {
         <ChartCardWrapper
           title="Student Ecosystem Tools"
           subtitle="Integrated VTU student modules by category"
-          loading={initialLoading}
+          loading={toolsLoading}
           badge="15 Modules"
           badgeColor="purple"
         >
@@ -794,7 +907,7 @@ export default function AdminAnalyticsDashboard() {
         <ChartCardWrapper
           title="VTU Academic Curriculum"
           subtitle="Official syllabus packages by scheme"
-          loading={initialLoading}
+          loading={toolsLoading}
           headerAction={
             <Link
               href="/admin/curriculum"
@@ -815,16 +928,16 @@ export default function AdminAnalyticsDashboard() {
           />
         </ChartCardWrapper>
 
-        {/* Privacy-Safe Platform Activity */}
+        {/* Privacy-Safe Platform Activity (P1: Independent Loading) */}
         <ChartCardWrapper
           title="Platform Activity"
           subtitle="Genuine privacy-safe interaction events"
-          loading={initialLoading}
+          loading={activityLoading}
           headerAction={
             <select
               value={activityFilter}
               aria-label="Filter Platform Activity Category"
-              onChange={(e) => setActivityFilter(e.target.value as any)}
+              onChange={(e) => handleActivityFilterChange(e.target.value as any)}
               className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-700 font-medium focus:outline-hidden"
             >
               <option value="all">All Events</option>
@@ -835,20 +948,33 @@ export default function AdminAnalyticsDashboard() {
           }
           footerInfo="Zero document content or file data is ever tracked."
         >
-          <AdminLineChart
-            data={activityMetrics?.timeSeries || []}
-            metricLabel="Platform Events"
-            strokeColor="#8b5cf6"
-            fillGradientStart="rgba(139, 92, 246, 0.2)"
-            fillGradientEnd="rgba(139, 92, 246, 0.01)"
-            emptyMessage="No activity events recorded for this period."
-            height={200}
-          />
+          {sectionErrors.activity ? (
+            <div className="h-[200px] flex flex-col items-center justify-center text-xs text-red-600 gap-2">
+              <span>{sectionErrors.activity}</span>
+              <button
+                type="button"
+                onClick={() => loadActivity(period, activityFilter, true)}
+                className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded-md font-semibold"
+              >
+                Retry
+              </button>
+            </div>
+          ) : (
+            <AdminLineChart
+              data={activityMetrics?.timeSeries || []}
+              metricLabel="Platform Events"
+              strokeColor="#8b5cf6"
+              fillGradientStart="rgba(139, 92, 246, 0.2)"
+              fillGradientEnd="rgba(139, 92, 246, 0.01)"
+              emptyMessage="No activity events recorded for this period."
+              height={200}
+            />
+          )}
         </ChartCardWrapper>
       </div>
 
       {/* ========================================================================= */}
-      {/* 6. CHARTS ROW 4: ERROR TRENDS & SEVERITY BREAKDOWN                         */}
+      {/* 6. CHARTS ROW 4: ERROR TRENDS & SEVERITY BREAKDOWN (P2)                   */}
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Error Trend Line Chart */}
@@ -857,7 +983,7 @@ export default function AdminAnalyticsDashboard() {
           subtitle={`Platform operational issues logged in ${periodLabels[period]}`}
           badge={errorMetrics && errorMetrics.unresolved > 0 ? `${errorMetrics.unresolved} Unresolved` : 'Clean'}
           badgeColor={errorMetrics && errorMetrics.unresolved > 0 ? 'amber' : 'emerald'}
-          loading={initialLoading}
+          loading={errorsLoading}
           headerAction={
             <Link
               href="/admin/errors"
@@ -869,22 +995,35 @@ export default function AdminAnalyticsDashboard() {
           }
           footerInfo="Logged errors mask sensitive tokens and private user content."
         >
-          <AdminLineChart
-            data={errorMetrics?.timeSeries || []}
-            metricLabel="Errors"
-            strokeColor="#ef4444"
-            fillGradientStart="rgba(239, 68, 68, 0.2)"
-            fillGradientEnd="rgba(239, 68, 68, 0.01)"
-            emptyMessage="Zero operational errors recorded in this period."
-            height={200}
-          />
+          {sectionErrors.errors ? (
+            <div className="h-[200px] flex flex-col items-center justify-center text-xs text-red-600 gap-2">
+              <span>{sectionErrors.errors}</span>
+              <button
+                type="button"
+                onClick={() => loadErrors(period, true)}
+                className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded-md font-semibold"
+              >
+                Retry
+              </button>
+            </div>
+          ) : (
+            <AdminLineChart
+              data={errorMetrics?.timeSeries || []}
+              metricLabel="Errors"
+              strokeColor="#ef4444"
+              fillGradientStart="rgba(239, 68, 68, 0.2)"
+              fillGradientEnd="rgba(239, 68, 68, 0.01)"
+              emptyMessage="Zero operational errors recorded in this period."
+              height={200}
+            />
+          )}
         </ChartCardWrapper>
 
         {/* Error Severity Distribution */}
         <ChartCardWrapper
           title="Error Severity Breakdown"
           subtitle="Categorization of recorded issues"
-          loading={initialLoading}
+          loading={errorsLoading}
           footerInfo="Review CRITICAL alerts promptly."
         >
           <AdminDonutChart
@@ -898,7 +1037,7 @@ export default function AdminAnalyticsDashboard() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 7. PRIVACY-FIRST ARCHITECTURE INFORMATIVE NOTICE (Section 24 & 25)         */}
+      {/* 7. PRIVACY-FIRST ARCHITECTURE INFORMATIVE NOTICE                           */}
       {/* ========================================================================= */}
       <div className="bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-slate-50 border border-blue-100 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-start gap-3.5">
@@ -929,7 +1068,7 @@ export default function AdminAnalyticsDashboard() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 8. SYSTEM HEALTH CHECK MATRIX (Section 31 & 32)                            */}
+      {/* 8. SYSTEM HEALTH CHECK MATRIX (P2: Independent Loading)                    */}
       {/* ========================================================================= */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
@@ -942,43 +1081,63 @@ export default function AdminAnalyticsDashboard() {
           </div>
           <button
             type="button"
-            onClick={() => loadDashboardData(period)}
-            className="text-xs text-blue-600 font-semibold hover:text-blue-700 flex items-center gap-1"
+            onClick={() => loadDiagnostics(true)}
+            disabled={diagnosticsLoading}
+            className="text-xs text-blue-600 font-semibold hover:text-blue-700 flex items-center gap-1 disabled:opacity-50"
           >
-            <RefreshCw className="w-3 h-3" />
+            <RefreshCw className={`w-3 h-3 ${diagnosticsLoading ? 'animate-spin' : ''}`} />
             <span>Recheck</span>
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {systemHealth.map((check) => (
-            <div
-              key={check.id}
-              className="p-3 rounded-xl border border-slate-200/70 bg-slate-50/50 flex items-start justify-between gap-2"
+        {sectionErrors.diagnostics ? (
+          <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center justify-between gap-3">
+            <span>{sectionErrors.diagnostics}</span>
+            <button
+              type="button"
+              onClick={() => loadDiagnostics(true)}
+              className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded-md font-semibold"
             >
-              <div className="space-y-1">
-                <div className="text-xs font-bold text-slate-800">{check.name}</div>
-                <div className="text-[11px] text-slate-500">{check.message}</div>
-                <div className="text-[10px] text-slate-400 font-mono">Latency: {check.latencyMs}ms</div>
+              Retry
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {diagnosticsLoading && systemHealth.length === 0 ? (
+              <div className="col-span-full py-6 text-center text-xs text-slate-400">
+                Checking live system health probes...
               </div>
-              <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0 ${
-                  check.status === 'HEALTHY'
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                    : check.status === 'WARNING'
-                    ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                    : 'bg-red-50 text-red-700 border border-red-200'
-                }`}
-              >
-                {check.status}
-              </span>
-            </div>
-          ))}
-        </div>
+            ) : (
+              systemHealth.map((check) => (
+                <div
+                  key={check.id}
+                  className="p-3 rounded-xl border border-slate-200/70 bg-slate-50/50 flex items-start justify-between gap-2"
+                >
+                  <div className="space-y-1">
+                    <div className="text-xs font-bold text-slate-800">{check.name}</div>
+                    <div className="text-[11px] text-slate-500">{check.message}</div>
+                    <div className="text-[10px] text-slate-400 font-mono">Latency: {check.latencyMs}ms</div>
+                  </div>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0 ${
+                      check.status === 'HEALTHY'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : check.status === 'WARNING'
+                        ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                        : 'bg-red-50 text-red-700 border border-red-200'
+                    }`}
+                  >
+                    {check.status}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       {/* ========================================================================= */}
-      {/* 9. RECENT TABLES: USERS, AUDIT TRAIL, AND ERRORS                           */}
+      {/* 9. RECENT TABLES: USERS, AUDIT TRAIL, AND ERRORS (P2: Independent)         */}
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Recently Registered Users */}
@@ -994,7 +1153,11 @@ export default function AdminAnalyticsDashboard() {
           </div>
 
           <div className="divide-y divide-slate-100 flex-1 min-h-[220px]">
-            {recentUsers.length === 0 ? (
+            {recentLoading && recentUsers.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                Loading recent users...
+              </div>
+            ) : recentUsers.length === 0 ? (
               <div className="h-full flex items-center justify-center text-xs text-slate-400">
                 No users registered yet.
               </div>
@@ -1040,7 +1203,11 @@ export default function AdminAnalyticsDashboard() {
           </div>
 
           <div className="divide-y divide-slate-100 flex-1 min-h-[220px]">
-            {recentAudit.length === 0 ? (
+            {recentLoading && recentAudit.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                Loading audit trail...
+              </div>
+            ) : recentAudit.length === 0 ? (
               <div className="h-full flex items-center justify-center text-xs text-slate-400">
                 No administrative actions logged yet.
               </div>
@@ -1077,7 +1244,11 @@ export default function AdminAnalyticsDashboard() {
           </div>
 
           <div className="divide-y divide-slate-100 flex-1 min-h-[220px]">
-            {recentErrors.length === 0 ? (
+            {recentLoading && recentErrors.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                Loading diagnostics...
+              </div>
+            ) : recentErrors.length === 0 ? (
               <div className="h-full flex items-center justify-center text-xs text-slate-400">
                 System operational. No recorded errors.
               </div>
@@ -1107,7 +1278,7 @@ export default function AdminAnalyticsDashboard() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 10. ADMIN QUICK ACTION SHORTCUTS (Section 67)                             */}
+      {/* 10. ADMIN QUICK ACTION SHORTCUTS                                           */}
       {/* ========================================================================= */}
       <div className="space-y-3 print:hidden">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Platform Control Shortcuts</h3>

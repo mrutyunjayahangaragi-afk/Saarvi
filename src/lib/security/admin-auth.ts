@@ -1,9 +1,9 @@
 // Server-authoritative Admin Authentication & Authorization Helper
 // Strictly verifies administrator credentials using Supabase session or verified server cookies
 
-import { isSupabaseConfigured } from '@/lib/supabase/config';
-import { createClient } from '@/lib/supabase/server';
-import { MockStorageProvider } from '@/lib/supabase/mock-storage';
+import { isSupabaseConfigured } from '../supabase/config.ts';
+import { createClient } from '../supabase/server.ts';
+import { MockStorageProvider } from '../supabase/mock-storage.ts';
 
 export interface AuthenticatedAdminUser {
   id: string;
