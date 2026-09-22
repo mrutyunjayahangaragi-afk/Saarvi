@@ -4,6 +4,7 @@ import { SubscriptionService } from '@/lib/billing/subscriptionService';
 import { MockStorageProvider } from '@/lib/supabase/mock-storage';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
+import { enforceRateLimit, createRateLimitResponse, withRateLimitHeaders } from '@/lib/security/rate-limit';
 import { ActiveAdResponse } from '@/types/admin';
 
 export const dynamic = 'force-dynamic';
@@ -12,6 +13,7 @@ export const dynamic = 'force-dynamic';
  * GET /api/advertising/active
  * Evaluates caller eligibility server-side.
  * Pro users are strictly exempt and NEVER receive ads.
+ * Rate-limited under 'adDelivery' (120 req/min).
  */
 export async function GET(request: Request) {
   try {
@@ -50,6 +52,12 @@ export async function GET(request: Request) {
       }
     }
 
+    // Rate limiting under adDelivery policy
+    const rateLimit = enforceRateLimit(request, 'adDelivery', userId || undefined);
+    if (!rateLimit.allowed) {
+      return createRateLimitResponse(rateLimit);
+    }
+
     // 3. Authoritative server check for active Pro subscription
     if (userId && !isProUser) {
       try {
@@ -75,7 +83,7 @@ export async function GET(request: Request) {
         isPro: true,
         reason: 'PRO_EXEMPT',
       };
-      return NextResponse.json(response);
+      return withRateLimitHeaders(NextResponse.json(response), rateLimit);
     }
 
     // 5. Query active eligible advertisement from authoritative store
@@ -88,7 +96,7 @@ export async function GET(request: Request) {
         reason: settings.adsEnabled ? 'NO_ACTIVE_AD' : 'ADS_DISABLED',
         settings,
       };
-      return NextResponse.json(response);
+      return withRateLimitHeaders(NextResponse.json(response), rateLimit);
     }
 
     const response: ActiveAdResponse = {
@@ -99,7 +107,7 @@ export async function GET(request: Request) {
       settings,
     };
 
-    return NextResponse.json(response);
+    return withRateLimitHeaders(NextResponse.json(response), rateLimit);
   } catch (error: any) {
     console.error('[Ad Active API] Fatal error:', error);
     return NextResponse.json(

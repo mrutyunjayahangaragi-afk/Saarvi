@@ -812,6 +812,51 @@ export default function AdminMockInterviewPage() {
 
                 <label className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer text-xs">
                   <div>
+                    <span className="font-bold text-slate-900 block">Camera Verification Required</span>
+                    <span className="text-slate-500 text-[11px]">Require video webcam readiness</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.enableCameraDeviceCheck}
+                    onChange={(e) =>
+                      setSettings({ ...settings, enableCameraDeviceCheck: e.target.checked })
+                    }
+                    className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer text-xs">
+                  <div>
+                    <span className="font-bold text-slate-900 block">Microphone Verification Required</span>
+                    <span className="text-slate-500 text-[11px]">Require audio microphone readiness</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.enableMicDeviceCheck}
+                    onChange={(e) =>
+                      setSettings({ ...settings, enableMicDeviceCheck: e.target.checked })
+                    }
+                    className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer text-xs">
+                  <div>
+                    <span className="font-bold text-slate-900 block">AI Speech Synthesis (TTS)</span>
+                    <span className="text-slate-500 text-[11px]">Spoken audio delivery of interview questions</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.enableAiTtsFallback}
+                    onChange={(e) =>
+                      setSettings({ ...settings, enableAiTtsFallback: e.target.checked })
+                    }
+                    className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer text-xs">
+                  <div>
                     <span className="font-bold text-slate-900 block">Location Verification Required</span>
                     <span className="text-slate-500 text-[11px]">Only when policy mandates attendance</span>
                   </div>

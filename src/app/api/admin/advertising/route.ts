@@ -1,25 +1,32 @@
 import { NextResponse } from 'next/server';
 import { adStore } from '@/lib/advertising/ad-store';
 import { getAuthenticatedAdmin } from '@/lib/security/admin-auth';
-import { enforceRateLimit, createRateLimitResponse } from '@/lib/security/rate-limit';
+import {
+  enforceRateLimit,
+  createRateLimitResponse,
+  withRateLimitHeaders,
+  getRateLimitTelemetry,
+} from '@/lib/security/rate-limit';
 import { AdDisplayMode, AdFrequencyMode, AdvertisementStatus } from '@/types/admin';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/admin/advertising
- * Returns all advertisements, display settings, real analytics, and recent logs.
+ * Returns all advertisements, display settings, real analytics, recent logs,
+ * system diagnostics, and rate limit telemetry.
+ * Rate limited under 'adminReads' (120 req/min).
  */
 export async function GET(request: Request) {
-  const rateLimit = enforceRateLimit(request, 'adminMutations');
-  if (!rateLimit.allowed) {
-    return createRateLimitResponse(rateLimit);
-  }
-
   try {
-    const authResult = await getAuthenticatedAdmin(request);
+    const authResult = await getAuthenticatedAdmin(request, 'VIEW');
     if (!authResult.success) {
       return NextResponse.json({ error: authResult.error }, { status: authResult.status });
+    }
+
+    const rateLimit = enforceRateLimit(request, 'adminReads', authResult.user.id);
+    if (!rateLimit.allowed) {
+      return createRateLimitResponse(rateLimit);
     }
 
     const { searchParams } = new URL(request.url);
@@ -29,14 +36,20 @@ export async function GET(request: Request) {
     const settings = adStore.getDisplaySettings();
     const summary = adStore.getAnalyticsSummary(adId);
     const recentEvents = adStore.getRecentEvents(50, adId);
+    const diagnostics = adStore.getDiagnostics();
+    const rateLimitTelemetry = getRateLimitTelemetry();
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       ads,
       settings,
       summary,
       recentEvents,
+      diagnostics,
+      rateLimitTelemetry,
     });
+
+    return withRateLimitHeaders(response, rateLimit);
   } catch (error: any) {
     console.error('[Admin Advertising GET] Error:', error);
     return NextResponse.json(
@@ -49,17 +62,18 @@ export async function GET(request: Request) {
 /**
  * POST /api/admin/advertising
  * Creates a new advertisement in DRAFT or ACTIVE state.
+ * Rate limited under 'adminMutations' (30 req/min).
  */
 export async function POST(request: Request) {
-  const rateLimit = enforceRateLimit(request, 'adminMutations');
-  if (!rateLimit.allowed) {
-    return createRateLimitResponse(rateLimit);
-  }
-
   try {
     const authResult = await getAuthenticatedAdmin(request, 'MANAGE');
     if (!authResult.success) {
       return NextResponse.json({ error: authResult.error }, { status: authResult.status });
+    }
+
+    const rateLimit = enforceRateLimit(request, 'adminMutations', authResult.user.id);
+    if (!rateLimit.allowed) {
+      return createRateLimitResponse(rateLimit);
     }
 
     const body = await request.json();
@@ -135,12 +149,13 @@ export async function POST(request: Request) {
       authResult.user.email
     );
 
-    return NextResponse.json({ success: true, ad: newAd }, { status: 201 });
+    const response = NextResponse.json({ success: true, ad: newAd }, { status: 201 });
+    return withRateLimitHeaders(response, rateLimit);
   } catch (error: any) {
     console.error('[Admin Advertising POST] Error:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to create advertisement.' },
-      { status: 500 }
+      { status: 400 }
     );
   }
 }
@@ -148,17 +163,18 @@ export async function POST(request: Request) {
 /**
  * PATCH /api/admin/advertising
  * Updates an advertisement or platform-wide display settings.
+ * Rate limited under 'adminMutations' (30 req/min).
  */
 export async function PATCH(request: Request) {
-  const rateLimit = enforceRateLimit(request, 'adminMutations');
-  if (!rateLimit.allowed) {
-    return createRateLimitResponse(rateLimit);
-  }
-
   try {
     const authResult = await getAuthenticatedAdmin(request, 'MANAGE');
     if (!authResult.success) {
       return NextResponse.json({ error: authResult.error }, { status: authResult.status });
+    }
+
+    const rateLimit = enforceRateLimit(request, 'adminMutations', authResult.user.id);
+    if (!rateLimit.allowed) {
+      return createRateLimitResponse(rateLimit);
     }
 
     const body = await request.json();
@@ -170,7 +186,8 @@ export async function PATCH(request: Request) {
         newSettings || updates,
         authResult.user.email
       );
-      return NextResponse.json({ success: true, settings: updatedSettings });
+      const response = NextResponse.json({ success: true, settings: updatedSettings });
+      return withRateLimitHeaders(response, rateLimit);
     }
 
     // 2. Update Specific Advertisement
@@ -182,12 +199,13 @@ export async function PATCH(request: Request) {
     }
 
     const updatedAd = await adStore.updateAd(id, updates, authResult.user.email);
-    return NextResponse.json({ success: true, ad: updatedAd });
+    const response = NextResponse.json({ success: true, ad: updatedAd });
+    return withRateLimitHeaders(response, rateLimit);
   } catch (error: any) {
     console.error('[Admin Advertising PATCH] Error:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to update advertisement.' },
-      { status: 500 }
+      { status: 400 }
     );
   }
 }
@@ -195,17 +213,18 @@ export async function PATCH(request: Request) {
 /**
  * DELETE /api/admin/advertising
  * Permanently removes an advertisement.
+ * Rate limited under 'adminMutations' (30 req/min).
  */
 export async function DELETE(request: Request) {
-  const rateLimit = enforceRateLimit(request, 'adminMutations');
-  if (!rateLimit.allowed) {
-    return createRateLimitResponse(rateLimit);
-  }
-
   try {
     const authResult = await getAuthenticatedAdmin(request, 'MANAGE');
     if (!authResult.success) {
       return NextResponse.json({ error: authResult.error }, { status: authResult.status });
+    }
+
+    const rateLimit = enforceRateLimit(request, 'adminMutations', authResult.user.id);
+    if (!rateLimit.allowed) {
+      return createRateLimitResponse(rateLimit);
     }
 
     const { searchParams } = new URL(request.url);
@@ -220,7 +239,8 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Advertisement not found.' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, id });
+    const response = NextResponse.json({ success: true, id });
+    return withRateLimitHeaders(response, rateLimit);
   } catch (error: any) {
     console.error('[Admin Advertising DELETE] Error:', error);
     return NextResponse.json(

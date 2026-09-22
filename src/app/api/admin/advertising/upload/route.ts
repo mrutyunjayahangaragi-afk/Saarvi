@@ -17,15 +17,15 @@ const ALLOWED_VIDEO_FORMATS = ['mp4', 'webm'];
  * Performs rigorous magic-byte binary validation and executable signature rejection.
  */
 export async function POST(request: Request) {
-  const rateLimit = enforceRateLimit(request, 'adminMutations');
-  if (!rateLimit.allowed) {
-    return createRateLimitResponse(rateLimit);
-  }
-
   try {
     const authResult = await getAuthenticatedAdmin(request, 'MANAGE');
     if (!authResult.success) {
       return NextResponse.json({ error: authResult.error }, { status: authResult.status });
+    }
+
+    const rateLimit = enforceRateLimit(request, 'adUpload', authResult.user.id);
+    if (!rateLimit.allowed) {
+      return createRateLimitResponse(rateLimit);
     }
 
     const contentType = request.headers.get('content-type') || '';

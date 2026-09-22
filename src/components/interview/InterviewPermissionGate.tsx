@@ -20,6 +20,7 @@ import {
   ArrowRight,
   Info,
   Check,
+  Settings2,
 } from "lucide-react";
 import {
   InterviewPermissionState,
@@ -36,6 +37,8 @@ interface InterviewPermissionGateProps {
   userEmailVerified?: boolean;
   userIsAuthenticated?: boolean;
   centerName?: string;
+  allowAudioFallback?: boolean;
+  allowTextFallback?: boolean;
   onSwitchToTextMode?: () => void;
   onReadyToStart: (config: {
     privacyMode: CandidatePrivacyMode;
@@ -57,10 +60,24 @@ export default function InterviewPermissionGate({
   userEmailVerified = true,
   userIsAuthenticated = true,
   centerName,
+  allowAudioFallback = true,
+  allowTextFallback = true,
   onSwitchToTextMode,
   onReadyToStart,
   onCancel,
 }: InterviewPermissionGateProps) {
+  // Preflight setup initiation state
+  const [setupStarted, setSetupStarted] = useState(false);
+
+  // Secure context detection (navigator.mediaDevices requires HTTPS or localhost)
+  const [isSecureContext, setIsSecureContext] = useState(true);
+
+  // Available devices
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>("");
+  const [selectedMicId, setSelectedMicId] = useState<string>("");
+
   // Permission states
   const [permissions, setPermissions] = useState<InterviewPermissionState>({
     camera: "requested",
@@ -95,6 +112,79 @@ export default function InterviewPermissionGate({
   const [privacyMode, setPrivacyMode] = useState<CandidatePrivacyMode>("FULL_VIDEO");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Comprehensive hardware stream cleanup helper
+  const stopAllMediaTracks = useCallback(() => {
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach((track) => track.stop());
+      cameraStreamRef.current = null;
+    }
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach((track) => track.stop());
+      micStreamRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    if (videoPreviewRef.current) {
+      videoPreviewRef.current.srcObject = null;
+    }
+  }, []);
+
+  // Cleanup media streams on unmount
+  useEffect(() => {
+    return () => {
+      stopAllMediaTracks();
+    };
+  }, [stopAllMediaTracks]);
+
+  // Check browser API compatibility and secure context on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const secure = window.isSecureContext ?? true;
+      setIsSecureContext(secure);
+
+      const isSupported =
+        typeof navigator !== "undefined" &&
+        !!navigator.mediaDevices &&
+        !!navigator.mediaDevices.getUserMedia;
+
+      if (!isSupported) {
+        setPermissions((prev) => ({ ...prev, browserSupported: false }));
+        setErrorMessage(
+          secure
+            ? "Your browser does not support modern WebRTC media APIs. Please use Chrome, Edge, Safari, or Firefox."
+            : "Media capture is blocked by your browser because this page is not served over a secure connection (HTTPS or localhost)."
+        );
+      }
+    }
+  }, []);
+
+  // Enumerate connected hardware devices
+  const enumerateConnectedDevices = useCallback(async () => {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.enumerateDevices) return;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices.filter((d) => d.kind === "videoinput");
+      const mics = devices.filter((d) => d.kind === "audioinput");
+      setVideoDevices(cams);
+      setAudioDevices(mics);
+
+      if (cams.length > 0 && !selectedCameraId) {
+        setSelectedCameraId(cams[0].deviceId);
+      }
+      if (mics.length > 0 && !selectedMicId) {
+        setSelectedMicId(mics[0].deviceId);
+      }
+    } catch (e) {
+      console.warn("[Device Enumeration Notice]:", e);
+    }
+  }, [selectedCameraId, selectedMicId]);
 
   // Enable simulated practice hardware (for devices without camera/mic or restricted browser permissions)
   const handleEnableSimulatedHardware = useCallback(() => {
@@ -132,127 +222,128 @@ export default function InterviewPermissionGate({
     }));
   }, []);
 
-  // Check browser API compatibility on mount
-  useEffect(() => {
-    const isSupported =
-      typeof navigator !== "undefined" &&
-      !!navigator.mediaDevices &&
-      !!navigator.mediaDevices.getUserMedia;
+  // 1. Camera Verification with device switching support
+  const verifyCamera = useCallback(
+    async (overrideDeviceId?: string) => {
+      if (!requireCamera) return;
+      setIsCheckingCamera(true);
+      setErrorMessage(null);
+      try {
+        if (cameraStreamRef.current) {
+          cameraStreamRef.current.getTracks().forEach((t) => t.stop());
+          cameraStreamRef.current = null;
+        }
 
-    if (!isSupported) {
-      setPermissions((prev) => ({ ...prev, browserSupported: false }));
-      setErrorMessage(
-        "Your browser does not support modern WebRTC media APIs. Please use Chrome, Edge, Safari, or Firefox."
-      );
-    }
-  }, []);
-
-  // Cleanup media streams on unmount
-  useEffect(() => {
-    return () => {
-      if (cameraStreamRef.current) {
-        cameraStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
-      if (micStreamRef.current) {
-        micStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
-      if (audioContextRef.current && audioContextRef.current.state !== "closed") {
-        audioContextRef.current.close().catch(() => {});
-      }
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-      }
-    };
-  }, []);
-
-  // 1. Camera Verification
-  const verifyCamera = useCallback(async () => {
-    if (!requireCamera) return;
-    setIsCheckingCamera(true);
-    setErrorMessage(null);
-    try {
-      if (cameraStreamRef.current) {
-        cameraStreamRef.current.getTracks().forEach((t) => t.stop());
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
-      });
-      cameraStreamRef.current = stream;
-      if (videoPreviewRef.current) {
-        videoPreviewRef.current.srcObject = stream;
-      }
-      setPermissions((prev) => ({ ...prev, camera: "granted" }));
-    } catch (err: unknown) {
-      const errName = (err as Error)?.name || "";
-      const isDenied = errName === "NotAllowedError" || errName === "PermissionDeniedError";
-      setPermissions((prev) => ({
-        ...prev,
-        camera: isDenied ? "denied" : "unavailable",
-      }));
-      setErrorMessage(
-        isDenied
-          ? "Camera permission was denied in your browser. Click the site settings or lock icon in the address bar to allow camera access."
-          : "Camera hardware is unavailable or already in use by another application."
-      );
-    } finally {
-      setIsCheckingCamera(false);
-    }
-  }, [requireCamera]);
-
-  // 2. Microphone Verification with Live Audio Meter
-  const verifyMicrophone = useCallback(async () => {
-    if (!requireMicrophone) return;
-    setIsCheckingMic(true);
-    setErrorMessage(null);
-    try {
-      if (micStreamRef.current) {
-        micStreamRef.current.getTracks().forEach((t) => t.stop());
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      micStreamRef.current = stream;
-
-      // Setup audio analyzer
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (AudioCtx) {
-        const ctx = new AudioCtx();
-        audioContextRef.current = ctx;
-        const source = ctx.createMediaStreamSource(stream);
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 256;
-        source.connect(analyser);
-
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
-        const checkAudio = () => {
-          analyser.getByteFrequencyData(dataArray);
-          let sum = 0;
-          for (let i = 0; i < dataArray.length; i++) {
-            sum += dataArray[i];
-          }
-          const avg = sum / dataArray.length;
-          const normalized = Math.min(100, Math.round((avg / 128) * 100));
-          setMicLevel(normalized);
-          animFrameRef.current = requestAnimationFrame(checkAudio);
+        const deviceConstraint = overrideDeviceId || selectedCameraId;
+        const videoConstraints: MediaTrackConstraints = {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: "user",
+          ...(deviceConstraint ? { deviceId: { exact: deviceConstraint } } : {}),
         };
-        checkAudio();
-      }
 
-      setPermissions((prev) => ({ ...prev, microphone: "granted" }));
-    } catch (err: unknown) {
-      const errName = (err as Error)?.name || "";
-      const isDenied = errName === "NotAllowedError" || errName === "PermissionDeniedError";
-      setPermissions((prev) => ({
-        ...prev,
-        microphone: isDenied ? "denied" : "unavailable",
-      }));
-      setErrorMessage(
-        isDenied
-          ? "Microphone access was denied. Please allow microphone permissions in your browser to proceed with voice checks."
-          : "Microphone hardware was not detected or is blocked by system settings."
-      );
-    } finally {
-      setIsCheckingMic(false);
-    }
-  }, [requireMicrophone]);
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: videoConstraints,
+        });
+
+        cameraStreamRef.current = stream;
+        if (videoPreviewRef.current) {
+          videoPreviewRef.current.srcObject = stream;
+        }
+
+        setPermissions((prev) => ({ ...prev, camera: "granted" }));
+        await enumerateConnectedDevices();
+      } catch (err: unknown) {
+        const errName = (err as Error)?.name || "";
+        const isDenied = errName === "NotAllowedError" || errName === "PermissionDeniedError";
+        setPermissions((prev) => ({
+          ...prev,
+          camera: isDenied ? "denied" : "unavailable",
+        }));
+        setErrorMessage(
+          isDenied
+            ? "Camera permission was denied in your browser. Click the site settings or lock icon in the address bar to allow camera access."
+            : "Camera hardware is unavailable or already in use by another application."
+        );
+      } finally {
+        setIsCheckingCamera(false);
+      }
+    },
+    [requireCamera, selectedCameraId, enumerateConnectedDevices]
+  );
+
+  // 2. Microphone Verification with Live Audio Meter & device switching
+  const verifyMicrophone = useCallback(
+    async (overrideDeviceId?: string) => {
+      if (!requireMicrophone) return;
+      setIsCheckingMic(true);
+      setErrorMessage(null);
+      try {
+        if (micStreamRef.current) {
+          micStreamRef.current.getTracks().forEach((t) => t.stop());
+          micStreamRef.current = null;
+        }
+        if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+          audioContextRef.current.close().catch(() => {});
+          audioContextRef.current = null;
+        }
+        if (animFrameRef.current) {
+          cancelAnimationFrame(animFrameRef.current);
+          animFrameRef.current = null;
+        }
+
+        const deviceConstraint = overrideDeviceId || selectedMicId;
+        const audioConstraints = deviceConstraint ? { deviceId: { exact: deviceConstraint } } : true;
+
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+        micStreamRef.current = stream;
+
+        // Setup real Web Audio analyzer
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          audioContextRef.current = ctx;
+          const source = ctx.createMediaStreamSource(stream);
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 256;
+          source.connect(analyser);
+
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          const checkAudio = () => {
+            if (!analyser) return;
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+              sum += dataArray[i];
+            }
+            const avg = sum / dataArray.length;
+            const normalized = Math.min(100, Math.round((avg / 128) * 100));
+            setMicLevel(normalized);
+            animFrameRef.current = requestAnimationFrame(checkAudio);
+          };
+          checkAudio();
+        }
+
+        setPermissions((prev) => ({ ...prev, microphone: "granted" }));
+        await enumerateConnectedDevices();
+      } catch (err: unknown) {
+        const errName = (err as Error)?.name || "";
+        const isDenied = errName === "NotAllowedError" || errName === "PermissionDeniedError";
+        setPermissions((prev) => ({
+          ...prev,
+          microphone: isDenied ? "denied" : "unavailable",
+        }));
+        setErrorMessage(
+          isDenied
+            ? "Microphone access was denied. Please allow microphone permissions in your browser to proceed with voice checks."
+            : "Microphone hardware was not detected or is blocked by system settings."
+        );
+      } finally {
+        setIsCheckingMic(false);
+      }
+    },
+    [requireMicrophone, selectedMicId, enumerateConnectedDevices]
+  );
 
   // 3. Location Verification (Only when required by policy)
   const verifyLocation = useCallback(async () => {
@@ -313,10 +404,8 @@ export default function InterviewPermissionGate({
   }, [requireScreenShare]);
 
   // User-gesture triggered verification
-  const [hasInitiatedCheck, setHasInitiatedCheck] = useState(false);
-
   const handleEnableHardware = async () => {
-    setHasInitiatedCheck(true);
+    setSetupStarted(true);
     if (requireCamera && permissions.camera !== "granted") {
       await verifyCamera();
     }
@@ -331,8 +420,24 @@ export default function InterviewPermissionGate({
     }
   };
 
+  // Switch to Text MCQ mode with track stop
+  const handleSwitchToTextMode = () => {
+    stopAllMediaTracks();
+    if (onSwitchToTextMode) {
+      onSwitchToTextMode();
+    }
+  };
+
+  // Cancel with track stop
+  const handleCancel = () => {
+    stopAllMediaTracks();
+    if (onCancel) {
+      onCancel();
+    }
+  };
+
   // Check if all required prerequisites are satisfied
-  const cameraOk = !requireCamera || permissions.camera === "granted";
+  const cameraOk = !requireCamera || permissions.camera === "granted" || privacyMode === "NO_CANDIDATE_VIDEO";
   const micOk = !requireMicrophone || permissions.microphone === "granted";
   const locationOk = !requireLocation || permissions.location === "granted";
   const screenOk = !requireScreenShare || permissions.screen === "granted";
@@ -361,6 +466,93 @@ export default function InterviewPermissionGate({
     });
   };
 
+  // =========================================================================
+  // VIEW 1: DEDICATED PREFLIGHT SETUP SCREEN
+  // =========================================================================
+  if (!setupStarted) {
+    return (
+      <div className="w-full max-w-2xl mx-auto bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 shadow-sm space-y-6">
+        <div className="text-center space-y-3">
+          <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
+            <ShieldCheck className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+            Mock Interview 2.0 Preflight Setup
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 max-w-lg mx-auto leading-relaxed">
+            Before entering the evaluation room, we will verify your camera, microphone, and browser environment to ensure a seamless session.
+          </p>
+        </div>
+
+        {/* Requirements Summary */}
+        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3 text-xs">
+          <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px] block">
+            What will be checked:
+          </span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="flex items-center gap-2 text-slate-700">
+              <Camera className="w-4 h-4 text-blue-600 shrink-0" />
+              <span>Camera Video Feed (Privacy Controlled)</span>
+            </div>
+            <div className="flex items-center gap-2 text-slate-700">
+              <Mic className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Microphone & Audio Input Levels</span>
+            </div>
+            <div className="flex items-center gap-2 text-slate-700">
+              <Lock className="w-4 h-4 text-indigo-600 shrink-0" />
+              <span>Secure Browser Context (HTTPS)</span>
+            </div>
+            <div className="flex items-center gap-2 text-slate-700">
+              <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Anti-Tab Switch Proctoring Guidelines</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Fallback Notice for Text MCQ */}
+        {onSwitchToTextMode && allowTextFallback && (
+          <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-100 flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-blue-900">
+              <Info className="w-4 h-4 text-blue-600 shrink-0" />
+              <span>No camera or microphone available on this device?</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleSwitchToTextMode}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs shrink-0 transition-colors cursor-pointer"
+            >
+              Switch to Text MCQ Mode
+            </button>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex flex-col-reverse sm:flex-row items-center justify-center gap-3 pt-2">
+          {onCancel && (
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold transition-colors cursor-pointer"
+            >
+              [ Not Now ]
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleEnableHardware}
+            className="w-full sm:w-auto px-8 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span>[ Set Up Interview ]</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // VIEW 2: ACTIVE HARDWARE PREFLIGHT CHECKLIST
+  // =========================================================================
   return (
     <div className="w-full max-w-3xl mx-auto bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
       {/* Header Banner */}
@@ -399,25 +591,16 @@ export default function InterviewPermissionGate({
         </span>
       </div>
 
-      {/* Pre-Check Explanation Banner (User Gesture Prompt) */}
-      {!hasInitiatedCheck && (permissions.camera !== "granted" || permissions.microphone !== "granted") && (
-        <div className="p-5 rounded-2xl bg-blue-50/80 border border-blue-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
-          <div className="space-y-1">
-            <h4 className="font-bold text-blue-950 text-sm flex items-center gap-1.5">
-              <Camera className="w-4 h-4 text-blue-600" />
-              <span>Camera & Microphone Verification</span>
-            </h4>
-            <p className="text-blue-800 leading-relaxed max-w-xl">
-              Saarvi Mock Interview analyzes your spoken delivery, pacing, and visual presence in real-time. Media streams are processed strictly for this session and never saved on the server.
+      {/* Insecure Context Warning */}
+      {!isSecureContext && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3 text-xs text-amber-900">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-bold block">Insecure Context Detected</span>
+            <p className="leading-relaxed mt-0.5">
+              Browsers restrict camera and microphone access to HTTPS origins or localhost. If you encounter permission issues, ensure you are accessing Saarvi via a secure HTTPS connection.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleEnableHardware}
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold rounded-xl shadow-xs transition-colors shrink-0 cursor-pointer"
-          >
-            Enable Camera & Mic
-          </button>
         </div>
       )}
 
@@ -447,7 +630,7 @@ export default function InterviewPermissionGate({
             {onSwitchToTextMode && (
               <button
                 type="button"
-                onClick={onSwitchToTextMode}
+                onClick={handleSwitchToTextMode}
                 className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
               >
                 <span>Switch to Text MCQ Mode (No Hardware Needed)</span>
@@ -493,6 +676,28 @@ export default function InterviewPermissionGate({
               </span>
             </div>
 
+            {/* Device Switcher Dropdown */}
+            {videoDevices.length > 1 && (
+              <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                <Settings2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <select
+                  value={selectedCameraId}
+                  onChange={(e) => {
+                    const devId = e.target.value;
+                    setSelectedCameraId(devId);
+                    verifyCamera(devId);
+                  }}
+                  className="w-full text-[11px] bg-white border border-slate-200 rounded-lg px-2 py-1 truncate focus:ring-1 focus:ring-blue-500"
+                >
+                  {videoDevices.map((d, i) => (
+                    <option key={d.deviceId || i} value={d.deviceId}>
+                      {d.label || `Camera ${i + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Video Preview */}
             <div className="relative aspect-video bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center border border-slate-300">
               <video
@@ -520,7 +725,7 @@ export default function InterviewPermissionGate({
               <div className="space-y-2">
                 <button
                   type="button"
-                  onClick={verifyCamera}
+                  onClick={() => verifyCamera()}
                   disabled={isCheckingCamera}
                   className="w-full min-h-[38px] px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
                 >
@@ -571,8 +776,30 @@ export default function InterviewPermissionGate({
                 </span>
               </div>
 
+              {/* Audio Device Switcher */}
+              {audioDevices.length > 1 && (
+                <div className="flex items-center gap-1.5 text-xs text-slate-600 mb-3">
+                  <Settings2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <select
+                    value={selectedMicId}
+                    onChange={(e) => {
+                      const devId = e.target.value;
+                      setSelectedMicId(devId);
+                      verifyMicrophone(devId);
+                    }}
+                    className="w-full text-[11px] bg-white border border-slate-200 rounded-lg px-2 py-1 truncate focus:ring-1 focus:ring-blue-500"
+                  >
+                    {audioDevices.map((d, i) => (
+                      <option key={d.deviceId || i} value={d.deviceId}>
+                        {d.label || `Microphone ${i + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <p className="text-xs text-slate-500 mb-3">
-                Speak to test input audio levels. The green meter confirms sound detection.
+                Speak to test input audio levels. The green meter confirms sound detection via real Web Audio analysis.
               </p>
 
               {/* Audio Volume Bar */}
@@ -594,7 +821,7 @@ export default function InterviewPermissionGate({
               <div className="space-y-2 mt-3">
                 <button
                   type="button"
-                  onClick={verifyMicrophone}
+                  onClick={() => verifyMicrophone()}
                   disabled={isCheckingMic}
                   className="w-full min-h-[38px] px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
                 >
@@ -829,12 +1056,12 @@ export default function InterviewPermissionGate({
         </label>
       </div>
 
-      {/* Final Action Button */}
+      {/* Final Action Buttons */}
       <div className="flex items-center justify-between pt-2">
         {onCancel ? (
           <button
             type="button"
-            onClick={onCancel}
+            onClick={handleCancel}
             className="min-h-[44px] px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-semibold cursor-pointer transition-colors"
           >
             Cancel & Return

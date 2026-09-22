@@ -25,7 +25,18 @@ export interface RateLimitPolicy {
 
 export const RATE_LIMIT_POLICIES: Record<string, RateLimitPolicy> = {
   auth: { limit: 5, windowMs: 60 * 1000 },              // 5 requests/min (login/reset/pass)
-  adminMutations: { limit: 30, windowMs: 60 * 1000 },    // 30 requests/min
+  adminReads: { limit: 120, windowMs: 60 * 1000 },      // 120 requests/min (dashboard / reports / list)
+  adminMutations: { limit: 30, windowMs: 60 * 1000 },    // 30 requests/min (write operations)
+  authenticatedAdmin: { limit: 120, windowMs: 60 * 1000 }, // 120 requests/min
+  publicRead: { limit: 120, windowMs: 60 * 1000 },       // 120 requests/min
+  publicWrite: { limit: 60, windowMs: 60 * 1000 },       // 60 requests/min
+  tools: { limit: 60, windowMs: 60 * 1000 },             // 60 requests/min
+  userMutations: { limit: 60, windowMs: 60 * 1000 },     // 60 requests/min
+  adDelivery: { limit: 120, windowMs: 60 * 1000 },       // 120 requests/min (fetching active ads)
+  adAnalytics: { limit: 180, windowMs: 60 * 1000 },      // 180 requests/min (telemetry & events)
+  adUpload: { limit: 20, windowMs: 60 * 1000 },          // 20 requests/min (banner assets)
+  adPreview: { limit: 60, windowMs: 60 * 1000 },         // 60 requests/min
+  interviewSession: { limit: 60, windowMs: 60 * 1000 },  // 60 requests/min (session creation / answers)
   ai: { limit: 10, windowMs: 60 * 1000 },                // 10 requests/min
   ocr: { limit: 10, windowMs: 60 * 1000 },               // 10 requests/min
   upload: { limit: 20, windowMs: 60 * 1000 },            // 20 requests/min
@@ -112,20 +123,81 @@ export function getClientIp(request: Request): string {
   return '127.0.0.1';
 }
 
+export interface RateLimitTelemetryEvent {
+  timestamp: string;
+  policy: string;
+  key: string;
+  limit: number;
+  retryAfterSeconds: number;
+  ip: string;
+  identifier?: string;
+}
+
+export interface RateLimitTelemetrySummary {
+  totalBlocked: number;
+  blockedByPolicy: Record<string, number>;
+  recentEvents: RateLimitTelemetryEvent[];
+}
+
+const TELEMETRY_MAX_EVENTS = 100;
+const telemetryEvents: RateLimitTelemetryEvent[] = [];
+const blockedByPolicyCounts: Record<string, number> = {};
+let totalBlockedCount = 0;
+
+export function recordRateLimitEvent(event: RateLimitTelemetryEvent): void {
+  totalBlockedCount++;
+  blockedByPolicyCounts[event.policy] = (blockedByPolicyCounts[event.policy] || 0) + 1;
+  telemetryEvents.unshift(event);
+  if (telemetryEvents.length > TELEMETRY_MAX_EVENTS) {
+    telemetryEvents.pop();
+  }
+}
+
+export function getRateLimitTelemetry(): RateLimitTelemetrySummary {
+  return {
+    totalBlocked: totalBlockedCount,
+    blockedByPolicy: { ...blockedByPolicyCounts },
+    recentEvents: [...telemetryEvents],
+  };
+}
+
+export function clearRateLimitTelemetry(): void {
+  telemetryEvents.length = 0;
+  for (const k in blockedByPolicyCounts) {
+    delete blockedByPolicyCounts[k];
+  }
+  totalBlockedCount = 0;
+}
+
 /**
  * Checks rate limit for a specific policy.
  */
 export function enforceRateLimit(
   request: Request,
-  policyName: keyof typeof RATE_LIMIT_POLICIES = 'public',
+  policyName: keyof typeof RATE_LIMIT_POLICIES | string = 'public',
   userOrIdentifier?: string
 ): RateLimitResult {
-  const policy = RATE_LIMIT_POLICIES[policyName] || RATE_LIMIT_POLICIES.public;
+  const policy = (RATE_LIMIT_POLICIES as Record<string, RateLimitPolicy>)[policyName] || RATE_LIMIT_POLICIES.public;
   const ip = getClientIp(request);
   const identifier = userOrIdentifier ? `user:${userOrIdentifier}` : `ip:${ip}`;
   const key = `${policyName}:${identifier}`;
 
-  return GLOBAL_RATE_LIMITER.check(key, policy.limit, policy.windowMs);
+  const result = GLOBAL_RATE_LIMITER.check(key, policy.limit, policy.windowMs);
+
+  if (!result.allowed) {
+    console.warn(`[RATE_LIMIT_429] Policy: ${String(policyName)}, Key: ${key}, Retry-After: ${result.retryAfterSeconds}s`);
+    recordRateLimitEvent({
+      timestamp: new Date().toISOString(),
+      policy: String(policyName),
+      key,
+      limit: policy.limit,
+      retryAfterSeconds: result.retryAfterSeconds,
+      ip,
+      identifier: userOrIdentifier,
+    });
+  }
+
+  return result;
 }
 
 /**

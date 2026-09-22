@@ -3,10 +3,21 @@ import { interviewService } from "@/lib/services/interviewService";
 import { getAuthenticatedNotificationUser } from "@/lib/notifications/auth-helper";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import {
+  enforceRateLimit,
+  createRateLimitResponse,
+  withRateLimitHeaders,
+} from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const user = await getAuthenticatedNotificationUser(req);
+  const rateLimit = enforceRateLimit(req, "interviewSession", user?.id);
+  if (!rateLimit.allowed) {
+    return createRateLimitResponse(rateLimit);
+  }
+
   const { searchParams } = new URL(req.url);
   const sessionId = searchParams.get("id");
 
@@ -25,10 +36,19 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({
+  // Session ownership check
+  if (user && session.userId !== "guest" && session.userId !== user.id) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized: You do not have permission to view this interview session." },
+      { status: 403 }
+    );
+  }
+
+  const response = NextResponse.json({
     success: true,
     session,
   });
+  return withRateLimitHeaders(response, rateLimit);
 }
 
 export async function POST(req: NextRequest) {
@@ -36,8 +56,31 @@ export async function POST(req: NextRequest) {
     const user = await getAuthenticatedNotificationUser(req);
     const userId = user?.id || "guest";
     const userEmail = user?.email || "guest@saarvi.app";
+
+    const rateLimit = enforceRateLimit(req, "interviewSession", user?.id);
+    if (!rateLimit.allowed) {
+      return createRateLimitResponse(rateLimit);
+    }
+
     const body = await req.json();
     const { action } = body;
+
+    // Validate session ownership for session-specific actions
+    if (body.sessionId) {
+      const existingSession = await interviewService.getSession(body.sessionId);
+      if (!existingSession) {
+        return NextResponse.json(
+          { success: false, error: "Interview session not found." },
+          { status: 404 }
+        );
+      }
+      if (user && existingSession.userId !== "guest" && existingSession.userId !== user.id) {
+        return NextResponse.json(
+          { success: false, error: "Unauthorized: You do not have permission to modify this interview session." },
+          { status: 403 }
+        );
+      }
+    }
 
     // Determine plan tier
     let planTier: "FREE" | "PRO" = "FREE";
@@ -78,19 +121,29 @@ export async function POST(req: NextRequest) {
         centerId,
       });
 
+      // Set-based question deduplication
+      const seenIds = new Set<string>();
+      const deduplicatedQuestions = session.questions.filter((q) => {
+        if (seenIds.has(q.id)) return false;
+        seenIds.add(q.id);
+        return true;
+      });
+      session.questions = deduplicatedQuestions;
+
       // Hide correct answers from client during active test to prevent devtools inspection
       const sanitizedQuestions = session.questions.map((q) => {
         const { correctAnswer, ...rest } = q;
         return rest;
       });
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         session: {
           ...session,
           questions: sanitizedQuestions,
         },
       });
+      return withRateLimitHeaders(response, rateLimit);
     }
 
     if (action === "submit_answer") {
@@ -110,11 +163,12 @@ export async function POST(req: NextRequest) {
         isTimeout: Boolean(isTimeout),
       });
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         session: result.session,
         response: result.response,
       });
+      return withRateLimitHeaders(response, rateLimit);
     }
 
     if (action === "proctoring_violation") {
@@ -132,12 +186,13 @@ export async function POST(req: NextRequest) {
         pageVisibilityState,
       });
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         session: result.session,
         terminated: result.terminated,
         warningCount: result.warningCount,
       });
+      return withRateLimitHeaders(response, rateLimit);
     }
 
     if (action === "record_permission") {
@@ -168,7 +223,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      return NextResponse.json({ success: true });
+      const response = NextResponse.json({ success: true });
+      return withRateLimitHeaders(response, rateLimit);
     }
 
     if (action === "capture_location") {
@@ -199,7 +255,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      return NextResponse.json({ success: true });
+      const response = NextResponse.json({ success: true });
+      return withRateLimitHeaders(response, rateLimit);
     }
 
     return NextResponse.json(

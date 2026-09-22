@@ -234,7 +234,23 @@ export default function MockInterviewPage() {
     }
   };
 
-  // 3. Question timer countdown
+  // Unmount cleanup to stop any active camera/mic streams
+  useEffect(() => {
+    return () => {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current = null;
+      }
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  // 3. Monotonic question timer countdown
   const currentQuestion = session?.questions[currentQuestionIndex];
 
   useEffect(() => {
@@ -246,17 +262,20 @@ export default function MockInterviewPage() {
 
     if (timerRef.current) clearInterval(timerRef.current);
 
+    const startTime = performance.now();
+
     timerRef.current = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          // Time expired! Server-authoritative auto lock
-          handleAnswerTimeout();
-          return 0;
-        }
-        return prev - 1;
-      });
-      setTimeSpentOnCurrent((prev) => prev + 1);
-    }, 1000);
+      const elapsedSec = Math.floor((performance.now() - startTime) / 1000);
+      const remaining = Math.max(0, limit - elapsedSec);
+
+      setTimeRemaining(remaining);
+      setTimeSpentOnCurrent(elapsedSec);
+
+      if (remaining <= 0) {
+        if (timerRef.current) clearInterval(timerRef.current);
+        handleAnswerTimeout();
+      }
+    }, 250);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);

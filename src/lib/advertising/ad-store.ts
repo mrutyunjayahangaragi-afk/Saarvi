@@ -274,7 +274,13 @@ class AdvertisementStore {
         headline: params.headline?.trim(),
         bodyText: params.bodyText?.trim(),
         ctaText: params.ctaText?.trim(),
-        ctaUrl: params.ctaUrl ? sanitizeUrl(params.ctaUrl, '') : undefined,
+        ctaUrl: params.ctaUrl && params.ctaUrl.trim()
+          ? (() => {
+              const s = sanitizeUrl(params.ctaUrl!.trim(), '');
+              if (!s) throw new Error('Invalid or unsafe CTA URL. Must start with / or https://');
+              return s;
+            })()
+          : undefined,
         advertiserName: params.advertiserName?.trim(),
         status: params.status || 'DRAFT',
         priority: Number(params.priority) || 0,
@@ -370,9 +376,18 @@ class AdvertisementStore {
       const updatedDuration = updates.durationSeconds ?? existing.durationSeconds;
       const updatedSkipAfter = updates.skipAfterSeconds ?? existing.skipAfterSeconds;
 
-      const safeCtaUrl = updates.ctaUrl !== undefined
-        ? (updates.ctaUrl ? sanitizeUrl(updates.ctaUrl, '') : undefined)
-        : existing.ctaUrl;
+      let safeCtaUrl = existing.ctaUrl;
+      if (updates.ctaUrl !== undefined) {
+        if (!updates.ctaUrl || !updates.ctaUrl.trim()) {
+          safeCtaUrl = undefined;
+        } else {
+          const sanitized = sanitizeUrl(updates.ctaUrl.trim(), '');
+          if (!sanitized) {
+            throw new Error('Invalid or unsafe CTA URL. Must start with / or https://');
+          }
+          safeCtaUrl = sanitized;
+        }
+      }
 
       const updated: AdvertisementRecord = {
         ...existing,
@@ -653,6 +668,61 @@ class AdvertisementStore {
       completionRate,
       skipRate,
       ctr,
+    };
+  }
+
+  public getDiagnostics(): {
+    adsEnabled: boolean;
+    featureFlagEnabled: boolean;
+    totalAds: number;
+    activeAds: number;
+    draftAds: number;
+    pausedAds: number;
+    archivedAds: number;
+    scheduledAds: number;
+    expiredAds: number;
+    totalEventsRecorded: number;
+    storageBackend: 'supabase' | 'in-memory-mock';
+    serverTimeUtc: string;
+  } {
+    const nowMs = Date.now();
+    const all = Array.from(this.ads.values());
+    let active = 0;
+    let draft = 0;
+    let paused = 0;
+    let archived = 0;
+    let scheduled = 0;
+    let expired = 0;
+
+    for (const ad of all) {
+      if (ad.status === 'ACTIVE') active++;
+      else if (ad.status === 'DRAFT') draft++;
+      else if (ad.status === 'PAUSED') paused++;
+      else if (ad.status === 'ARCHIVED') archived++;
+
+      if (ad.startAt && new Date(ad.startAt).getTime() > nowMs) {
+        scheduled++;
+      }
+      if (ad.endAt && new Date(ad.endAt).getTime() < nowMs) {
+        expired++;
+      }
+    }
+
+    const supabaseClient = getSupabaseAdminClient();
+
+    return {
+      adsEnabled: this.settings.adsEnabled,
+      featureFlagEnabled: featureServerStore.isFeatureEnabled('advertising_enabled'),
+      totalAds: all.length,
+      activeAds: active,
+      draftAds: draft,
+      pausedAds: paused,
+      archivedAds: archived,
+      scheduledAds: scheduled,
+      expiredAds: expired,
+      totalEventsRecorded: this.events.length,
+      storageBackend: supabaseClient ? 'supabase' : 'in-memory-mock',
+      serverTimeUtc: new Date().toISOString(),
     };
   }
 }
