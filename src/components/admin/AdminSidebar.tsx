@@ -5,11 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
-  Globe,
   Users,
   ShieldCheck,
-  Wrench,
-  GraduationCap,
   BookOpen,
   ToggleLeft,
   FileText,
@@ -25,7 +22,9 @@ import {
   Sparkles,
   CreditCard,
   Megaphone,
-  Navigation,
+  Briefcase,
+  Video,
+  LifeBuoy,
 } from 'lucide-react';
 import { SaarviMark } from '@/components/brand/SaarviLogo';
 import { useAuth } from '@/context/AuthContext';
@@ -34,6 +33,18 @@ interface AdminSidebarProps {
   mobileOpen: boolean;
   onCloseMobile: () => void;
   openErrorsCount?: number;
+}
+
+interface NavSection {
+  title: string;
+  items: Array<{
+    label: string;
+    href: string;
+    icon: React.ComponentType<{ className?: string }>;
+    badge?: string;
+    badgeColor?: string;
+    locked?: boolean;
+  }>;
 }
 
 export default function AdminSidebar({
@@ -45,40 +56,68 @@ export default function AdminSidebar({
   const { profile } = useAuth();
   const isSuperAdmin = profile?.role === 'SUPER_ADMIN';
 
-  const navItems = [
-    { label: 'Overview', href: '/admin', icon: LayoutDashboard },
-    { label: 'Platform', href: '/admin/platform', icon: Globe },
-    { label: 'Users', href: '/admin/users', icon: Users },
+  const navSections: NavSection[] = [
     {
-      label: 'Admins & Roles',
-      href: '/admin/admins',
-      icon: ShieldCheck,
-      badge: isSuperAdmin ? undefined : 'Super',
-      locked: !isSuperAdmin,
+      title: 'OPERATIONS',
+      items: [
+        { label: 'Overview', href: '/admin', icon: LayoutDashboard },
+        { label: 'Users', href: '/admin/users', icon: Users },
+        { label: 'Notifications', href: '/admin/notifications', icon: Bell },
+        { label: 'Support', href: '/admin/support', icon: LifeBuoy },
+      ],
     },
-    { label: 'Tools', href: '/admin/tools', icon: Wrench },
-    { label: 'Navigation & Tools', href: '/admin/navigation', icon: Navigation },
-    { label: 'Student Tools', href: '/admin/student-tools', icon: GraduationCap },
-    { label: 'Curriculum', href: '/admin/curriculum', icon: BookOpen },
-    { label: 'Feature Flags', href: '/admin/features', icon: ToggleLeft },
-    { label: 'Content', href: '/admin/content', icon: FileText },
-    { label: 'Announcements', href: '/admin/announcements', icon: Bell },
-    { label: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
-    { label: 'Billing & Subscriptions', href: '/admin/billing', icon: CreditCard },
-    { label: 'Advertising', href: '/admin/advertising', icon: Megaphone },
     {
-      label: 'Errors',
-      href: '/admin/errors',
-      icon: AlertTriangle,
-      badge: openErrorsCount > 0 ? `${openErrorsCount}` : undefined,
-      badgeColor: 'bg-amber-100 text-amber-800',
+      title: 'CAREER',
+      items: [
+        { label: 'Jobs & Internships', href: '/admin/career', icon: Briefcase },
+        { label: 'Mock Interview', href: '/admin/mock-interview', icon: Video },
+      ],
     },
-    { label: 'System Health', href: '/admin/system', icon: Activity },
-    { label: 'Security', href: '/admin/security', icon: Lock },
-    { label: 'SEO', href: '/admin/seo', icon: Search },
-    { label: 'Notifications', href: '/admin/notifications', icon: Bell },
-    { label: 'Audit Logs', href: '/admin/audit-logs', icon: History },
-    { label: 'Settings', href: '/admin/settings', icon: Sliders },
+    {
+      title: 'ACADEMICS',
+      items: [
+        { label: 'VTU Curriculum', href: '/admin/curriculum', icon: BookOpen },
+      ],
+    },
+    {
+      title: 'GROWTH',
+      items: [
+        { label: 'Advertising', href: '/admin/advertising', icon: Megaphone },
+        { label: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
+        { label: 'SEO', href: '/admin/seo', icon: Search },
+        { label: 'Content', href: '/admin/content', icon: FileText },
+      ],
+    },
+    {
+      title: 'MONETIZATION',
+      items: [
+        { label: 'Billing & Subscriptions', href: '/admin/billing', icon: CreditCard },
+      ],
+    },
+    {
+      title: 'SYSTEM',
+      items: [
+        {
+          label: 'Errors',
+          href: '/admin/errors',
+          icon: AlertTriangle,
+          badge: openErrorsCount > 0 ? `${openErrorsCount}` : undefined,
+          badgeColor: 'bg-amber-100 text-amber-800',
+        },
+        { label: 'System Health & Diag', href: '/admin/system', icon: Activity },
+        { label: 'Security', href: '/admin/security', icon: Lock },
+        {
+          label: 'Admins & Roles',
+          href: '/admin/admins',
+          icon: ShieldCheck,
+          badge: isSuperAdmin ? undefined : 'Super',
+          locked: !isSuperAdmin,
+        },
+        { label: 'Feature Flags', href: '/admin/features', icon: ToggleLeft },
+        { label: 'Audit Logs', href: '/admin/audit-logs', icon: History },
+        { label: 'Settings', href: '/admin/settings', icon: Sliders },
+      ],
+    },
   ];
 
   const sidebarContent = (
@@ -94,7 +133,7 @@ export default function AdminSidebar({
                 Admin
               </span>
             </div>
-            <div className="text-[11px] text-slate-500">Control Center</div>
+            <div className="text-[11px] text-slate-500">Control Center 3.0</div>
           </div>
         </Link>
         {mobileOpen && (
@@ -108,47 +147,51 @@ export default function AdminSidebar({
         )}
       </div>
 
-      {/* Navigation List */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1 text-xs">
-        <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-          Operational Center
-        </div>
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href;
+      {/* Navigation List by Grouped Sections */}
+      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-4 text-xs">
+        {navSections.map((section) => (
+          <div key={section.title} className="space-y-1">
+            <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              {section.title}
+            </div>
+            {section.items.map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname === item.href;
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onCloseMobile}
-              className={`flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-all ${
-                isActive
-                  ? 'bg-blue-50 text-blue-700 font-semibold shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Icon
-                  className={`w-4 h-4 ${
-                    isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'
-                  }`}
-                />
-                <span>{item.label}</span>
-              </div>
-
-              {item.badge && (
-                <span
-                  className={`text-[10px] font-semibold px-1.5 py-0.2 rounded-full ${
-                    item.badgeColor || 'bg-slate-100 text-slate-600'
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onCloseMobile}
+                  className={`flex items-center justify-between px-3 py-1.5 rounded-xl font-medium transition-all ${
+                    isActive
+                      ? 'bg-blue-50 text-blue-700 font-semibold shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                   }`}
                 >
-                  {item.badge}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+                  <div className="flex items-center gap-2.5 truncate">
+                    <Icon
+                      className={`w-4 h-4 shrink-0 ${
+                        isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'
+                      }`}
+                    />
+                    <span className="truncate">{item.label}</span>
+                  </div>
+
+                  {item.badge && (
+                    <span
+                      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                        item.badgeColor || 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* Sidebar Footer: Privacy Badge Indicator */}

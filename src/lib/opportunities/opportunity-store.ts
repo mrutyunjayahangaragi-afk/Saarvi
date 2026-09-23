@@ -11,16 +11,77 @@ import type {
   OpportunityStatus,
   SourceHealth,
   DiscoveryConfig,
+  PreviewOpportunity,
+  ManualOpportunityInput,
+  BulkImportSummary,
 } from "./types.ts";
 import { deduplicateOpportunities } from "./deduplicator.ts";
 
 export interface OpportunityAuditEvent {
   id: string;
   opportunityId: string;
-  action: "APPROVED" | "REJECTED" | "EDITED" | "MERGED" | "EXPIRED" | "DISCOVERED";
+  action: "APPROVED" | "REJECTED" | "EDITED" | "MERGED" | "EXPIRED" | "DISCOVERED" | "IMPORTED" | "CREATED_MANUAL" | "PAUSED" | "RESUMED";
   actorId: string;
   details?: string;
   timestamp: string;
+}
+
+function cleanAndSanitizeUrl(url?: string): string {
+  if (!url) return "";
+  let trimmed = url.trim();
+  // Strip tracking query parameters
+  try {
+    const parsed = new URL(trimmed);
+    const trackingParams = [
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "utm_term",
+      "utm_content",
+      "fbclid",
+      "gclid",
+      "ref",
+      "ref_id",
+      "source",
+      "trk",
+      "trackingid",
+      "referrer",
+      "affiliate_id",
+      "gh_src",
+      "subid",
+    ];
+    for (const key of Array.from(parsed.searchParams.keys())) {
+      if (trackingParams.includes(key.toLowerCase()) || key.toLowerCase().startsWith("utm_")) {
+        parsed.searchParams.delete(key);
+      }
+    }
+    if (parsed.pathname.endsWith("/") && parsed.pathname.length > 1) {
+      parsed.pathname = parsed.pathname.slice(0, -1);
+    }
+    return parsed.toString();
+  } catch {
+    return trimmed;
+  }
+}
+
+function isSafeUrl(url?: string): boolean {
+  if (!url) return false;
+  const lower = url.trim().toLowerCase();
+  if (lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("file:") || lower.startsWith("vbscript:")) {
+    return false;
+  }
+  return lower.startsWith("http://") || lower.startsWith("https://");
+}
+
+function generateOpportunityHash(title: string, company: string, location: string): string {
+  const norm = `${title.toLowerCase().trim()}|${company.toLowerCase().trim()}|${location.toLowerCase().trim()}`;
+  let hash = 0;
+  for (let i = 0; i < norm.length; i++) {
+    const char = norm.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(16).padStart(8, "0");
 }
 
 class OpportunityStoreService {
@@ -98,6 +159,233 @@ class OpportunityStoreService {
   }
 
   /**
+   * Admin Manual Entry: Adds a job or internship directly created by an authorized admin.
+   */
+  public addManualOpportunity(input: ManualOpportunityInput, adminId: string): Opportunity {
+    if (!input.title || input.title.trim().length < 3) {
+      throw new Error("Job title must be at least 3 characters.");
+    }
+    if (!input.companyName || input.companyName.trim().length < 2) {
+      throw new Error("Company name must be at least 2 characters.");
+    }
+    if (!input.applyUrl || !isSafeUrl(input.applyUrl)) {
+      throw new Error("A valid, safe application URL (HTTP/HTTPS) is required.");
+    }
+
+    const cleanApplyUrl = cleanAndSanitizeUrl(input.applyUrl);
+    const cleanSourceUrl = cleanAndSanitizeUrl(input.sourceUrl || input.applyUrl);
+    const now = new Date().toISOString();
+    const id = `opp_manual_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const category = input.category || (input.employmentType === "internship" ? "internship" : "job");
+    const isInternship = category === "internship" || input.employmentType === "internship";
+    const status: OpportunityStatus = input.status || "APPROVED";
+    const isApproved = status === "APPROVED" || status === "PUBLISHED";
+
+    const opp: Opportunity = {
+      id,
+      source: "admin_manual",
+      sourceId: id,
+      sourceUrl: cleanSourceUrl,
+      applyUrl: cleanApplyUrl,
+      originalSourceUrl: cleanSourceUrl,
+      directApplyUrl: cleanApplyUrl,
+      title: input.title.trim(),
+      companyName: input.companyName.trim(),
+      companyLogo: input.companyLogo?.trim(),
+      description: input.description?.trim() || "No detailed description provided.",
+      location: input.location?.trim() || "Remote",
+      remoteType: input.remoteType || "remote",
+      employmentType: input.employmentType || "full-time",
+      experienceLevel: input.experienceLevel || "entry-level",
+      skills: Array.isArray(input.skills) ? input.skills.map((s) => s.trim()).filter(Boolean) : [],
+      salary: input.salary || null,
+      postedAt: input.postedAt || now,
+      applicationDeadline: input.applicationDeadline || null,
+      sourceLastUpdatedAt: now,
+      discoveredAt: now,
+      verifiedAt: isApproved ? now : null,
+      verifiedByAdmin: isApproved,
+      approvedBy: isApproved ? adminId : undefined,
+      status: isApproved ? "APPROVED" : status,
+      category,
+      isInternship,
+      isJob: !isInternship,
+      isScholarship: category === "scholarship",
+      isHackathon: category === "hackathon",
+      contactEmail: input.contactEmail?.trim(),
+      tags: input.tags || [],
+      contentHash: generateOpportunityHash(input.title, input.companyName, input.location || "Remote"),
+      confidenceScore: 100,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.opportunities.set(id, opp);
+
+    this.recordAuditEvent({
+      opportunityId: id,
+      action: "CREATED_MANUAL",
+      actorId: adminId,
+      details: `Manually added by admin (${status})`,
+    });
+
+    return opp;
+  }
+
+  /**
+   * Preview and validate discovered results before importing into PENDING_REVIEW.
+   * Runs safety, schema validation, and fast duplicate detection.
+   */
+  public previewDiscoveryResults(rawItems: Opportunity[]): {
+    results: PreviewOpportunity[];
+    summary: { found: number; valid: number; invalid: number; duplicates: number };
+  } {
+    const existingList = Array.from(this.opportunities.values());
+    const existingUrlSet = new Set(existingList.map((o) => cleanAndSanitizeUrl(o.applyUrl).toLowerCase()));
+    const existingTitleCompanyMap = new Map<string, string>();
+    for (const o of existingList) {
+      const key = `${o.companyName.toLowerCase().trim()}|${o.title.toLowerCase().trim()}`;
+      existingTitleCompanyMap.set(key, o.id);
+    }
+
+    let validCount = 0;
+    let invalidCount = 0;
+    let duplicateCount = 0;
+
+    const previewList: PreviewOpportunity[] = rawItems.map((item) => {
+      const warnings: string[] = [];
+      let isInvalid = false;
+
+      // 1. URL Safety & Sanitization
+      const cleanApply = cleanAndSanitizeUrl(item.applyUrl);
+      if (!isSafeUrl(cleanApply)) {
+        isInvalid = true;
+        warnings.push("Invalid or unsafe application URL");
+      }
+
+      // 2. Field Length & Sanity
+      if (!item.title || item.title.trim().length < 3) {
+        isInvalid = true;
+        warnings.push("Title is missing or too short");
+      }
+      if (!item.companyName || item.companyName.trim().length < 2) {
+        isInvalid = true;
+        warnings.push("Company name is missing");
+      }
+      if (!item.description || item.description.trim().length < 15) {
+        warnings.push("Very short description snippet");
+      }
+      if (!item.skills || item.skills.length === 0) {
+        warnings.push("No explicit skills identified");
+      }
+      if (!item.applicationDeadline) {
+        warnings.push("Deadline not provided by source");
+      }
+
+      // 3. Duplicate Detection
+      let duplicateStatus: "NEW" | "POSSIBLE_DUPLICATE" | "EXACT_DUPLICATE" = "NEW";
+      let duplicateTargetId: string | undefined = undefined;
+
+      const normApply = cleanApply.toLowerCase();
+      const normKey = `${item.companyName.toLowerCase().trim()}|${item.title.toLowerCase().trim()}`;
+
+      if (existingUrlSet.has(normApply)) {
+        duplicateStatus = "EXACT_DUPLICATE";
+        duplicateTargetId = existingList.find((o) => cleanAndSanitizeUrl(o.applyUrl).toLowerCase() === normApply)?.id;
+        duplicateCount++;
+      } else if (existingTitleCompanyMap.has(normKey)) {
+        duplicateStatus = "POSSIBLE_DUPLICATE";
+        duplicateTargetId = existingTitleCompanyMap.get(normKey);
+        duplicateCount++;
+      }
+
+      if (duplicateStatus !== "NEW") {
+        warnings.push(`Matches existing opportunity ${duplicateTargetId || "in database"}`);
+      }
+
+      let validationStatus: "VALID" | "WARNING" | "INVALID" = "VALID";
+      if (isInvalid) {
+        validationStatus = "INVALID";
+        invalidCount++;
+      } else if (warnings.length > 0) {
+        validationStatus = "WARNING";
+        validCount++;
+      } else {
+        validCount++;
+      }
+
+      return {
+        ...item,
+        applyUrl: cleanApply,
+        validationStatus,
+        validationWarnings: warnings,
+        duplicateStatus,
+        duplicateTargetId,
+      };
+    });
+
+    return {
+      results: previewList,
+      summary: {
+        found: rawItems.length,
+        valid: validCount,
+        invalid: invalidCount,
+        duplicates: duplicateCount,
+      },
+    };
+  }
+
+  /**
+   * Bulk import validated preview items into PENDING_REVIEW queue.
+   */
+  public bulkImportToPendingReview(items: Opportunity[], adminId: string): BulkImportSummary {
+    let imported = 0;
+    let valid = 0;
+    let invalid = 0;
+    let duplicates = 0;
+
+    for (const item of items) {
+      if (!isSafeUrl(item.applyUrl) || !item.title || !item.companyName) {
+        invalid++;
+        continue;
+      }
+      valid++;
+
+      if (this.opportunities.has(item.id)) {
+        duplicates++;
+        continue;
+      }
+
+      const pendingItem: Opportunity = {
+        ...item,
+        status: "PENDING_REVIEW",
+        verifiedByAdmin: false,
+        verifiedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      this.opportunities.set(pendingItem.id, pendingItem);
+      imported++;
+
+      this.recordAuditEvent({
+        opportunityId: pendingItem.id,
+        action: "IMPORTED",
+        actorId: adminId,
+        details: `Imported to PENDING_REVIEW from discovery (${item.source})`,
+      });
+    }
+
+    return {
+      found: items.length,
+      valid,
+      invalid,
+      duplicates,
+      imported,
+    };
+  }
+
+  /**
    * Admin Approval Pipeline: Moves opportunity from PENDING_REVIEW to APPROVED.
    * Only APPROVED opportunities receive the "Verified by Saarvi" badge.
    */
@@ -108,6 +396,7 @@ class OpportunityStoreService {
     opp.status = "APPROVED";
     opp.verifiedAt = new Date().toISOString();
     opp.verifiedByAdmin = true;
+    opp.approvedBy = adminId;
     opp.adminNotes = notes || opp.adminNotes;
     opp.updatedAt = new Date().toISOString();
 
@@ -115,7 +404,41 @@ class OpportunityStoreService {
       opportunityId: id,
       action: "APPROVED",
       actorId: adminId,
-      details: notes || "Approved by administrator",
+      details: notes || "Approved and published to public feed by administrator",
+    });
+
+    return opp;
+  }
+
+  public pauseOpportunity(id: string, adminId: string): Opportunity | null {
+    const opp = this.opportunities.get(id);
+    if (!opp) return null;
+
+    opp.status = "PAUSED";
+    opp.updatedAt = new Date().toISOString();
+
+    this.recordAuditEvent({
+      opportunityId: id,
+      action: "PAUSED",
+      actorId: adminId,
+      details: "Paused listing by administrator",
+    });
+
+    return opp;
+  }
+
+  public resumeOpportunity(id: string, adminId: string): Opportunity | null {
+    const opp = this.opportunities.get(id);
+    if (!opp) return null;
+
+    opp.status = "APPROVED";
+    opp.updatedAt = new Date().toISOString();
+
+    this.recordAuditEvent({
+      opportunityId: id,
+      action: "RESUMED",
+      actorId: adminId,
+      details: "Resumed listing by administrator",
     });
 
     return opp;
@@ -193,7 +516,7 @@ class OpportunityStoreService {
     pageSize: number;
   } {
     const all = Array.from(this.opportunities.values());
-    let filtered = all.filter((o) => o.status === "APPROVED");
+    let filtered = all.filter((o) => o.status === "APPROVED" || o.status === "PUBLISHED");
 
     if (params.category) {
       filtered = filtered.filter((o) => o.category === params.category);
@@ -265,6 +588,8 @@ class OpportunityStoreService {
       approved: number;
       rejected: number;
       expired: number;
+      paused: number;
+      draft: number;
       total: number;
     };
   } {
@@ -272,15 +597,21 @@ class OpportunityStoreService {
 
     const counts = {
       pending: all.filter((o) => o.status === "PENDING_REVIEW" || o.status === "DISCOVERED").length,
-      approved: all.filter((o) => o.status === "APPROVED").length,
+      approved: all.filter((o) => o.status === "APPROVED" || o.status === "PUBLISHED").length,
       rejected: all.filter((o) => o.status === "REJECTED").length,
       expired: all.filter((o) => o.status === "EXPIRED").length,
+      paused: all.filter((o) => o.status === "PAUSED").length,
+      draft: all.filter((o) => o.status === "DRAFT").length,
       total: all.length,
     };
 
     let filtered = all;
     if (params.status) {
-      filtered = filtered.filter((o) => o.status === params.status);
+      if (params.status === "APPROVED") {
+        filtered = filtered.filter((o) => o.status === "APPROVED" || o.status === "PUBLISHED");
+      } else {
+        filtered = filtered.filter((o) => o.status === params.status);
+      }
     }
 
     if (params.category) {

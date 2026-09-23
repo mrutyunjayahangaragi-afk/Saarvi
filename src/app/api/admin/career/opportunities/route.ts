@@ -60,3 +60,60 @@ export async function GET(request: Request) {
     );
   }
 }
+
+/**
+ * POST /api/admin/career/opportunities
+ * Supports:
+ * 1. MANUAL_ADD: Directly adds an admin-created opportunity.
+ * 2. BULK_IMPORT: Ingests previewed external items into PENDING_REVIEW queue.
+ */
+export async function POST(request: Request) {
+  try {
+    const authResult = await getAuthenticatedAdmin(request, "MANAGE");
+    if (!authResult.success) {
+      return NextResponse.json({ error: authResult.error }, { status: authResult.status });
+    }
+
+    const rateLimit = enforceRateLimit(request, "adminMutations", authResult.user.id);
+    if (!rateLimit.allowed) {
+      return createRateLimitResponse(rateLimit);
+    }
+
+    const body = await request.json();
+    const { action, input, items } = body;
+
+    if (action === "MANUAL_ADD") {
+      if (!input) {
+        return NextResponse.json({ error: "Missing manual opportunity payload" }, { status: 400 });
+      }
+
+      const opp = opportunityStore.addManualOpportunity(input, authResult.user.id);
+      const response = NextResponse.json({
+        success: true,
+        opportunity: opp,
+        message: "Opportunity successfully created",
+      });
+      return withRateLimitHeaders(response, rateLimit);
+    }
+
+    if (action === "BULK_IMPORT") {
+      if (!Array.isArray(items) || items.length === 0) {
+        return NextResponse.json({ error: "No items provided for bulk import" }, { status: 400 });
+      }
+
+      const summary = opportunityStore.bulkImportToPendingReview(items, authResult.user.id);
+      const response = NextResponse.json({
+        success: true,
+        summary,
+        message: `Imported ${summary.imported} opportunities to Pending Review.`,
+      });
+      return withRateLimitHeaders(response, rateLimit);
+    }
+
+    return NextResponse.json({ error: "Invalid action specified. Supported: MANUAL_ADD, BULK_IMPORT" }, { status: 400 });
+  } catch (error: any) {
+    console.error("[Admin Career Opportunities POST] Error:", error);
+    return NextResponse.json({ error: error.message || "Failed to process opportunity mutation" }, { status: 500 });
+  }
+}
+

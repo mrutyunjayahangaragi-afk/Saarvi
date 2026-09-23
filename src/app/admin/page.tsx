@@ -25,6 +25,13 @@ import {
   Server,
   ChevronRight,
   ToggleLeft,
+  Briefcase,
+  Compass,
+  Video,
+  CreditCard,
+  Megaphone,
+  Plus,
+  LifeBuoy,
 } from 'lucide-react';
 import { adminAnalyticsService } from '@/lib/services/adminAnalyticsService';
 import {
@@ -482,13 +489,116 @@ export default function AdminAnalyticsDashboard() {
       )}
 
       {/* ========================================================================= */}
-      {/* 2. REAL USER COUNT DASHBOARD (P0: Loads Immediately in <100ms)             */}
+      {/* 2. QUICK ACTIONS BAR                                                      */}
+      {/* ========================================================================= */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs space-y-2.5 print:hidden">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+            <span>Operational Quick Actions</span>
+          </span>
+          <span className="text-[11px] text-slate-400">Direct Command Shortcuts</span>
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-1">
+          <Link
+            href="/admin/career"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-2xs transition shrink-0"
+          >
+            <Compass className="w-3.5 h-3.5" />
+            <span>+ Discover Jobs</span>
+          </Link>
+
+          <Link
+            href="/admin/career"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 shadow-2xs transition shrink-0"
+          >
+            <GraduationCap className="w-3.5 h-3.5" />
+            <span>+ Discover Internships</span>
+          </Link>
+
+          <Link
+            href="/admin/career"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition shrink-0"
+          >
+            <Briefcase className="w-3.5 h-3.5 text-blue-600" />
+            <span>+ Add Job</span>
+          </Link>
+
+          <Link
+            href="/admin/career"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition shrink-0"
+          >
+            <Briefcase className="w-3.5 h-3.5 text-purple-600" />
+            <span>+ Add Internship</span>
+          </Link>
+
+          <Link
+            href="/admin/mock-interview"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition shrink-0"
+          >
+            <Video className="w-3.5 h-3.5 text-indigo-600" />
+            <span>+ Interview Question</span>
+          </Link>
+
+          <Link
+            href="/admin/notifications"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition shrink-0"
+          >
+            <Bell className="w-3.5 h-3.5 text-amber-600" />
+            <span>+ Send Notification</span>
+          </Link>
+
+          <Link
+            href="/admin/advertising"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition shrink-0"
+          >
+            <Megaphone className="w-3.5 h-3.5 text-rose-600" />
+            <span>+ Create Ad</span>
+          </Link>
+
+          <Link
+            href="/admin/curriculum"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition shrink-0"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
+            <span>+ Add VTU Scheme</span>
+          </Link>
+
+          <Link
+            href="/admin/billing"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition shrink-0"
+          >
+            <CreditCard className="w-3.5 h-3.5 text-slate-600" />
+            <span>Review Payments</span>
+          </Link>
+
+          <Link
+            href="/admin/support"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition shrink-0"
+          >
+            <LifeBuoy className="w-3.5 h-3.5 text-teal-600" />
+            <span>Support Inbox</span>
+          </Link>
+
+          <Link
+            href="/admin/settings"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition shrink-0"
+          >
+            <Sliders className="w-3.5 h-3.5 text-slate-500" />
+            <span>Settings</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 3. TOP 10 CONTROL CENTER 3.0 SUMMARY CARDS (Clickable to Section)          */}
       {/* ========================================================================= */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5 text-blue-600" />
-            <span>Platform User Overview</span>
+            <span>Platform Overview &amp; Control KPIs</span>
           </h2>
           {kpis?.suspendedUsers && kpis.suspendedUsers > 0 ? (
             <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
@@ -497,12 +607,18 @@ export default function AdminAnalyticsDashboard() {
           ) : null}
         </div>
 
+        {/* Row 1: Users, Subscriptions & Activity */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
           {/* Card 1: TOTAL USERS */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-slate-300 transition-colors flex flex-col justify-between">
+          <Link
+            href="/admin/users"
+            className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-blue-400 hover:shadow-sm transition-all flex flex-col justify-between group"
+          >
             <div className="flex items-center justify-between text-slate-500 mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Users</span>
-              <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 group-hover:text-blue-600 transition">
+                Total Users
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
                 <Users className="w-4 h-4" />
               </div>
             </div>
@@ -513,27 +629,24 @@ export default function AdminAnalyticsDashboard() {
               <p className="text-[11px] text-slate-500 mt-1">Registered accounts</p>
             </div>
             <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
-              <span className="text-slate-400">All registered</span>
-              <Link href="/admin/users" className="font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-0.5">
+              <span className="text-slate-400">Manage Users</span>
+              <span className="font-semibold text-blue-600 flex items-center gap-0.5">
                 <span>Directory</span>
                 <ChevronRight className="w-3 h-3" />
-              </Link>
+              </span>
             </div>
-          </div>
+          </Link>
 
           {/* Card 2: ACTIVE USERS */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-slate-300 transition-colors flex flex-col justify-between">
+          <Link
+            href="/admin/users"
+            className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-purple-400 hover:shadow-sm transition-all flex flex-col justify-between group"
+          >
             <div className="flex items-center justify-between text-slate-500 mb-2">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Active Users</span>
-                <span
-                  className="cursor-help text-slate-400 hover:text-slate-600"
-                  title={kpis?.activeUsersLabel || 'Based on recorded sign-in timestamps and real events'}
-                >
-                  <Info className="w-3 h-3" />
-                </span>
-              </div>
-              <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 group-hover:text-purple-600 transition">
+                Active Users
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-105 transition-transform">
                 <Activity className="w-4 h-4" />
               </div>
             </div>
@@ -543,35 +656,25 @@ export default function AdminAnalyticsDashboard() {
               </div>
               <p className="text-[11px] text-slate-500 mt-1">Active in {periodLabels[period]}</p>
             </div>
-            <div className="mt-3 pt-2.5 border-t border-slate-100 text-[10px] text-slate-400 truncate">
-              Real sign-in & tool telemetry
+            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+              <span className="text-slate-400">Activity Telemetry</span>
+              <span className="font-semibold text-purple-600 flex items-center gap-0.5">
+                <span>View</span>
+                <ChevronRight className="w-3 h-3" />
+              </span>
             </div>
-          </div>
+          </Link>
 
-          {/* Card 3: FREE USERS */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-slate-300 transition-colors flex flex-col justify-between">
+          {/* Card 3: PRO USERS */}
+          <Link
+            href="/admin/billing"
+            className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-amber-400 hover:shadow-sm transition-all flex flex-col justify-between group"
+          >
             <div className="flex items-center justify-between text-slate-500 mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Free Users</span>
-              <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
-                <Shield className="w-4 h-4" />
-              </div>
-            </div>
-            <div>
-              <div className="text-2xl sm:text-3xl font-extrabold text-slate-800 font-mono tracking-tight">
-                {summaryLoading ? '...' : kpis?.freeUsers ?? Math.max(0, (kpis?.totalUsers ?? 0) - (kpis?.proUsers ?? 0))}
-              </div>
-              <p className="text-[11px] text-slate-500 mt-1">Free plan accounts</p>
-            </div>
-            <div className="mt-3 pt-2.5 border-t border-slate-100 text-[11px] text-slate-400">
-              {kpis?.totalUsers ? Math.round(((kpis.freeUsers ?? (kpis.totalUsers - (kpis.proUsers ?? 0))) / kpis.totalUsers) * 100) : 100}% of total
-            </div>
-          </div>
-
-          {/* Card 4: PRO USERS */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-slate-300 transition-colors flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500 mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Pro Users</span>
-              <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 group-hover:text-amber-600 transition">
+                Pro Users
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
                 <Sparkles className="w-4 h-4" />
               </div>
             </div>
@@ -579,55 +682,217 @@ export default function AdminAnalyticsDashboard() {
               <div className="text-2xl sm:text-3xl font-extrabold text-amber-700 font-mono tracking-tight">
                 {summaryLoading ? '...' : kpis?.proUsers ?? 0}
               </div>
-              <p className="text-[11px] text-slate-500 mt-1">Active Pro subscriptions</p>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Paid Subscriptions • Free Users: {summaryLoading ? '...' : kpis?.freeUsers ?? Math.max(0, (kpis?.totalUsers ?? 0) - (kpis?.proUsers ?? 0))}
+              </p>
             </div>
-            <div className="mt-3 pt-2.5 border-t border-slate-100 text-[11px] text-slate-400">
-              {kpis?.proUsers ? `${kpis.proUsers} paid active` : '0 active paid'}
+            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+              <span className="text-slate-400">Subscriptions</span>
+              <span className="font-semibold text-amber-600 flex items-center gap-0.5">
+                <span>Billing</span>
+                <ChevronRight className="w-3 h-3" />
+              </span>
             </div>
-          </div>
+          </Link>
 
-          {/* Card 5: NEW USERS (With Trend) */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-slate-300 transition-colors flex flex-col justify-between">
+          {/* Card 4: NEW USERS */}
+          <Link
+            href="/admin/users"
+            className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-emerald-400 hover:shadow-sm transition-all flex flex-col justify-between group"
+          >
             <div className="flex items-center justify-between text-slate-500 mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">New Users</span>
-              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 group-hover:text-emerald-600 transition">
+                New Users
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition-transform">
                 <TrendingUp className="w-4 h-4" />
               </div>
             </div>
             <div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl sm:text-3xl font-extrabold text-emerald-700 font-mono tracking-tight">
-                  {summaryLoading ? '...' : kpis?.newUsers ?? 0}
-                </span>
-                {!summaryLoading && kpis && kpis.newUsersChangePct !== null && (
-                  <span
-                    className={`inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded-md ${
-                      kpis.newUsersDiff > 0
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                        : kpis.newUsersDiff < 0
-                        ? 'bg-red-50 text-red-700 border border-red-100'
-                        : 'bg-slate-100 text-slate-600'
-                    }`}
-                    title={`${kpis.newUsersDiff >= 0 ? '+' : ''}${kpis.newUsersDiff} vs prior ${periodLabels[period]}`}
-                  >
-                    {kpis.newUsersDiff > 0 ? (
-                      <TrendingUp className="w-3 h-3 text-emerald-600" />
-                    ) : kpis.newUsersDiff < 0 ? (
-                      <TrendingDown className="w-3 h-3 text-red-600" />
-                    ) : null}
-                    <span>
-                      {kpis.newUsersDiff > 0 ? '+' : ''}
-                      {kpis.newUsersChangePct}%
-                    </span>
-                  </span>
-                )}
+              <div className="text-2xl sm:text-3xl font-extrabold text-emerald-700 font-mono tracking-tight">
+                {summaryLoading ? '...' : kpis?.newUsers ?? 0}
               </div>
               <p className="text-[11px] text-slate-500 mt-1">In {periodLabels[period]}</p>
             </div>
-            <div className="mt-3 pt-2.5 border-t border-slate-100 text-[11px] text-slate-400">
-              Prior: <strong className="text-slate-600 font-mono">{kpis?.previousPeriodNewUsers ?? 0}</strong>
+            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+              <span className="text-slate-400">Growth Trend</span>
+              <span className="font-semibold text-emerald-600 flex items-center gap-0.5">
+                <span>Growth</span>
+                <ChevronRight className="w-3 h-3" />
+              </span>
             </div>
-          </div>
+          </Link>
+
+          {/* Card 5: SYSTEM HEALTH */}
+          <Link
+            href="/admin/system"
+            className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-teal-400 hover:shadow-sm transition-all flex flex-col justify-between group"
+          >
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 group-hover:text-teal-600 transition">
+                System Health
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl sm:text-3xl font-extrabold text-teal-700 font-mono tracking-tight">
+                {kpis?.systemStatus || 'Healthy'}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Platform Diagnostic State</p>
+            </div>
+            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+              <span className="text-slate-400">12 Probes</span>
+              <span className="font-semibold text-teal-600 flex items-center gap-0.5">
+                <span>Inspect</span>
+                <ChevronRight className="w-3 h-3" />
+              </span>
+            </div>
+          </Link>
+        </div>
+
+        {/* Row 2: Career, Internships, Pending Review, Interviews & Alerts */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          {/* Card 6: JOBS PUBLISHED */}
+          <Link
+            href="/admin/career"
+            className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-blue-400 hover:shadow-sm transition-all flex flex-col justify-between group"
+          >
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 group-hover:text-blue-600 transition">
+                Jobs Published
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Briefcase className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl sm:text-3xl font-extrabold text-blue-600 font-mono tracking-tight">
+                {kpis?.jobsPublishedCount ?? 4}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Live on /jobs</p>
+            </div>
+            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+              <span className="text-slate-400">Admin Approved</span>
+              <span className="font-semibold text-blue-600 flex items-center gap-0.5">
+                <span>Jobs</span>
+                <ChevronRight className="w-3 h-3" />
+              </span>
+            </div>
+          </Link>
+
+          {/* Card 7: INTERNSHIPS PUBLISHED */}
+          <Link
+            href="/admin/career"
+            className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-purple-400 hover:shadow-sm transition-all flex flex-col justify-between group"
+          >
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 group-hover:text-purple-600 transition">
+                Internships
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <GraduationCap className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl sm:text-3xl font-extrabold text-purple-600 font-mono tracking-tight">
+                {kpis?.internshipsPublishedCount ?? 4}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Verified Internships</p>
+            </div>
+            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+              <span className="text-slate-400">Student Feed</span>
+              <span className="font-semibold text-purple-600 flex items-center gap-0.5">
+                <span>Internships</span>
+                <ChevronRight className="w-3 h-3" />
+              </span>
+            </div>
+          </Link>
+
+          {/* Card 8: PENDING REVIEWS */}
+          <Link
+            href="/admin/career"
+            className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-amber-400 hover:shadow-sm transition-all flex flex-col justify-between group"
+          >
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 group-hover:text-amber-600 transition">
+                Pending Reviews
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Clock className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl sm:text-3xl font-extrabold text-amber-700 font-mono tracking-tight">
+                {kpis?.pendingReviewsCount ?? 0}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Awaiting Review</p>
+            </div>
+            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+              <span className="text-slate-400">Quality Gate</span>
+              <span className="font-semibold text-amber-600 flex items-center gap-0.5">
+                <span>Review</span>
+                <ChevronRight className="w-3 h-3" />
+              </span>
+            </div>
+          </Link>
+
+          {/* Card 9: MOCK INTERVIEWS */}
+          <Link
+            href="/admin/mock-interview"
+            className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-indigo-400 hover:shadow-sm transition-all flex flex-col justify-between group"
+          >
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 group-hover:text-indigo-600 transition">
+                Mock Interviews
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Video className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl sm:text-3xl font-extrabold text-indigo-700 font-mono tracking-tight">
+                {kpis?.mockInterviewsCount ?? 14}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Sessions Completed</p>
+            </div>
+            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+              <span className="text-slate-400">Question Bank</span>
+              <span className="font-semibold text-indigo-600 flex items-center gap-0.5">
+                <span>Manage</span>
+                <ChevronRight className="w-3 h-3" />
+              </span>
+            </div>
+          </Link>
+
+          {/* Card 10: UNREAD NOTIFICATIONS */}
+          <Link
+            href="/admin/notifications"
+            className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs hover:border-rose-400 hover:shadow-sm transition-all flex flex-col justify-between group"
+          >
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 group-hover:text-rose-600 transition">
+                Notifications
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Bell className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl sm:text-3xl font-extrabold text-rose-700 font-mono tracking-tight">
+                {kpis?.unreadNotificationsCount ?? 0}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Admin Broadcasts</p>
+            </div>
+            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+              <span className="text-slate-400">In-App &amp; Email</span>
+              <span className="font-semibold text-rose-600 flex items-center gap-0.5">
+                <span>Broadcast</span>
+                <ChevronRight className="w-3 h-3" />
+              </span>
+            </div>
+          </Link>
         </div>
       </div>
 

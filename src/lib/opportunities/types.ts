@@ -16,9 +16,13 @@ export type OpportunityStatus =
   | "DISCOVERED"
   | "PENDING_REVIEW"
   | "APPROVED"
+  | "PUBLISHED"
+  | "DRAFT"
+  | "PAUSED"
   | "REJECTED"
   | "EXPIRED"
-  | "STALE";
+  | "STALE"
+  | "MERGED";
 
 export type RemoteType = "remote" | "hybrid" | "onsite";
 
@@ -35,7 +39,7 @@ export interface OpportunitySalary {
 
 export interface Opportunity {
   id: string;
-  source: "serpapi_google_jobs" | "serpapi_google_search" | "curated" | "rss" | "custom_adapter";
+  source: "serpapi_google_jobs" | "serpapi_google_search" | "curated" | "rss" | "custom_adapter" | "admin_manual";
   sourceId: string;
   sourceUrl: string;
   applyUrl: string;
@@ -57,12 +61,15 @@ export interface Opportunity {
   discoveredAt: string;
   verifiedAt?: string | null;
   verifiedByAdmin?: boolean;
+  approvedBy?: string;
   status: OpportunityStatus;
   category: OpportunityCategory;
   isInternship: boolean;
   isJob: boolean;
   isScholarship: boolean;
   isHackathon: boolean;
+  contactEmail?: string;
+  tags?: string[];
   contentHash: string; // SHA-256 / deterministic string hash for change detection
   confidenceScore: number; // 0 - 100
   duplicateOfId?: string;
@@ -70,6 +77,42 @@ export interface Opportunity {
   adminNotes?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PreviewOpportunity extends Opportunity {
+  validationStatus: "VALID" | "WARNING" | "INVALID";
+  validationWarnings?: string[];
+  duplicateStatus: "NEW" | "POSSIBLE_DUPLICATE" | "EXACT_DUPLICATE";
+  duplicateTargetId?: string;
+}
+
+export interface ManualOpportunityInput {
+  title: string;
+  companyName: string;
+  companyLogo?: string;
+  description: string;
+  location: string;
+  remoteType?: RemoteType;
+  employmentType?: EmploymentType;
+  experienceLevel?: ExperienceLevel;
+  skills?: string[];
+  salary?: OpportunitySalary | null;
+  postedAt?: string;
+  applicationDeadline?: string | null;
+  sourceUrl?: string;
+  applyUrl: string;
+  contactEmail?: string;
+  category?: OpportunityCategory;
+  tags?: string[];
+  status?: OpportunityStatus;
+}
+
+export interface BulkImportSummary {
+  found: number;
+  valid: number;
+  invalid: number;
+  duplicates: number;
+  imported: number;
 }
 
 export interface SearchQuery {

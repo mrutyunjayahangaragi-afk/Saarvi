@@ -6,6 +6,7 @@ import { getSupabaseAdminClient } from '../supabase/admin.ts';
 import { isSupabaseConfigured } from '../supabase/config.ts';
 import { MockStorageProvider } from '../supabase/mock-storage.ts';
 import { TOOLS_CONFIG } from '../../config/tools.ts';
+import { opportunityStore } from '../opportunities/opportunity-store.ts';
 
 export interface DatePeriodBounds {
   days: number;
@@ -173,22 +174,34 @@ export const adminDbAggregates = {
     const trendPct =
       prevNewUsers > 0 ? Math.round((diff / prevNewUsers) * 1000) / 10 : newUsers > 0 ? 100 : 0;
 
-    return {
-      totalUsers: allUsers.length,
-      newUsers,
-      previousPeriodNewUsers: prevNewUsers,
-      newUsersChangePct: trendPct,
-      newUsersDiff: diff,
-      activeUsers: Math.max(1, Math.round(allUsers.length * 0.75)),
-      freeUsers: Math.max(0, allUsers.length - proUsers),
-      proUsers,
-      suspendedUsers,
-      todayActivity: 12,
-      openErrorsCount: 0,
-      systemStatus: 'Healthy',
-      generatedAt: new Date().toISOString(),
-    };
-  },
+      const oppAdmin = opportunityStore.getAdminOpportunities({ pageSize: 1000 });
+      const approvedItems = oppAdmin.items.filter((o) => o.status === 'APPROVED' || o.status === 'PUBLISHED');
+      const jobsPublished = approvedItems.filter((o) => !o.isInternship && o.category !== 'internship').length;
+      const internshipsPublished = approvedItems.filter((o) => o.isInternship || o.category === 'internship').length;
+
+      return {
+        totalUsers: allUsers.length,
+        newUsers,
+        previousPeriodNewUsers: prevNewUsers,
+        newUsersChangePct: trendPct,
+        newUsersDiff: diff,
+        activeUsers: Math.max(1, Math.round(allUsers.length * 0.75)),
+        freeUsers: Math.max(0, allUsers.length - proUsers),
+        proUsers,
+        suspendedUsers,
+        todayActivity: 12,
+        openErrorsCount: 0,
+        jobsPublishedCount: jobsPublished,
+        internshipsPublishedCount: internshipsPublished,
+        pendingReviewsCount: oppAdmin.counts.pending,
+        mockInterviewsCount: 14,
+        unreadNotificationsCount: 0,
+        systemStatus: 'Healthy' as const,
+        maintenanceMode: false,
+        version: '3.0.0',
+        generatedAt: new Date().toISOString(),
+      };
+    },
 
   /**
    * P1: User Growth Time Series Aggregation

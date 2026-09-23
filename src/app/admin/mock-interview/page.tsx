@@ -71,6 +71,8 @@ export default function AdminMockInterviewPage() {
     enableScreenShareCheck: false,
     allowedPrivacyModes: ["FULL_VIDEO", "BLURRED_CANDIDATE_VIDEO", "NO_CANDIDATE_VIDEO"],
     enableAiTtsFallback: true,
+    audioOnlyAllowed: true,
+    textOnlyAllowed: true,
   });
 
   // Filter states
@@ -857,14 +859,29 @@ export default function AdminMockInterviewPage() {
 
                 <label className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer text-xs">
                   <div>
-                    <span className="font-bold text-slate-900 block">Location Verification Required</span>
-                    <span className="text-slate-500 text-[11px]">Only when policy mandates attendance</span>
+                    <span className="font-bold text-slate-900 block">Audio-Only Mode Allowed</span>
+                    <span className="text-slate-500 text-[11px]">Permit interview without camera video</span>
                   </div>
                   <input
                     type="checkbox"
-                    checked={settings.enableLocationCheck}
+                    checked={settings.audioOnlyAllowed ?? true}
                     onChange={(e) =>
-                      setSettings({ ...settings, enableLocationCheck: e.target.checked })
+                      setSettings({ ...settings, audioOnlyAllowed: e.target.checked })
+                    }
+                    className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer text-xs">
+                  <div>
+                    <span className="font-bold text-slate-900 block">Text-Only Fallback Allowed</span>
+                    <span className="text-slate-500 text-[11px]">Permit text response if microphone unavailable</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.textOnlyAllowed ?? true}
+                    onChange={(e) =>
+                      setSettings({ ...settings, textOnlyAllowed: e.target.checked })
                     }
                     className="w-4 h-4 text-blue-600 rounded cursor-pointer"
                   />

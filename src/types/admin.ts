@@ -394,6 +394,11 @@ export interface DashboardKPIs {
   curriculumCount: number;
   verifiedCurriculumCount: number;
   openErrorsCount: number;
+  jobsPublishedCount?: number;
+  internshipsPublishedCount?: number;
+  pendingReviewsCount?: number;
+  mockInterviewsCount?: number;
+  unreadNotificationsCount?: number;
   systemStatus: 'Healthy' | 'Warning' | 'Critical';
   maintenanceMode: boolean;
   version: string;

@@ -210,6 +210,8 @@ export interface InterviewSettings {
   enableScreenShareCheck: boolean;
   allowedPrivacyModes: CandidatePrivacyMode[];
   enableAiTtsFallback: boolean;
+  audioOnlyAllowed?: boolean;
+  textOnlyAllowed?: boolean;
 }
 
 export type InterviewEventType =

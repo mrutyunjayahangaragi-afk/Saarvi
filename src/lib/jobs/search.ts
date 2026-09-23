@@ -76,31 +76,27 @@ class JobSearchService {
       };
     }
 
-    // 2. Fetch from External Provider & Local Store
+    // 2. Query Verified Saarvi Approved Opportunities Only
+    // STRICT PRODUCTION RULE: Public users never trigger external SerpApi searches.
+    // Opportunities must be vetted and published by Saarvi Administrators.
     let rawItems: JobItem[] = [];
     let isStaleFallback = false;
 
     try {
-      const providerRes = await this.primaryProvider.search(normalizedParams);
-      rawItems = providerRes.items;
-    } catch (err) {
-      console.warn("[JobSearchService] External provider search failed:", err);
-      // Stale cache fallback if available
-      if (cached) {
-        rawItems = cached.items;
-        isStaleFallback = true;
-      }
-    }
+      const isInternshipQuery =
+        normalizedParams.employmentType === "internship" ||
+        (safeQ && safeQ.toLowerCase().includes("internship"));
 
-    // Also pull matching approved opportunities from Saarvi's verified catalog
-    try {
       const { items: approvedOpps } = opportunityStore.getApprovedOpportunities({
+        search: safeQ,
         location: safeLoc,
-        category: normalizedParams.employmentType === "internship" ? "internship" : undefined,
+        category: isInternshipQuery ? "internship" : undefined,
         remoteOnly: normalizedParams.remote === "remote",
+        experienceLevel: (normalizedParams.experience as any) || undefined,
+        skills: normalizedParams.skills,
       });
 
-      const convertedApproved: JobItem[] = approvedOpps.map((opp) => ({
+      rawItems = approvedOpps.map((opp) => ({
         id: `opp_${opp.id}`,
         title: opp.title,
         companyName: opp.companyName,
@@ -123,9 +119,12 @@ class JobSearchService {
         isInternship: opp.isInternship,
         confidenceScore: 98,
       }));
-
-      rawItems = [...convertedApproved, ...rawItems];
-    } catch {}
+    } catch (err) {
+      console.error("[JobSearchService] Error querying approved catalog:", err);
+      if (cached) {
+        rawItems = cached.items;
+      }
+    }
 
     // Deduplicate
     const { uniqueJobs } = deduplicateJobs(rawItems);
