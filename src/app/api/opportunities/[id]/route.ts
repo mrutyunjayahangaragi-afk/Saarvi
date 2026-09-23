@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { opportunityStore } from "@/lib/opportunities/opportunity-store";
+import { getAuthenticatedUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -9,9 +10,18 @@ interface RouteParams {
 
 /**
  * GET /api/opportunities/[id]
- * Public endpoint to fetch an approved opportunity by ID.
+ * Endpoint to fetch an approved opportunity by ID for authenticated users.
  */
 export async function GET(request: Request, context: RouteParams) {
+  // 1. Mandatory Server-Side Authentication Check
+  const authUser = await getAuthenticatedUser(request);
+  if (!authUser) {
+    return NextResponse.json(
+      { error: "Authentication required to view opportunity details." },
+      { status: 401 }
+    );
+  }
+
   try {
     const { id } = await context.params;
     const opp = opportunityStore.getOpportunityById(id);

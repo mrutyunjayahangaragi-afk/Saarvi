@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jobSearchService } from "@/lib/jobs/search";
 import { enforceRateLimit, getClientIp } from "@/lib/security/rate-limit";
+import { getAuthenticatedUser } from "@/lib/security/auth-session";
 import type { JobSortOption } from "@/lib/jobs/types";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  // 1. Rate Limiting
+  // 1. Mandatory Server-Side Authentication Check
+  const authUser = await getAuthenticatedUser(req);
+  if (!authUser) {
+    return NextResponse.json(
+      { error: "Authentication required to search opportunities." },
+      { status: 401 }
+    );
+  }
+
+  // 2. Rate Limiting
   const clientIp = getClientIp(req);
   const rateLimitResult = enforceRateLimit(req, "search", `jobs:search:${clientIp}`);
 

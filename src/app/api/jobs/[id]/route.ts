@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jobSearchService } from "@/lib/jobs/search";
+import { getAuthenticatedUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,15 @@ interface RouteParams {
 }
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
+  // 1. Mandatory Server-Side Authentication Check
+  const authUser = await getAuthenticatedUser(req);
+  if (!authUser) {
+    return NextResponse.json(
+      { error: "Authentication required to view opportunity details." },
+      { status: 401 }
+    );
+  }
+
   const { id } = await params;
 
   if (!id || typeof id !== "string") {

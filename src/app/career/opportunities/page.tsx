@@ -12,6 +12,7 @@ import {
   OpportunityMatchReport,
 } from "@/lib/opportunities/matching-engine";
 import { academicStorage } from "@/lib/academic/storage/academic-db";
+import { useAuth } from "@/context/AuthContext";
 import {
   Briefcase,
   Search,
@@ -28,14 +29,17 @@ import {
   ChevronRight,
   Award,
   Zap,
+  Lock,
+  ArrowRight,
 } from "lucide-react";
 
 type FeedTab = "ALL" | "RECOMMENDED" | "INTERNSHIPS" | "FRESHER" | "CLOSING_SOON" | "SAVED";
 
 export default function CareerOpportunitiesPage() {
+  const { user, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<FeedTab>("ALL");
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [remoteOnly, setRemoteOnly] = useState(false);
   const [selectedSkillFilter, setSelectedSkillFilter] = useState<string | null>(null);
@@ -80,6 +84,12 @@ export default function CareerOpportunitiesPage() {
 
   // Load Opportunities from internal API
   const loadOpportunities = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      setOpportunities([]);
+      return;
+    }
+
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -91,13 +101,15 @@ export default function CareerOpportunitiesPage() {
       if (res.ok) {
         const data = await res.json();
         setOpportunities(data.items || []);
+      } else if (res.status === 401) {
+        setOpportunities([]);
       }
     } catch (err) {
       console.error("Failed to load opportunities:", err);
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, remoteOnly, selectedSkillFilter]);
+  }, [user, searchQuery, remoteOnly, selectedSkillFilter]);
 
   useEffect(() => {
     loadOpportunities();
@@ -319,7 +331,34 @@ export default function CareerOpportunitiesPage() {
         </div>
 
         {/* Opportunities Feed List */}
-        <div className="space-y-4">
+        {!user ? (
+          <div className="bg-white border border-slate-200/90 rounded-3xl p-8 sm:p-10 shadow-xs text-center space-y-4 max-w-xl mx-auto my-6">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 mx-auto">
+              <Lock className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-xl font-extrabold text-slate-900">Member-Exclusive Opportunities</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                Sign up to view verified jobs, access direct employer application portals, and get personalized ATS matching.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <Link
+                href="/signup?next=/career/opportunities"
+                className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition"
+              >
+                Create account
+              </Link>
+              <Link
+                href="/login?next=/career/opportunities"
+                className="w-full sm:w-auto px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl border border-slate-200 transition"
+              >
+                Log in
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
           {displayedOpportunities.map((opp) => {
             const match = matchMap.get(opp.id);
             const isSaved = savedOppIds.has(opp.id) || savedOppIds.has(opp.applyUrl);
@@ -471,6 +510,7 @@ export default function CareerOpportunitiesPage() {
             </div>
           )}
         </div>
+      )}
       </main>
 
       {/* 7-Factor Explainable Match Modal */}

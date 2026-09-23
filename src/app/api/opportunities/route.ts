@@ -1,15 +1,25 @@
 import { NextResponse } from "next/server";
 import { opportunityStore } from "@/lib/opportunities/opportunity-store";
 import { OpportunityCategory, ExperienceLevel } from "@/lib/opportunities/types";
+import { getAuthenticatedUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/opportunities
- * Public student opportunity discovery endpoint.
- * STRICT GUARANTEE: Returns ONLY administrator-approved verified opportunities.
+ * Student opportunity discovery endpoint.
+ * STRICT GUARANTEE: Returns ONLY administrator-approved verified opportunities to authenticated users.
  */
 export async function GET(request: Request) {
+  // 1. Mandatory Server-Side Authentication Check
+  const authUser = await getAuthenticatedUser(request);
+  if (!authUser) {
+    return NextResponse.json(
+      { error: "Authentication required to access opportunities." },
+      { status: 401 }
+    );
+  }
+
   try {
     const { searchParams } = new URL(request.url);
 

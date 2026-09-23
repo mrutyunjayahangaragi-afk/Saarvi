@@ -136,6 +136,20 @@ export interface AuthSuccessEvent extends BaseAnalyticsEvent {
   method: 'google' | 'password';
 }
 
+export interface JobsAnalyticsEvent extends BaseAnalyticsEvent {
+  name:
+    | 'jobs_page_view'
+    | 'jobs_auth_required'
+    | 'jobs_search_started'
+    | 'jobs_search_completed'
+    | 'jobs_search_failed'
+    | 'job_detail_view'
+    | 'internship_detail_view'
+    | 'job_saved'
+    | 'application_started';
+  [key: string]: unknown;
+}
+
 export type AnalyticsEvent =
   | RouteLoadedEvent
   | ToolStartedEvent
@@ -153,7 +167,9 @@ export type AnalyticsEvent =
   | NotificationFailedEvent
   | RateLimitedEvent
   | AuthMethodSelectedEvent
-  | AuthSuccessEvent;
+  | AuthSuccessEvent
+  | JobsAnalyticsEvent;
+
 
 export const VALID_EVENT_NAMES = new Set<string>([
   'route_loaded',
@@ -181,6 +197,15 @@ export const VALID_EVENT_NAMES = new Set<string>([
   'MEGA_MENU_TOOL_CLICK',
   'SEARCH_TOOL_OPEN',
   'AI_TOOL_OPEN',
+  'jobs_page_view',
+  'jobs_auth_required',
+  'jobs_search_started',
+  'jobs_search_completed',
+  'jobs_search_failed',
+  'job_detail_view',
+  'internship_detail_view',
+  'job_saved',
+  'application_started',
 ]);
 
 export const PROHIBITED_KEYS = new Set<string>([

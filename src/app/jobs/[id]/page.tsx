@@ -1,9 +1,14 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { opportunityStore } from "@/lib/opportunities/opportunity-store";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { createClient } from "@/lib/supabase/server";
+import { SaarviMark } from "@/components/brand/SaarviLogo";
+import JobDetailAuthCard from "@/components/career/JobDetailAuthCard";
 import {
   Briefcase,
   MapPin,
@@ -14,6 +19,9 @@ import {
   ShieldCheck,
   ChevronLeft,
   Share2,
+  Lock,
+  ArrowRight,
+  Sparkles,
 } from "lucide-react";
 
 interface JobPageProps {
@@ -32,7 +40,7 @@ export async function generateMetadata({ params }: JobPageProps): Promise<Metada
 
   return {
     title: `${opp.title} at ${opp.companyName} | Saarvi Career Intelligence`,
-    description: opp.description.slice(0, 160),
+    description: `Discover ${opp.title} opportunity at ${opp.companyName} on Saarvi.`,
     alternates: {
       canonical: `https://saarvi.app/jobs/${opp.id}`,
     },
@@ -47,7 +55,49 @@ export default async function SingleJobPage({ params }: JobPageProps) {
     notFound();
   }
 
-  // Google JobPosting Structured Data (strictly on dedicated individual job page per Google guidelines)
+  // Server-Side Authentication Verification
+  let isAuthenticated = false;
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) isAuthenticated = true;
+    } catch {
+      isAuthenticated = false;
+    }
+  } else {
+    try {
+      const cookieStore = await cookies();
+      const localCookie = cookieStore.get("saarvi_local_session") || cookieStore.get("docease_local_session");
+      if (localCookie?.value) isAuthenticated = true;
+    } catch {}
+  }
+
+  const returnUrl = `/jobs/${id}`;
+
+  // Guest Direct URL Handling: Do not leak protected record
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] flex flex-col text-slate-800">
+        <Navbar />
+
+        <main className="flex-1 max-w-xl mx-auto w-full px-4 sm:px-6 py-12 sm:py-16 flex flex-col justify-center">
+          <JobDetailAuthCard
+            returnUrl={returnUrl}
+            companyName={opp.companyName}
+            title={opp.title}
+            location={opp.location}
+            employmentType={opp.employmentType}
+            isInternship={opp.isInternship}
+          />
+        </main>
+
+        <Footer />
+      </div>
+    );
+  }
+
+  // Google JobPosting Structured Data (strictly for authenticated verified access per Google guidelines)
   const jobPostingJsonLd = {
     "@context": "https://schema.org",
     "@type": "JobPosting",

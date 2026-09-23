@@ -1,22 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jobAlertsStore } from "@/lib/jobs/alerts";
 import { enforceRateLimit, getClientIp } from "@/lib/security/rate-limit";
+import { getAuthenticatedUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const userId = searchParams.get("userId");
-
-  if (!userId) {
-    return NextResponse.json({ error: "userId parameter is required." }, { status: 400 });
+  // 1. Mandatory Server-Side Authentication Check
+  const authUser = await getAuthenticatedUser(req);
+  if (!authUser) {
+    return NextResponse.json(
+      { error: "Authentication required to access job alerts." },
+      { status: 401 }
+    );
   }
 
-  const alerts = jobAlertsStore.getAlertsByUser(userId);
+  // 2. Strict IDOR Defense: Only return alerts belonging to the authenticated session user
+  const alerts = jobAlertsStore.getAlertsByUser(authUser.id);
   return NextResponse.json({ alerts });
 }
 
 export async function POST(req: NextRequest) {
+  // 1. Mandatory Server-Side Authentication Check
+  const authUser = await getAuthenticatedUser(req);
+  if (!authUser) {
+    return NextResponse.json(
+      { error: "Authentication required to create job alerts." },
+      { status: 401 }
+    );
+  }
+
   const clientIp = getClientIp(req);
   const rateLimitResult = enforceRateLimit(req, "publicWrite", `jobs:alert:${clientIp}`);
 
@@ -29,17 +42,18 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { userId, title, keywords, location, employmentType, frequency, emailNotifications, inAppNotifications } = body;
+    const { title, keywords, location, employmentType, frequency, emailNotifications, inAppNotifications } = body;
 
-    if (!userId || !title || !keywords || !Array.isArray(keywords)) {
+    if (!title || !keywords || !Array.isArray(keywords)) {
       return NextResponse.json(
-        { error: "Missing required fields: userId, title, and keywords array are required." },
+        { error: "Missing required fields: title and keywords array are required." },
         { status: 400 }
       );
     }
 
+    // Strict user isolation: Use server authenticated authUser.id
     const alert = jobAlertsStore.createAlert({
-      userId: String(userId),
+      userId: authUser.id,
       title: String(title),
       keywords: keywords.map(String),
       location: location ? String(location) : undefined,

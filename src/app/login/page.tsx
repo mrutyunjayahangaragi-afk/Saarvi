@@ -349,7 +349,10 @@ function LoginForm() {
             <div className="pt-4 border-t border-slate-100 text-center text-xs text-slate-500 space-y-2">
               <div>
                 Don&apos;t have an account?{" "}
-                <Link href="/signup" className="text-blue-600 font-bold hover:underline">
+                <Link
+                  href={next !== "/dashboard" ? `/signup?next=${encodeURIComponent(next)}` : "/signup"}
+                  className="text-blue-600 font-bold hover:underline"
+                >
                   Create account
                 </Link>
               </div>

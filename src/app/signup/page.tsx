@@ -1,19 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FileText, Eye, EyeOff, Loader2, ArrowRight, ShieldCheck, Mail, AlertCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { usePlatform } from "@/context/PlatformContext";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { sanitizeInternalRedirectUrl } from "@/lib/security/url-security";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { SaarviMark } from "@/components/brand/SaarviLogo";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawNext = searchParams.get("next") || "/dashboard";
+  const safeNext = sanitizeInternalRedirectUrl(rawNext, "/dashboard");
+
   const { signUp, signInWithGoogle, verifyEmailOtp, resendVerificationOtp, user } = useAuth();
   const { isRegistrationEnabled } = usePlatform();
 
@@ -106,7 +111,7 @@ export default function SignupPage() {
     setOtpLoading(true);
     try {
       await verifyEmailOtp({ email, code: cleanToken });
-      router.push("/dashboard");
+      router.push(safeNext);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Invalid verification code. Please try again.";
       setOtpError(msg);
@@ -138,9 +143,9 @@ export default function SignupPage() {
     }
     setGoogleLoading(true);
     try {
-      await signInWithGoogle({ redirectTo: "/dashboard" });
+      await signInWithGoogle({ redirectTo: safeNext });
       if (!isSupabaseConfigured()) {
-        router.push("/dashboard");
+        router.push(safeNext);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unable to connect to Google authentication. Please try again.";
@@ -151,12 +156,8 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8fafc]">
-      <Navbar />
-
-      <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-        <div className="w-full max-w-md mx-auto">
-          <div className="bg-white border border-slate-200/90 rounded-3xl p-7 sm:p-9 shadow-sm space-y-6">
+    <div className="w-full max-w-md mx-auto">
+      <div className="bg-white border border-slate-200/90 rounded-3xl p-7 sm:p-9 shadow-sm space-y-6">
 
             {/* 6-Digit Email Verification Screen */}
             {verificationPending ? (
@@ -446,7 +447,10 @@ export default function SignupPage() {
                 <div className="pt-4 border-t border-slate-100 text-center text-xs text-slate-500 space-y-2">
                   <div>
                     Already have an account?{" "}
-                    <Link href="/login" className="text-blue-600 font-bold hover:underline">
+                    <Link
+                      href={safeNext !== "/dashboard" ? `/login?next=${encodeURIComponent(safeNext)}` : "/login"}
+                      className="text-blue-600 font-bold hover:underline"
+                    >
                       Login
                     </Link>
                   </div>
@@ -461,6 +465,18 @@ export default function SignupPage() {
 
           </div>
         </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <div className="min-h-screen flex flex-col bg-[#f8fafc]">
+      <Navbar />
+
+      <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+        <Suspense fallback={<div className="text-center text-sm text-slate-400">Loading...</div>}>
+          <SignupForm />
+        </Suspense>
       </main>
 
       <Footer />

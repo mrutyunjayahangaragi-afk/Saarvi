@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jobReportsStore } from "@/lib/jobs/reports";
 import { enforceRateLimit, getClientIp } from "@/lib/security/rate-limit";
+import { getAuthenticatedUser } from "@/lib/security/auth-session";
 import type { JobReportReason } from "@/lib/jobs/types";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  // 1. Mandatory Server-Side Authentication Check
+  const authUser = await getAuthenticatedUser(req);
+  if (!authUser) {
+    return NextResponse.json(
+      { error: "Authentication required to submit job reports." },
+      { status: 401 }
+    );
+  }
+
   const clientIp = getClientIp(req);
   const rateLimitResult = enforceRateLimit(req, "publicWrite", `jobs:report:${clientIp}`);
 
@@ -18,7 +28,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { jobId, jobTitle, companyName, sourceUrl, reason, notes, reporterId } = body;
+    const { jobId, jobTitle, companyName, sourceUrl, reason, notes } = body;
 
     if (!jobId || !jobTitle || !companyName || !reason) {
       return NextResponse.json(
@@ -34,7 +44,7 @@ export async function POST(req: NextRequest) {
       sourceUrl: sourceUrl ? String(sourceUrl) : undefined,
       reason: reason as JobReportReason,
       notes: notes ? String(notes) : undefined,
-      reporterId: reporterId ? String(reporterId) : undefined,
+      reporterId: authUser.id,
     });
 
     return NextResponse.json({
