@@ -456,7 +456,7 @@ Saarvi is designed with privacy in mind. Supported tools process files locally i
 
 Saarvi
 Study. Work. Grow.
-support@saarvi.app
+saarvinotifications@gmail.com
 ${appBaseUrl}
 
 © 2026 Saarvi. All rights reserved.`;
@@ -563,7 +563,7 @@ ${appBaseUrl}
               <div style="font-size: 12px; font-weight: 700; color: #0f172a;">Saarvi</div>
               <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Study. Work. Grow.</div>
               <div style="margin: 10px 0; font-size: 11px; color: #64748b;">
-                <a href="mailto:support@saarvi.app" style="color: #2563eb; text-decoration: none;">support@saarvi.app</a> &bull; 
+                <a href="mailto:saarvinotifications@gmail.com" style="color: #2563eb; text-decoration: none;">saarvinotifications@gmail.com</a> &bull; 
                 <a href="${appBaseUrl}" style="color: #2563eb; text-decoration: none;">${appBaseUrl}</a>
               </div>
               <div style="font-size: 11px; color: #94a3b8;">

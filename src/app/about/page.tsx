@@ -246,12 +246,12 @@ export default function AboutPage() {
             </h2>
 
             <p className="text-sm text-slate-500 leading-relaxed">
-              We'd love to hear your feedback. Contact us at{" "}
+              We&apos;d love to hear your feedback. Contact us at{" "}
               <a
-                href="mailto:support@saarvi.in"
+                href="mailto:saarvinotifications@gmail.com"
                 className="font-semibold text-slate-700 hover:text-blue-600 transition-colors"
               >
-                support@saarvi.in
+                saarvinotifications@gmail.com
               </a>
               .
             </p>

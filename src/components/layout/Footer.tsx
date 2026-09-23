@@ -93,6 +93,16 @@ export default function Footer() {
 
               <li>
                 <Link
+                  href="/jobs"
+                  className="text-blue-600 font-semibold hover:text-blue-700 transition-colors flex items-center gap-1"
+                >
+                  <span>Jobs &amp; Internships</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-bold">New</span>
+                </Link>
+              </li>
+
+              <li>
+                <Link
                   href="/blog"
                   className="text-slate-600 hover:text-blue-600 transition-colors"
                 >
@@ -132,8 +142,18 @@ export default function Footer() {
                   href="/contact"
                   className="text-slate-600 hover:text-blue-600 transition-colors"
                 >
-                  Contact
+                  Contact Us
                 </Link>
+              </li>
+
+              <li>
+                <a
+                  href="mailto:saarvinotifications@gmail.com"
+                  className="text-slate-500 hover:text-blue-600 transition-colors text-[11px] block break-all"
+                  title="Official Contact Email"
+                >
+                  saarvinotifications@gmail.com
+                </a>
               </li>
             </ul>
           </div>

@@ -229,10 +229,10 @@ export default function TermsPage() {
             <p>
               Because Pro grants immediate access to elevated digital capacity, fees are generally non-refundable except where required by law or in the case of verified duplicate billing or technical payment discrepancies. Refund inquiries may be submitted to{" "}
               <a
-                href="mailto:support@saarvi.in"
+                href="mailto:saarvinotifications@gmail.com"
                 className="font-semibold text-blue-600 hover:text-blue-700"
               >
-                support@saarvi.in
+                saarvinotifications@gmail.com
               </a>{" "}
               with your Razorpay payment identifier within 7 days of the charge.
             </p>
@@ -276,10 +276,10 @@ export default function TermsPage() {
               If you have questions about these Terms of Service or billing inquiries, contact
               Saarvi at{" "}
               <a
-                href="mailto:support@saarvi.in"
+                href="mailto:saarvinotifications@gmail.com"
                 className="font-semibold text-blue-600 hover:text-blue-700"
               >
-                support@saarvi.in
+                saarvinotifications@gmail.com
               </a>
               .
             </p>

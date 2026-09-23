@@ -388,6 +388,21 @@ export default function Navbar() {
               </Link>
             </div>
 
+            {/* Jobs & Internships */}
+            <div className="relative py-2">
+              <Link
+                href="/jobs"
+                className={`px-3 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
+                  pathname?.startsWith("/jobs")
+                    ? "text-blue-600 bg-blue-50 font-bold"
+                    : "text-slate-700 hover:text-slate-900 hover:bg-slate-100/70"
+                }`}
+              >
+                <Briefcase className="w-3.5 h-3.5 text-blue-600" />
+                <span>Jobs &amp; Internships</span>
+              </Link>
+            </div>
+
             {/* Plans / Pricing */}
             <div className="relative py-2">
               <Link
@@ -911,6 +926,27 @@ export default function Navbar() {
                   </Link>
                 </div>
               )}
+            </div>
+
+            {/* Mobile Direct Link: Jobs & Internships */}
+            <div>
+              <Link
+                href="/jobs"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center justify-between p-3.5 rounded-2xl font-bold text-xs border transition-colors ${
+                  pathname?.startsWith("/jobs")
+                    ? "bg-blue-50 text-blue-700 border-blue-200"
+                    : "bg-slate-50/70 text-slate-800 border-slate-200/80 hover:bg-slate-100"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-blue-600" />
+                  <span>Jobs &amp; Internships</span>
+                </div>
+                <span className="px-2 py-0.5 text-[10px] font-bold text-blue-700 bg-blue-100/80 rounded-full">
+                  New
+                </span>
+              </Link>
             </div>
 
             {/* Plans / Pricing */}

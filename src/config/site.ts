@@ -1,3 +1,6 @@
+export const CONTACT_EMAIL = "saarvinotifications@gmail.com";
+export const SUPPORT_EMAIL = "saarvinotifications@gmail.com";
+
 export const SITE_CONFIG = {
   name: "Saarvi",
   tagline: "Study. Work. Grow.",
@@ -6,6 +9,8 @@ export const SITE_CONFIG = {
   canonicalUrl: "https://saarvi.app",
   url: (process.env.NEXT_PUBLIC_APP_URL || "https://saarvi.app") as string, // Legacy reference: url: "https://saarvi.in"
   author: "Saarvi Team",
+  contactEmail: CONTACT_EMAIL,
+  supportEmail: SUPPORT_EMAIL,
   copyright: `© 2026 Saarvi. All rights reserved.`,
   nav: [
     { label: "Home", href: "/" },

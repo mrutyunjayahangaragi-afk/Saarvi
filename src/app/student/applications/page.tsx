@@ -49,22 +49,26 @@ const STATUS_CONFIG: Record<
   { label: string; bg: string; text: string; border: string }
 > = {
   SAVED: { label: "Saved", bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200" },
+  INTERESTED: { label: "Interested", bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-200" },
   APPLIED: { label: "Applied", bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
   ONLINE_ASSESSMENT: { label: "Assessment", bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
   INTERVIEW: { label: "Interview", bg: "bg-amber-50", text: "text-amber-800", border: "border-amber-200" },
   OFFER: { label: "Offer", bg: "bg-emerald-50", text: "text-emerald-800", border: "border-emerald-200" },
   REJECTED: { label: "Rejected", bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200" },
   WITHDRAWN: { label: "Withdrawn", bg: "bg-slate-100", text: "text-slate-600", border: "border-slate-200" },
+  EXPIRED: { label: "Expired", bg: "bg-zinc-100", text: "text-zinc-600", border: "border-zinc-300" },
 };
 
 const ALL_STATUSES: JobApplicationStatus[] = [
   "SAVED",
+  "INTERESTED",
   "APPLIED",
   "ONLINE_ASSESSMENT",
   "INTERVIEW",
   "OFFER",
   "REJECTED",
   "WITHDRAWN",
+  "EXPIRED",
 ];
 
 const INTERVIEW_TYPES: InterviewType[] = [
@@ -438,7 +442,23 @@ export default function ApplicationsPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Link
+              href="/career/opportunities"
+              className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-xs"
+            >
+              <Search className="w-3.5 h-3.5 mr-1 text-slate-500" />
+              Explore Jobs
+            </Link>
+
+            <Link
+              href="/student/calendar"
+              className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-xs"
+            >
+              <Calendar className="w-3.5 h-3.5 mr-1 text-slate-500" />
+              Smart Calendar
+            </Link>
+
             <div className="flex bg-slate-200 p-0.5 rounded-lg text-xs font-semibold">
               <button
                 onClick={() => setViewMode("pipeline")}
@@ -485,10 +505,18 @@ export default function ApplicationsPage() {
                 </span>
               </div>
             </div>
-            <span className="inline-flex items-center text-xs font-semibold px-2.5 py-1 bg-amber-200/70 text-amber-900 rounded-full">
-              <Clock className="w-3.5 h-3.5 mr-1" />
-              {formatCountdownText(upcomingInterviews[0].date)}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center text-xs font-semibold px-2.5 py-1 bg-amber-200/70 text-amber-900 rounded-full">
+                <Clock className="w-3.5 h-3.5 mr-1" />
+                {formatCountdownText(upcomingInterviews[0].date)}
+              </span>
+              <Link
+                href="/student/calendar"
+                className="text-xs font-semibold text-amber-900 hover:text-amber-950 underline flex items-center gap-1"
+              >
+                View in Calendar <ChevronRight className="w-3 h-3" />
+              </Link>
+            </div>
           </div>
         )}
 

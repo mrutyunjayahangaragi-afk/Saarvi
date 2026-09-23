@@ -29,8 +29,14 @@ export default function ContactPage() {
           </h1>
 
           <p className="text-sm sm:text-base text-slate-500 leading-relaxed">
-            Have a question, feedback, or a suggestion for a new tool?
-            We would love to hear from you.
+            Have a question or suggestion? We&apos;d love to hear your feedback.
+            Contact us at:{" "}
+            <a
+              href="mailto:saarvinotifications@gmail.com"
+              className="text-blue-600 font-semibold hover:underline"
+            >
+              saarvinotifications@gmail.com
+            </a>
           </p>
         </section>
 
@@ -44,10 +50,10 @@ export default function ContactPage() {
 
               <div className="space-y-1">
                 <h2 className="text-base font-bold text-slate-900">
-                  Direct Support Channels
+                  Official Contact &amp; Support Channel
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Our team provides direct support for student utilities, authentication, and billing.
+                  Our team provides direct support for career features, student utilities, authentication, and feedback.
                 </p>
               </div>
             </div>
@@ -55,25 +61,25 @@ export default function ContactPage() {
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-                  User & Technical Support
+                  User &amp; Technical Support
                 </span>
                 <a
-                  href="mailto:support@saarvi.in"
+                  href="mailto:saarvinotifications@gmail.com"
                   className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors break-all"
                 >
-                  support@saarvi.in
+                  saarvinotifications@gmail.com
                 </a>
               </div>
 
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-                  General & Administrative
+                  General &amp; Feedback
                 </span>
                 <a
-                  href="mailto:contact@saarvi.in"
+                  href="mailto:saarvinotifications@gmail.com"
                   className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors break-all"
                 >
-                  contact@saarvi.in
+                  saarvinotifications@gmail.com
                 </a>
               </div>
             </div>
@@ -114,7 +120,7 @@ export default function ContactPage() {
                 Password Reset & Verification
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Password recovery links are dispatched from <code>support@saarvi.in</code> via Supabase Auth. If you do not see the email within two minutes, check your spam folder or trigger a new link from the <a href="/forgot-password" className="text-blue-600 font-semibold hover:underline">Forgot Password</a> page.
+                Password recovery links are dispatched from <code>saarvinotifications@gmail.com</code> via Supabase Auth. If you do not see the email within two minutes, check your spam folder or trigger a new link from the <a href="/forgot-password" className="text-blue-600 font-semibold hover:underline">Forgot Password</a> page.
               </p>
             </div>
 

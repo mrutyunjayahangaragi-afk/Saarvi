@@ -19,7 +19,9 @@ import {
   Layers,
   GraduationCap,
   Camera,
-  Sparkles
+  Sparkles,
+  Briefcase,
+  Search,
 } from "lucide-react";
 
 export const metadata: Metadata = createMetadata({
@@ -236,6 +238,43 @@ export default function HomePage() {
                   <div className="h-1.5 w-1/2 bg-slate-200 rounded-full" />
                 </div>
               </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* 5B. CAREER & JOBS DISCOVERY SECTION */}
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-blue-900 via-slate-900 to-indigo-950 p-8 sm:p-12 text-white shadow-xl">
+            <div className="relative z-10 max-w-2xl space-y-4">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-200 border border-blue-400/30">
+                <Briefcase className="w-3.5 h-3.5 text-blue-300" />
+                Saarvi Career Intelligence
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+                Your next opportunity is closer.
+              </h2>
+              <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
+                Search jobs and internships, match them with your skills, and track every application — all in Saarvi.
+              </p>
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <Link
+                  href="/jobs"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-semibold transition-all shadow-md hover:shadow-lg cursor-pointer"
+                >
+                  <Search className="w-4 h-4" />
+                  <span>Find Jobs &amp; Internships</span>
+                </Link>
+                <Link
+                  href="/student/resume"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs sm:text-sm font-semibold transition-all border border-white/20 backdrop-blur-xs cursor-pointer"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Match My Resume</span>
+                </Link>
+              </div>
+              <p className="text-[11px] text-slate-400 pt-2">
+                Verified genuine listings directly from official employers &amp; trusted job sources. Saarvi does not guarantee employment and never charges fees to apply.
+              </p>
             </div>
           </div>
         </section>

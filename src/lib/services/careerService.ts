@@ -13,6 +13,7 @@ import type {
   SkillGapAnalysis,
   ResumeSectionId,
   JobMatchResult,
+  JobApplicationStatus,
 } from "@/types/career";
 import { academicStorage } from "../academic/storage/academic-db";
 
@@ -1038,14 +1039,16 @@ export const careerService = {
   // APPLICATION FUNNEL CALCULATION
   // ==========================================
   calculateApplicationFunnel(applications: JobApplication[]) {
-    const funnel = {
+    const funnel: Record<JobApplicationStatus, number> & { total: number } = {
       SAVED: 0,
+      INTERESTED: 0,
       APPLIED: 0,
       ONLINE_ASSESSMENT: 0,
       INTERVIEW: 0,
       OFFER: 0,
       REJECTED: 0,
       WITHDRAWN: 0,
+      EXPIRED: 0,
       total: applications.length,
     };
 

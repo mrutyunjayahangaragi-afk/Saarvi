@@ -132,7 +132,7 @@ test("Phase 29 - Privacy Disclosures: Privacy page accurately discloses local-fi
   assert.match(privacyPage, /Supabase/i);
 
   // Contact for data deletion
-  assert.match(privacyPage, /support@saarvi\.in/);
+  assert.match(privacyPage, /saarvinotifications@gmail\.com/);
 });
 
 // =========================================================================
@@ -163,8 +163,7 @@ test("Phase 29 - Support: Contact page provides dual support channels and Troubl
   const contactPage = fs.readFileSync(path.join(ROOT_DIR, "src/app/contact/page.tsx"), "utf8");
   
   // Official support channels
-  assert.match(contactPage, /support@saarvi\.in/);
-  assert.match(contactPage, /contact@saarvi\.in/);
+  assert.match(contactPage, /saarvinotifications@gmail\.com/);
 
   // Support & Troubleshooting Hub topics
   assert.match(contactPage, /Authentication & Google Login/i);

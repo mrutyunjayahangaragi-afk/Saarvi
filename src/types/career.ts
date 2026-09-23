@@ -255,12 +255,14 @@ export interface ResumeSnapshot {
 
 export type JobApplicationStatus =
   | "SAVED"
+  | "INTERESTED"
   | "APPLIED"
   | "ONLINE_ASSESSMENT"
   | "INTERVIEW"
   | "OFFER"
   | "REJECTED"
-  | "WITHDRAWN";
+  | "WITHDRAWN"
+  | "EXPIRED";
 
 export type JobApplicationPriority = "high" | "medium" | "low";
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import Link from "next/link";
 import { studentService } from "@/lib/services/studentService";
 import { TimetableEntry } from "@/types/student";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
@@ -18,8 +19,11 @@ import {
   RotateCcw,
   CheckCircle,
   AlertCircle,
+  ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import { detectIntervalConflicts } from "@/lib/student/algorithms/conflict-detector";
+import { calendarStorage } from "@/lib/calendar/calendar-storage";
 
 const DAYS = [
   "Monday",
@@ -91,6 +95,7 @@ export default function TimetablePage() {
 
     try {
       await studentService.saveTimetable(updated);
+      await calendarStorage.syncWithTimetable().catch(() => {});
     } catch {
       // Local fallback
     }
@@ -101,6 +106,7 @@ export default function TimetablePage() {
     setEntries(updated);
     try {
       await studentService.saveTimetable(updated);
+      await calendarStorage.syncWithTimetable().catch(() => {});
     } catch {
       // Local fallback
     }
@@ -111,6 +117,7 @@ export default function TimetablePage() {
       setEntries([]);
       try {
         await studentService.saveTimetable([]);
+        await calendarStorage.syncWithTimetable().catch(() => {});
       } catch {
         // Local fallback
       }
@@ -323,6 +330,15 @@ export default function TimetablePage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/student/calendar"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl shadow-xs transition-colors cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Smart Calendar View</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+
             <button
               type="button"
               onClick={handlePrint}

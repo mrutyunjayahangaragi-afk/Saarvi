@@ -1,6 +1,7 @@
 import { MetadataRoute } from 'next';
 import { TOOLS_CONFIG } from '@/config/tools';
 import { SITE_CONFIG } from '@/config/site';
+import { opportunityStore } from '@/lib/opportunities/opportunity-store';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   // Canonical domain: https://saarvi.app (legacy compatibility: https://saarvi.in)
@@ -12,6 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: baseUrl, lastModified: now, changeFrequency: 'daily', priority: 1.0 },
     { url: `${baseUrl}/tools`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
     { url: `${baseUrl}/student`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
+    { url: `${baseUrl}/career/opportunities`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
     { url: `${baseUrl}/pricing`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${baseUrl}/about`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${baseUrl}/privacy`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
@@ -56,6 +58,22 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: tool.popular ? 0.85 : 0.75,
     }));
 
+  // 6. Approved Job Posting Pages (Strictly canonical individual URLs)
+  const careerRoutes: MetadataRoute.Sitemap = [];
+  try {
+    const { items: approvedJobs } = opportunityStore.getApprovedOpportunities({ pageSize: 100 });
+    for (const job of approvedJobs) {
+      careerRoutes.push({
+        url: `${baseUrl}/jobs/${job.id}`,
+        lastModified: job.updatedAt ? new Date(job.updatedAt) : now,
+        changeFrequency: 'daily',
+        priority: 0.85,
+      });
+    }
+  } catch (err) {
+    console.warn('Could not populate job routes into sitemap:', err);
+  }
+
   // Deduplicate by URL
   const uniqueMap = new Map<string, MetadataRoute.Sitemap[number]>();
   [
@@ -64,6 +82,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...standaloneToolRoutes,
     ...blogRoutes,
     ...dynamicToolRoutes,
+    ...careerRoutes,
   ].forEach((entry) => {
     if (!uniqueMap.has(entry.url)) {
       uniqueMap.set(entry.url, entry);

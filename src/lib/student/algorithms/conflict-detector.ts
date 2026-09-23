@@ -1,4 +1,4 @@
-import { timeStringToMinutes, minutesToTimeString } from "../date-utils";
+import { timeStringToMinutes, minutesToTimeString } from "../date-utils.ts";
 
 export interface TimeIntervalItem {
   id: string;

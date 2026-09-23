@@ -24,6 +24,8 @@ export default function robots(): MetadataRoute.Robots {
         '/privacy',
         '/terms',
         '/contact',
+        '/career/opportunities',
+        '/jobs/*',
       ],
       disallow: [
         '/admin/',

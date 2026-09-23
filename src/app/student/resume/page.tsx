@@ -30,6 +30,7 @@ import { academicStorage } from "@/lib/academic/storage/academic-db";
 import { generateResumePdf, generateControlledLatex } from "@/lib/tools/resume/pdf-export";
 import { AIResumeFeedbackModal } from "@/components/career/AIResumeFeedbackModal";
 import { ResumeLivePreview } from "@/components/career/ResumeLivePreview";
+import { ResumeIntelligencePanel } from "@/components/career/ResumeIntelligencePanel";
 import {
   FileText,
   Plus,
@@ -114,15 +115,16 @@ const SECTION_LABELS: Record<ResumeSectionId, string> = {
   additional: "Additional Information",
 };
 
-export default function StudentResumePage() {
+export default function StudentResumePage({ initialTab = "builder" }: { initialTab?: "builder" | "ats_intelligence" }) {
   return (
     <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center p-8">Loading Resume Builder...</div>}>
-      <ResumeBuilderComponent />
+      <ResumeBuilderComponent initialTab={initialTab} />
     </Suspense>
   );
 }
 
-function ResumeBuilderComponent() {
+function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "builder" | "ats_intelligence" }) {
+  const [mainTab, setMainTab] = useState<"builder" | "ats_intelligence">(initialTab);
   const [profile, setProfile] = useState<CareerProfile | null>(null);
   const [versions, setVersions] = useState<ResumeVersion[]>([]);
   const [activeVersionId, setActiveVersionId] = useState<string>("");
@@ -235,6 +237,29 @@ function ResumeBuilderComponent() {
     },
     [activeVersion]
   );
+
+  const handleApplyParsedProfile = async (extracted: Partial<CareerProfile>) => {
+    if (!profile) return;
+    const updated: CareerProfile = {
+      ...profile,
+      ...extracted,
+      skills: [
+        ...profile.skills,
+        ...(extracted.skills || []).filter(
+          (newS) => !profile.skills.some((s) => s.name.toLowerCase() === newS.name.toLowerCase())
+        ),
+      ],
+      updatedAt: new Date().toISOString(),
+    };
+    setProfile(updated);
+    try {
+      await careerService.saveProfile(updated);
+      setNotice("Extracted resume profile data imported locally.");
+      setTimeout(() => setNotice(null), 4000);
+    } catch (err) {
+      console.error("Failed to save imported profile:", err);
+    }
+  };
 
   // Reorder sections
   const handleMoveSection = (sectionId: ResumeSectionId, direction: "up" | "down") => {
@@ -826,6 +851,40 @@ function ResumeBuilderComponent() {
             )}
           </div>
         </div>
+
+        {/* Main Workspace Mode Tabs */}
+        <div className="flex flex-wrap items-center gap-2 my-6">
+          <button
+            onClick={() => setMainTab("builder")}
+            className={`px-4 py-2.5 text-xs font-bold rounded-xl transition ${
+              mainTab === "builder"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            Resume Builder & LaTeX Templates
+          </button>
+          <button
+            onClick={() => setMainTab("ats_intelligence")}
+            className={`px-4 py-2.5 text-xs font-bold rounded-xl transition flex items-center gap-1.5 ${
+              mainTab === "ats_intelligence"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Resume Intelligence & ATS Engine (PDF, DOCX, OCR)
+          </button>
+        </div>
+
+        {mainTab === "ats_intelligence" ? (
+          <ResumeIntelligencePanel
+            profile={profile}
+            activeVersion={activeVersion}
+            onApplyParsedProfile={handleApplyParsedProfile}
+          />
+        ) : (
+          <>
 
         {/* JOB DESCRIPTION KEYWORD MATCHER DRAWER */}
         {showJobMatcher && (
@@ -2293,6 +2352,8 @@ function ResumeBuilderComponent() {
             </div>
           )}
         </div>
+      )}
+      </>
       )}
     </main>
 
