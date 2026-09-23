@@ -60,8 +60,10 @@ export class SerpApiJobProvider implements JobSearchProvider {
     endpoint.searchParams.set("api_key", key);
     endpoint.searchParams.set("hl", "en");
 
-    // Optional pagination start offset
-    if (params.page && params.page > 1) {
+    // Optional pagination start offset or next_page_token
+    if ((params as any).nextPageToken) {
+      endpoint.searchParams.set("next_page_token", (params as any).nextPageToken);
+    } else if (params.page && params.page > 1) {
       const start = (params.page - 1) * (params.limit || 10);
       endpoint.searchParams.set("start", String(start));
     }

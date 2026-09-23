@@ -121,6 +121,17 @@ export async function POST(req: NextRequest) {
         centerId,
       });
 
+      // If media readiness or recording consent was provided during preflight start
+      if (body.recordingConsent !== undefined || body.cameraLabel || body.micLabel) {
+        await interviewService.updateSessionMediaReadiness(session.id, {
+          cameraReady: body.cameraReady ?? true,
+          micReady: body.micReady ?? true,
+          recordingConsent: Boolean(body.recordingConsent),
+          cameraLabel: body.cameraLabel,
+          micLabel: body.micLabel,
+        });
+      }
+
       // Set-based question deduplication
       const seenIds = new Set<string>();
       const deduplicatedQuestions = session.questions.filter((q) => {
@@ -142,6 +153,60 @@ export async function POST(req: NextRequest) {
           ...session,
           questions: sanitizedQuestions,
         },
+      });
+      return withRateLimitHeaders(response, rateLimit);
+    }
+
+    if (action === "heartbeat") {
+      const { sessionId } = body;
+      if (!sessionId) {
+        return NextResponse.json(
+          { success: false, error: "Session ID is required for heartbeat." },
+          { status: 400 }
+        );
+      }
+      await interviewService.recordHeartbeat(sessionId);
+      const response = NextResponse.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+      });
+      return withRateLimitHeaders(response, rateLimit);
+    }
+
+    if (action === "update_media_state") {
+      const { sessionId, cameraReady, micReady, recordingConsent, cameraLabel, micLabel } = body;
+      if (!sessionId) {
+        return NextResponse.json(
+          { success: false, error: "Session ID is required." },
+          { status: 400 }
+        );
+      }
+      const updated = await interviewService.updateSessionMediaReadiness(sessionId, {
+        cameraReady,
+        micReady,
+        recordingConsent,
+        cameraLabel,
+        micLabel,
+      });
+      const response = NextResponse.json({
+        success: true,
+        session: updated,
+      });
+      return withRateLimitHeaders(response, rateLimit);
+    }
+
+    if (action === "cancel_session") {
+      const { sessionId, reason } = body;
+      if (!sessionId) {
+        return NextResponse.json(
+          { success: false, error: "Session ID is required." },
+          { status: 400 }
+        );
+      }
+      const cancelled = await interviewService.cancelSession(sessionId, reason);
+      const response = NextResponse.json({
+        success: true,
+        session: cancelled,
       });
       return withRateLimitHeaders(response, rateLimit);
     }

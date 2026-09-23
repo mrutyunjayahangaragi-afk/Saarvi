@@ -37,8 +37,12 @@ export function getSupabaseAdminClient(): SupabaseClient | null {
  */
 export async function ensureStorageBucket(
   bucketName: string,
-  isPublic = true
+  isPublicOrOptions: boolean | { isPublic?: boolean } = true
 ): Promise<boolean> {
+  const isPublic =
+    typeof isPublicOrOptions === "boolean"
+      ? isPublicOrOptions
+      : isPublicOrOptions.isPublic ?? true;
   const supabase = getSupabaseAdminClient();
   if (!supabase) return false;
 

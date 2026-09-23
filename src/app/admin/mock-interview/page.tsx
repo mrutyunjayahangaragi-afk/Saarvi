@@ -34,23 +34,39 @@ import {
   Settings,
   Users,
   Video,
+  VideoOff,
   Bot,
   RefreshCw,
   ExternalLink,
   Check,
   X,
   Upload,
+  Play,
+  Search,
+  Activity,
+  HardDrive,
+  Trash2,
 } from "lucide-react";
 import QuestionImportModal from "@/components/admin/interview/QuestionImportModal";
+import InterviewVideoPlayer from "@/components/interview/InterviewVideoPlayer";
 
-type AdminTab = "QUESTIONS" | "LIVE_SESSIONS" | "ANALYTICS" | "CENTERS" | "SETTINGS";
+type AdminTab =
+  | "OVERVIEW"
+  | "QUESTIONS"
+  | "LIVE_SESSIONS"
+  | "RECORDINGS"
+  | "ANALYTICS"
+  | "CENTERS"
+  | "SETTINGS";
 
 export default function AdminMockInterviewPage() {
-  const [activeTab, setActiveTab] = useState<AdminTab>("QUESTIONS");
+  const [activeTab, setActiveTab] = useState<AdminTab>("OVERVIEW");
 
   // Data states
   const [questions, setQuestions] = useState<InterviewQuestion[]>(SEEDED_QUESTIONS);
   const [liveSessions, setLiveSessions] = useState<InterviewSession[]>([]);
+  const [allSessions, setAllSessions] = useState<InterviewSession[]>([]);
+  const [dashboardMetrics, setDashboardMetrics] = useState<any>(null);
   const [questionAnalytics, setQuestionAnalytics] = useState<any[]>([]);
   const [centers, setCenters] = useState<InterviewCenter[]>([]);
   const [settings, setSettings] = useState<InterviewSettings>({
@@ -73,16 +89,35 @@ export default function AdminMockInterviewPage() {
     enableAiTtsFallback: true,
     audioOnlyAllowed: true,
     textOnlyAllowed: true,
+    recordingPolicy: "OPTIONAL",
+    recordingNotice:
+      "Recordings are stored in secure private institutional storage with a 90-day retention window. Only candidate and authorized evaluators can access playback.",
+    recordingRetentionDays: 90,
   });
 
-  // Filter states
+  // Filter & Search states
   const [selectedCompanyFilter, setSelectedCompanyFilter] = useState<string>("All");
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("All");
+  const [sessionSearch, setSessionSearch] = useState<string>("");
+  const [sessionStatusFilter, setSessionStatusFilter] = useState<string>("All");
+  const [recordingStatusFilter, setRecordingStatusFilter] = useState<string>("All");
 
   // UI state
   const [loading, setLoading] = useState(true);
+  const [autoRefresh, setAutoRefresh] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [saveNotice, setSaveNotice] = useState(false);
+
+  // Playback Modal state
+  const [playbackModalSession, setPlaybackModalSession] = useState<{
+    sessionId: string;
+    playbackUrl: string;
+    expiresAt?: string;
+    candidateEmail?: string;
+    role?: string;
+    durationSeconds?: number;
+    fileSizeBytes?: number;
+  } | null>(null);
 
   // Question modal state
   const [showQuestionModal, setShowQuestionModal] = useState(false);
@@ -132,6 +167,8 @@ export default function AdminMockInterviewPage() {
         if (data.liveSessions) setLiveSessions(data.liveSessions);
         if (data.questionAnalytics) setQuestionAnalytics(data.questionAnalytics);
         if (data.centers) setCenters(data.centers);
+        if (data.sessions) setAllSessions(data.sessions);
+        if (data.dashboardMetrics) setDashboardMetrics(data.dashboardMetrics);
       }
     } catch {
       // Seeded fallback
@@ -143,6 +180,15 @@ export default function AdminMockInterviewPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Polling hook
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const interval = setInterval(() => {
+      loadData();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [autoRefresh]);
 
   const handleSaveSettings = async () => {
     setIsSavingSettings(true);
@@ -168,7 +214,7 @@ export default function AdminMockInterviewPage() {
   const handleSaveQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingQuestion.question || !editingQuestion.role) {
-      alert("Please fill in question prompt and role.");
+      alert("Please fill all required fields.");
       return;
     }
 
@@ -193,8 +239,8 @@ export default function AdminMockInterviewPage() {
 
   const handleSaveCenter = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingCenter.centerName || !editingCenter.city) {
-      alert("Please provide center name and city.");
+    if (!editingCenter.centerName || !editingCenter.address || !editingCenter.city) {
+      alert("Please fill in center name and address details.");
       return;
     }
 
@@ -217,11 +263,107 @@ export default function AdminMockInterviewPage() {
     }
   };
 
+  const handleWatchRecording = async (sessionId: string) => {
+    try {
+      const res = await fetch(`/api/interview/recording/playback?sessionId=${sessionId}`);
+      const data = await res.json();
+      if (data.success && data.playbackUrl) {
+        setPlaybackModalSession({
+          sessionId,
+          playbackUrl: data.playbackUrl,
+          expiresAt: data.expiresAt,
+          candidateEmail: data.candidateEmail,
+          role: data.role,
+          durationSeconds: data.durationSeconds,
+          fileSizeBytes: data.fileSizeBytes,
+        });
+      } else {
+        alert(data.error || "Unable to retrieve signed recording link.");
+      }
+    } catch {
+      alert("Failed to load recording.");
+    }
+  };
+
+  const handleDeleteRecording = async (sessionId: string) => {
+    if (!confirm("Are you sure you want to permanently delete this interview recording?")) return;
+    try {
+      const res = await fetch("/api/admin/interview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "delete_recording",
+          sessionId,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadData();
+      } else {
+        alert(data.error || "Failed to delete recording.");
+      }
+    } catch {
+      alert("Error deleting recording.");
+    }
+  };
+
+  const handleCancelSession = async (sessionId: string) => {
+    if (!confirm("Are you sure you want to cancel this active candidate session?")) return;
+    try {
+      const res = await fetch("/api/admin/interview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "cancel_session",
+          sessionId,
+          reason: "Cancelled by administrator.",
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadData();
+      }
+    } catch {
+      alert("Error cancelling session.");
+    }
+  };
+
   const filteredQuestions = questions.filter((q) => {
     if (selectedCompanyFilter !== "All" && q.company !== selectedCompanyFilter) return false;
     if (selectedRoleFilter !== "All" && q.role !== selectedRoleFilter) return false;
     return true;
   });
+
+  const filteredSessions = allSessions.filter((s) => {
+    if (sessionStatusFilter !== "All" && s.status !== sessionStatusFilter) return false;
+    if (sessionSearch) {
+      const query = sessionSearch.toLowerCase();
+      const matchEmail = s.candidateEmail?.toLowerCase().includes(query);
+      const matchId = s.id?.toLowerCase().includes(query);
+      const matchRole = s.role?.toLowerCase().includes(query);
+      if (!matchEmail && !matchId && !matchRole) return false;
+    }
+    return true;
+  });
+
+  const filteredRecordings = allSessions.filter((s) => {
+    if (!s.recordingStatus || s.recordingStatus === "NOT_STARTED") return false;
+    if (recordingStatusFilter !== "All" && s.recordingStatus !== recordingStatusFilter) return false;
+    return true;
+  });
+
+  const formatBytes = (bytes?: number) => {
+    if (!bytes || bytes <= 0) return "N/A";
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const formatSeconds = (secs?: number) => {
+    if (!secs || secs <= 0) return "0s";
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
@@ -245,10 +387,25 @@ export default function AdminMockInterviewPage() {
             </span>
           </div>
 
-          <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full flex items-center gap-1">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            Live System Verified
-          </span>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+                className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+              />
+              <span className="flex items-center gap-1">
+                <Activity className="w-3.5 h-3.5 text-emerald-600" />
+                Live Polling (10s)
+              </span>
+            </label>
+
+            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Live System Verified
+            </span>
+          </div>
         </div>
 
         {/* Top Overview Cards */}
@@ -273,18 +430,30 @@ export default function AdminMockInterviewPage() {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-6">
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
               <div className="text-xl font-bold text-slate-900">{questions.length}</div>
               <div className="text-[11px] font-semibold text-slate-500">Bank Questions</div>
             </div>
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
-              <div className="text-xl font-bold text-blue-600">{liveSessions.length}</div>
-              <div className="text-[11px] font-semibold text-slate-500">Active Sessions</div>
+              <div className="text-xl font-bold text-blue-600 flex items-center gap-1.5">
+                <span>{dashboardMetrics?.activeSessions ?? liveSessions.length}</span>
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+              </div>
+              <div className="text-[11px] font-semibold text-slate-500">Active Now</div>
             </div>
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
-              <div className="text-xl font-bold text-slate-900">{centers.length}</div>
-              <div className="text-[11px] font-semibold text-slate-500">Assessment Centers</div>
+              <div className="text-xl font-bold text-emerald-600">
+                {dashboardMetrics?.completedToday ?? 0}
+              </div>
+              <div className="text-[11px] font-semibold text-slate-500">Completed Today</div>
+            </div>
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+              <div className="text-xl font-bold text-indigo-600">
+                {dashboardMetrics?.recordingsCount ??
+                  allSessions.filter((s) => s.recordingStatus === "READY").length}
+              </div>
+              <div className="text-[11px] font-semibold text-slate-500">Recordings Ready</div>
             </div>
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
               <div className="text-xl font-bold text-slate-900">{settings.maxProctoringWarnings}</div>
@@ -297,15 +466,15 @@ export default function AdminMockInterviewPage() {
         <div className="flex border-b border-slate-200 gap-2 mb-6 overflow-x-auto">
           <button
             type="button"
-            onClick={() => setActiveTab("QUESTIONS")}
+            onClick={() => setActiveTab("OVERVIEW")}
             className={`pb-3 px-4 text-xs font-bold transition-colors flex items-center gap-2 border-b-2 cursor-pointer ${
-              activeTab === "QUESTIONS"
+              activeTab === "OVERVIEW"
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
-            <Layers className="w-4 h-4" />
-            <span>Question Bank</span>
+            <Activity className="w-4 h-4" />
+            <span>Overview & Sessions</span>
           </button>
 
           <button
@@ -319,6 +488,32 @@ export default function AdminMockInterviewPage() {
           >
             <Radio className="w-4 h-4 text-red-500 animate-pulse" />
             <span>Live Interviews ({liveSessions.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("RECORDINGS")}
+            className={`pb-3 px-4 text-xs font-bold transition-colors flex items-center gap-2 border-b-2 cursor-pointer ${
+              activeTab === "RECORDINGS"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <Video className="w-4 h-4 text-indigo-600" />
+            <span>Recordings</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("QUESTIONS")}
+            className={`pb-3 px-4 text-xs font-bold transition-colors flex items-center gap-2 border-b-2 cursor-pointer ${
+              activeTab === "QUESTIONS"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span>Question Bank</span>
           </button>
 
           <button
@@ -344,7 +539,7 @@ export default function AdminMockInterviewPage() {
             }`}
           >
             <MapPin className="w-4 h-4" />
-            <span>Centers & Locations</span>
+            <span>Assessment Centers</span>
           </button>
 
           <button
@@ -360,6 +555,155 @@ export default function AdminMockInterviewPage() {
             <span>Policy Settings</span>
           </button>
         </div>
+
+        {/* =========================================================
+            TAB 0: OVERVIEW & SESSIONS
+           ========================================================= */}
+        {activeTab === "OVERVIEW" && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs">
+                  <Search className="w-3.5 h-3.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={sessionSearch}
+                    onChange={(e) => setSessionSearch(e.target.value)}
+                    placeholder="Search candidate, role, ID..."
+                    className="bg-transparent border-none outline-none text-xs w-48"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                  <Filter className="w-3.5 h-3.5" />
+                  <span>Status:</span>
+                  <select
+                    value={sessionStatusFilter}
+                    onChange={(e) => setSessionStatusFilter(e.target.value)}
+                    className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 font-semibold text-xs cursor-pointer"
+                  >
+                    <option value="All">All Statuses</option>
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="IN_PROGRESS">IN_PROGRESS</option>
+                    <option value="COMPLETED">COMPLETED</option>
+                    <option value="TERMINATED">TERMINATED</option>
+                    <option value="CANCELLED">CANCELLED</option>
+                  </select>
+                </div>
+              </div>
+
+              <span className="text-xs font-semibold text-slate-500">
+                Showing {filteredSessions.length} sessions
+              </span>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold text-[10px]">
+                  <tr>
+                    <th className="p-4">Candidate / ID</th>
+                    <th className="p-4">Role & Mode</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4">Started</th>
+                    <th className="p-4">Warnings</th>
+                    <th className="p-4">Score</th>
+                    <th className="p-4">Recording</th>
+                    <th className="p-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredSessions.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center text-slate-400">
+                        No interview sessions match the selected filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredSessions.map((s) => (
+                      <tr key={s.id} className="hover:bg-slate-50/70">
+                        <td className="p-4">
+                          <p className="font-bold text-slate-900">{s.candidateEmail || "Guest User"}</p>
+                          <span className="font-mono text-[10px] text-slate-400">{s.id}</span>
+                        </td>
+                        <td className="p-4">
+                          <span className="font-semibold text-slate-800 block">{s.role}</span>
+                          <span className="text-[10px] text-slate-400 uppercase font-bold">
+                            {s.mode} {s.targetCompany ? `• ${s.targetCompany}` : ""}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <span
+                            className={`px-2 py-0.5 rounded font-bold text-[10px] ${
+                              s.status === "COMPLETED"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : s.status === "ACTIVE" || s.status === "IN_PROGRESS"
+                                ? "bg-blue-100 text-blue-800"
+                                : s.status === "TERMINATED"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-slate-100 text-slate-700"
+                            }`}
+                          >
+                            {s.status}
+                          </span>
+                        </td>
+                        <td className="p-4 text-[11px] text-slate-600">
+                          {new Date(s.startedAt).toLocaleDateString()}
+                        </td>
+                        <td className="p-4">
+                          <span
+                            className={`px-2 py-0.5 rounded font-bold text-[10px] ${
+                              s.warningCount > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-500"
+                            }`}
+                          >
+                            {s.warningCount} / 4
+                          </span>
+                        </td>
+                        <td className="p-4 font-bold text-slate-900">
+                          {s.totalScore !== undefined ? `${Math.round(s.totalScore)}%` : "—"}
+                        </td>
+                        <td className="p-4">
+                          {s.recordingStatus === "READY" ? (
+                            <button
+                              type="button"
+                              onClick={() => handleWatchRecording(s.id)}
+                              className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded text-[10px] flex items-center gap-1 border border-indigo-200 transition-colors cursor-pointer"
+                            >
+                              <Play className="w-3 h-3 fill-indigo-600" />
+                              <span>Ready</span>
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              {s.recordingStatus || "None"}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Link
+                              href={`/admin/mock-interview/${s.id}`}
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs transition-colors"
+                            >
+                              Audit Review
+                            </Link>
+                            {(s.status === "ACTIVE" || s.status === "IN_PROGRESS") && (
+                              <button
+                                type="button"
+                                onClick={() => handleCancelSession(s.id)}
+                                className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 font-semibold rounded-lg text-xs transition-colors cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* =========================================================
             TAB 1: QUESTION BANK
@@ -401,45 +745,47 @@ export default function AdminMockInterviewPage() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingQuestion({
-                    id: `q_custom_${Date.now()}`,
-                    role: "Software Engineer",
-                    type: "mcq",
-                    difficulty: "Medium",
-                    company: "Google",
-                    topic: "Data Structures",
-                    subtopic: "General",
-                    category: "Technical",
-                    question: "",
-                    options: ["Option A", "Option B", "Option C", "Option D"],
-                    correctAnswer: 0,
-                    explanation: "",
-                    timeLimitSeconds: 60,
-                    sourceName: "Saarvi Admin",
-                    sourceType: "Saarvi practice question",
-                    isFree: true,
-                    isPro: true,
-                    isActive: true,
-                  });
-                  setShowQuestionModal(true);
-                }}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Add Question</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingQuestion({
+                      id: `q_custom_${Date.now()}`,
+                      role: "Software Engineer",
+                      type: "mcq",
+                      difficulty: "Medium",
+                      company: "Google",
+                      topic: "Data Structures",
+                      subtopic: "General",
+                      category: "Technical",
+                      question: "",
+                      options: ["Option A", "Option B", "Option C", "Option D"],
+                      correctAnswer: 0,
+                      explanation: "",
+                      timeLimitSeconds: 60,
+                      sourceName: "Saarvi Admin",
+                      sourceType: "Saarvi practice question",
+                      isFree: true,
+                      isPro: true,
+                      isActive: true,
+                    });
+                    setShowQuestionModal(true);
+                  }}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Question</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setShowImportModal(true)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-200"
-              >
-                <Upload className="w-4 h-4 text-blue-600" />
-                <span>Import Dataset (CSV/JSON)</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setShowImportModal(true)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-200"
+                >
+                  <Upload className="w-4 h-4 text-blue-600" />
+                  <span>Import Dataset (CSV/JSON)</span>
+                </button>
+              </div>
             </div>
 
             {/* Questions Table */}
@@ -448,47 +794,46 @@ export default function AdminMockInterviewPage() {
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold text-[10px]">
                   <tr>
                     <th className="p-4">Question</th>
+                    <th className="p-4">Role & Domain</th>
                     <th className="p-4">Company</th>
                     <th className="p-4">Type</th>
                     <th className="p-4">Difficulty</th>
-                    <th className="p-4">Source Type</th>
-                    <th className="p-4">Access</th>
-                    <th className="p-4 text-right">Action</th>
+                    <th className="p-4">Attribution</th>
+                    <th className="p-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredQuestions.map((q) => (
-                    <tr key={q.id} className="hover:bg-slate-50/70 transition-colors">
+                    <tr key={q.id} className="hover:bg-slate-50/70">
                       <td className="p-4 max-w-sm">
-                        <p className="font-bold text-slate-900 line-clamp-2">{q.question}</p>
-                        <span className="text-[10px] text-slate-400">
-                          {q.role} • {q.topic}
-                        </span>
-                      </td>
-                      <td className="p-4 font-semibold text-slate-800">{q.company}</td>
-                      <td className="p-4 uppercase text-[10px] font-bold text-blue-700">
-                        {q.type}
+                        <p className="font-bold text-slate-900 line-clamp-1">{q.question}</p>
+                        <span className="text-[10px] text-slate-400 font-mono">ID: {q.id}</span>
                       </td>
                       <td className="p-4">
+                        <span className="font-semibold text-slate-800">{q.role}</span>
+                        <div className="text-[10px] text-slate-400">{q.topic}</div>
+                      </td>
+                      <td className="p-4">
+                        <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-slate-100 text-slate-700">
+                          {q.company}
+                        </span>
+                      </td>
+                      <td className="p-4 font-mono uppercase text-[10px] text-slate-600">{q.type}</td>
+                      <td className="p-4">
                         <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          className={`px-2 py-0.5 rounded font-bold text-[10px] ${
                             q.difficulty === "Easy"
                               ? "bg-emerald-100 text-emerald-800"
-                              : q.difficulty === "Hard"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-amber-100 text-amber-800"
+                              : q.difficulty === "Medium"
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-red-100 text-red-800"
                           }`}
                         >
                           {q.difficulty}
                         </span>
                       </td>
-                      <td className="p-4 text-[11px] text-slate-500 font-medium">
-                        {q.sourceType || "Saarvi practice"}
-                      </td>
-                      <td className="p-4">
-                        <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-700 rounded">
-                          {q.isFree ? "Free & Pro" : "Pro Only"}
-                        </span>
+                      <td className="p-4 text-[10px] text-slate-500">
+                        {q.sourceName} • {q.sourceType}
                       </td>
                       <td className="p-4 text-right">
                         <button
@@ -497,9 +842,9 @@ export default function AdminMockInterviewPage() {
                             setEditingQuestion(q);
                             setShowQuestionModal(true);
                           }}
-                          className="px-2.5 py-1 text-xs text-blue-600 font-bold hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-900 transition-colors"
                         >
-                          Edit
+                          <Edit2 className="w-3.5 h-3.5" />
                         </button>
                       </td>
                     </tr>
@@ -511,42 +856,48 @@ export default function AdminMockInterviewPage() {
         )}
 
         {/* =========================================================
-            TAB 2: LIVE SESSIONS MONITORING
+            TAB 2: LIVE INTERVIEWS
            ========================================================= */}
         {activeTab === "LIVE_SESSIONS" && (
           <div className="space-y-4">
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
-              {liveSessions.length === 0 ? (
-                <div className="p-12 text-center text-slate-500">
-                  <Video className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                  <h3 className="font-bold text-slate-800 text-sm">No Active Live Interviews</h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    When candidates start an active interview, real-time telemetry and proctoring events appear here.
+              <div className="p-4 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                    <Radio className="w-4 h-4 text-red-500 animate-pulse" />
+                    <span>Real-time Active Candidate Sessions ({liveSessions.length})</span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Proctoring telemetry updates in real-time. Warnings trigger automated alerts.
                   </p>
+                </div>
+              </div>
+
+              {liveSessions.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-xs">
+                  No active candidate sessions at this moment.
                 </div>
               ) : (
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold text-[10px]">
                     <tr>
-                      <th className="p-4">Candidate / ID</th>
-                      <th className="p-4">Mode</th>
-                      <th className="p-4">Target Role</th>
+                      <th className="p-4">Session ID</th>
+                      <th className="p-4">Candidate</th>
+                      <th className="p-4">Role</th>
                       <th className="p-4">Company</th>
                       <th className="p-4">Warnings</th>
                       <th className="p-4">State</th>
                       <th className="p-4">Privacy</th>
                       <th className="p-4">Interviewer</th>
+                      <th className="p-4 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {liveSessions.map((s) => (
                       <tr key={s.id} className="hover:bg-slate-50/70">
-                        <td className="p-4">
-                          <p className="font-bold text-slate-900">{s.candidateEmail || s.userId}</p>
-                          <span className="text-[10px] text-slate-400 font-mono">{s.id}</span>
-                        </td>
-                        <td className="p-4 font-semibold text-slate-700 uppercase text-[10px]">
-                          {s.mode}
+                        <td className="p-4 font-mono font-bold text-blue-600">{s.id}</td>
+                        <td className="p-4 font-semibold text-slate-900">
+                          {s.candidateEmail || s.userId}
                         </td>
                         <td className="p-4 font-medium text-slate-800">{s.role}</td>
                         <td className="p-4 font-medium text-slate-700">{s.targetCompany || "General"}</td>
@@ -572,11 +923,144 @@ export default function AdminMockInterviewPage() {
                         <td className="p-4 text-xs font-semibold text-blue-600">
                           {s.interviewerRole === "ai" ? "Saarvi AI" : "Human Admin"}
                         </td>
+                        <td className="p-4 text-right">
+                          <Link
+                            href={`/admin/mock-interview/${s.id}`}
+                            className="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold rounded text-xs transition-colors"
+                          >
+                            Inspect
+                          </Link>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================
+            TAB: RECORDINGS
+           ========================================================= */}
+        {activeTab === "RECORDINGS" && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200">
+              <div className="flex items-center gap-2">
+                <Video className="w-4 h-4 text-indigo-600" />
+                <h3 className="font-bold text-slate-900 text-sm">
+                  Interview Video Recordings ({filteredRecordings.length})
+                </h3>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs text-slate-600">
+                <Filter className="w-3.5 h-3.5" />
+                <span>Recording Status:</span>
+                <select
+                  value={recordingStatusFilter}
+                  onChange={(e) => setRecordingStatusFilter(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 font-semibold text-xs cursor-pointer"
+                >
+                  <option value="All">All</option>
+                  <option value="READY">READY</option>
+                  <option value="RECORDING">RECORDING</option>
+                  <option value="PROCESSING">PROCESSING</option>
+                  <option value="FAILED">FAILED</option>
+                  <option value="DELETED">DELETED</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold text-[10px]">
+                  <tr>
+                    <th className="p-4">Candidate / Session</th>
+                    <th className="p-4">Role & Mode</th>
+                    <th className="p-4">Recorded At</th>
+                    <th className="p-4">Duration</th>
+                    <th className="p-4">File Size</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredRecordings.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-slate-400">
+                        No recordings found matching criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRecordings.map((s) => (
+                      <tr key={s.id} className="hover:bg-slate-50/70">
+                        <td className="p-4">
+                          <p className="font-bold text-slate-900">{s.candidateEmail || s.userId}</p>
+                          <span className="font-mono text-[10px] text-slate-400">{s.id}</span>
+                        </td>
+                        <td className="p-4">
+                          <span className="font-semibold text-slate-800">{s.role}</span>
+                          <span className="text-[10px] text-slate-400 block">{s.mode}</span>
+                        </td>
+                        <td className="p-4 text-[11px] text-slate-600">
+                          {new Date(s.startedAt).toLocaleDateString()}
+                        </td>
+                        <td className="p-4 font-mono text-[11px] text-slate-700">
+                          {formatSeconds(s.recordingDurationSeconds)}
+                        </td>
+                        <td className="p-4 font-mono text-[11px] text-slate-700">
+                          {formatBytes(s.recordingFileSizeBytes)}
+                        </td>
+                        <td className="p-4">
+                          <span
+                            className={`px-2 py-0.5 rounded font-bold text-[10px] ${
+                              s.recordingStatus === "READY"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : s.recordingStatus === "RECORDING"
+                                ? "bg-blue-100 text-blue-800"
+                                : s.recordingStatus === "DELETED"
+                                ? "bg-slate-100 text-slate-500"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {s.recordingStatus}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {s.recordingStatus === "READY" && (
+                              <button
+                                type="button"
+                                onClick={() => handleWatchRecording(s.id)}
+                                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                              >
+                                <Play className="w-3.5 h-3.5 fill-white" />
+                                <span>Watch</span>
+                              </button>
+                            )}
+                            <Link
+                              href={`/admin/mock-interview/${s.id}`}
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition-colors"
+                            >
+                              Details
+                            </Link>
+                            {s.recordingStatus === "READY" && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteRecording(s.id)}
+                                className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
+                                title="Delete Recording"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -675,9 +1159,12 @@ export default function AdminMockInterviewPage() {
                     </span>
                   </div>
 
-                  <p className="text-xs text-slate-600">{center.address}, {center.city}, {center.country}</p>
+                  <p className="text-xs text-slate-600">
+                    {center.address}, {center.city}, {center.country}
+                  </p>
                   <div className="text-[11px] text-slate-400 font-mono">
-                    Coords: {center.latitude ?? "N/A"}°, {center.longitude ?? "N/A"}° • Timezone: {center.timezone}
+                    Coords: {center.latitude ?? "N/A"}°, {center.longitude ?? "N/A"}° • Timezone:{" "}
+                    {center.timezone}
                   </div>
                 </div>
               ))}
@@ -774,6 +1261,41 @@ export default function AdminMockInterviewPage() {
                     className="w-4 h-4 text-blue-600 rounded cursor-pointer"
                   />
                 </label>
+
+                {/* Recording Policies */}
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 pt-2">
+                  Recording & Storage Policy
+                </h4>
+
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
+                  <span className="font-bold text-slate-900 block">Recording Requirement</span>
+                  <select
+                    value={settings.recordingPolicy || "OPTIONAL"}
+                    onChange={(e) =>
+                      setSettings({ ...settings, recordingPolicy: e.target.value as any })
+                    }
+                    className="w-full p-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold"
+                  >
+                    <option value="OPTIONAL">Optional (Candidate Consents at Preflight)</option>
+                    <option value="MANDATORY">Mandatory (Required for Evaluation)</option>
+                    <option value="DISABLED">Disabled (No Recording)</option>
+                  </select>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
+                  <span className="font-bold text-slate-900 block">Retention Window (Days)</span>
+                  <input
+                    type="number"
+                    value={settings.recordingRetentionDays || 90}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        recordingRetentionDays: Number(e.target.value),
+                      })
+                    }
+                    className="w-full p-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold"
+                  />
+                </div>
               </div>
 
               {/* Hardware & Proctoring Rules */}
@@ -903,6 +1425,39 @@ export default function AdminMockInterviewPage() {
           </div>
         )}
 
+        {/* Modal: Watch Recording Player */}
+        {playbackModalSession && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-slate-900 rounded-3xl p-6 max-w-4xl w-full border border-slate-800 shadow-2xl space-y-4 my-8">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3 text-slate-100">
+                <div className="flex items-center gap-2">
+                  <Video className="w-4 h-4 text-blue-400" />
+                  <h3 className="font-bold text-sm">
+                    Recording Playback — {playbackModalSession.candidateEmail || playbackModalSession.sessionId}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPlaybackModalSession(null)}
+                  className="p-1 text-slate-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <InterviewVideoPlayer
+                sessionId={playbackModalSession.sessionId}
+                initialPlaybackUrl={playbackModalSession.playbackUrl}
+                expiresAt={playbackModalSession.expiresAt}
+                durationSeconds={playbackModalSession.durationSeconds}
+                fileSizeBytes={playbackModalSession.fileSizeBytes}
+                candidateName={playbackModalSession.candidateEmail}
+                role={playbackModalSession.role}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Modal: Add/Edit Question */}
         {showQuestionModal && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
@@ -928,11 +1483,26 @@ export default function AdminMockInterviewPage() {
                     value={editingQuestion.question || ""}
                     onChange={(e) => setEditingQuestion({ ...editingQuestion, question: e.target.value })}
                     required
+                    placeholder="Enter the authoritative interview question text..."
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Role</label>
+                    <select
+                      value={editingQuestion.role}
+                      onChange={(e) => setEditingQuestion({ ...editingQuestion, role: e.target.value })}
+                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl"
+                    >
+                      <option value="Software Engineer">Software Engineer</option>
+                      <option value="Backend Engineer">Backend Engineer</option>
+                      <option value="Frontend Engineer">Frontend Engineer</option>
+                      <option value="Data Scientist">Data Scientist</option>
+                    </select>
+                  </div>
+
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">Company</label>
                     <select
@@ -947,52 +1517,65 @@ export default function AdminMockInterviewPage() {
                       <option value="TCS">TCS</option>
                       <option value="Wipro">Wipro</option>
                       <option value="Accenture">Accenture</option>
-                      <option value="General">General</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Difficulty</label>
+                    <select
+                      value={editingQuestion.difficulty}
+                      onChange={(e) => setEditingQuestion({ ...editingQuestion, difficulty: e.target.value as any })}
+                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl"
+                    >
+                      <option value="Easy">Easy</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Hard">Hard</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="font-bold text-slate-700 block mb-1">Question Type</label>
+                    <label className="font-bold text-slate-700 block mb-1">Type</label>
                     <select
                       value={editingQuestion.type}
                       onChange={(e) => setEditingQuestion({ ...editingQuestion, type: e.target.value as any })}
                       className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl"
                     >
                       <option value="mcq">MCQ</option>
-                      <option value="technical_coding">Technical</option>
+                      <option value="technical_coding">Technical Coding</option>
                       <option value="behavioral">Behavioral</option>
-                      <option value="system_design">System Design</option>
+                      <option value="communication">Communication</option>
                     </select>
                   </div>
                 </div>
 
-                {editingQuestion.type === "mcq" && (
-                  <div className="space-y-2">
-                    <label className="font-bold text-slate-700 block">MCQ Options (4 options)</label>
-                    {editingQuestion.options?.map((opt, i) => (
-                      <div key={i} className="flex items-center gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Options (For MCQ)</label>
+                  <div className="space-y-1.5">
+                    {editingQuestion.options?.map((opt, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
                         <input
                           type="radio"
-                          name="correctOption"
-                          checked={editingQuestion.correctAnswer === i}
-                          onChange={() => setEditingQuestion({ ...editingQuestion, correctAnswer: i })}
-                          className="w-4 h-4 text-blue-600 cursor-pointer"
+                          name="correctAnswer"
+                          checked={editingQuestion.correctAnswer === idx}
+                          onChange={() => setEditingQuestion({ ...editingQuestion, correctAnswer: idx })}
+                          className="w-4 h-4 text-blue-600"
                         />
                         <input
                           type="text"
                           value={opt}
                           onChange={(e) => {
-                            const updated = [...(editingQuestion.options || [])];
-                            updated[i] = e.target.value;
-                            setEditingQuestion({ ...editingQuestion, options: updated });
+                            const newOpts = [...(editingQuestion.options || [])];
+                            newOpts[idx] = e.target.value;
+                            setEditingQuestion({ ...editingQuestion, options: newOpts });
                           }}
                           className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
-                          placeholder={`Option ${String.fromCharCode(65 + i)}`}
                         />
                       </div>
                     ))}
                   </div>
-                )}
+                </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>

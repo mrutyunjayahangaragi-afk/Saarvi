@@ -7,12 +7,31 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const authUser = await getAuthenticatedNotificationUser(req);
-    // Role check: in production ensure ADMIN or SUPER_ADMIN
+    const { searchParams } = new URL(req.url);
+
     const questions = await interviewService.getQuestions({ count: 100 });
     const settings = interviewService.getSettings();
     const liveSessions = await interviewService.getLiveSessions();
     const questionAnalytics = await interviewService.getQuestionAnalytics();
     const centers = interviewService.getCenters();
+    const dashboardMetrics = await interviewService.getDashboardMetrics();
+
+    // Query admin sessions with filters
+    const status = searchParams.get("status") || undefined;
+    const recordingStatus = searchParams.get("recordingStatus") || undefined;
+    const mode = searchParams.get("mode") || undefined;
+    const search = searchParams.get("search") || undefined;
+    const page = Number(searchParams.get("page") || 1);
+    const pageSize = Number(searchParams.get("pageSize") || 25);
+
+    const sessionsResult = await interviewService.getAdminSessions({
+      status,
+      recordingStatus,
+      mode,
+      search,
+      page,
+      pageSize,
+    });
 
     return NextResponse.json({
       success: true,
@@ -21,6 +40,11 @@ export async function GET(req: NextRequest) {
       liveSessions,
       questionAnalytics,
       centers,
+      dashboardMetrics,
+      sessions: sessionsResult.sessions,
+      totalSessions: sessionsResult.total,
+      page: sessionsResult.page,
+      pageSize: sessionsResult.pageSize,
       totalQuestions: (questions.length > 0 ? questions : SEEDED_QUESTIONS).length,
     });
   } catch (err: unknown) {
@@ -106,6 +130,30 @@ export async function POST(req: NextRequest) {
       }
       const saved = interviewService.upsertCenter(center);
       return NextResponse.json({ success: true, center: saved });
+    }
+
+    if (action === "delete_recording") {
+      const { sessionId } = body;
+      if (!sessionId) {
+        return NextResponse.json(
+          { success: false, error: "Session ID is required to delete recording." },
+          { status: 400 }
+        );
+      }
+      const deleted = await interviewService.deleteRecording(sessionId);
+      return NextResponse.json({ success: true, session: deleted });
+    }
+
+    if (action === "cancel_session") {
+      const { sessionId, reason } = body;
+      if (!sessionId) {
+        return NextResponse.json(
+          { success: false, error: "Session ID is required." },
+          { status: 400 }
+        );
+      }
+      const cancelled = await interviewService.cancelSession(sessionId, reason);
+      return NextResponse.json({ success: true, session: cancelled });
     }
 
     return NextResponse.json(

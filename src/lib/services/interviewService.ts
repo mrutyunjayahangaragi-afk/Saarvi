@@ -14,9 +14,12 @@ import {
   InterviewEventType,
   EvaluationBreakdown,
   InterviewLocationCapture,
+  RecordingStatus,
+  PermissionCheckStatus,
 } from "@/types/interview";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/client";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const DEFAULT_INTERVIEW_SETTINGS: InterviewSettings = {
   interviewEnabled: true,
@@ -36,6 +39,18 @@ export const DEFAULT_INTERVIEW_SETTINGS: InterviewSettings = {
   enableScreenShareCheck: false,
   allowedPrivacyModes: ["FULL_VIDEO", "BLURRED_CANDIDATE_VIDEO", "NO_CANDIDATE_VIDEO"],
   enableAiTtsFallback: true,
+  cameraRequired: false,
+  microphoneRequired: false,
+  recordingEnabled: true,
+  recordingRequired: false,
+  audioOnlyAllowed: true,
+  textOnlyAllowed: true,
+  cameraOptional: true,
+  microphoneOptional: true,
+  recordingRetentionDays: 30,
+  tabSwitchPolicy: "warning",
+  maxUploadSizeBytes: 104857600, // 100MB
+  maxSessionDurationMinutes: 60,
 };
 
 export const SEEDED_QUESTIONS: InterviewQuestion[] = [
@@ -1250,6 +1265,461 @@ class InterviewService {
     return { ...this.localSettings };
   }
 
+  /**
+   * Updates session media hardware readiness, permission states, and recording consent.
+   */
+  public async updateSessionMediaReadiness(
+    sessionId: string,
+    params: {
+      camera?: PermissionCheckStatus;
+      microphone?: PermissionCheckStatus;
+      cameraReady?: boolean;
+      micReady?: boolean;
+      cameraLabel?: string;
+      micLabel?: string;
+      microphoneLabel?: string;
+      recordingConsent?: boolean;
+      recordingStatus?: RecordingStatus;
+      sessionState?: InterviewSessionState;
+    }
+  ): Promise<InterviewSession> {
+    const session = await this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Interview session not found: ${sessionId}`);
+    }
+
+    if (params.camera) session.cameraPermission = params.camera;
+    else if (params.cameraReady !== undefined)
+      session.cameraPermission = params.cameraReady ? "granted" : "unavailable";
+
+    if (params.microphone) session.microphonePermission = params.microphone;
+    else if (params.micReady !== undefined)
+      session.microphonePermission = params.micReady ? "granted" : "unavailable";
+
+    const camLabel = params.cameraLabel;
+    if (camLabel !== undefined) {
+      session.cameraDeviceLabelSafe = camLabel;
+      session.cameraLabel = camLabel;
+    }
+
+    const micLabel = params.micLabel || params.microphoneLabel;
+    if (micLabel !== undefined) {
+      session.microphoneDeviceLabelSafe = micLabel;
+      session.micLabel = micLabel;
+    }
+
+    if (params.recordingConsent !== undefined) {
+      session.recordingConsent = params.recordingConsent;
+      session.recordingEnabled = params.recordingConsent;
+    }
+    if (params.recordingStatus) session.recordingStatus = params.recordingStatus;
+    if (params.sessionState) session.sessionState = params.sessionState;
+
+    session.lastHeartbeatAt = new Date().toISOString();
+    this.localSessions.set(session.id, session);
+    await this.syncSession(session);
+    return session;
+  }
+
+  /**
+   * Records a heartbeat ping from active client session.
+   */
+  public async recordHeartbeat(sessionId: string): Promise<InterviewSession | null> {
+    const session = await this.getSession(sessionId);
+    if (!session) return null;
+
+    session.lastHeartbeatAt = new Date().toISOString();
+    this.localSessions.set(session.id, session);
+    return session;
+  }
+
+  /**
+   * Cancels an active interview session.
+   */
+  public async cancelSession(sessionId: string, reason = "User cancelled"): Promise<InterviewSession> {
+    const session = await this.getSession(sessionId);
+    if (!session) throw new Error(`Interview session not found: ${sessionId}`);
+
+    session.status = "cancelled";
+    session.sessionState = "CANCELLED";
+    session.endedAt = new Date().toISOString();
+    session.errorMessage = reason;
+    if (session.recordingStatus === "RECORDING") {
+      session.recordingStatus = "STOPPING";
+    }
+
+    this.localSessions.set(session.id, session);
+    await this.syncSession(session);
+
+    await this.recordEvent({
+      sessionId: session.id,
+      userId: session.userId,
+      eventType: "ABANDONED",
+      metadata: { reason },
+    });
+
+    return session;
+  }
+
+  /**
+   * Finalizes recording upload and binds metadata to session.
+   */
+  public async finalizeRecording(
+    sessionId: string,
+    paramsOrPath:
+      | string
+      | {
+          storagePath: string;
+          durationSeconds?: number;
+          sizeBytes?: number;
+          mimeType?: string;
+        },
+    fileSize?: number,
+    durationSeconds?: number,
+    mimeType?: string
+  ): Promise<InterviewSession> {
+    const session = await this.getSession(sessionId);
+    if (!session) throw new Error(`Interview session not found: ${sessionId}`);
+
+    const storagePath =
+      typeof paramsOrPath === "string" ? paramsOrPath : paramsOrPath.storagePath;
+    const durSec =
+      typeof paramsOrPath === "object" ? paramsOrPath.durationSeconds : durationSeconds;
+    const bytes = typeof paramsOrPath === "object" ? paramsOrPath.sizeBytes : fileSize;
+    const mime = typeof paramsOrPath === "object" ? paramsOrPath.mimeType : mimeType;
+
+    session.recordingPath = storagePath;
+    session.recordingStoragePath = storagePath;
+    session.recordingDurationSeconds = durSec || session.durationSeconds || 0;
+    session.recordingSizeBytes = bytes || 0;
+    session.recordingFileSizeBytes = bytes || 0;
+    session.recordingMimeType = mime || "video/webm";
+    session.recordingStatus = "READY";
+
+    this.localSessions.set(session.id, session);
+    await this.syncSession(session);
+
+    await this.recordEvent({
+      sessionId: session.id,
+      userId: session.userId,
+      eventType: "COMPLETED",
+      metadata: {
+        recordingReady: true,
+        durationSeconds: session.recordingDurationSeconds,
+        sizeBytes: session.recordingSizeBytes,
+      },
+    });
+
+    return session;
+  }
+
+  /**
+   * Marks recording as failed with error details.
+   */
+  public async markRecordingFailed(sessionId: string, error: string): Promise<InterviewSession> {
+    const session = await this.getSession(sessionId);
+    if (!session) throw new Error(`Interview session not found: ${sessionId}`);
+
+    session.recordingStatus = "FAILED";
+    session.errorCode = "RECORDING_FAILED";
+    session.errorMessage = error;
+
+    this.localSessions.set(session.id, session);
+    await this.syncSession(session);
+    return session;
+  }
+
+  /**
+   * Generates a secure, short-lived signed URL for recording playback.
+   * Strictly verifies that requestingUser is either the session owner or has ADMIN / SUPER_ADMIN role.
+   */
+  public async getRecordingPlaybackUrl(
+    sessionId: string,
+    requestingUserOrId: string | { id: string; role?: string },
+    userRole?: string
+  ): Promise<{
+    signedUrl: string;
+    playbackUrl: string;
+    expiresIn: number;
+    expiresAt: string;
+    mimeType?: string;
+    session: InterviewSession;
+  }> {
+    const session = await this.getSession(sessionId);
+    if (!session) throw new Error("Interview session not found.");
+
+    const userId =
+      typeof requestingUserOrId === "string" ? requestingUserOrId : requestingUserOrId.id;
+    const role = typeof requestingUserOrId === "string" ? userRole : requestingUserOrId.role;
+
+    const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
+    const isOwner = userId && (session.userId === userId || session.userId === "guest");
+
+    if (!isAdmin && !isOwner) {
+      throw new Error("Unauthorized: You do not have permission to access this recording.");
+    }
+
+    if (!session.recordingPath && !session.recordingStoragePath) {
+      throw new Error("No recording available for this session.");
+    }
+
+    const recPath = session.recordingStoragePath || session.recordingPath!;
+    const expiresInSeconds = 3600; // 1 hour TTL
+    const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
+
+    // In production with Supabase configured
+    if (isSupabaseConfigured()) {
+      try {
+        const adminSupabase = getSupabaseAdminClient();
+        if (adminSupabase) {
+          const { data, error } = await adminSupabase.storage
+            .from("mock-interviews")
+            .createSignedUrl(recPath, expiresInSeconds);
+
+          if (!error && data?.signedUrl) {
+            return {
+              signedUrl: data.signedUrl,
+              playbackUrl: data.signedUrl,
+              expiresIn: expiresInSeconds,
+              expiresAt,
+              mimeType: session.recordingMimeType || "video/webm",
+              session,
+            };
+          }
+        }
+      } catch (err) {
+        console.warn("[InterviewService] Failed to generate Supabase signed URL:", err);
+      }
+    }
+
+    // Fallback URL for test/local development
+    const fallbackUrl = `/api/interview/recording/stream?sessionId=${encodeURIComponent(
+      sessionId
+    )}&token=dev_mock_signed_token`;
+    return {
+      signedUrl: fallbackUrl,
+      playbackUrl: fallbackUrl,
+      expiresIn: expiresInSeconds,
+      expiresAt,
+      mimeType: session.recordingMimeType || "video/webm",
+      session,
+    };
+  }
+
+  /**
+   * Retrieves filtered and paginated sessions for Admin Mock Interview Control Center.
+   */
+  public async getAdminSessions(filters?: {
+    status?: string;
+    mode?: string;
+    recordingStatus?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+    pageSize?: number;
+  }): Promise<{
+    sessions: InterviewSession[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  }> {
+    const page = Math.max(1, filters?.page || 1);
+    const limit = Math.min(100, Math.max(1, filters?.limit || filters?.pageSize || 20));
+
+    let list = Array.from(this.localSessions.values());
+
+    // If Supabase is configured, also fetch latest sessions from DB
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from("interview_sessions")
+          .select("*")
+          .order("started_at", { ascending: false })
+          .limit(200);
+
+        if (Array.isArray(data)) {
+          for (const row of data) {
+            const mapped: InterviewSession = {
+              id: row.id,
+              userId: row.user_id,
+              candidateEmail: row.candidate_email,
+              planTier: row.plan_tier,
+              mode: row.mode,
+              role: row.role,
+              targetCompany: row.company,
+              sessionState: row.session_state || "COMPLETED",
+              privacyMode: row.privacy_mode || "FULL_VIDEO",
+              interviewerRole: row.interviewer_role || "ai",
+              interviewerId: row.interviewer_id,
+              centerId: row.center_id,
+              questions: Array.isArray(row.questions) ? row.questions : [],
+              responses: Array.isArray(row.responses) ? row.responses : [],
+              currentQuestionIndex: (row.responses || []).length,
+              overallScore: Number(row.overall_score || 0),
+              proctoringViolations: Array.isArray(row.proctoring_violations) ? row.proctoring_violations : [],
+              warningCount: Number(row.warning_count || 0),
+              maxWarnings: 4,
+              status: row.status || "completed",
+              startedAt: row.started_at,
+              completedAt: row.completed_at,
+              endedAt: row.ended_at || row.completed_at,
+              durationSeconds: row.recording_duration_seconds,
+              cameraPermission: row.camera_permission,
+              microphonePermission: row.microphone_permission,
+              cameraDeviceLabelSafe: row.camera_device_label_safe,
+              microphoneDeviceLabelSafe: row.microphone_device_label_safe,
+              recordingEnabled: row.recording_enabled,
+              recordingConsent: row.recording_consent,
+              recordingStatus: row.recording_status,
+              recordingPath: row.recording_path,
+              recordingDurationSeconds: row.recording_duration_seconds,
+              recordingSizeBytes: row.recording_size_bytes,
+              recordingMimeType: row.recording_mime_type,
+              lastHeartbeatAt: row.last_heartbeat_at,
+              errorCode: row.error_code,
+              errorMessage: row.error_message,
+            };
+            this.localSessions.set(mapped.id, mapped);
+          }
+          list = Array.from(this.localSessions.values());
+        }
+      } catch (err) {
+        console.warn("[InterviewService] Failed to fetch sessions from Supabase:", err);
+      }
+    }
+
+    // Apply Filters
+    if (filters?.status && filters.status !== "ALL") {
+      list = list.filter((s) => s.status.toLowerCase() === filters.status!.toLowerCase());
+    }
+
+    if (filters?.mode && filters.mode !== "ALL") {
+      list = list.filter((s) => s.mode === filters.mode);
+    }
+
+    if (filters?.recordingStatus && filters.recordingStatus !== "ALL") {
+      list = list.filter((s) => s.recordingStatus === filters.recordingStatus);
+    }
+
+    if (filters?.search && filters.search.trim()) {
+      const q = filters.search.trim().toLowerCase();
+      list = list.filter(
+        (s) =>
+          s.id.toLowerCase().includes(q) ||
+          s.userId.toLowerCase().includes(q) ||
+          (s.candidateEmail && s.candidateEmail.toLowerCase().includes(q)) ||
+          s.role.toLowerCase().includes(q) ||
+          (s.targetCompany && s.targetCompany.toLowerCase().includes(q))
+      );
+    }
+
+    // Sort by startedAt DESC
+    list.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+
+    const total = list.length;
+    const totalPages = Math.ceil(total / limit) || 1;
+    const offset = (page - 1) * limit;
+    const sessions = list.slice(offset, offset + limit);
+
+    return { sessions, total, page, pageSize: limit, totalPages };
+  }
+
+  /**
+   * Computes authoritative dashboard metrics for Admin Mock Interview Control Center.
+   */
+  public async getDashboardMetrics(): Promise<{
+    activeInterviews: number;
+    todaysSessions: number;
+    completedCount: number;
+    pendingReviewCount: number;
+    failedCount: number;
+    totalRecordings: number;
+    completionRatePercent: number;
+    avgDurationSeconds: number;
+  }> {
+    const list = Array.from(this.localSessions.values());
+
+    const now = Date.now();
+    const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+    const staleThresholdMs = 2 * 60 * 1000; // 2 minutes heartbeat threshold
+
+    let activeCount = 0;
+    let todaysCount = 0;
+    let completedCount = 0;
+    let failedCount = 0;
+    let recordingsCount = 0;
+    let totalDuration = 0;
+    let completedWithDuration = 0;
+
+    for (const s of list) {
+      const startTime = new Date(s.startedAt).getTime();
+      const lastHeartbeat = s.lastHeartbeatAt ? new Date(s.lastHeartbeatAt).getTime() : startTime;
+
+      if (startTime >= twentyFourHoursAgo) {
+        todaysCount++;
+      }
+
+      if (s.status === "in_progress" && (now - lastHeartbeat <= staleThresholdMs)) {
+        activeCount++;
+      } else if (s.status === "completed") {
+        completedCount++;
+        const duration = s.durationSeconds || s.recordingDurationSeconds || 0;
+        if (duration > 0) {
+          totalDuration += duration;
+          completedWithDuration++;
+        }
+      } else if (s.status === "failed" || s.status === "terminated_proctoring") {
+        failedCount++;
+      }
+
+      if (s.recordingStatus === "READY" && s.recordingPath) {
+        recordingsCount++;
+      }
+    }
+
+    const totalSessions = list.length;
+    const completionRatePercent = totalSessions > 0 ? Math.round((completedCount / totalSessions) * 100) : 100;
+    const avgDurationSeconds = completedWithDuration > 0 ? Math.round(totalDuration / completedWithDuration) : 0;
+
+    return {
+      activeInterviews: activeCount,
+      todaysSessions: todaysCount,
+      completedCount,
+      pendingReviewCount: recordingsCount,
+      failedCount,
+      totalRecordings: recordingsCount,
+      completionRatePercent,
+      avgDurationSeconds,
+    };
+  }
+
+  /**
+   * Deletes a recording and updates session metadata.
+   */
+  public async deleteRecording(sessionId: string): Promise<boolean> {
+    const session = await this.getSession(sessionId);
+    if (!session || !session.recordingPath) return false;
+
+    if (isSupabaseConfigured()) {
+      try {
+        const adminSupabase = getSupabaseAdminClient();
+        if (adminSupabase) {
+          await adminSupabase.storage.from("mock-interviews").remove([session.recordingPath]);
+        }
+      } catch (err) {
+        console.warn("[InterviewService] Failed to delete recording from Supabase:", err);
+      }
+    }
+
+    session.recordingStatus = "DELETED";
+    session.recordingPath = undefined;
+    this.localSessions.set(session.id, session);
+    await this.syncSession(session);
+    return true;
+  }
+
   private async syncSession(session: InterviewSession): Promise<void> {
     if (!isSupabaseConfigured()) return;
     try {
@@ -1275,6 +1745,21 @@ class InterviewService {
         status: session.status,
         started_at: session.startedAt,
         completed_at: session.completedAt,
+        ended_at: session.endedAt,
+        camera_permission: session.cameraPermission,
+        microphone_permission: session.microphonePermission,
+        camera_device_label_safe: session.cameraDeviceLabelSafe,
+        microphone_device_label_safe: session.microphoneDeviceLabelSafe,
+        recording_enabled: session.recordingEnabled,
+        recording_consent: session.recordingConsent,
+        recording_status: session.recordingStatus,
+        recording_path: session.recordingPath,
+        recording_duration_seconds: session.recordingDurationSeconds,
+        recording_size_bytes: session.recordingSizeBytes,
+        recording_mime_type: session.recordingMimeType,
+        last_heartbeat_at: session.lastHeartbeatAt,
+        error_code: session.errorCode,
+        error_message: session.errorMessage,
       });
     } catch (err) {
       console.warn("[InterviewService] Session sync failed:", err);

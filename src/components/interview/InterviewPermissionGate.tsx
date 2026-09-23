@@ -39,14 +39,21 @@ interface InterviewPermissionGateProps {
   centerName?: string;
   allowAudioFallback?: boolean;
   allowTextFallback?: boolean;
+  recordingPolicy?: "MANDATORY" | "OPTIONAL" | "DISABLED";
+  recordingNotice?: string;
   onSwitchToTextMode?: () => void;
   onReadyToStart: (config: {
     privacyMode: CandidatePrivacyMode;
     permissionState: InterviewPermissionState;
+    recordingConsent?: boolean;
     locationData?: {
       latitude: number;
       longitude: number;
       accuracy: number;
+    };
+    hardwareLabels?: {
+      camera?: string;
+      mic?: string;
     };
   }) => void;
   onCancel?: () => void;
@@ -62,6 +69,8 @@ export default function InterviewPermissionGate({
   centerName,
   allowAudioFallback = true,
   allowTextFallback = true,
+  recordingPolicy = "OPTIONAL",
+  recordingNotice,
   onSwitchToTextMode,
   onReadyToStart,
   onCancel,
@@ -111,6 +120,7 @@ export default function InterviewPermissionGate({
   // Privacy & Consent
   const [privacyMode, setPrivacyMode] = useState<CandidatePrivacyMode>("FULL_VIDEO");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [recordingConsentChecked, setRecordingConsentChecked] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Comprehensive hardware stream cleanup helper
@@ -453,8 +463,15 @@ export default function InterviewPermissionGate({
     consentOk &&
     authOk;
 
-  const handleStartInterview = () => {
+  const handleStart = (withRecording: boolean) => {
     if (!allChecksPassed) return;
+
+    const activeCamera =
+      videoDevices.find((d) => d.deviceId === selectedCameraId)?.label ||
+      (selectedCameraId ? "Default Camera" : undefined);
+    const activeMic =
+      audioDevices.find((d) => d.deviceId === selectedMicId)?.label ||
+      (selectedMicId ? "Default Microphone" : undefined);
 
     onReadyToStart({
       privacyMode,
@@ -462,8 +479,23 @@ export default function InterviewPermissionGate({
         ...permissions,
         consent: "accepted",
       },
+      recordingConsent: withRecording && recordingPolicy !== "DISABLED",
       locationData: locationCoordinates || undefined,
+      hardwareLabels: {
+        camera: activeCamera,
+        mic: activeMic,
+      },
     });
+  };
+
+  const handleStartInterview = () => {
+    handleStart(
+      recordingPolicy !== "DISABLED"
+        ? recordingPolicy === "MANDATORY"
+          ? true
+          : recordingConsentChecked
+        : false
+    );
   };
 
   // =========================================================================
@@ -542,7 +574,7 @@ export default function InterviewPermissionGate({
             onClick={handleEnableHardware}
             className="w-full sm:w-auto px-8 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
-            <span>[ Set Up Interview ]</span>
+            <span>[ Allow camera & microphone ]</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -1041,6 +1073,45 @@ export default function InterviewPermissionGate({
         </div>
       </div>
 
+      {/* Session Recording & Institutional Access Policy */}
+      {recordingPolicy !== "DISABLED" && (
+        <div className="p-4 bg-slate-50/90 border border-slate-200 rounded-2xl space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-indigo-600" />
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                Session Recording & Privacy Policy
+              </h3>
+            </div>
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+              {recordingPolicy === "MANDATORY" ? "Mandatory for this Center" : "Optional Consent"}
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-600 leading-relaxed">
+            {recordingNotice ||
+              "Recordings are securely stored in private institutional storage with a 90-day retention window. Only you and verified institution reviewers can access playback via signed temporary links. Zero facial emotion or biometric scoring is performed."}
+          </p>
+
+          {recordingPolicy === "MANDATORY" ? (
+            <div className="text-[11px] text-amber-700 font-medium bg-amber-50 border border-amber-200 p-2.5 rounded-xl flex items-center gap-2">
+              <Info className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Institutional assessment policy requires this interview session to be recorded for candidate review.</span>
+            </div>
+          ) : (
+            <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-slate-700 pt-1">
+              <input
+                type="checkbox"
+                checked={recordingConsentChecked}
+                onChange={(e) => setRecordingConsentChecked(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              />
+              <span>I consent to session video/audio recording for playback review and evaluation feedback</span>
+            </label>
+          )}
+        </div>
+      )}
+
       {/* Terms, Proctoring Policy & Consent */}
       <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
         <label className="flex items-start gap-3 cursor-pointer text-xs text-slate-700">
@@ -1056,13 +1127,13 @@ export default function InterviewPermissionGate({
         </label>
       </div>
 
-      {/* Final Action Buttons */}
-      <div className="flex items-center justify-between pt-2">
+      {/* Final Action Buttons with Dual CTAs */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
         {onCancel ? (
           <button
             type="button"
             onClick={handleCancel}
-            className="min-h-[44px] px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-semibold cursor-pointer transition-colors"
+            className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-semibold cursor-pointer transition-colors"
           >
             Cancel & Return
           </button>
@@ -1070,20 +1141,54 @@ export default function InterviewPermissionGate({
           <div />
         )}
 
-        <button
-          type="button"
-          onClick={handleStartInterview}
-          disabled={!allChecksPassed}
-          aria-label="Start Mock Interview"
-          className={`min-h-[44px] px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs transition-all ${
-            allChecksPassed
-              ? "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer hover:shadow"
-              : "bg-slate-200 text-slate-400 cursor-not-allowed"
-          }`}
-        >
-          <span>Start Mock Interview</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
+        <div className="w-full sm:w-auto flex flex-col sm:flex-row items-center gap-2.5">
+          {recordingPolicy === "OPTIONAL" && (
+            <button
+              type="button"
+              onClick={() => handleStart(false)}
+              disabled={!allChecksPassed}
+              aria-label="Start Interview Without Recording"
+              className={`w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+                allChecksPassed
+                  ? "border-slate-300 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer"
+                  : "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
+              }`}
+            >
+              <span>[ Start Interview Without Recording ]</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() =>
+              handleStart(
+                recordingPolicy !== "DISABLED"
+                  ? recordingPolicy === "MANDATORY"
+                    ? true
+                    : recordingConsentChecked
+                  : false
+              )
+            }
+            disabled={!allChecksPassed}
+            aria-label="Start Mock Interview"
+            className={`w-full sm:w-auto min-h-[44px] px-6 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-all ${
+              allChecksPassed
+                ? "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer hover:shadow"
+                : "bg-slate-200 text-slate-400 cursor-not-allowed"
+            }`}
+          >
+            <span>
+              {recordingPolicy === "MANDATORY"
+                ? "[ Start Interview & Recording ]"
+                : recordingPolicy === "OPTIONAL"
+                ? recordingConsentChecked
+                  ? "[ Start Interview & Recording ]"
+                  : "[ Start Interview Without Recording ]"
+                : "[ Start Mock Interview ]"}
+            </span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </div>
   );

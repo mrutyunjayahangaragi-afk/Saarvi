@@ -38,15 +38,15 @@ export class SerpApiGoogleJobsAdapter implements OpportunitySourceAdapter {
   };
 
   constructor(apiKey?: string) {
-    this.apiKey = apiKey || process.env.SERPAPI_KEY;
+    this.apiKey = apiKey || process.env.SERPAPI_API_KEY || process.env.SERPAPI_KEY;
   }
 
   public async search(query: SearchQuery): Promise<{ results: Opportunity[]; nextPageToken?: string }> {
-    const effectiveKey = this.apiKey || process.env.SERPAPI_KEY;
+    const effectiveKey = this.apiKey || process.env.SERPAPI_API_KEY || process.env.SERPAPI_KEY;
 
     if (!effectiveKey) {
       this.healthStats.status = "DEGRADED";
-      this.healthStats.lastError = "SERPAPI_KEY is not configured in server environment.";
+      this.healthStats.lastError = "SERPAPI_API_KEY / SERPAPI_KEY is not configured in server environment.";
       return { results: [] };
     }
 

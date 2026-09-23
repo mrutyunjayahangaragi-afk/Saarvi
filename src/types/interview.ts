@@ -25,16 +25,51 @@ export type InterviewCompany =
   | "General";
 
 export type InterviewSessionState =
-  | "REGISTERED"
-  | "ELIGIBILITY_CHECK"
-  | "PERMISSION_CHECK"
+  | "CREATED"
+  | "PREFLIGHT"
   | "READY"
   | "ACTIVE"
   | "PAUSED"
-  | "WARNING"
   | "COMPLETED"
+  | "CANCELLED"
+  | "FAILED"
+  | "EXPIRED"
+  | "REGISTERED"
+  | "ELIGIBILITY_CHECK"
+  | "PERMISSION_CHECK"
+  | "WARNING"
   | "ABANDONED"
   | "TERMINATED";
+
+export type RecordingStatus =
+  | "NOT_STARTED"
+  | "REQUESTED"
+  | "RECORDING"
+  | "STOPPING"
+  | "UPLOADING"
+  | "PROCESSING"
+  | "READY"
+  | "FAILED"
+  | "EXPIRED"
+  | "DELETED";
+
+export type PermissionStateDetailed =
+  | "idle"
+  | "preflight"
+  | "requesting_permission"
+  | "permission_granted"
+  | "camera_ready"
+  | "microphone_ready"
+  | "ready"
+  | "permission_denied"
+  | "camera_error"
+  | "microphone_error"
+  | "device_not_found"
+  | "browser_unsupported"
+  | "interview_active"
+  | "interview_paused"
+  | "interview_completed"
+  | "interview_failed";
 
 export type CandidatePrivacyMode =
   | "FULL_VIDEO"
@@ -184,12 +219,49 @@ export interface InterviewSession {
   responses: InterviewTurnResponse[];
   currentQuestionIndex: number;
   overallScore: number;
+  totalScore?: number;
+  company?: string;
   proctoringViolations: ProctoringViolationEvent[];
+  proctoringEvents?: ProctoringViolationEvent[];
   warningCount: number;
   maxWarnings: number;
-  status: "in_progress" | "completed" | "terminated_proctoring" | "abandoned";
+  status:
+    | "in_progress"
+    | "completed"
+    | "terminated_proctoring"
+    | "abandoned"
+    | "cancelled"
+    | "failed"
+    | "ACTIVE"
+    | "COMPLETED"
+    | "TERMINATED"
+    | "IN_PROGRESS"
+    | (string & {});
   startedAt: string;
   completedAt?: string;
+  endedAt?: string;
+  durationSeconds?: number;
+  cameraPermission?: PermissionCheckStatus;
+  microphonePermission?: PermissionCheckStatus;
+  cameraDeviceLabelSafe?: string;
+  microphoneDeviceLabelSafe?: string;
+  cameraLabel?: string;
+  micLabel?: string;
+  recordingEnabled?: boolean;
+  recordingConsent?: boolean;
+  recordingStatus?: RecordingStatus;
+  recordingPath?: string;
+  recordingStoragePath?: string;
+  recordingDurationSeconds?: number;
+  recordingSizeBytes?: number;
+  recordingFileSizeBytes?: number;
+  recordingMimeType?: string;
+  lastHeartbeatAt?: string;
+  errorCode?: string;
+  errorMessage?: string;
+  questionCount?: number;
+  answeredCount?: number;
+  completionPercent?: number;
 }
 
 export interface InterviewSettings {
@@ -210,8 +282,20 @@ export interface InterviewSettings {
   enableScreenShareCheck: boolean;
   allowedPrivacyModes: CandidatePrivacyMode[];
   enableAiTtsFallback: boolean;
+  cameraRequired?: boolean;
+  microphoneRequired?: boolean;
+  recordingEnabled?: boolean;
+  recordingRequired?: boolean;
+  recordingPolicy?: "MANDATORY" | "OPTIONAL" | "DISABLED";
+  recordingNotice?: string;
   audioOnlyAllowed?: boolean;
   textOnlyAllowed?: boolean;
+  cameraOptional?: boolean;
+  microphoneOptional?: boolean;
+  recordingRetentionDays?: number;
+  tabSwitchPolicy?: "warning" | "pause" | "continue";
+  maxUploadSizeBytes?: number;
+  maxSessionDurationMinutes?: number;
 }
 
 export type InterviewEventType =

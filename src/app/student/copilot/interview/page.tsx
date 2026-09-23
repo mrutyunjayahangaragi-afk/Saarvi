@@ -13,6 +13,7 @@ import {
   ProctoringViolationEvent,
 } from "@/types/interview";
 import InterviewPermissionGate from "@/components/interview/InterviewPermissionGate";
+import InterviewVideoPlayer from "@/components/interview/InterviewVideoPlayer";
 import { useAuth } from "@/context/AuthContext";
 import {
   Briefcase,
@@ -100,9 +101,18 @@ export default function MockInterviewPage() {
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [lastWarningReason, setLastWarningReason] = useState("");
 
-  // Media & AI Voice
+  // Media, Recording & AI Voice
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const recordingStartTimeRef = useRef<number>(0);
+
+  const [hasRecordingConsent, setHasRecordingConsent] = useState(false);
+  const [isUploadingRecording, setIsUploadingRecording] = useState(false);
+  const [recordedPlaybackUrl, setRecordedPlaybackUrl] = useState<string>("");
+  const [recordedExpiresAt, setRecordedExpiresAt] = useState<string>("");
+
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -143,14 +153,67 @@ export default function MockInterviewPage() {
     }
   };
 
+  // Finalize and upload recording chunks
+  const finalizeRecordingUpload = async (targetSessionId: string) => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {}
+    }
+
+    const durationSec = Math.max(
+      1,
+      Math.round((Date.now() - (recordingStartTimeRef.current || Date.now())) / 1000)
+    );
+
+    // Brief delay to allow final ondataavailable chunk
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    if (recordedChunksRef.current.length > 0) {
+      const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
+      const formData = new FormData();
+      formData.append("sessionId", targetSessionId);
+      formData.append("durationSeconds", durationSec.toString());
+      formData.append("file", blob, `interview-${targetSessionId}.webm`);
+
+      try {
+        setIsUploadingRecording(true);
+        const res = await fetch("/api/interview/recording/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+        if (data.success) {
+          // Fetch signed playback link
+          try {
+            const pbRes = await fetch(`/api/interview/recording/playback?sessionId=${targetSessionId}`);
+            const pbData = await pbRes.json();
+            if (pbData.success && pbData.playbackUrl) {
+              setRecordedPlaybackUrl(pbData.playbackUrl);
+              setRecordedExpiresAt(pbData.expiresAt);
+            }
+          } catch {}
+        }
+      } catch (err) {
+        console.warn("[Recording Upload Failed]:", err);
+      } finally {
+        setIsUploadingRecording(false);
+      }
+    }
+  };
+
   // 2. Callback from InterviewPermissionGate when all checks pass
   const handlePermissionsVerified = async (config: {
     privacyMode: CandidatePrivacyMode;
     permissionState: InterviewPermissionState;
+    recordingConsent?: boolean;
     locationData?: { latitude: number; longitude: number; accuracy: number };
+    hardwareLabels?: { camera?: string; mic?: string };
   }) => {
     setVerifiedPrivacyMode(config.privacyMode);
     setVerifiedPermissions(config.permissionState);
+    const withConsent = Boolean(config.recordingConsent);
+    setHasRecordingConsent(withConsent);
     setIsSubmitting(true);
 
     try {
@@ -164,6 +227,9 @@ export default function MockInterviewPage() {
           role: selectedRole,
           company: selectedCompany,
           privacyMode: config.privacyMode,
+          recordingConsent: withConsent,
+          cameraLabel: config.hardwareLabels?.camera,
+          micLabel: config.hardwareLabels?.mic,
         }),
       });
       const data = await res.json();
@@ -207,7 +273,7 @@ export default function MockInterviewPage() {
 
       // Initialize media stream for room if video mode
       if (selectedMode === "live_video") {
-        initLiveMedia();
+        await initLiveMedia(withConsent);
       }
 
       setStage("ACTIVE_ROOM");
@@ -219,7 +285,7 @@ export default function MockInterviewPage() {
   };
 
   // Initialize live video stream
-  const initLiveMedia = async () => {
+  const initLiveMedia = async (withRecording: boolean = false) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480 },
@@ -228,6 +294,29 @@ export default function MockInterviewPage() {
       mediaStreamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+      }
+
+      if (withRecording && typeof MediaRecorder !== "undefined") {
+        try {
+          const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
+            ? "video/webm;codecs=vp9,opus"
+            : MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")
+            ? "video/webm;codecs=vp8,opus"
+            : "video/webm";
+
+          const recorder = new MediaRecorder(stream, { mimeType });
+          recordedChunksRef.current = [];
+          recorder.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) {
+              recordedChunksRef.current.push(e.data);
+            }
+          };
+          recorder.start(1000);
+          mediaRecorderRef.current = recorder;
+          recordingStartTimeRef.current = Date.now();
+        } catch (recErr) {
+          console.warn("[MediaRecorder Init Failed]:", recErr);
+        }
       }
     } catch {
       // ignore
@@ -318,6 +407,19 @@ export default function MockInterviewPage() {
     };
   }, [stage, session?.id]);
 
+  // 4b. Active session heartbeat
+  useEffect(() => {
+    if (stage !== "ACTIVE_ROOM" || !session?.id) return;
+    const interval = setInterval(() => {
+      fetch("/api/interview/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "heartbeat", sessionId: session.id }),
+      }).catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [stage, session?.id]);
+
   const triggerTabSwitchWarning = async (type: ProctoringViolationEvent["type"]) => {
     if (!session || stage !== "ACTIVE_ROOM") return;
 
@@ -346,6 +448,12 @@ export default function MockInterviewPage() {
         if (data.terminated) {
           setStage("TERMINATED");
           setSession(data.session);
+          if (mediaStreamRef.current) {
+            mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+          }
+          if (hasRecordingConsent && session?.id) {
+            finalizeRecordingUpload(session.id);
+          }
         }
       }
     } catch {
@@ -393,10 +501,17 @@ export default function MockInterviewPage() {
 
       setSession(data.session);
 
-      if (data.session.status === "completed" || data.session.sessionState === "COMPLETED") {
+      if (
+        data.session.status === "completed" ||
+        data.session.sessionState === "COMPLETED" ||
+        data.session.status === "COMPLETED"
+      ) {
         setStage("COMPLETED");
         if (mediaStreamRef.current) {
           mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+        }
+        if (hasRecordingConsent && session?.id) {
+          finalizeRecordingUpload(session.id);
         }
       } else {
         // Move to next question
@@ -692,6 +807,7 @@ export default function MockInterviewPage() {
             requireScreenShare={false}
             userIsAuthenticated={Boolean(user)}
             userEmailVerified={true}
+            recordingPolicy={selectedMode === "live_video" ? "OPTIONAL" : "DISABLED"}
             onSwitchToTextMode={() => setSelectedMode("text_mcq")}
             onReadyToStart={handlePermissionsVerified}
             onCancel={() => setStage("CONFIGURE")}
@@ -1071,13 +1187,38 @@ export default function MockInterviewPage() {
               })}
             </div>
 
+            {/* Session Recording Playback if available */}
+            {isUploadingRecording && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-center gap-3 text-xs text-blue-800">
+                <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                <span>Encrypting and uploading your private session recording...</span>
+              </div>
+            )}
+
+            {recordedPlaybackUrl && (
+              <div className="space-y-3 pt-2">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <Video className="w-4 h-4 text-indigo-600" />
+                  <span>Your Interview Video Recording</span>
+                </h3>
+                <InterviewVideoPlayer
+                  sessionId={session.id}
+                  initialPlaybackUrl={recordedPlaybackUrl}
+                  expiresAt={recordedExpiresAt}
+                  durationSeconds={session.recordingDurationSeconds}
+                  role={session.role}
+                  candidateName={user?.email || "Candidate"}
+                />
+              </div>
+            )}
+
             {/* Return Action */}
             <div className="border-t border-slate-100 pt-5 flex items-center justify-between">
               <Link
-                href="/student/interviews"
-                className="text-xs font-semibold text-slate-500 hover:text-slate-900"
+                href="/student/interviews/history"
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800"
               >
-                View in My Interviews
+                View in My Interviews History
               </Link>
 
               <button
@@ -1085,6 +1226,7 @@ export default function MockInterviewPage() {
                 onClick={() => {
                   setStage("CONFIGURE");
                   setSession(null);
+                  setRecordedPlaybackUrl("");
                 }}
                 className="min-h-[44px] px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
               >
