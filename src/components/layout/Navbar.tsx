@@ -45,6 +45,45 @@ export default function Navbar() {
   const [navCategories, setNavCategories] = useState<any[]>([]);
   const [isMac, setIsMac] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [jobsNavbarVisible, setJobsNavbarVisible] = useState(true);
+
+  // Sync Jobs & Internships navbar visibility from feature control
+  useEffect(() => {
+    async function checkJobsNavbar() {
+      try {
+        const res = await fetch('/api/jobs/feature-control');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.navbar_visible === false || data.mode === 'DISABLED' || data.enabled === false) {
+            setJobsNavbarVisible(false);
+          } else {
+            setJobsNavbarVisible(true);
+          }
+        }
+      } catch {}
+    }
+    checkJobsNavbar();
+
+    const handleFeatureChanged = (e: any) => {
+      const detail = e?.detail;
+      if (detail) {
+        if (detail.navbar_visible === false || detail.mode === 'DISABLED' || detail.enabled === false) {
+          setJobsNavbarVisible(false);
+        } else {
+          setJobsNavbarVisible(true);
+        }
+      } else {
+        checkJobsNavbar();
+      }
+    };
+
+    window.addEventListener('saarvi:jobs-feature-changed', handleFeatureChanged);
+    window.addEventListener('focus', checkJobsNavbar);
+    return () => {
+      window.removeEventListener('saarvi:jobs-feature-changed', handleFeatureChanged);
+      window.removeEventListener('focus', checkJobsNavbar);
+    };
+  }, []);
 
   const userAvatar =
     profile?.avatarUrl ||
@@ -389,19 +428,21 @@ export default function Navbar() {
             </div>
 
             {/* Jobs & Internships */}
-            <div className="relative py-2">
-              <Link
-                href="/jobs"
-                className={`px-3 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
-                  pathname?.startsWith("/jobs")
-                    ? "text-blue-600 bg-blue-50 font-bold"
-                    : "text-slate-700 hover:text-slate-900 hover:bg-slate-100/70"
-                }`}
-              >
-                <Briefcase className="w-3.5 h-3.5 text-blue-600" />
-                <span>Jobs &amp; Internships</span>
-              </Link>
-            </div>
+            {jobsNavbarVisible && (
+              <div className="relative py-2">
+                <Link
+                  href="/jobs"
+                  className={`px-3 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
+                    pathname?.startsWith("/jobs")
+                      ? "text-blue-600 bg-blue-50 font-bold"
+                      : "text-slate-700 hover:text-slate-900 hover:bg-slate-100/70"
+                  }`}
+                >
+                  <Briefcase className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Jobs &amp; Internships</span>
+                </Link>
+              </div>
+            )}
 
             {/* Plans / Pricing */}
             <div className="relative py-2">
@@ -620,12 +661,20 @@ export default function Navbar() {
                 )}
               </div>
             ) : (
-              <Link
-                href="/login"
-                className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100/90 hover:bg-slate-200/80 rounded-xl transition-all duration-150 border border-slate-200 shadow-xs hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0 active:scale-95 cursor-pointer"
-              >
-                Login
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/login"
+                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100/90 hover:bg-slate-200/80 rounded-xl transition-all duration-150 border border-slate-200 shadow-xs hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0 active:scale-95 cursor-pointer"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/signup"
+                  className="px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all duration-150 shadow-xs hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0 active:scale-95 cursor-pointer"
+                >
+                  Create account
+                </Link>
+              </div>
             )}
 
             {/* Mobile Hamburger Drawer Toggle */}
@@ -929,25 +978,27 @@ export default function Navbar() {
             </div>
 
             {/* Mobile Direct Link: Jobs & Internships */}
-            <div>
-              <Link
-                href="/jobs"
-                onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center justify-between p-3.5 rounded-2xl font-bold text-xs border transition-colors ${
-                  pathname?.startsWith("/jobs")
-                    ? "bg-blue-50 text-blue-700 border-blue-200"
-                    : "bg-slate-50/70 text-slate-800 border-slate-200/80 hover:bg-slate-100"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <Briefcase className="w-4 h-4 text-blue-600" />
-                  <span>Jobs &amp; Internships</span>
-                </div>
-                <span className="px-2 py-0.5 text-[10px] font-bold text-blue-700 bg-blue-100/80 rounded-full">
-                  New
-                </span>
-              </Link>
-            </div>
+            {jobsNavbarVisible && (
+              <div>
+                <Link
+                  href="/jobs"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center justify-between p-3.5 rounded-2xl font-bold text-xs border transition-colors ${
+                    pathname?.startsWith("/jobs")
+                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                      : "bg-slate-50/70 text-slate-800 border-slate-200/80 hover:bg-slate-100"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="w-4 h-4 text-blue-600" />
+                    <span>Jobs &amp; Internships</span>
+                  </div>
+                  <span className="px-2 py-0.5 text-[10px] font-bold text-blue-700 bg-blue-100/80 rounded-full">
+                    New
+                  </span>
+                </Link>
+              </div>
+            )}
 
             {/* Plans / Pricing */}
             <div className="pt-2">

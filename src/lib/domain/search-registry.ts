@@ -143,6 +143,16 @@ export function getStaticDomainSearchItems(): DomainSearchItem[] {
       keywords: ["job tracker", "internships", "applications", "interviews tracker"],
       badge: "Career",
     },
+    {
+      id: "car_jobs_board",
+      title: "Jobs & Internships Board",
+      description: "Search verified software engineering jobs and student internships.",
+      category: "Career",
+      domain: "career",
+      route: "/jobs",
+      keywords: ["jobs", "internships", "careers", "fresher jobs", "hiring", "software engineer jobs"],
+      badge: "Opportunities",
+    },
   ];
   items.push(...careerItems);
 

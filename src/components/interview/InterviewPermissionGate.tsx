@@ -573,8 +573,10 @@ export default function InterviewPermissionGate({
             type="button"
             onClick={handleEnableHardware}
             className="w-full sm:w-auto px-8 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+            aria-label="Allow camera & microphone"
           >
-            <span>[ Allow camera & microphone ]</span>
+            <span>[ Set Up Interview ]</span>
+            <span className="sr-only">Allow camera & microphone</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

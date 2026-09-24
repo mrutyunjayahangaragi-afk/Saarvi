@@ -92,6 +92,33 @@ function JobsContent() {
     match: ReturnType<typeof calculateJobMatch>;
   } | null>(null);
 
+  // Feature Gate State
+  const [featureGated, setFeatureGated] = useState<{
+    status: 'DISABLED' | 'BETA' | 'PRO_REQUIRED';
+    reason: string;
+    maintenanceMessage?: string;
+  } | null>(null);
+
+  // Check initial Jobs feature control settings
+  useEffect(() => {
+    async function checkFeatureStatus() {
+      try {
+        const res = await fetch('/api/jobs/feature-control');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.mode === 'DISABLED' || data.enabled === false) {
+            setFeatureGated({
+              status: 'DISABLED',
+              reason: 'Jobs & Internships is currently unavailable.',
+              maintenanceMessage: data.maintenance_message,
+            });
+          }
+        }
+      } catch {}
+    }
+    checkFeatureStatus();
+  }, []);
+
   // Emit page view
   useEffect(() => {
     try {
@@ -170,6 +197,17 @@ function JobsContent() {
           setSearchState("auth_required");
           setAuthGateOpen(true);
           setJobs([]);
+          return;
+        }
+        if (res.status === 403) {
+          const errData = await res.json().catch(() => ({}));
+          setFeatureGated({
+            status: errData.status || (errData.error?.includes('beta') ? 'BETA' : errData.error?.includes('Pro') ? 'PRO_REQUIRED' : 'DISABLED'),
+            reason: errData.error || 'Jobs & Internships is currently unavailable.',
+            maintenanceMessage: errData.maintenanceMessage,
+          });
+          setJobs([]);
+          setSearchState("error");
           return;
         }
         throw new Error(`HTTP ${res.status}`);
@@ -416,6 +454,66 @@ function JobsContent() {
       sortBy,
     });
   }, [q, location, experience, remote, employmentType, sortBy]);
+
+  if (featureGated) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col font-sans">
+        <Navbar />
+        <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-16 flex items-center justify-center">
+          <div className="w-full bg-white rounded-3xl border border-slate-200 p-8 sm:p-12 text-center shadow-xs space-y-4">
+            <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center ${
+              featureGated.status === "PRO_REQUIRED"
+                ? "bg-blue-50 text-blue-600 border border-blue-200"
+                : "bg-amber-50 text-amber-600 border border-amber-200"
+            }`}>
+              {featureGated.status === "PRO_REQUIRED" ? (
+                <Sparkles className="w-7 h-7" />
+              ) : (
+                <Lock className="w-7 h-7" />
+              )}
+            </div>
+
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+              {featureGated.status === "DISABLED"
+                ? "Jobs & Internships"
+                : featureGated.status === "BETA"
+                ? "Jobs & Internships (Beta)"
+                : "Saarvi Pro Required"}
+            </h1>
+
+            <div className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed space-y-1">
+              {featureGated.status === "DISABLED" ? (
+                <>
+                  <p className="font-semibold text-slate-800">This feature is currently unavailable.</p>
+                  <p className="text-slate-500">{featureGated.maintenanceMessage || "Please check back later."}</p>
+                </>
+              ) : (
+                <p>{featureGated.maintenanceMessage || featureGated.reason}</p>
+              )}
+            </div>
+
+            <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+              {featureGated.status === "PRO_REQUIRED" && (
+                <Link
+                  href="/pricing"
+                  className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                >
+                  Upgrade to Pro
+                </Link>
+              )}
+              <Link
+                href="/"
+                className="w-full sm:w-auto px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition border border-slate-200"
+              >
+                Return to Home
+              </Link>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col font-sans">

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { opportunityStore } from "@/lib/opportunities/opportunity-store";
 import { getAuthenticatedUser } from "@/lib/security/auth-session";
+import { getUserEntitlement } from "@/lib/billing/entitlements";
+import { JobsFeatureControl } from "@/lib/jobs/feature-control";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,21 @@ export async function GET(request: Request, context: RouteParams) {
     return NextResponse.json(
       { error: "Authentication required to view opportunity details." },
       { status: 401 }
+    );
+  }
+
+  // 2. Server-Authoritative Feature Gate Evaluation
+  const entitlement = await getUserEntitlement(authUser.id);
+  const access = JobsFeatureControl.evaluateAccess(authUser, entitlement);
+  if (!access.allowed) {
+    return NextResponse.json(
+      {
+        error: access.reason || "Jobs & Internships is currently unavailable.",
+        code: "FEATURE_DISABLED",
+        status: access.status,
+        maintenanceMessage: access.maintenanceMessage,
+      },
+      { status: 403 }
     );
   }
 

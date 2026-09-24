@@ -46,6 +46,7 @@ type AdminTab =
   | "EXPIRED"
   | "SOURCES"
   | "CONFIG"
+  | "ACCESS_CONTROL"
   | "REPORTS"
   | "ANALYTICS"
   | "AUDIT";
@@ -54,6 +55,23 @@ export default function AdminCareerPage() {
   const [activeTab, setActiveTab] = useState<AdminTab>("OVERVIEW");
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Access Control & Feature Settings State
+  const [accessSettings, setAccessSettings] = useState({
+    status: "ENABLED" as "ENABLED" | "BETA" | "DISABLED",
+    access: "FREE" as "FREE" | "PRO",
+    userAccess: true,
+    navbar: true,
+    search: true,
+    beta: false,
+    betaEmails: "",
+    betaUserIds: "",
+    maintenanceMessage: "",
+    updatedBy: "system",
+    updatedAt: "",
+  });
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [accessError, setAccessError] = useState<string | null>(null);
 
   // Core Data States
   const [items, setItems] = useState<Opportunity[]>([]);
@@ -134,7 +152,7 @@ export default function AdminCareerPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [oppsRes, analyticsRes, jobsModRes] = await Promise.all([
+      const [oppsRes, analyticsRes, jobsModRes, accessRes] = await Promise.all([
         fetch(
           `/api/admin/career/opportunities?status=${
             statusFilter === "ALL" ? "" : statusFilter
@@ -142,6 +160,7 @@ export default function AdminCareerPage() {
         ),
         fetch("/api/admin/career/analytics"),
         fetch("/api/admin/career/jobs"),
+        fetch("/api/admin/career/feature-control"),
       ]);
 
       if (oppsRes.ok) {
@@ -164,12 +183,115 @@ export default function AdminCareerPage() {
         if (jobsModData.reports) setReports(jobsModData.reports);
         if (jobsModData.alerts) setAlerts(jobsModData.alerts);
       }
+
+      if (accessRes.ok) {
+        const accessData = await accessRes.json();
+        if (accessData.settings) {
+          const s = accessData.settings;
+          setAccessSettings({
+            status: s.mode || "ENABLED",
+            access: s.access_tier || "FREE",
+            userAccess: s.enabled !== false && s.mode !== "DISABLED",
+            navbar: Boolean(s.navbar_visible),
+            search: Boolean(s.search_visible),
+            beta: Boolean(s.beta_allowlist_enabled),
+            betaEmails: (s.beta_email_allowlist || []).join(", "),
+            betaUserIds: (s.beta_user_ids || []).join(", "),
+            maintenanceMessage: s.maintenance_message || "",
+            updatedBy: s.updated_by || "system",
+            updatedAt: s.updated_at || "",
+          });
+        }
+      }
     } catch (err) {
       console.error("Failed to load admin career data:", err);
     } finally {
       setLoading(false);
     }
   }, [statusFilter, searchQuery]);
+
+  const handleSaveAccessSettings = async () => {
+    setSaveState("saving");
+    setAccessError(null);
+    try {
+      const res = await fetch("/api/admin/career/feature-control", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: accessSettings.status,
+          enabled: accessSettings.userAccess && accessSettings.status !== "DISABLED",
+          access_tier: accessSettings.access,
+          navbar_visible: accessSettings.navbar,
+          search_visible: accessSettings.search,
+          beta_allowlist_enabled: accessSettings.beta,
+          beta_email_allowlist: accessSettings.betaEmails.split(",").map((e) => e.trim()).filter(Boolean),
+          beta_user_ids: accessSettings.betaUserIds.split(",").map((id) => id.trim()).filter(Boolean),
+          maintenance_message: accessSettings.maintenanceMessage,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Unable to update Jobs & Internships settings.");
+      }
+
+      const data = await res.json();
+      if (data.settings) {
+        const s = data.settings;
+        setAccessSettings((prev) => ({
+          ...prev,
+          userAccess: s.enabled !== false && s.mode !== "DISABLED",
+          updatedBy: s.updated_by,
+          updatedAt: s.updated_at,
+        }));
+
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("saarvi:jobs-feature-changed", { detail: s }));
+        }
+      }
+
+      setSaveState("saved");
+      setNotice("Jobs & Internships availability updated.");
+      setTimeout(() => setSaveState("idle"), 2500);
+      setTimeout(() => setNotice(null), 3500);
+    } catch (err: any) {
+      setSaveState("error");
+      setAccessError(err.message || "Unable to update Jobs & Internships settings.");
+    }
+  };
+
+  const handleResetAccessSettings = async () => {
+    setSaveState("saving");
+    setAccessError(null);
+    try {
+      const res = await fetch("/api/admin/career/feature-control/reset", {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Failed to reset settings.");
+      const data = await res.json();
+      if (data.settings) {
+        const s = data.settings;
+        setAccessSettings({
+          status: s.mode || "ENABLED",
+          access: s.access_tier || "FREE",
+          userAccess: s.enabled !== false && s.mode !== "DISABLED",
+          navbar: Boolean(s.navbar_visible),
+          search: Boolean(s.search_visible),
+          beta: Boolean(s.beta_allowlist_enabled),
+          betaEmails: "",
+          betaUserIds: "",
+          maintenanceMessage: "",
+          updatedBy: s.updated_by,
+          updatedAt: s.updated_at,
+        });
+      }
+      setSaveState("idle");
+      setNotice("Jobs & Internships settings reset to defaults.");
+      setTimeout(() => setNotice(null), 3000);
+    } catch {
+      setSaveState("error");
+      setAccessError("Unable to update Jobs & Internships settings.");
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -618,6 +740,7 @@ export default function AdminCareerPage() {
           { id: "EXPIRED", label: `Expired (${counts.expired})`, filter: "EXPIRED" },
           { id: "SOURCES", label: "Sources & Health", filter: "ALL" },
           { id: "CONFIG", label: "Search Configuration", filter: "ALL" },
+          { id: "ACCESS_CONTROL", label: "Access & Availability", filter: "ALL" },
           { id: "REPORTS", label: `Reports (${reports.filter((r) => r.status === "PENDING").length})`, filter: "ALL" },
           { id: "AUDIT", label: "Audit Log", filter: "ALL" },
         ].map((tab) => (
@@ -936,6 +1059,263 @@ export default function AdminCareerPage() {
               <span className="font-bold text-slate-700">Auto-Approve External Policy</span>
               <p className="font-semibold text-rose-600">DISABLED (Strict Admin Review Mandatory)</p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Jobs & Internships Settings / Access Control */}
+      {activeTab === "ACCESS_CONTROL" && (
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+            <div>
+              <div className="flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-blue-600" />
+                <h2 className="text-lg font-bold text-slate-900">Jobs &amp; Internships</h2>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Admin Control &amp; Access Center — Configure availability, beta audience, tier gating, and visibility.
+              </p>
+            </div>
+            <div className="text-right text-xs text-slate-500 space-y-0.5">
+              <div>
+                <span className="font-semibold text-slate-700">Last updated by:</span>{" "}
+                <span className="font-mono text-slate-900">{accessSettings.updatedBy || "system"}</span>
+              </div>
+              <div>
+                <span className="font-semibold text-slate-700">Last updated at:</span>{" "}
+                <span className="text-slate-900">
+                  {accessSettings.updatedAt ? new Date(accessSettings.updatedAt).toLocaleString() : "Initial deployment"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {accessError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{accessError}</span>
+            </div>
+          )}
+
+          {/* Accessible Status Overview (Prompt Section 22) */}
+          <div className="flex flex-wrap items-center gap-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+            <span className="text-xs font-bold text-slate-700">Jobs &amp; Internships Status:</span>
+            <div className="flex items-center gap-1.5">
+              {accessSettings.status === "ENABLED" && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  Enabled
+                </span>
+              )}
+              {accessSettings.status === "DISABLED" && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                  Disabled
+                </span>
+              )}
+              {accessSettings.status === "BETA" && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                  Beta
+                </span>
+              )}
+            </div>
+            <span className="text-slate-300 hidden sm:inline">|</span>
+            <span className="text-xs text-slate-600">
+              Navbar Visibility: <strong className="text-slate-900">{accessSettings.navbar ? "On" : "Off"}</strong>
+            </span>
+            <span className="text-slate-300 hidden sm:inline">|</span>
+            <span className="text-xs text-slate-600">
+              User Access: <strong className="text-slate-900">{accessSettings.userAccess && accessSettings.status !== "DISABLED" ? "Enabled" : "Disabled"}</strong>
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+            {/* Feature Status */}
+            <div className="p-5 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-2">
+              <label className="block font-bold text-slate-800 text-sm">
+                Feature Status
+              </label>
+              <p className="text-slate-500 text-[11px]">
+                Controls overall platform access mode for Jobs &amp; Internships.
+              </p>
+              <select
+                value={accessSettings.status}
+                onChange={(e) => {
+                  const newStatus = e.target.value as any;
+                  setAccessSettings({
+                    ...accessSettings,
+                    status: newStatus,
+                    ...(newStatus === "DISABLED" ? { userAccess: false, navbar: false } : { userAccess: true, navbar: true }),
+                  });
+                }}
+                className="w-full mt-2 px-3.5 py-2.5 min-h-[44px] bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value="ENABLED">Enabled</option>
+                <option value="DISABLED">Disabled</option>
+                <option value="BETA">Beta</option>
+              </select>
+            </div>
+
+            {/* Navbar Visibility */}
+            <div className="p-5 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-2">
+              <label className="block font-bold text-slate-800 text-sm">
+                Navbar Visibility
+              </label>
+              <p className="text-slate-500 text-[11px]">
+                Show or hide the direct navigation item in desktop, tablet, and mobile navbar.
+              </p>
+              <select
+                value={accessSettings.navbar ? "ON" : "OFF"}
+                onChange={(e) => setAccessSettings({ ...accessSettings, navbar: e.target.value === "ON" })}
+                className="w-full mt-2 px-3.5 py-2.5 min-h-[44px] bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value="ON">On</option>
+                <option value="OFF">Off</option>
+              </select>
+            </div>
+
+            {/* User Access */}
+            <div className="p-5 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-2">
+              <label className="block font-bold text-slate-800 text-sm">
+                User Access
+              </label>
+              <p className="text-slate-500 text-[11px]">
+                Allow or restrict eligible users from accessing jobs and internships.
+              </p>
+              <select
+                value={accessSettings.userAccess && accessSettings.status !== "DISABLED" ? "ENABLED" : "DISABLED"}
+                onChange={(e) => setAccessSettings({ ...accessSettings, userAccess: e.target.value === "ENABLED" })}
+                className="w-full mt-2 px-3.5 py-2.5 min-h-[44px] bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value="ENABLED">Enabled</option>
+                <option value="DISABLED">Disabled</option>
+              </select>
+            </div>
+
+            {/* Access Tier */}
+            <div className="p-5 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-2">
+              <label className="block font-bold text-slate-800 text-sm">
+                Access Tier
+              </label>
+              <p className="text-slate-500 text-[11px]">
+                Enforce Free access vs active server-authoritative Pro entitlement.
+              </p>
+              <select
+                value={accessSettings.access}
+                onChange={(e) => setAccessSettings({ ...accessSettings, access: e.target.value as any })}
+                className="w-full mt-2 px-3.5 py-2.5 min-h-[44px] bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value="FREE">Free</option>
+                <option value="PRO">Pro</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Beta Audience Controls */}
+          <div className="p-5 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block font-bold text-slate-800 text-sm">
+                  Beta Audience Allowlist
+                </label>
+                <p className="text-slate-500 text-[11px]">
+                  When Beta is selected, restrict access to specific user IDs or emails.
+                </p>
+              </div>
+              <select
+                value={accessSettings.beta ? "ON" : "OFF"}
+                onChange={(e) => setAccessSettings({ ...accessSettings, beta: e.target.value === "ON" })}
+                className="px-3.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value="OFF">Off (All authenticated users in beta)</option>
+                <option value="ON">On (Allowlist only)</option>
+              </select>
+            </div>
+
+            {accessSettings.beta && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div>
+                  <label className="block font-bold text-slate-700 text-xs mb-1">
+                    Allowed Emails (comma separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={accessSettings.betaEmails}
+                    onChange={(e) => setAccessSettings({ ...accessSettings, betaEmails: e.target.value })}
+                    placeholder="student1@gmail.com, tester@saarvi.app"
+                    className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 text-xs mb-1">
+                    Allowed User IDs (comma separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={accessSettings.betaUserIds}
+                    onChange={(e) => setAccessSettings({ ...accessSettings, betaUserIds: e.target.value })}
+                    placeholder="usr_123, usr_456"
+                    className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Maintenance Message */}
+          <div className="p-5 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-2">
+            <label className="block font-bold text-slate-800 text-sm">
+              Maintenance Message (Optional)
+            </label>
+            <p className="text-slate-500 text-[11px]">
+              Custom message displayed to users when Jobs &amp; Internships is unavailable or under maintenance.
+            </p>
+            <textarea
+              rows={2}
+              value={accessSettings.maintenanceMessage}
+              onChange={(e) => setAccessSettings({ ...accessSettings, maintenanceMessage: e.target.value })}
+              placeholder="e.g. We are performing scheduled upgrades on the jobs matching system. Full access will resume at 6:00 PM."
+              className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Action Buttons */}
+          <div className="pt-2 flex flex-col-reverse sm:flex-row items-center justify-between gap-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={handleResetAccessSettings}
+              disabled={saveState === "saving"}
+              className="w-full sm:w-auto px-5 py-2.5 min-h-[44px] bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+            >
+              Reset to Defaults
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSaveAccessSettings}
+              disabled={saveState === "saving"}
+              className={`w-full sm:w-auto px-6 py-2.5 min-h-[44px] rounded-xl text-xs font-bold shadow-xs transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 ${
+                saveState === "saved"
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  : saveState === "error"
+                  ? "bg-rose-600 hover:bg-rose-700 text-white"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
+              }`}
+            >
+              {saveState === "saving" && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+              {saveState === "saved" && <Check className="w-3.5 h-3.5" />}
+              {saveState === "error" && <AlertCircle className="w-3.5 h-3.5" />}
+              <span>
+                {saveState === "saving"
+                  ? "Saving..."
+                  : saveState === "saved"
+                  ? "Saved"
+                  : saveState === "error"
+                  ? "Error"
+                  : "Save Changes"}
+              </span>
+            </button>
           </div>
         </div>
       )}

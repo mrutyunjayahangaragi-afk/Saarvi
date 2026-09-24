@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { jobSearchService } from "@/lib/jobs/search";
 import { enforceRateLimit, getClientIp } from "@/lib/security/rate-limit";
 import { getAuthenticatedUser } from "@/lib/security/auth-session";
+import { getUserEntitlement } from "@/lib/billing/entitlements";
+import { JobsFeatureControl } from "@/lib/jobs/feature-control";
 import type { JobSortOption } from "@/lib/jobs/types";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +15,26 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       { error: "Authentication required to search opportunities." },
       { status: 401 }
+    );
+  }
+
+  // 2. Server-Authoritative Feature Gate & Entitlement Evaluation
+  const entitlement = await getUserEntitlement(authUser.id);
+  const access = JobsFeatureControl.evaluateAccess(authUser, entitlement);
+
+  if (!access.allowed) {
+    return NextResponse.json(
+      {
+        error: access.reason || "Jobs & Internships is currently unavailable.",
+        status: access.status,
+        maintenanceMessage: access.maintenanceMessage,
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 0,
+        cached: false,
+      },
+      { status: 403 }
     );
   }
 

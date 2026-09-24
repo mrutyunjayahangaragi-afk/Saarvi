@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { jobReportsStore } from "@/lib/jobs/reports";
 import { enforceRateLimit, getClientIp } from "@/lib/security/rate-limit";
 import { getAuthenticatedUser } from "@/lib/security/auth-session";
+import { getUserEntitlement } from "@/lib/billing/entitlements";
+import { JobsFeatureControl } from "@/lib/jobs/feature-control";
 import type { JobReportReason } from "@/lib/jobs/types";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +15,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: "Authentication required to submit job reports." },
       { status: 401 }
+    );
+  }
+
+  // 2. Feature Control Check
+  const entitlement = await getUserEntitlement(authUser.id);
+  const access = JobsFeatureControl.evaluateAccess(authUser, entitlement);
+  if (!access.allowed) {
+    return NextResponse.json(
+      { error: access.reason || "Jobs & Internships is currently unavailable." },
+      { status: 403 }
     );
   }
 

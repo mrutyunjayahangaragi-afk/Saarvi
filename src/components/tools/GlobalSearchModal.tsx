@@ -59,13 +59,61 @@ export default function GlobalSearchModal({
     }
   }, []);
 
+  const [jobsSearchVisible, setJobsSearchVisible] = useState(true);
+
+  // Check Jobs & Internships feature control search visibility
+  useEffect(() => {
+    async function checkSearchVisibility() {
+      try {
+        const res = await fetch('/api/jobs/feature-control');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.search_visible === false || data.mode === 'DISABLED' || data.enabled === false) {
+            setJobsSearchVisible(false);
+          } else {
+            setJobsSearchVisible(true);
+          }
+        }
+      } catch {}
+    }
+    if (isOpen) {
+      checkSearchVisibility();
+    }
+
+    const handleFeatureChanged = (e: any) => {
+      const detail = e?.detail;
+      if (detail) {
+        if (detail.search_visible === false || detail.mode === 'DISABLED' || detail.enabled === false) {
+          setJobsSearchVisible(false);
+        } else {
+          setJobsSearchVisible(true);
+        }
+      } else {
+        checkSearchVisibility();
+      }
+    };
+
+    window.addEventListener('saarvi:jobs-feature-changed', handleFeatureChanged);
+    return () => {
+      window.removeEventListener('saarvi:jobs-feature-changed', handleFeatureChanged);
+    };
+  }, [isOpen]);
+
   // Initialize SearchEngine with static domain items (Tools, Academic, Career, Interview, Guides, Features)
   const searchEngine = useMemo(() => {
     const engine = new SearchEngine<DomainSearchItem>();
-    const staticItems = getStaticDomainSearchItems();
+    let staticItems = getStaticDomainSearchItems();
+    if (!jobsSearchVisible) {
+      staticItems = staticItems.filter(
+        (item) =>
+          !item.route.startsWith('/jobs') &&
+          !item.route.startsWith('/internships') &&
+          item.id !== 'car_jobs_board'
+      );
+    }
     engine.indexBatch(staticItems);
     return engine;
-  }, []);
+  }, [jobsSearchVisible]);
 
   // Load recent searches from localStorage
   useEffect(() => {
@@ -129,7 +177,15 @@ export default function GlobalSearchModal({
   const searchHits: GlobalSearchItem[] = useMemo(() => {
     const q = query.trim();
     if (!q) return [];
-    const results = searchEngine.search(q, { limit: 25 });
+    let results = searchEngine.search(q, { limit: 25 });
+    if (!jobsSearchVisible) {
+      results = results.filter(
+        (r) =>
+          !r.item.route.startsWith("/jobs") &&
+          !r.item.route.startsWith("/internships") &&
+          r.item.id !== "car_jobs_board"
+      );
+    }
     return results.map((r) => ({
       id: r.item.id,
       domain: r.item.domain,
@@ -138,7 +194,7 @@ export default function GlobalSearchModal({
       route: r.item.route,
       badge: r.item.badge || r.item.category,
     }));
-  }, [query, searchEngine]);
+  }, [query, searchEngine, jobsSearchVisible]);
 
   // Default suggested items when query is empty
   const defaultItems: GlobalSearchItem[] = useMemo(() => {

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { jobAlertsStore } from "@/lib/jobs/alerts";
 import { enforceRateLimit, getClientIp } from "@/lib/security/rate-limit";
 import { getAuthenticatedUser } from "@/lib/security/auth-session";
+import { getUserEntitlement } from "@/lib/billing/entitlements";
+import { JobsFeatureControl } from "@/lib/jobs/feature-control";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +17,17 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // 2. Strict IDOR Defense: Only return alerts belonging to the authenticated session user
+  // 2. Feature Control Check
+  const entitlement = await getUserEntitlement(authUser.id);
+  const access = JobsFeatureControl.evaluateAccess(authUser, entitlement);
+  if (!access.allowed) {
+    return NextResponse.json(
+      { error: access.reason || "Jobs & Internships is currently unavailable." },
+      { status: 403 }
+    );
+  }
+
+  // 3. Strict IDOR Defense: Only return alerts belonging to the authenticated session user
   const alerts = jobAlertsStore.getAlertsByUser(authUser.id);
   return NextResponse.json({ alerts });
 }

@@ -26,6 +26,9 @@ import {
   Loader2,
   AlertCircle,
   Calendar,
+  ChevronLeft,
+  ChevronRight,
+  ShieldAlert,
 } from 'lucide-react';
 import PlanBadge from '@/components/plan/PlanBadge';
 import { SubscriptionRecord, BillingInvoiceRecord } from '@/types/plan';
@@ -34,6 +37,7 @@ import { useAuth } from '@/context/AuthContext';
 import { resolvePaymentQrImage } from '@/lib/billing/qr-resolver';
 
 type AdminTab = 'REQUESTS' | 'SETTINGS' | 'SUBSCRIPTIONS';
+type StatusFilterType = 'ALL' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'SLA_APPROACHING' | 'SLA_EXCEEDED';
 
 interface PaymentRequestItem {
   id: string;
@@ -48,7 +52,7 @@ interface PaymentRequestItem {
   paymentMethod: string;
   provider: string;
   paymentProofUrl?: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: 'PENDING' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED';
   submittedAt: string;
   slaDeadline: string;
   reviewedAt?: string;
@@ -101,7 +105,10 @@ export default function AdminBillingPage() {
 
   // Filter & Search states
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'OVERDUE'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<StatusFilterType>('ALL');
+  const [planFilter, setPlanFilter] = useState<'ALL' | 'MONTHLY' | 'YEARLY'>('ALL');
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   // Review Modals
   const [selectedRequest, setSelectedRequest] = useState<PaymentRequestItem | null>(null);
@@ -150,23 +157,84 @@ export default function AdminBillingPage() {
     loadAllData();
   }, []);
 
+  // Timezone-safe 2-Hour SLA calculation
+  const computeSla = (req: PaymentRequestItem) => {
+    const isPending = req.status === 'PENDING' || req.status === 'PENDING_REVIEW';
+    if (!isPending) {
+      return {
+        status: 'REVIEWED' as const,
+        label: 'Reviewed',
+        badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
+      };
+    }
+    const deadline = new Date(
+      req.slaDeadline || new Date(new Date(req.submittedAt || req.createdAt).getTime() + 2 * 60 * 60 * 1000)
+    ).getTime();
+    const diffMins = Math.round((deadline - Date.now()) / (1000 * 60));
+    if (diffMins < 0) {
+      return {
+        status: 'SLA_EXCEEDED' as const,
+        label: `SLA exceeded (${Math.abs(diffMins)}m overdue)`,
+        badgeClass: 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse font-bold',
+      };
+    }
+    if (diffMins <= 30) {
+      return {
+        status: 'APPROACHING_SLA' as const,
+        label: `Approaching SLA (~${diffMins}m left)`,
+        badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 font-semibold',
+      };
+    }
+    return {
+      status: 'WITHIN_SLA' as const,
+      label: `Within SLA (~${diffMins}m left)`,
+      badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-medium',
+    };
+  };
+
+  const isRejectionReasonValid = (reason: string) => {
+    const trimmed = reason.trim();
+    if (trimmed.length < 5) return false;
+    const invalidPlaceholders = ['no', 'invalid', 'rejected', 'test', 'reject', 'fake', 'none'];
+    if (invalidPlaceholders.includes(trimmed.toLowerCase())) return false;
+    return true;
+  };
+
   // Filtered requests
   const filteredRequests = useMemo(() => {
     return paymentRequests.filter((r) => {
+      const q = searchTerm.trim().toLowerCase();
       const matchesSearch =
-        r.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.utrNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.id.toLowerCase().includes(searchTerm.toLowerCase());
+        !q ||
+        r.userEmail.toLowerCase().includes(q) ||
+        r.utrNumber.toLowerCase().includes(q) ||
+        r.id.toLowerCase().includes(q) ||
+        r.userId.toLowerCase().includes(q);
 
       if (!matchesSearch) return false;
 
+      if (planFilter !== 'ALL' && r.planDuration !== planFilter) return false;
+
+      const isPending = r.status === 'PENDING' || r.status === 'PENDING_REVIEW';
       if (statusFilter === 'ALL') return true;
-      if (statusFilter === 'OVERDUE') {
-        return r.status === 'PENDING' && new Date(r.slaDeadline).getTime() < Date.now();
+      if (statusFilter === 'PENDING_REVIEW') return isPending;
+      if (statusFilter === 'APPROVED') return r.status === 'APPROVED';
+      if (statusFilter === 'REJECTED') return r.status === 'REJECTED';
+      if (statusFilter === 'SLA_APPROACHING') {
+        return isPending && computeSla(r).status === 'APPROACHING_SLA';
       }
-      return r.status === statusFilter;
+      if (statusFilter === 'SLA_EXCEEDED') {
+        return isPending && computeSla(r).status === 'SLA_EXCEEDED';
+      }
+      return true;
     });
-  }, [paymentRequests, searchTerm, statusFilter]);
+  }, [paymentRequests, searchTerm, statusFilter, planFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / pageSize));
+  const paginatedRequests = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredRequests.slice(start, start + pageSize);
+  }, [filteredRequests, page, pageSize]);
 
   // Handle Review Action (Approve / Reject)
   const handleReviewAction = async (action: 'APPROVE' | 'REJECT') => {
@@ -175,8 +243,11 @@ export default function AdminBillingPage() {
       setFeedbackMsg({ type: 'error', text: 'Forbidden: SuperAdmin authorization required to approve or reject payments.' });
       return;
     }
-    if (action === 'REJECT' && (!reviewNotes || !reviewNotes.trim())) {
-      setFeedbackMsg({ type: 'error', text: 'A rejection reason is required to reject a payment request.' });
+    if (action === 'REJECT' && !isRejectionReasonValid(reviewNotes)) {
+      setFeedbackMsg({
+        type: 'error',
+        text: 'A meaningful rejection reason (minimum 5 characters, not generic placeholder) is required.',
+      });
       return;
     }
     setActionLoading(true);
@@ -194,7 +265,7 @@ export default function AdminBillingPage() {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || `Failed to ${action.toLowerCase()} payment request.`);
+        throw new Error(data.error || (action === 'APPROVE' ? 'Unable to approve this payment. Please try again.' : 'Unable to reject this payment.'));
       }
 
       setFeedbackMsg({
@@ -207,7 +278,14 @@ export default function AdminBillingPage() {
       setReviewNotes('');
       await loadAllData();
     } catch (err: any) {
-      setFeedbackMsg({ type: 'error', text: err.message || 'Action failed' });
+      const msg = err.message || '';
+      if (msg.toLowerCase().includes('already been reviewed') || msg.toLowerCase().includes('idempotency')) {
+        setFeedbackMsg({ type: 'error', text: 'This payment request has already been reviewed.' });
+      } else if (action === 'APPROVE') {
+        setFeedbackMsg({ type: 'error', text: 'Unable to approve this payment. Please try again.' });
+      } else {
+        setFeedbackMsg({ type: 'error', text: 'Unable to reject this payment.' });
+      }
     } finally {
       setActionLoading(false);
     }
@@ -473,31 +551,61 @@ export default function AdminBillingPage() {
       {activeTab === 'REQUESTS' && (
         <div className="space-y-4">
           {/* Filter & Search Bar */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-            <div className="relative w-full sm:w-80">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search email, UTR, ID..."
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+            <div className="flex flex-col sm:flex-row items-center gap-2.5 flex-1">
+              <div className="relative w-full sm:w-72">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Search email, UTR, ID, user..."
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Plan Filter */}
+              <select
+                value={planFilter}
+                onChange={(e) => {
+                  setPlanFilter(e.target.value as any);
+                  setPage(1);
+                }}
+                className="w-full sm:w-auto px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value="ALL">All Plans</option>
+                <option value="MONTHLY">Monthly Plan</option>
+                <option value="YEARLY">Yearly Plan</option>
+              </select>
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto">
-              {(['ALL', 'PENDING', 'OVERDUE', 'APPROVED', 'REJECTED'] as const).map((filter) => (
+            {/* Status & SLA Filter Tabs */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0">
+              {[
+                { id: 'ALL', label: 'All' },
+                { id: 'PENDING_REVIEW', label: 'Pending Review' },
+                { id: 'APPROVED', label: 'Approved' },
+                { id: 'REJECTED', label: 'Rejected' },
+                { id: 'SLA_APPROACHING', label: 'SLA Approaching' },
+                { id: 'SLA_EXCEEDED', label: 'SLA Exceeded' },
+              ].map((filter) => (
                 <button
-                  key={filter}
+                  key={filter.id}
                   type="button"
-                  onClick={() => setStatusFilter(filter)}
+                  onClick={() => {
+                    setStatusFilter(filter.id as any);
+                    setPage(1);
+                  }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-                    statusFilter === filter
+                    statusFilter === filter.id
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
-                  {filter}
+                  {filter.label}
                 </button>
               ))}
             </div>
@@ -505,157 +613,190 @@ export default function AdminBillingPage() {
 
           {/* Requests Table */}
           <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
-            {filteredRequests.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-[10px]">
-                      <th className="p-3.5">User / Submitted</th>
-                      <th className="p-3.5">Plan &amp; Amount</th>
-                      <th className="p-3.5">UTR / Ref</th>
-                      <th className="p-3.5">Status</th>
-                      <th className="p-3.5">2-Hour SLA Status</th>
-                      <th className="p-3.5 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-600">
-                    {filteredRequests.map((req) => {
-                      const isPending = req.status === 'PENDING';
-                      const deadline = new Date(req.slaDeadline).getTime();
-                      const isOverdue = isPending && deadline < Date.now();
-                      const remainingMs = deadline - Date.now();
-                      const remainingMins = Math.floor(remainingMs / (1000 * 60));
+            {paginatedRequests.length > 0 ? (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-[10px]">
+                        <th className="p-3.5">User / Submitted</th>
+                        <th className="p-3.5">Plan &amp; Amount</th>
+                        <th className="p-3.5">UTR / Ref</th>
+                        <th className="p-3.5">Status</th>
+                        <th className="p-3.5">2-Hour SLA Status</th>
+                        <th className="p-3.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-600">
+                      {paginatedRequests.map((req) => {
+                        const isPending = req.status === 'PENDING' || req.status === 'PENDING_REVIEW';
+                        const sla = computeSla(req);
 
-                      return (
-                        <tr key={req.id} className="hover:bg-slate-50/60 transition-colors">
-                          <td className="p-3.5">
-                            <div className="font-bold text-slate-900">{req.userEmail}</div>
-                            <div className="text-[10px] text-slate-400">
-                              {new Date(req.createdAt).toLocaleString(undefined, {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </div>
-                          </td>
+                        return (
+                          <tr key={req.id} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="p-3.5">
+                              <div className="font-bold text-slate-900">{req.userEmail}</div>
+                              <div className="text-[10px] text-slate-400">
+                                {new Date(req.submittedAt || req.createdAt).toLocaleString(undefined, {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </div>
+                            </td>
 
-                          <td className="p-3.5">
-                            <span className="font-semibold text-slate-900">{req.planDuration}</span>
-                            <div className="text-slate-500 font-bold">
-                              ₹{req.amount} {req.currency}
-                            </div>
-                          </td>
+                            <td className="p-3.5">
+                              <span className="font-semibold text-slate-900">{req.planDuration}</span>
+                              <div className="text-slate-500 font-bold">
+                                ₹{req.amount} {req.currency}
+                              </div>
+                            </td>
 
-                          <td className="p-3.5">
-                            <div className="font-mono font-bold text-blue-700">{req.utrNumber}</div>
-                            {req.payerUpiId && (
-                              <div className="text-[10px] text-slate-400">Payer: {req.payerUpiId}</div>
-                            )}
-                          </td>
+                            <td className="p-3.5">
+                              <div className="font-mono font-bold text-blue-700">{req.utrNumber}</div>
+                              {req.payerUpiId && (
+                                <div className="text-[10px] text-slate-400">Payer: {req.payerUpiId}</div>
+                              )}
+                            </td>
 
-                          <td className="p-3.5">
-                            <span
-                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
-                                req.status === 'PENDING'
-                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                  : req.status === 'APPROVED'
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-rose-50 text-rose-700 border border-rose-200'
-                              }`}
-                            >
-                              {req.status}
-                            </span>
-                          </td>
-
-                          <td className="p-3.5">
-                            {isPending ? (
-                              isOverdue ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold animate-pulse">
-                                  <AlertTriangle className="w-3 h-3" />
-                                  Overdue by {Math.abs(remainingMins)}m
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-semibold">
-                                  <Clock className="w-3 h-3" />
-                                  ~{remainingMins}m remaining
-                                </span>
-                              )
-                            ) : req.status === 'APPROVED' ? (
-                              <span className="text-emerald-700 text-[11px] font-medium flex items-center gap-1">
-                                <Check className="w-3.5 h-3.5" />
-                                Approved ({req.reviewedBy})
-                              </span>
-                            ) : (
-                              <span className="text-rose-600 text-[11px] font-medium">
-                                Rejected ({req.reviewNotes || 'Invalid UTR'})
-                              </span>
-                            )}
-                          </td>
-
-                          <td className="p-3.5 text-right space-x-1.5">
-                            {isPending ? (
-                              isSuperAdmin ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedRequest(req);
-                                      setModalMode('APPROVE');
-                                      setReviewNotes('');
-                                    }}
-                                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer"
-                                  >
-                                    Approve
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedRequest(req);
-                                      setModalMode('REJECT');
-                                      setReviewNotes('');
-                                    }}
-                                    className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer"
-                                  >
-                                    Reject
-                                  </button>
-                                </>
-                              ) : (
-                                <div className="inline-flex items-center gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedRequest(req);
-                                      setModalMode('DETAILS');
-                                    }}
-                                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition"
-                                  >
-                                    View
-                                  </button>
-                                  <span className="text-[10px] text-slate-400 font-semibold italic">
-                                    SuperAdmin required
-                                  </span>
-                                </div>
-                              )
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedRequest(req);
-                                  setModalMode('DETAILS');
-                                }}
-                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition"
+                            <td className="p-3.5">
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
+                                  isPending
+                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    : req.status === 'APPROVED'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                }`}
                               >
-                                View Details
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                                {isPending ? 'PENDING_REVIEW' : req.status}
+                              </span>
+                            </td>
+
+                            <td className="p-3.5">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] border ${sla.badgeClass}`}
+                              >
+                                {sla.status === 'SLA_EXCEEDED' && <AlertTriangle className="w-3 h-3" />}
+                                {sla.status === 'APPROACHING_SLA' && <Clock className="w-3 h-3" />}
+                                {sla.status === 'WITHIN_SLA' && <Clock className="w-3 h-3 text-blue-500" />}
+                                {sla.status === 'REVIEWED' && <Check className="w-3 h-3 text-slate-500" />}
+                                <span>{sla.label}</span>
+                              </span>
+                            </td>
+
+                            <td className="p-3.5 text-right space-x-1.5">
+                              {isPending ? (
+                                isSuperAdmin ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedRequest(req);
+                                        setModalMode('APPROVE');
+                                        setReviewNotes('');
+                                      }}
+                                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer"
+                                    >
+                                      Approve
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedRequest(req);
+                                        setModalMode('REJECT');
+                                        setReviewNotes('');
+                                      }}
+                                      className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer"
+                                    >
+                                      Reject
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedRequest(req);
+                                        setModalMode('DETAILS');
+                                      }}
+                                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition cursor-pointer"
+                                    >
+                                      View
+                                    </button>
+                                  </>
+                                ) : (
+                                  <div className="inline-flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedRequest(req);
+                                        setModalMode('DETAILS');
+                                      }}
+                                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition cursor-pointer"
+                                    >
+                                      View
+                                    </button>
+                                    <span className="text-[10px] text-slate-400 font-semibold italic">
+                                      SuperAdmin required
+                                    </span>
+                                  </div>
+                                )
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedRequest(req);
+                                    setModalMode('DETAILS');
+                                  }}
+                                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition cursor-pointer"
+                                >
+                                  View Details
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination Footer */}
+                <div className="p-3.5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 bg-slate-50/50">
+                  <div>
+                    Showing <span className="font-bold text-slate-900">{(page - 1) * pageSize + 1}</span> to{' '}
+                    <span className="font-bold text-slate-900">
+                      {Math.min(page * pageSize, filteredRequests.length)}
+                    </span>{' '}
+                    of <span className="font-bold text-slate-900">{filteredRequests.length}</span> payment requests
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={page <= 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white text-xs font-semibold cursor-pointer"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                      <span>Previous</span>
+                    </button>
+
+                    <span className="px-2 font-bold text-slate-700">
+                      Page {page} of {totalPages}
+                    </span>
+
+                    <button
+                      type="button"
+                      disabled={page >= totalPages}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white text-xs font-semibold cursor-pointer"
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </>
             ) : (
               <div className="py-12 text-center text-xs text-slate-400 space-y-1 bg-slate-50/50">
                 <Clock className="w-8 h-8 mx-auto text-slate-300" />
@@ -986,13 +1127,13 @@ export default function AdminBillingPage() {
       {/* APPROVE / REJECT / DETAILS MODAL */}
       {modalMode && selectedRequest && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl border border-slate-200">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 space-y-5 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 {modalMode === 'APPROVE' ? (
                   <>
                     <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                    <span>Approve Payment &amp; Activate Pro</span>
+                    <span>Approve Payment &amp; Grant Pro</span>
                   </>
                 ) : modalMode === 'REJECT' ? (
                   <>
@@ -1012,63 +1153,231 @@ export default function AdminBillingPage() {
                   setModalMode(null);
                   setSelectedRequest(null);
                 }}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold cursor-pointer"
               >
                 ×
               </button>
             </div>
 
-            {/* Request Summary */}
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Request ID:</span>
-                <span className="font-mono text-slate-900 font-semibold">{selectedRequest.id}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">User Email:</span>
-                <span className="font-semibold text-slate-900">{selectedRequest.userEmail}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Plan Duration:</span>
-                <span className="font-bold text-slate-900">{selectedRequest.planDuration} (₹{selectedRequest.amount})</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">UTR / Ref:</span>
-                <span className="font-mono font-bold text-blue-700">{selectedRequest.utrNumber}</span>
-              </div>
-              {selectedRequest.payerUpiId && (
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Payer UPI ID:</span>
-                  <span className="font-mono text-slate-900">{selectedRequest.payerUpiId}</span>
+            {/* DETAILS MODE (Section 4.18) */}
+            {modalMode === 'DETAILS' && (
+              <div className="space-y-4">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2.5 text-xs">
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500 font-medium">Request ID:</span>
+                    <span className="font-mono text-slate-900 font-bold">{selectedRequest.id}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500 font-medium">User Email:</span>
+                    <span className="font-semibold text-slate-900">{selectedRequest.userEmail}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500 font-medium">User ID:</span>
+                    <span className="font-mono text-slate-600">{selectedRequest.userId}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500 font-medium">Plan &amp; Duration:</span>
+                    <span className="font-bold text-slate-900">
+                      {selectedRequest.planDuration} (₹{selectedRequest.amount} {selectedRequest.currency})
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500 font-medium">UTR / Ref:</span>
+                    <span className="font-mono font-bold text-blue-700">{selectedRequest.utrNumber}</span>
+                  </div>
+                  {selectedRequest.payerUpiId && (
+                    <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500 font-medium">Payer UPI ID:</span>
+                      <span className="font-mono text-slate-900">{selectedRequest.payerUpiId}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500 font-medium">Payment Method:</span>
+                    <span className="font-semibold text-slate-800">{selectedRequest.paymentMethod || 'Manual UPI'}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500 font-medium">Current Status:</span>
+                    <span className="font-bold uppercase text-slate-900">
+                      {selectedRequest.status === 'PENDING' ? 'PENDING_REVIEW' : selectedRequest.status}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500 font-medium">Submitted At:</span>
+                    <span className="text-slate-700">
+                      {new Date(selectedRequest.submittedAt || selectedRequest.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500 font-medium">2-Hour SLA Status:</span>
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] border ${computeSla(selectedRequest).badgeClass}`}>
+                      {computeSla(selectedRequest).label}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500 font-medium">Entitlement Status:</span>
+                    <span className={`font-bold ${selectedRequest.status === 'APPROVED' ? 'text-emerald-700' : 'text-slate-600'}`}>
+                      {selectedRequest.status === 'APPROVED' ? 'PRO (Active)' : 'FREE'}
+                    </span>
+                  </div>
+                  {selectedRequest.reviewedAt && (
+                    <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500 font-medium">Reviewed At:</span>
+                      <span className="text-slate-700">{new Date(selectedRequest.reviewedAt).toLocaleString()}</span>
+                    </div>
+                  )}
+                  {selectedRequest.reviewedBy && (
+                    <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500 font-medium">Reviewed By:</span>
+                      <span className="font-bold text-slate-800">{selectedRequest.reviewedBy}</span>
+                    </div>
+                  )}
+                  {selectedRequest.reviewNotes && (
+                    <div className="pt-1">
+                      <span className="text-slate-500 font-medium">
+                        {selectedRequest.status === 'REJECTED' ? 'Rejection Reason:' : 'Review Notes:'}
+                      </span>
+                      <p className="font-medium text-slate-800 bg-white p-2.5 rounded-lg mt-1 border border-slate-200">
+                        {selectedRequest.reviewNotes}
+                      </p>
+                    </div>
+                  )}
+                  {selectedRequest.paymentProofUrl && (
+                    <div className="pt-2">
+                      <span className="text-slate-500 font-medium block mb-1">Payment Proof:</span>
+                      <a
+                        href={selectedRequest.paymentProofUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 text-blue-600 hover:underline font-semibold"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>View Submitted Screenshot / Proof</span>
+                      </a>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* Modal Actions */}
+                {/* Footer Actions (Section 4.18) */}
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setModalMode(null)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+                  >
+                    Close
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    {selectedRequest.status === 'PENDING' || selectedRequest.status === 'PENDING_REVIEW' ? (
+                      isSuperAdmin ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setModalMode(null)}
+                            className="px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+                          >
+                            Keep Pending
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalMode('REJECT');
+                              setReviewNotes('');
+                            }}
+                            className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                          >
+                            Reject
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalMode('APPROVE');
+                              setReviewNotes('');
+                            }}
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                          >
+                            Approve
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 font-semibold italic">
+                          SuperAdmin required to take action
+                        </span>
+                      )
+                    ) : selectedRequest.status === 'APPROVED' ? (
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
+                          Approved
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab('SUBSCRIPTIONS');
+                            setModalMode(null);
+                          }}
+                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition cursor-pointer"
+                        >
+                          View User Entitlement
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold">
+                        Rejected
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* APPROVE CONFIRMATION MODE (Section 4.4) */}
             {modalMode === 'APPROVE' && (
-              <div className="space-y-3">
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Approving this submission will immediately activate <strong>Saarvi Pro</strong> for{' '}
-                  <span className="font-bold text-slate-800">{selectedRequest.userEmail}</span> for{' '}
-                  <span className="font-bold text-slate-800">{selectedRequest.planDuration}</span> duration and generate an invoice.
-                </p>
+              <div className="space-y-4">
+                <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-2xl text-xs text-emerald-900 font-medium">
+                  Approve this payment and grant the user&apos;s configured plan?
+                </div>
+
+                <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">User:</span>
+                    <span className="font-semibold text-slate-900">{selectedRequest.userEmail}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Plan:</span>
+                    <span className="font-bold text-slate-900">{selectedRequest.planDuration}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Amount:</span>
+                    <span className="font-bold text-slate-900">₹{selectedRequest.amount} {selectedRequest.currency}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">UTR / Ref:</span>
+                    <span className="font-mono font-bold text-blue-700">{selectedRequest.utrNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Request ID:</span>
+                    <span className="font-mono text-slate-700">{selectedRequest.id}</span>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Admin Approval Notes (Optional)
+                    Approval Notes (Optional)
                   </label>
                   <input
                     type="text"
                     value={reviewNotes}
                     onChange={(e) => setReviewNotes(e.target.value)}
-                    placeholder="e.g. Verified on HDFC bank statement"
+                    placeholder="e.g. Verified on bank credit statement"
                     className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
+
                 <div className="pt-2 flex justify-end gap-3">
                   <button
                     type="button"
-                    onClick={() => setModalMode(null)}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold"
+                    onClick={() => setModalMode('DETAILS')}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -1076,20 +1385,22 @@ export default function AdminBillingPage() {
                     type="button"
                     onClick={() => handleReviewAction('APPROVE')}
                     disabled={actionLoading}
-                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-2"
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     {actionLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                    <span>Confirm &amp; Activate Pro</span>
+                    <span>Confirm Approval &amp; Grant Pro</span>
                   </button>
                 </div>
               </div>
             )}
 
+            {/* REJECT CONFIRMATION MODE (Section 4.7 & 4.8) */}
             {modalMode === 'REJECT' && (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Please provide a clear reason for rejecting this payment request. The student will be able to see this reason in their billing dashboard.
+                  Please provide a clear reason for rejecting this payment request. The student will be notified in-app with this sanitized explanation.
                 </p>
+
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Rejection Reason <span className="text-rose-500">*</span>
@@ -1099,66 +1410,32 @@ export default function AdminBillingPage() {
                     required
                     value={reviewNotes}
                     onChange={(e) => setReviewNotes(e.target.value)}
-                    placeholder="e.g. UTR number not found in bank credits for this date."
+                    placeholder="e.g. The submitted UTR could not be verified in our banking portal."
                     className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500"
                   />
+                  {!isRejectionReasonValid(reviewNotes) && (
+                    <p className="text-[11px] text-rose-600 mt-1 font-medium">
+                      Minimum 5 characters required (generic words like &apos;no&apos; or &apos;invalid&apos; are disallowed).
+                    </p>
+                  )}
                 </div>
+
                 <div className="pt-2 flex justify-end gap-3">
                   <button
                     type="button"
-                    onClick={() => setModalMode(null)}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold"
+                    onClick={() => setModalMode('DETAILS')}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={() => handleReviewAction('REJECT')}
-                    disabled={actionLoading || !reviewNotes.trim()}
-                    className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-2 disabled:opacity-50"
+                    disabled={actionLoading || !isRejectionReasonValid(reviewNotes)}
+                    className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-2 disabled:opacity-50 cursor-pointer"
                   >
                     {actionLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                     <span>Confirm Rejection</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {modalMode === 'DETAILS' && (
-              <div className="space-y-3">
-                <div className="space-y-1.5 text-xs text-slate-600">
-                  <div className="flex justify-between">
-                    <span>Current Status:</span>
-                    <span className="font-bold">{selectedRequest.status}</span>
-                  </div>
-                  {selectedRequest.reviewedBy && (
-                    <div className="flex justify-between">
-                      <span>Reviewed By:</span>
-                      <span className="font-bold">{selectedRequest.reviewedBy}</span>
-                    </div>
-                  )}
-                  {selectedRequest.reviewedAt && (
-                    <div className="flex justify-between">
-                      <span>Reviewed At:</span>
-                      <span>{new Date(selectedRequest.reviewedAt).toLocaleString()}</span>
-                    </div>
-                  )}
-                  {selectedRequest.reviewNotes && (
-                    <div className="pt-1">
-                      <span className="text-slate-500">Review Notes:</span>
-                      <p className="font-medium text-slate-800 bg-slate-50 p-2 rounded-lg mt-1 border border-slate-200">
-                        {selectedRequest.reviewNotes}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <div className="pt-2 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setModalMode(null)}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold"
-                  >
-                    Close
                   </button>
                 </div>
               </div>

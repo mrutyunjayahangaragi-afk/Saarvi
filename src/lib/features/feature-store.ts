@@ -3,6 +3,7 @@
 
 import type { FeatureFlag, FeatureFlagStatus, FeatureAccessMode } from '@/types/admin';
 import { MockStorageProvider } from '../supabase/mock-storage';
+import { JobsFeatureControl } from '@/lib/jobs/feature-control';
 
 export const DEFAULT_FEATURE_FLAGS: FeatureFlag[] = [
   // =========================================================================
@@ -517,6 +518,20 @@ export const DEFAULT_FEATURE_FLAGS: FeatureFlag[] = [
     updatedBy: 'system',
   },
   {
+    id: 'jobs-internships',
+    key: 'jobs_internships',
+    name: 'Jobs & Internships',
+    description: 'Career discovery portal, AI resume matching, and student internships board.',
+    category: 'student',
+    status: 'ENABLED',
+    enabled: true,
+    visibility: 'visible',
+    accessMode: 'FREE',
+    route: '/jobs',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    updatedBy: 'system',
+  },
+  {
     id: 'attendance',
     key: 'attendance',
     name: 'Attendance Planner',
@@ -848,6 +863,13 @@ export const featureServerStore = {
   },
 
   isFeatureEnabled(idOrKey: string): boolean {
+    const normalized = (idOrKey || '').trim().toLowerCase().replace(/-/g, '_');
+    if (normalized === 'jobs_internships' || normalized === 'jobs' || normalized === 'internships') {
+      try {
+        const s = JobsFeatureControl.getSettings();
+        return s.enabled && s.mode !== 'DISABLED' && s.visible;
+      } catch {}
+    }
     const feature = this.getFeature(idOrKey);
     if (!feature) return false;
     return feature.status === 'ENABLED' || feature.status === 'BETA';
@@ -892,6 +914,20 @@ export const featureServerStore = {
     // Update in-memory cache
     runtimeFlags.set(existing.id, updated);
     if (existing.key) runtimeFlags.set(existing.key, updated);
+
+    // Sync to JobsFeatureControl if jobs feature
+    if (existing.id === 'jobs-internships' || existing.key === 'jobs_internships') {
+      try {
+        JobsFeatureControl.updateSettings({
+          mode: newStatus === 'DISABLED' ? 'DISABLED' : (newStatus === 'BETA' ? 'BETA' : 'ENABLED'),
+          access_tier: newAccessMode === 'SUBSCRIPTION' ? 'PRO' : 'FREE',
+          navbar_visible: newVisibility !== 'hidden',
+          search_visible: newVisibility !== 'hidden',
+          visible: newVisibility !== 'hidden',
+          enabled: isNowEnabled,
+        }, actor).catch(() => {});
+      } catch {}
+    }
 
     // Sync to tool overrides in resilient storage
     try {

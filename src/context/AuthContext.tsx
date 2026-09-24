@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.warn('Could not fetch user profile:', err);
     }
-  }, [user?.avatarUrl]);
+  }, [user]);
 
   // Initialize session on mount
   useEffect(() => {

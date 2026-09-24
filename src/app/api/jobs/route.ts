@@ -6,55 +6,56 @@ import { JobsFeatureControl } from "@/lib/jobs/feature-control";
 
 export const dynamic = "force-dynamic";
 
-interface RouteParams {
-  params: Promise<{ id: string }>;
-}
-
-export async function GET(req: NextRequest, { params }: RouteParams) {
-  // 1. Mandatory Server-Side Authentication Check
+/**
+ * GET /api/jobs
+ * Direct Jobs listing endpoint.
+ * Protected by server-side authentication and JobsFeatureControl feature gating.
+ */
+export async function GET(req: NextRequest) {
+  // 1. Authentication Check
   const authUser = await getAuthenticatedUser(req);
   if (!authUser) {
     return NextResponse.json(
-      { error: "Authentication required to view opportunity details." },
+      { error: "Authentication required to access jobs." },
       { status: 401 }
     );
   }
 
-  // 2. Server-Authoritative Feature Gate & Entitlement Evaluation
+  // 2. Server-Authoritative Feature Gate Evaluation
   const entitlement = await getUserEntitlement(authUser.id);
   const access = JobsFeatureControl.evaluateAccess(authUser, entitlement);
-
   if (!access.allowed) {
     return NextResponse.json(
       {
         error: access.reason || "Jobs & Internships is currently unavailable.",
+        code: "FEATURE_DISABLED",
         status: access.status,
         maintenanceMessage: access.maintenanceMessage,
+        items: [],
+        total: 0,
       },
       { status: 403 }
     );
   }
 
-  const { id } = await params;
-
-  if (!id || typeof id !== "string") {
-    return NextResponse.json({ error: "Invalid job ID provided." }, { status: 400 });
-  }
-
   try {
-    const job = await jobSearchService.getJobById(id);
+    const result = await jobSearchService.searchJobs({
+      page: 1,
+      limit: 20,
+    });
 
-    if (!job) {
-      return NextResponse.json({ error: "Job listing not found or expired." }, { status: 404 });
-    }
-
-    return NextResponse.json({ job }, {
+    return NextResponse.json({
+      success: true,
+      ...result,
+    }, {
       headers: {
-        "Cache-Control": "public, s-maxage=600, stale-while-revalidate=1200",
+        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120",
       },
     });
   } catch (err: any) {
-    console.error(`[GET /api/jobs/${id}] Error:`, err);
-    return NextResponse.json({ error: "Failed to fetch job details." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to retrieve job opportunities." },
+      { status: 500 }
+    );
   }
 }

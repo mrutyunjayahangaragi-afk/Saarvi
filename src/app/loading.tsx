@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { SaarviLoadingLogo } from "@/components/brand/SaarviLoadingLogo";
 
 export default function Loading() {
@@ -34,12 +35,12 @@ export default function Loading() {
           <p className="text-xs text-slate-400">
             If this takes longer than expected, you can continue or return home.
           </p>
-          <a
+          <Link
             href="/"
             className="mt-2 inline-block text-xs font-semibold text-blue-600 hover:text-blue-700 underline cursor-pointer"
           >
             Return to Saarvi Home
-          </a>
+          </Link>
         </div>
       )}
     </div>

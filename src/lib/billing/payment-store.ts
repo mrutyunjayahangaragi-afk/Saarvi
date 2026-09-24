@@ -175,6 +175,79 @@ if (typeof window === "undefined") {
 // Concurrency mutex set to prevent race-condition double-approvals
 const activeApprovalLocks = new Set<string>();
 
+async function sendPaymentNotification(params: {
+  userId: string;
+  requestId: string;
+  action: 'APPROVED' | 'REJECTED';
+  plan?: string;
+  reason?: string;
+}) {
+  const isApproved = params.action === 'APPROVED';
+  const notifId = `notif_pay_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const idempotencyKey = isApproved
+    ? `payment-approved:${params.requestId}`
+    : `payment-rejected:${params.requestId}`;
+  const now = new Date().toISOString();
+
+  const title = isApproved ? "Payment approved" : "Payment verification unsuccessful";
+  const body = isApproved
+    ? "Your payment for the selected Saarvi plan has been approved. Your Pro access is now active."
+    : `Your payment request could not be approved. Reason: ${params.reason || "The submitted UTR could not be verified."}`;
+
+  const notifRecord: any = {
+    id: notifId,
+    title,
+    subtitle: isApproved ? "Saarvi Pro Activated" : "Payment Verification Update",
+    body,
+    category: "BILLING",
+    type: isApproved ? "PAYMENT_APPROVED" : "PAYMENT_REJECTED",
+    priority: "HIGH",
+    audience_type: "SELECTED_USERS",
+    delivery_channels: ["IN_APP"],
+    cta_text: isApproved ? "View Pro Features" : "Review Billing",
+    cta_url: isApproved ? "/dashboard" : "/dashboard/billing",
+    status: "SENT",
+    sent_at: now,
+    created_at: now,
+    updated_at: now,
+    metadata: {
+      idempotency_key: idempotencyKey,
+      payment_request_id: params.requestId,
+      plan_id: params.plan,
+      reason: params.reason,
+      notification_type: isApproved ? "PAYMENT_APPROVED" : "PAYMENT_REJECTED",
+    },
+  };
+
+  const recipientRecord: any = {
+    id: `rec_${notifId}`,
+    notification_id: notifId,
+    user_id: params.userId,
+    delivery_status: "DELIVERED",
+    created_at: now,
+    updated_at: now,
+  };
+
+  try {
+    MockStorageProvider.saveNotification(notifRecord);
+    MockStorageProvider.saveNotificationRecipient(recipientRecord);
+  } catch (err) {
+    console.warn("[PaymentStore] MockStorage notification notice:", err);
+  }
+
+  try {
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabaseAdminClient();
+      if (supabase) {
+        await supabase.from("notifications").insert(notifRecord);
+        await supabase.from("notification_recipients").insert(recipientRecord);
+      }
+    }
+  } catch (err) {
+    console.warn("[PaymentStore] Supabase notification notice:", err);
+  }
+}
+
 export const paymentStore = {
   // =========================================================================
   // 1. CONFIGURATION MANAGEMENT
@@ -615,6 +688,26 @@ export const paymentStore = {
         }
       } catch {}
 
+      // 5. Send In-App Notification (Idempotent: payment-approved:{requestId})
+      sendPaymentNotification({
+        userId: request.userId,
+        requestId: request.id,
+        action: "APPROVED",
+        plan: request.plan,
+      }).catch((err) => console.warn("[PaymentStore] In-app notification error:", err));
+
+      // Optional Transactional Email (failure does NOT roll back approval)
+      try {
+        import("@/lib/notifications/providers/email-provider").then(({ transactionalEmailProvider }) => {
+          transactionalEmailProvider.sendTransactionalEmail({
+            to: request.userEmail,
+            subject: "Saarvi Pro Payment Approved",
+            text: `Hello,\n\nYour payment for Saarvi Pro (${request.plan}) has been verified and approved. Your Pro access is now active.\n\nThank you for choosing Saarvi!`,
+            idempotencyKey: `email-approved-${request.id}`,
+          }).catch(() => {});
+        }).catch(() => {});
+      } catch {}
+
       return {
         request: updatedRequest,
         subscription: subscriptionRecord,
@@ -633,115 +726,193 @@ export const paymentStore = {
     reason: string,
     actor: { id: string; email: string }
   ): PaymentRequestRecord {
-    const request = this.getPaymentRequestById(requestId);
-    if (!request) {
-      throw new Error(`Payment request "${requestId}" not found.`);
+    // Concurrency guard
+    if (activeApprovalLocks.has(requestId)) {
+      throw new Error("Review action is already in progress for this payment request.");
     }
 
-    if (request.status !== "PENDING_REVIEW") {
-      throw new Error(`Payment request cannot be rejected because its status is "${request.status}".`);
-    }
-
-    const cleanReason = reason.trim() || "Transaction reference could not be verified with the bank.";
-    const now = new Date().toISOString();
-
-    const updatedRequest: PaymentRequestRecord = {
-      ...request,
-      status: "REJECTED",
-      reviewedAt: now,
-      reviewedBy: actor.email,
-      reviewReason: cleanReason,
-      updatedAt: now,
-    };
+    activeApprovalLocks.add(requestId);
 
     try {
-      (MockStorageProvider as any).savePaymentRequest?.(updatedRequest);
-    } catch {}
-
-    const idx = runtimeRequests.findIndex((r) => r.id === requestId);
-    if (idx !== -1) runtimeRequests[idx] = updatedRequest;
-
-    // Audit logging
-    try {
-      MockStorageProvider.addAuditLog({
-        adminUserId: actor.id,
-        adminEmail: actor.email,
-        action: "PAYMENT_REJECTED",
-        targetType: "SYSTEM",
-        targetId: requestId,
-        metadata: {
-          referenceNumber: request.referenceNumber,
-          userId: request.userId,
-          userEmail: request.userEmail,
-          reason: cleanReason,
-        },
-      });
-    } catch {}
-
-    // Persist to Supabase manual_payment_requests
-    try {
-      const supabase = getSupabaseAdminClient();
-      if (supabase) {
-        supabase.from("manual_payment_requests").update({
-          status: "REJECTED",
-          reviewed_at: now,
-          reviewed_by: actor.email,
-          review_notes: cleanReason,
-          updated_at: now,
-        }).eq("id", requestId).then(
-          ({ error }) => {
-            if (error) console.warn("[Supabase manual_payment_requests reject error]:", error.message);
-          },
-          () => {}
-        );
+      const request = this.getPaymentRequestById(requestId);
+      if (!request) {
+        throw new Error(`Payment request "${requestId}" not found.`);
       }
-    } catch {}
 
-    return updatedRequest;
+      if (request.status !== "PENDING_REVIEW") {
+        throw new Error("This payment request has already been reviewed.");
+      }
+
+      const cleanReason = (reason || "").trim();
+      if (!cleanReason || cleanReason.length < 5) {
+        throw new Error("Rejection reason is required and must be at least 5 characters.");
+      }
+
+      const genericDisallowed = ["no", "invalid", "rejected", "na", "none", "false"];
+      if (genericDisallowed.includes(cleanReason.toLowerCase())) {
+        throw new Error("Please provide a specific rejection reason explaining why the payment could not be verified.");
+      }
+
+      const now = new Date().toISOString();
+
+      const updatedRequest: PaymentRequestRecord = {
+        ...request,
+        status: "REJECTED",
+        reviewedAt: now,
+        reviewedBy: actor.email,
+        reviewReason: cleanReason,
+        updatedAt: now,
+      };
+
+      try {
+        (MockStorageProvider as any).savePaymentRequest?.(updatedRequest);
+      } catch {}
+
+      const idx = runtimeRequests.findIndex((r) => r.id === requestId);
+      if (idx !== -1) runtimeRequests[idx] = updatedRequest;
+
+      // Audit logging
+      try {
+        MockStorageProvider.addAuditLog({
+          adminUserId: actor.id,
+          adminEmail: actor.email,
+          action: "PAYMENT_REJECTED",
+          targetType: "SYSTEM",
+          targetId: requestId,
+          metadata: {
+            referenceNumber: request.referenceNumber,
+            userId: request.userId,
+            userEmail: request.userEmail,
+            reason: cleanReason,
+          },
+        });
+      } catch {}
+
+      // Persist to Supabase manual_payment_requests
+      try {
+        const supabase = getSupabaseAdminClient();
+        if (supabase) {
+          supabase.from("manual_payment_requests").update({
+            status: "REJECTED",
+            reviewed_at: now,
+            reviewed_by: actor.email,
+            review_notes: cleanReason,
+            updated_at: now,
+          }).eq("id", requestId).then(
+            ({ error }) => {
+              if (error) console.warn("[Supabase manual_payment_requests reject error]:", error.message);
+            },
+            () => {}
+          );
+        }
+      } catch {}
+
+      // Send In-App Notification (Idempotent: payment-rejected:{requestId})
+      sendPaymentNotification({
+        userId: request.userId,
+        requestId: request.id,
+        action: "REJECTED",
+        reason: cleanReason,
+      }).catch((err) => console.warn("[PaymentStore] In-app rejection notification error:", err));
+
+      // Optional Transactional Email (failure does NOT roll back rejection)
+      try {
+        import("@/lib/notifications/providers/email-provider").then(({ transactionalEmailProvider }) => {
+          transactionalEmailProvider.sendTransactionalEmail({
+            to: request.userEmail,
+            subject: "Saarvi Payment Verification Update",
+            text: `Hello,\n\nYour payment request could not be approved.\n\nReason: ${cleanReason}\n\nIf you believe this was an error, please reach out to Saarvi support at support@saarvi.app with your transaction details.`,
+            idempotencyKey: `email-rejected-${request.id}`,
+          }).catch(() => {});
+        }).catch(() => {});
+      } catch {}
+
+      return updatedRequest;
+    } finally {
+      activeApprovalLocks.delete(requestId);
+    }
   },
 
   // =========================================================================
-  // 5. 2-HOUR SLA TRACKING HELPER
+  // 5. REAL 2-HOUR SLA TRACKING HELPER
   // =========================================================================
 
   calculateSlaStatus(
-    arg1: string | { submittedAt?: string; reviewDeadline?: string; slaDeadline?: string; reviewedAt?: string; createdAt?: string } | any,
+    arg1: string | { submittedAt?: string; reviewDeadline?: string; slaDeadline?: string; reviewedAt?: string; createdAt?: string; status?: string } | any,
     arg2?: string,
     arg3?: string
-  ): { isOverdue: boolean; label: string; minutesRemaining: number } {
-    let reviewDeadline: string;
+  ): {
+    state: "WITHIN_SLA" | "APPROACHING_SLA" | "SLA_EXCEEDED" | "REVIEWED";
+    stateLabel: "Within SLA" | "Approaching SLA" | "SLA exceeded" | "Reviewed";
+    isOverdue: boolean;
+    label: string;
+    minutesRemaining: number;
+    elapsedMinutes: number;
+  } {
+    let submittedAt: string;
     let reviewedAt: string | undefined;
+    let status: string | undefined;
 
     if (typeof arg1 === "object" && arg1 !== null) {
-      reviewDeadline = arg1.reviewDeadline || arg1.slaDeadline || new Date().toISOString();
+      submittedAt = arg1.submittedAt || arg1.createdAt || new Date().toISOString();
       reviewedAt = arg1.reviewedAt;
+      status = arg1.status;
     } else {
-      reviewDeadline = arg2 || new Date().toISOString();
+      submittedAt = arg1 || new Date().toISOString();
       reviewedAt = arg3;
     }
 
-    const deadlineMs = new Date(reviewDeadline).getTime();
-    const referenceMs = reviewedAt ? new Date(reviewedAt).getTime() : Date.now();
-    const diffMs = deadlineMs - referenceMs;
-
-    if (diffMs <= 0) {
-      const overdueMinutes = Math.floor(Math.abs(diffMs) / 60000);
-      const hours = Math.floor(overdueMinutes / 60);
-      const mins = overdueMinutes % 60;
+    if (status === "APPROVED" || status === "REJECTED" || reviewedAt) {
       return {
-        isOverdue: true,
-        label: `Overdue (${hours > 0 ? `${hours}h ` : ""}${mins}m)`,
+        state: "REVIEWED",
+        stateLabel: "Reviewed",
+        isOverdue: false,
+        label: "Reviewed",
         minutesRemaining: 0,
+        elapsedMinutes: 0,
       };
     }
 
-    const remainingMinutes = Math.floor(diffMs / 60000);
-    const hours = Math.floor(remainingMinutes / 60);
-    const mins = remainingMinutes % 60;
+    const submittedMs = new Date(submittedAt).getTime();
+    const nowMs = Date.now();
+    const elapsedMinutes = Math.max(0, Math.floor((nowMs - submittedMs) / 60000));
+    const slaTotalMinutes = 120; // 2-Hour SLA Target
+    const minutesRemaining = slaTotalMinutes - elapsedMinutes;
+
+    if (minutesRemaining <= 0) {
+      const overdueMins = Math.abs(minutesRemaining);
+      const hours = Math.floor(overdueMins / 60);
+      const mins = overdueMins % 60;
+      return {
+        state: "SLA_EXCEEDED",
+        stateLabel: "SLA exceeded",
+        isOverdue: true,
+        label: `SLA exceeded (${hours > 0 ? `${hours}h ` : ""}${mins}m overdue)`,
+        minutesRemaining: 0,
+        elapsedMinutes,
+      };
+    }
+
+    if (minutesRemaining <= 30) {
+      return {
+        state: "APPROACHING_SLA",
+        stateLabel: "Approaching SLA",
+        isOverdue: false,
+        label: `Approaching SLA (${minutesRemaining}m remaining)`,
+        minutesRemaining,
+        elapsedMinutes,
+      };
+    }
+
+    const hours = Math.floor(minutesRemaining / 60);
+    const mins = minutesRemaining % 60;
     return {
+      state: "WITHIN_SLA",
+      stateLabel: "Within SLA",
       isOverdue: false,
-      label: `Under Review (${hours > 0 ? `${hours}h ` : ""}${mins}m remaining)`,
-      minutesRemaining: remainingMinutes,
+      label: `Within SLA (${hours > 0 ? `${hours}h ` : ""}${mins}m remaining)`,
+      minutesRemaining,
+      elapsedMinutes,
     };
   },
 
