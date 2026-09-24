@@ -103,11 +103,9 @@ export default function AdvertisementGate() {
       } catch (e) {}
 
       try {
-        const res = await fetch('/api/advertising/active');
-        if (!res.ok) return;
-
-        const data: ActiveAdResponse = await res.json();
-        if (!isMounted) return;
+        const { getActiveAdvertisement } = await import('@/lib/api/request-coalesce');
+        const data: ActiveAdResponse | null = await getActiveAdvertisement();
+        if (!isMounted || !data) return;
 
         // Pro users are strictly exempt (showAd: false, isPro: true)
         if (!data.showAd || !data.ad) {

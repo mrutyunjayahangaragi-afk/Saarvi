@@ -39,25 +39,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     academicStorage.setActiveProfileId(user ? user.id : 'guest');
   }, [user]);
 
-  // Load profile helper
-  const loadProfile = useCallback(async (userId: string, email: string) => {
-    if (!isSupabaseConfigured()) {
-      const session = MockStorageProvider.getCurrentSession();
-      if (session && session.id === userId) {
-        setUser(session);
-        setProfile({
-          id: session.id,
-          fullName: session.fullName,
-          email: session.email,
-          role: session.role,
-          createdAt: session.createdAt,
-          updatedAt: session.createdAt,
-        });
+  // Keep a ref of user to avoid dependency on user in callbacks
+  const userRef = React.useRef<AuthSessionUser | null>(null);
+  userRef.current = user;
+
+  // Deduplication guard for in-flight profile queries
+  const profileLoadingRef = React.useRef<string | null>(null);
+
+  // Helper to update user state only if properties actually changed (preserves object reference)
+  const updateSessionUserIfChanged = useCallback((next: AuthSessionUser | null) => {
+    setUser((prev) => {
+      if (!prev && !next) return null;
+      if (
+        prev &&
+        next &&
+        prev.id === next.id &&
+        prev.email === next.email &&
+        prev.fullName === next.fullName &&
+        prev.role === next.role &&
+        prev.avatarUrl === next.avatarUrl
+      ) {
+        return prev;
       }
-      return;
-    }
+      return next;
+    });
+  }, []);
+
+  // Load profile helper — strictly stable with 0 outer dependencies
+  const loadProfile = useCallback(async (userId: string, email: string) => {
+    if (!userId) return;
+    if (profileLoadingRef.current === userId) return;
+    profileLoadingRef.current = userId;
 
     try {
+      if (!isSupabaseConfigured()) {
+        const session = MockStorageProvider.getCurrentSession();
+        if (session && session.id === userId) {
+          updateSessionUserIfChanged(session);
+          setProfile({
+            id: session.id,
+            fullName: session.fullName,
+            email: session.email,
+            role: session.role,
+            createdAt: session.createdAt,
+            updatedAt: session.createdAt,
+          });
+        }
+        return;
+      }
+
       const supabase = createClient();
       const { data, error } = await supabase
         .from('profiles')
@@ -70,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           data.avatar_url ||
           data.avatar_path ||
           (data as any).avatar ||
-          user?.avatarUrl;
+          userRef.current?.avatarUrl;
         setProfile({
           id: data.id,
           fullName: data.full_name || '',
@@ -80,22 +110,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           createdAt: data.created_at,
           updatedAt: data.updated_at,
         });
-        setUser((prev) =>
-          prev
-            ? {
-                ...prev,
-                fullName: data.full_name || prev.fullName,
-                avatarUrl: loadedAvatar || prev.avatarUrl,
-              }
-            : null
-        );
+        setUser((prev) => {
+          if (!prev) return null;
+          const nextName = data.full_name || prev.fullName;
+          const nextAvatar = loadedAvatar || prev.avatarUrl;
+          if (prev.fullName === nextName && prev.avatarUrl === nextAvatar) {
+            return prev;
+          }
+          return {
+            ...prev,
+            fullName: nextName,
+            avatarUrl: nextAvatar,
+          };
+        });
       }
     } catch (err) {
       console.warn('Could not fetch user profile:', err);
+    } finally {
+      profileLoadingRef.current = null;
     }
-  }, [user]);
+  }, [updateSessionUserIfChanged]);
 
-  // Initialize session on mount
+  // Initialize session ONCE on mount with single subscription lifecycle
   useEffect(() => {
     let mounted = true;
 
@@ -104,7 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const localSession = MockStorageProvider.getCurrentSession();
         if (mounted) {
           if (localSession) {
-            setUser(localSession);
+            updateSessionUserIfChanged(localSession);
             setProfile({
               id: localSession.id,
               fullName: localSession.fullName,
@@ -115,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               updatedAt: localSession.createdAt,
             });
           } else {
-            setUser(null);
+            updateSessionUserIfChanged(null);
             setProfile(null);
           }
           setIsLoading(false);
@@ -135,10 +171,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             role: 'USER',
             createdAt: session.user.created_at,
           };
-          setUser(authUser);
+          updateSessionUserIfChanged(authUser);
           await loadProfile(session.user.id, session.user.email || '');
         } else if (mounted) {
-          setUser(null);
+          updateSessionUserIfChanged(null);
           setProfile(null);
         }
       } catch (err) {
@@ -157,6 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const supabase = createClient();
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
         async (_event, session) => {
+          if (!mounted) return;
           if (session?.user) {
             const authUser: AuthSessionUser = {
               id: session.user.id,
@@ -165,10 +202,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               role: 'USER',
               createdAt: session.user.created_at,
             };
-            setUser(authUser);
+            updateSessionUserIfChanged(authUser);
             await loadProfile(session.user.id, session.user.email || '');
           } else {
-            setUser(null);
+            updateSessionUserIfChanged(null);
             setProfile(null);
           }
           setIsLoading(false);
@@ -184,7 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false;
     };
-  }, [loadProfile]);
+  }, [loadProfile, updateSessionUserIfChanged]);
 
   const signIn = async ({ email, password }: { email: string; password: string }) => {
     if (!isSupabaseConfigured()) {

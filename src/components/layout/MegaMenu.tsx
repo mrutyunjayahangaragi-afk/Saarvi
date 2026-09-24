@@ -39,12 +39,14 @@ import {
 } from "lucide-react";
 import {
   CANONICAL_TOOL_REGISTRY,
+  CANONICAL_TOOL_MAP,
   CanonicalTool,
   CanonicalToolCategory,
   getCanonicalToolsByCategory,
   resolveToolState
 } from "@/lib/tools/tool-registry";
 import { FeatureFlag } from "@/types/admin";
+import { getStartupFeatures, getStartupNavigation } from "@/lib/api/request-coalesce";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   FileText,
@@ -175,69 +177,65 @@ export default function MegaMenu({
   const [navCategories, setNavCategories] = useState<any[]>([]);
 
   useEffect(() => {
-    async function loadFlags() {
+    let mounted = true;
+    async function loadData() {
       try {
-        const res = await fetch("/api/features", { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.flags && Array.isArray(data.flags)) {
-            const map: Record<string, FeatureFlag> = {};
-            for (const f of data.flags) {
-              map[f.id] = f;
-              map[f.key] = f;
-            }
-            setFeatureFlags(map);
+        const [flagsRes, navRes] = await Promise.all([
+          getStartupFeatures(),
+          getStartupNavigation(),
+        ]);
+        if (!mounted) return;
+        if (flagsRes?.flags && Array.isArray(flagsRes.flags)) {
+          const map: Record<string, FeatureFlag> = {};
+          for (const f of flagsRes.flags) {
+            map[f.id] = f;
+            map[f.key] = f;
           }
+          setFeatureFlags(map);
         }
-      } catch {
-        // Fallback to defaults
-      }
+        if (navRes?.categories && Array.isArray(navRes.categories)) {
+          setNavCategories(navRes.categories);
+        }
+      } catch {}
     }
 
-    async function loadNavigation() {
-      try {
-        const res = await fetch("/api/navigation", { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.categories && Array.isArray(data.categories)) {
-            setNavCategories(data.categories);
-          }
-        }
-      } catch {
-        // Fallback to registry
-      }
-    }
-
-    loadFlags();
-    loadNavigation();
+    loadData();
+    return () => {
+      mounted = false;
+    };
   }, []);
+
+  const { pdfTools, imageTools, academicTools, studentTools, careerTools, aiTools } = React.useMemo(() => {
+    const getTools = (catId: string, fallbackTools: CanonicalTool[]): CanonicalTool[] => {
+      const cat = navCategories.find((c: any) => c.id === catId);
+      if (!cat || !cat.tools || cat.tools.length === 0) {
+        return fallbackTools;
+      }
+      return cat.tools
+        .filter((t: any) => t.visibleInMegaMenu !== false && t.status !== 'DISABLED')
+        .map((t: any) => {
+          const canonical = CANONICAL_TOOL_MAP.get(t.key) || CANONICAL_TOOL_REGISTRY.find((c) => c.key === t.key);
+          if (!canonical) return null;
+          return {
+            ...canonical,
+            badge: t.badge !== undefined ? t.badge : canonical.badge,
+          };
+        })
+        .filter(Boolean) as CanonicalTool[];
+    };
+
+    return {
+      pdfTools: getTools("pdf", getCanonicalToolsByCategory("pdf")),
+      imageTools: getTools("image", getCanonicalToolsByCategory("image")),
+      academicTools: getTools("academic", getCanonicalToolsByCategory("academic")),
+      studentTools: getTools("student", getCanonicalToolsByCategory("student")),
+      careerTools: getTools("career", getCanonicalToolsByCategory("career")),
+      aiTools: getTools("ai", getCanonicalToolsByCategory("ai")),
+    };
+  }, [navCategories]);
 
   if (!activeCategory) return null;
 
-  const getToolsForCategory = (catId: string, fallbackTools: CanonicalTool[]): CanonicalTool[] => {
-    const cat = navCategories.find((c: any) => c.id === catId);
-    if (!cat || !cat.tools || cat.tools.length === 0) {
-      return fallbackTools;
-    }
-    return cat.tools
-      .filter((t: any) => t.visibleInMegaMenu !== false && t.status !== 'DISABLED')
-      .map((t: any) => {
-        const canonical = CANONICAL_TOOL_REGISTRY.find((c) => c.key === t.key);
-        if (!canonical) return null;
-        return {
-          ...canonical,
-          badge: t.badge !== undefined ? t.badge : canonical.badge,
-        };
-      })
-      .filter(Boolean) as CanonicalTool[];
-  };
-
-  const pdfTools = getToolsForCategory("pdf", getCanonicalToolsByCategory("pdf"));
-  const imageTools = getToolsForCategory("image", getCanonicalToolsByCategory("image"));
-  const academicTools = getToolsForCategory("academic", getCanonicalToolsByCategory("academic"));
-  const studentTools = getToolsForCategory("student", getCanonicalToolsByCategory("student"));
-  const careerTools = getToolsForCategory("career", getCanonicalToolsByCategory("career"));
-  const aiTools = getToolsForCategory("ai", getCanonicalToolsByCategory("ai"));
 
   return (
     <div

@@ -979,21 +979,43 @@ export const CANONICAL_TOOL_REGISTRY: CanonicalTool[] = [
   },
 ];
 
+// Pre-indexed lookup maps for instant O(1) queries without main-thread linear scans
+export const CANONICAL_TOOL_MAP = new Map<string, CanonicalTool>();
+for (const tool of CANONICAL_TOOL_REGISTRY) {
+  CANONICAL_TOOL_MAP.set(tool.key, tool);
+  if (tool.featureFlagKey && !CANONICAL_TOOL_MAP.has(tool.featureFlagKey)) {
+    CANONICAL_TOOL_MAP.set(tool.featureFlagKey, tool);
+  }
+}
+
+const CATEGORY_TOOLS_CACHE = new Map<CanonicalToolCategory, CanonicalTool[]>();
+for (const cat of CANONICAL_TOOL_CATEGORIES) {
+  CATEGORY_TOOLS_CACHE.set(
+    cat.id,
+    Object.freeze(CANONICAL_TOOL_REGISTRY.filter((t) => t.category === cat.id)) as CanonicalTool[]
+  );
+}
+
+const ROUTE_TOOLS_CACHE = new Map<string, CanonicalTool>();
+for (const tool of CANONICAL_TOOL_REGISTRY) {
+  ROUTE_TOOLS_CACHE.set(tool.route, tool);
+}
+
 // Helper query functions
 export function getAllCanonicalTools(): CanonicalTool[] {
   return CANONICAL_TOOL_REGISTRY;
 }
 
 export function getCanonicalToolByKey(key: string): CanonicalTool | undefined {
-  return CANONICAL_TOOL_REGISTRY.find((t) => t.key === key || t.featureFlagKey === key);
+  return CANONICAL_TOOL_MAP.get(key);
 }
 
 export function getCanonicalToolByRoute(route: string): CanonicalTool | undefined {
-  return CANONICAL_TOOL_REGISTRY.find((t) => t.route === route);
+  return ROUTE_TOOLS_CACHE.get(route);
 }
 
 export function getCanonicalToolsByCategory(category: CanonicalToolCategory): CanonicalTool[] {
-  return CANONICAL_TOOL_REGISTRY.filter((t) => t.category === category);
+  return CATEGORY_TOOLS_CACHE.get(category) || [];
 }
 
 export interface ResolvedToolState {

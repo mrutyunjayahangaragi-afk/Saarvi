@@ -177,3 +177,55 @@ export function getCacheDiagnostics(): {
     totalCached: memoryCache.size,
   };
 }
+
+/**
+ * Cached, deduplicated fetcher for Feature Flags across Navbar, MegaMenu, CommandSearch.
+ */
+export async function getStartupFeatures(): Promise<{ flags: any[] }> {
+  return swrFetch('startup:features', async () => {
+    const res = await fetch('/api/features');
+    if (!res.ok) return { flags: [] };
+    const data = await res.json();
+    return { flags: Array.isArray(data.flags) ? data.flags : [] };
+  }, { ttlMs: 60_000 });
+}
+
+/**
+ * Cached, deduplicated fetcher for Navigation Categories across Navbar and MegaMenu.
+ */
+export async function getStartupNavigation(): Promise<{ categories: any[] }> {
+  return swrFetch('startup:navigation', async () => {
+    const res = await fetch('/api/navigation');
+    if (!res.ok) return { categories: [] };
+    const data = await res.json();
+    return { categories: Array.isArray(data.categories) ? data.categories : [] };
+  }, { ttlMs: 60_000 });
+}
+
+/**
+ * Cached, deduplicated fetcher for Jobs & Internships feature control state.
+ */
+export async function getJobsFeatureControl(force = false): Promise<{
+  navbar_visible: boolean;
+  search_visible: boolean;
+  mode: string;
+  enabled: boolean;
+}> {
+  return swrFetch('startup:jobs-feature-control', async () => {
+    const res = await fetch('/api/jobs/feature-control');
+    if (!res.ok) return { navbar_visible: true, search_visible: true, mode: 'ENABLED', enabled: true };
+    return res.json();
+  }, { ttlMs: 30_000, force });
+}
+
+/**
+ * Cached, deduplicated fetcher for Active Advertisement.
+ */
+export async function getActiveAdvertisement(): Promise<any | null> {
+  return swrFetch('startup:active-ad', async () => {
+    const res = await fetch('/api/advertising/active');
+    if (!res.ok) return null;
+    return res.json();
+  }, { ttlMs: 60_000 });
+}
+

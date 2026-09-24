@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, KeyboardEvent } from "react";
+import { useState, useRef, useEffect, useMemo, KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -19,6 +19,7 @@ import {
   resolveToolState
 } from "@/lib/tools/tool-registry";
 import { FeatureFlag } from "@/types/admin";
+import { getStartupFeatures } from "@/lib/api/request-coalesce";
 
 export default function CommandSearch() {
   const [query, setQuery] = useState("");
@@ -30,43 +31,51 @@ export default function CommandSearch() {
   const router = useRouter();
 
   useEffect(() => {
+    let mounted = true;
     async function loadFlags() {
       try {
-        const res = await fetch("/api/features", { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.flags && Array.isArray(data.flags)) {
-            const map: Record<string, FeatureFlag> = {};
-            for (const f of data.flags) {
-              map[f.id] = f;
-              map[f.key] = f;
-            }
-            setFeatureFlags(map);
+        const res = await getStartupFeatures();
+        if (!mounted) return;
+        if (res.flags && Array.isArray(res.flags)) {
+          const map: Record<string, FeatureFlag> = {};
+          for (const f of res.flags) {
+            map[f.id] = f;
+            map[f.key] = f;
           }
+          setFeatureFlags(map);
         }
       } catch {}
     }
     loadFlags();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  // Filter tools based on query & omit disabled tools
-  const availableTools = CANONICAL_TOOL_REGISTRY.filter((t) => {
-    const flag = featureFlags[t.featureFlagKey] || featureFlags[t.key];
-    if (flag && flag.status === "DISABLED") return false;
-    return true;
-  });
+  // Filter tools based on query & omit disabled tools (memoized to avoid re-calculating on unrelated renders)
+  const availableTools = useMemo(() => {
+    return CANONICAL_TOOL_REGISTRY.filter((t) => {
+      const flag = featureFlags[t.featureFlagKey] || featureFlags[t.key];
+      if (flag && flag.status === "DISABLED") return false;
+      return true;
+    });
+  }, [featureFlags]);
 
-  const filteredTools = query.trim()
-    ? availableTools.filter((t) => {
-        const q = query.toLowerCase();
-        return (
-          t.name.toLowerCase().includes(q) ||
-          t.description.toLowerCase().includes(q) ||
-          t.category.toLowerCase().includes(q) ||
-          (t.keywords && t.keywords.some((k) => k.toLowerCase().includes(q)))
-        );
-      })
-    : availableTools.slice(0, 6); // default popular preview
+  const filteredTools = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) {
+      return availableTools.slice(0, 6); // default popular preview
+    }
+    return availableTools.filter((t) => {
+      return (
+        t.name.toLowerCase().includes(q) ||
+        t.description.toLowerCase().includes(q) ||
+        t.category.toLowerCase().includes(q) ||
+        (t.keywords && t.keywords.some((k) => k.toLowerCase().includes(q)))
+      );
+    });
+  }, [query, availableTools]);
+
 
   // Close dropdown on click outside
   useEffect(() => {

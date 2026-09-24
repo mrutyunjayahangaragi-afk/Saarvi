@@ -32,6 +32,8 @@ import MegaMenu, { ActiveMenuCategory } from "./MegaMenu";
 import GlobalSearchModal from "@/components/tools/GlobalSearchModal";
 import AnnouncementBanner from "./AnnouncementBanner";
 
+import { getStartupNavigation, getJobsFeatureControl } from "@/lib/api/request-coalesce";
+
 export default function Navbar() {
   const { user, profile, signOut, isLoading } = useAuth();
   const { appName, tagline } = usePlatform();
@@ -47,21 +49,23 @@ export default function Navbar() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [jobsNavbarVisible, setJobsNavbarVisible] = useState(true);
 
-  // Sync Jobs & Internships navbar visibility from feature control
+  // Sync Jobs & Internships navbar visibility from feature control with SWR cache
   useEffect(() => {
-    async function checkJobsNavbar() {
+    let mounted = true;
+    let lastFocusCheck = 0;
+
+    async function checkJobsNavbar(force = false) {
       try {
-        const res = await fetch('/api/jobs/feature-control');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.navbar_visible === false || data.mode === 'DISABLED' || data.enabled === false) {
-            setJobsNavbarVisible(false);
-          } else {
-            setJobsNavbarVisible(true);
-          }
+        const data = await getJobsFeatureControl(force);
+        if (!mounted) return;
+        if (data.navbar_visible === false || data.mode === 'DISABLED' || data.enabled === false) {
+          setJobsNavbarVisible(false);
+        } else {
+          setJobsNavbarVisible(true);
         }
       } catch {}
     }
+
     checkJobsNavbar();
 
     const handleFeatureChanged = (e: any) => {
@@ -73,15 +77,25 @@ export default function Navbar() {
           setJobsNavbarVisible(true);
         }
       } else {
+        checkJobsNavbar(true);
+      }
+    };
+
+    // Throttle focus handler to at most once per 15s to prevent focus thrashing
+    const onWindowFocus = () => {
+      const now = Date.now();
+      if (now - lastFocusCheck > 15_000) {
+        lastFocusCheck = now;
         checkJobsNavbar();
       }
     };
 
     window.addEventListener('saarvi:jobs-feature-changed', handleFeatureChanged);
-    window.addEventListener('focus', checkJobsNavbar);
+    window.addEventListener('focus', onWindowFocus);
     return () => {
+      mounted = false;
       window.removeEventListener('saarvi:jobs-feature-changed', handleFeatureChanged);
-      window.removeEventListener('focus', checkJobsNavbar);
+      window.removeEventListener('focus', onWindowFocus);
     };
   }, []);
 
@@ -98,19 +112,21 @@ export default function Navbar() {
     }
   }, []);
 
+  // Coalesced & cached navigation categories loading
   useEffect(() => {
+    let mounted = true;
     async function loadNav() {
       try {
-        const res = await fetch('/api/navigation');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.categories) {
-            setNavCategories(data.categories);
-          }
+        const data = await getStartupNavigation();
+        if (mounted && data.categories) {
+          setNavCategories(data.categories);
         }
       } catch {}
     }
     loadNav();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -119,6 +135,7 @@ export default function Navbar() {
       return;
     }
     let isCancelled = false;
+    let lastFocusFetch = 0;
 
     const fetchUnread = async () => {
       try {
@@ -149,9 +166,15 @@ export default function Navbar() {
 
     fetchUnread();
 
-    // Refresh on window focus and every 30 seconds
+    // Refresh periodically every 30 seconds and throttled on window focus (min 15s)
     const interval = setInterval(fetchUnread, 30000);
-    const onFocus = () => fetchUnread();
+    const onFocus = () => {
+      const now = Date.now();
+      if (now - lastFocusFetch > 15_000) {
+        lastFocusFetch = now;
+        fetchUnread();
+      }
+    };
     window.addEventListener('focus', onFocus);
 
     return () => {
@@ -159,7 +182,7 @@ export default function Navbar() {
       clearInterval(interval);
       window.removeEventListener('focus', onFocus);
     };
-  }, [user]);
+  }, [user?.id]);
 
   const handleToolClick = (toolId: string, category: string) => {
     try {

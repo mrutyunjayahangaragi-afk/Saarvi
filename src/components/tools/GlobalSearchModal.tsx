@@ -61,21 +61,23 @@ export default function GlobalSearchModal({
 
   const [jobsSearchVisible, setJobsSearchVisible] = useState(true);
 
-  // Check Jobs & Internships feature control search visibility
+  // Check Jobs & Internships feature control search visibility with SWR cache
   useEffect(() => {
-    async function checkSearchVisibility() {
+    let mounted = true;
+
+    async function checkSearchVisibility(force = false) {
       try {
-        const res = await fetch('/api/jobs/feature-control');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.search_visible === false || data.mode === 'DISABLED' || data.enabled === false) {
-            setJobsSearchVisible(false);
-          } else {
-            setJobsSearchVisible(true);
-          }
+        const { getJobsFeatureControl } = await import('@/lib/api/request-coalesce');
+        const data = await getJobsFeatureControl(force);
+        if (!mounted) return;
+        if (data.search_visible === false || data.mode === 'DISABLED' || data.enabled === false) {
+          setJobsSearchVisible(false);
+        } else {
+          setJobsSearchVisible(true);
         }
       } catch {}
     }
+
     if (isOpen) {
       checkSearchVisibility();
     }
@@ -89,12 +91,13 @@ export default function GlobalSearchModal({
           setJobsSearchVisible(true);
         }
       } else {
-        checkSearchVisibility();
+        checkSearchVisibility(true);
       }
     };
 
     window.addEventListener('saarvi:jobs-feature-changed', handleFeatureChanged);
     return () => {
+      mounted = false;
       window.removeEventListener('saarvi:jobs-feature-changed', handleFeatureChanged);
     };
   }, [isOpen]);

@@ -167,16 +167,18 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
       // keep defaults
     }
 
-    // 2. Background reconcile against API (does NOT trigger re-runs)
+    // 2. Background reconcile against API with request deduplication (does NOT trigger re-runs)
     try {
-      const res = await fetch('/api/platform/settings', { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.platform || data.seo) {
-          const p = data.platform ?? platformRef.current;
-          const s = data.seo ?? seoRef.current;
-          applySettings(p, s);
-        }
+      const { coalesceRequest } = await import('@/lib/api/request-coalesce');
+      const data = await coalesceRequest('platform:settings', async () => {
+        const res = await fetch('/api/platform/settings');
+        if (!res.ok) return null;
+        return res.json();
+      });
+      if (data && (data.platform || data.seo)) {
+        const p = data.platform ?? platformRef.current;
+        const s = data.seo ?? seoRef.current;
+        applySettings(p, s);
       }
     } catch {
       // network unavailable — local settings are already active
