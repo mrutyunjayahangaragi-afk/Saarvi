@@ -28,6 +28,7 @@ export default function BillingDashboardPage() {
 
   const [subscription, setSubscription] = useState<SubscriptionRecord | null>(null);
   const [invoices, setInvoices] = useState<BillingInvoiceRecord[]>([]);
+  const [paymentOrders, setPaymentOrders] = useState<any[]>([]);
   const [paymentRequests, setPaymentRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
@@ -47,6 +48,7 @@ export default function BillingDashboardPage() {
         const data = await subRes.json();
         setSubscription(data.subscription || null);
         setInvoices(data.invoices || []);
+        setPaymentOrders(data.paymentOrders || data.data?.paymentOrders || []);
       }
 
       if (upiRes.ok) {
@@ -382,46 +384,89 @@ export default function BillingDashboardPage() {
         )}
       </div>
 
-      {/* Payment & Invoice History */}
+      {/* Payment & Order History */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-4 shadow-xs">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Receipt className="w-4 h-4 text-slate-500" />
-              <span>Payment &amp; Invoice History</span>
+              <span>Razorpay Payments &amp; Billing History</span>
             </h3>
             <p className="text-xs text-slate-500">
-              Provider-backed records of subscription charges.
+              Authoritative transaction records, gateway references, and receipts.
             </p>
           </div>
         </div>
 
-        {invoices.length > 0 ? (
+        {paymentOrders.length > 0 || invoices.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/60 text-slate-700 font-bold uppercase tracking-wider text-[10px]">
                   <th className="p-3">Date</th>
-                  <th className="p-3">Reference</th>
+                  <th className="p-3">Plan / Description</th>
                   <th className="p-3">Amount</th>
+                  <th className="p-3">Gateway Reference</th>
                   <th className="p-3 text-center">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-600">
+                {paymentOrders.map((ord) => {
+                  const isPaid = ord.status === 'paid';
+                  const isFailed = ord.status === 'failed';
+                  return (
+                    <tr key={ord.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="p-3 font-medium text-slate-800">
+                        {new Date(ord.paidAt || ord.createdAt).toLocaleDateString(undefined, {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </td>
+                      <td className="p-3 font-semibold text-slate-900">
+                        Saarvi Pro ({ord.billingInterval === 'yearly' ? 'Yearly' : 'Monthly'})
+                      </td>
+                      <td className="p-3 font-bold text-slate-900">
+                        ₹{(ord.amountCents / 100).toFixed(0)} {ord.currency || 'INR'}
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-slate-500">
+                        {ord.providerPaymentId || ord.providerOrderId}
+                      </td>
+                      <td className="p-3 text-center">
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${
+                            isPaid
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : isFailed
+                              ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}
+                        >
+                          {isPaid ? 'Successful' : ord.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {invoices.map((inv) => (
                   <tr key={inv.id} className="hover:bg-slate-50/60 transition-colors">
                     <td className="p-3 font-medium text-slate-800">
-                      {new Date(inv.paidAt).toLocaleDateString()}
+                      {new Date(inv.paidAt).toLocaleDateString(undefined, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      })}
                     </td>
-                    <td className="p-3 font-mono text-slate-500">
-                      {inv.providerInvoiceId}
-                    </td>
+                    <td className="p-3 font-semibold text-slate-900">Saarvi Pro Subscription</td>
                     <td className="p-3 font-bold text-slate-900">
-                      ₹{(inv.amountPaid / 100).toFixed(2)} {inv.currency}
+                      ₹{(inv.amountPaid / 100).toFixed(0)} {inv.currency}
+                    </td>
+                    <td className="p-3 font-mono text-[11px] text-slate-500">
+                      {inv.providerInvoiceId}
                     </td>
                     <td className="p-3 text-center">
                       <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
-                        {inv.status}
+                        Successful
                       </span>
                     </td>
                   </tr>
@@ -432,8 +477,8 @@ export default function BillingDashboardPage() {
         ) : (
           <div className="py-8 text-center text-xs text-slate-400 space-y-1 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
             <FileText className="w-6 h-6 mx-auto text-slate-300" />
-            <p className="font-medium text-slate-600">No payment invoices yet</p>
-            <p className="text-[11px]">Invoices will appear here once recurring subscription payments are confirmed.</p>
+            <p className="font-medium text-slate-600">No payment records yet</p>
+            <p className="text-[11px]">Payments completed via Razorpay checkout will appear here.</p>
           </div>
         )}
       </div>

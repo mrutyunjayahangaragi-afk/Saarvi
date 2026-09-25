@@ -1950,6 +1950,10 @@ export const MockStorageProvider = {
     return all.filter((o) => o.userId === userId);
   },
 
+  getAllPaymentOrders(): RazorpayPaymentOrder[] {
+    return getStored<RazorpayPaymentOrder[]>(STORAGE_KEYS.PAYMENT_ORDERS, []);
+  },
+
   updatePaymentOrderStatus(
     orderId: string,
     status: RazorpayPaymentOrderStatus,

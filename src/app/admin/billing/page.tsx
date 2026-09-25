@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   TrendingUp,
   Users,
+  ArrowRight,
   AlertTriangle,
   Clock,
   RefreshCw,
@@ -36,7 +37,7 @@ import { MockStorageProvider } from '@/lib/supabase/mock-storage';
 import { useAuth } from '@/context/AuthContext';
 import { resolvePaymentQrImage } from '@/lib/billing/qr-resolver';
 
-type AdminTab = 'REQUESTS' | 'SETTINGS' | 'SUBSCRIPTIONS';
+type AdminTab = 'OVERVIEW' | 'RAZORPAY' | 'REQUESTS' | 'PLANS' | 'ENTITLEMENTS' | 'SETTINGS';
 type StatusFilterType = 'ALL' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'SLA_APPROACHING' | 'SLA_EXCEEDED';
 
 interface PaymentRequestItem {
@@ -80,7 +81,7 @@ export default function AdminBillingPage() {
   const { user, profile } = useAuth();
   const isSuperAdmin = profile?.role === 'SUPER_ADMIN' || user?.role === 'SUPER_ADMIN';
 
-  const [activeTab, setActiveTab] = useState<AdminTab>('REQUESTS');
+  const [activeTab, setActiveTab] = useState<AdminTab>('OVERVIEW');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -89,11 +90,13 @@ export default function AdminBillingPage() {
   // Data states
   const [paymentRequests, setPaymentRequests] = useState<PaymentRequestItem[]>([]);
   const [requestMetrics, setRequestMetrics] = useState<any>({ total: 0, pending: 0, approved: 0, rejected: 0, overdue: 0 });
+  const [razorpayOrders, setRazorpayOrders] = useState<any[]>([]);
+  const [orderMetrics, setOrderMetrics] = useState<any>(null);
   const [config, setConfig] = useState<PaymentConfigForm>({
     upiId: 'saarvi@upi',
     payeeName: 'Saarvi Educational Services',
-    amountMonthly: 49,
-    amountYearly: 399,
+    amountMonthly: 99,
+    amountYearly: 899,
     currency: 'INR',
     reviewSlaHours: 2,
     instructions: '',
@@ -109,6 +112,11 @@ export default function AdminBillingPage() {
   const [planFilter, setPlanFilter] = useState<'ALL' | 'MONTHLY' | 'YEARLY'>('ALL');
   const [page, setPage] = useState(1);
   const pageSize = 10;
+
+  // Razorpay Filter & Detail Modal states
+  const [orderSearch, setOrderSearch] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState<'ALL' | 'paid' | 'created' | 'failed'>('ALL');
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
 
   // Review Modals
   const [selectedRequest, setSelectedRequest] = useState<PaymentRequestItem | null>(null);
@@ -146,6 +154,16 @@ export default function AdminBillingPage() {
       const allInvoices = MockStorageProvider.getInvoices();
       setSubscriptions(allSubs);
       setInvoices(allInvoices);
+
+      // 4. Fetch Razorpay Orders & Metrics
+      const ordersRes = await fetch('/api/admin/billing/orders');
+      if (ordersRes.ok) {
+        const ordersData = await ordersRes.json();
+        if (ordersData.success && ordersData.data) {
+          setRazorpayOrders(ordersData.data.orders || []);
+          setOrderMetrics(ordersData.data.metrics || null);
+        }
+      }
     } catch (err) {
       console.warn('Failed to load admin billing data:', err);
     } finally {
@@ -235,6 +253,21 @@ export default function AdminBillingPage() {
     const start = (page - 1) * pageSize;
     return filteredRequests.slice(start, start + pageSize);
   }, [filteredRequests, page, pageSize]);
+
+  // Filtered Razorpay orders
+  const filteredOrders = useMemo(() => {
+    return razorpayOrders.filter((ord) => {
+      const matchesStatus =
+        orderStatusFilter === 'ALL' || ord.status === orderStatusFilter;
+      const q = orderSearch.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        (ord.userEmail && ord.userEmail.toLowerCase().includes(q)) ||
+        (ord.providerOrderId && ord.providerOrderId.toLowerCase().includes(q)) ||
+        (ord.providerPaymentId && ord.providerPaymentId.toLowerCase().includes(q));
+      return matchesStatus && matchesSearch;
+    });
+  }, [razorpayOrders, orderStatusFilter, orderSearch]);
 
   // Handle Review Action (Approve / Reject)
   const handleReviewAction = async (action: 'APPROVE' | 'REJECT') => {
@@ -495,19 +528,54 @@ export default function AdminBillingPage() {
       </div>
 
       {/* Main Navigation Tabs */}
-      <div className="flex border-b border-slate-200 gap-6">
+      <div className="flex border-b border-slate-200 gap-4 sm:gap-6 overflow-x-auto scrollbar-none">
+        <button
+          type="button"
+          onClick={() => setActiveTab('OVERVIEW')}
+          className={`pb-3 text-xs sm:text-sm font-bold transition-all relative whitespace-nowrap cursor-pointer ${
+            activeTab === 'OVERVIEW'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <span className="flex items-center gap-1.5 sm:gap-2">
+            <TrendingUp className="w-4 h-4" />
+            <span>Overview</span>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('RAZORPAY')}
+          className={`pb-3 text-xs sm:text-sm font-bold transition-all relative whitespace-nowrap cursor-pointer ${
+            activeTab === 'RAZORPAY'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <span className="flex items-center gap-1.5 sm:gap-2">
+            <CreditCard className="w-4 h-4" />
+            <span>Razorpay Payments</span>
+            {razorpayOrders.length > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-black">
+                {razorpayOrders.length}
+              </span>
+            )}
+          </span>
+        </button>
+
         <button
           type="button"
           onClick={() => setActiveTab('REQUESTS')}
-          className={`pb-3 text-sm font-bold transition-all relative ${
+          className={`pb-3 text-xs sm:text-sm font-bold transition-all relative whitespace-nowrap cursor-pointer ${
             activeTab === 'REQUESTS'
               ? 'text-blue-600 border-b-2 border-blue-600'
               : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-1.5 sm:gap-2">
             <Clock className="w-4 h-4" />
-            <span>Payment Requests</span>
+            <span>Manual UPI Requests</span>
             {requestMetrics.pending > 0 && (
               <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black">
                 {requestMetrics.pending}
@@ -518,34 +586,370 @@ export default function AdminBillingPage() {
 
         <button
           type="button"
-          onClick={() => setActiveTab('SETTINGS')}
-          className={`pb-3 text-sm font-bold transition-all relative ${
-            activeTab === 'SETTINGS'
+          onClick={() => setActiveTab('PLANS')}
+          className={`pb-3 text-xs sm:text-sm font-bold transition-all relative whitespace-nowrap cursor-pointer ${
+            activeTab === 'PLANS'
               ? 'text-blue-600 border-b-2 border-blue-600'
               : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          <span className="flex items-center gap-2">
-            <Settings className="w-4 h-4" />
-            <span>Payment Settings &amp; QR</span>
+          <span className="flex items-center gap-1.5 sm:gap-2">
+            <Sparkles className="w-4 h-4" />
+            <span>Plans &amp; Pricing</span>
           </span>
         </button>
 
         <button
           type="button"
-          onClick={() => setActiveTab('SUBSCRIPTIONS')}
-          className={`pb-3 text-sm font-bold transition-all relative ${
-            activeTab === 'SUBSCRIPTIONS'
+          onClick={() => setActiveTab('ENTITLEMENTS')}
+          className={`pb-3 text-xs sm:text-sm font-bold transition-all relative whitespace-nowrap cursor-pointer ${
+            activeTab === 'ENTITLEMENTS'
               ? 'text-blue-600 border-b-2 border-blue-600'
               : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          <span className="flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            <span>Subscriptions &amp; Invoices</span>
+          <span className="flex items-center gap-1.5 sm:gap-2">
+            <ShieldCheck className="w-4 h-4" />
+            <span>User Entitlements</span>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('SETTINGS')}
+          className={`pb-3 text-xs sm:text-sm font-bold transition-all relative whitespace-nowrap cursor-pointer ${
+            activeTab === 'SETTINGS'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <span className="flex items-center gap-1.5 sm:gap-2">
+            <Settings className="w-4 h-4" />
+            <span>Settings &amp; QR</span>
           </span>
         </button>
       </div>
+
+      {/* TAB: OVERVIEW */}
+      {activeTab === 'OVERVIEW' && (
+        <div className="space-y-6">
+          {/* Revenue & Growth Summary */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+                <span>Today&apos;s Revenue</span>
+                <span className="p-1.5 rounded-xl bg-blue-50 text-blue-600">
+                  <TrendingUp className="w-4 h-4" />
+                </span>
+              </div>
+              <div className="text-2xl font-black text-slate-900">
+                ₹{orderMetrics?.todayRevenueRupees || 0}
+              </div>
+              <div className="text-[11px] text-slate-500">
+                {orderMetrics?.todayOrdersCount || 0} orders placed today
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+                <span>Total Volume</span>
+                <span className="p-1.5 rounded-xl bg-emerald-50 text-emerald-600">
+                  <CheckCircle2 className="w-4 h-4" />
+                </span>
+              </div>
+              <div className="text-2xl font-black text-slate-900">
+                ₹{orderMetrics?.totalRevenueRupees || 0}
+              </div>
+              <div className="text-[11px] text-emerald-700 font-medium">
+                {orderMetrics?.paidOrders || 0} verified successful orders
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+                <span>Active Pro Users</span>
+                <span className="p-1.5 rounded-xl bg-purple-50 text-purple-600">
+                  <Sparkles className="w-4 h-4" />
+                </span>
+              </div>
+              <div className="text-2xl font-black text-slate-900">
+                {subscriptions.filter((s) => s.status === 'ACTIVE' && (!s.currentPeriodEnd || new Date(s.currentPeriodEnd).getTime() > Date.now())).length}
+              </div>
+              <div className="text-[11px] text-purple-700 font-medium">
+                Server-authoritative Pro rights
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+                <span>Pending Manual Review</span>
+                <span className="p-1.5 rounded-xl bg-amber-50 text-amber-600">
+                  <Clock className="w-4 h-4" />
+                </span>
+              </div>
+              <div className="text-2xl font-black text-slate-900">
+                {requestMetrics.pending || 0}
+              </div>
+              <div className="text-[11px] text-amber-700 font-medium">
+                {requestMetrics.overdue > 0 ? `${requestMetrics.overdue} requests exceed SLA` : 'Within 2-hr target'}
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation Hub */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div
+              onClick={() => setActiveTab('RAZORPAY')}
+              className="bg-gradient-to-br from-white to-blue-50/40 p-6 rounded-3xl border border-blue-200/80 shadow-xs hover:shadow-md transition-all cursor-pointer space-y-3 group"
+            >
+              <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform">
+                <CreditCard className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-900 text-sm flex items-center justify-between">
+                  <span>Razorpay Standard Orders</span>
+                  <ArrowRight className="w-4 h-4 text-blue-600 group-hover:translate-x-1 transition-transform" />
+                </h4>
+                <p className="text-xs text-slate-500 mt-1">
+                  Inspect server orders, payment IDs, verification signatures, and live gateway captures.
+                </p>
+              </div>
+              <div className="text-[11px] font-bold text-blue-700 pt-2 border-t border-blue-100 flex items-center justify-between">
+                <span>Total Orders Recorded:</span>
+                <span>{razorpayOrders.length}</span>
+              </div>
+            </div>
+
+            <div
+              onClick={() => setActiveTab('REQUESTS')}
+              className="bg-gradient-to-br from-white to-amber-50/40 p-6 rounded-3xl border border-amber-200/80 shadow-xs hover:shadow-md transition-all cursor-pointer space-y-3 group"
+            >
+              <div className="w-10 h-10 rounded-2xl bg-amber-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-900 text-sm flex items-center justify-between">
+                  <span>Manual UPI Review Queue</span>
+                  <ArrowRight className="w-4 h-4 text-amber-600 group-hover:translate-x-1 transition-transform" />
+                </h4>
+                <p className="text-xs text-slate-500 mt-1">
+                  Review student UTR submissions, match banking transactions, and grant or reject Pro.
+                </p>
+              </div>
+              <div className="text-[11px] font-bold text-amber-700 pt-2 border-t border-amber-100 flex items-center justify-between">
+                <span>Awaiting Review:</span>
+                <span>{requestMetrics.pending || 0}</span>
+              </div>
+            </div>
+
+            <div
+              onClick={() => setActiveTab('PLANS')}
+              className="bg-gradient-to-br from-white to-purple-50/40 p-6 rounded-3xl border border-purple-200/80 shadow-xs hover:shadow-md transition-all cursor-pointer space-y-3 group"
+            >
+              <div className="w-10 h-10 rounded-2xl bg-purple-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-900 text-sm flex items-center justify-between">
+                  <span>Plans &amp; Feature Flags</span>
+                  <ArrowRight className="w-4 h-4 text-purple-600 group-hover:translate-x-1 transition-transform" />
+                </h4>
+                <p className="text-xs text-slate-500 mt-1">
+                  Manage active plan configurations, pricing structures, and immutable order history rules.
+                </p>
+              </div>
+              <div className="text-[11px] font-bold text-purple-700 pt-2 border-t border-purple-100 flex items-center justify-between">
+                <span>Active Plans:</span>
+                <span>Free + 2 Pro Tiers</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Razorpay Orders Snapshot */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-blue-600" />
+                  <span>Recent Razorpay Orders</span>
+                </h3>
+                <p className="text-xs text-slate-500">Latest checkout attempts and payment gateway status.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('RAZORPAY')}
+                className="text-xs font-bold text-blue-600 hover:underline cursor-pointer"
+              >
+                View All Orders →
+              </button>
+            </div>
+
+            {razorpayOrders.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50/60 text-slate-700 font-bold uppercase tracking-wider text-[10px]">
+                      <th className="p-3">Date</th>
+                      <th className="p-3">User</th>
+                      <th className="p-3">Plan</th>
+                      <th className="p-3">Amount</th>
+                      <th className="p-3">Order ID</th>
+                      <th className="p-3 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-600">
+                    {razorpayOrders.slice(0, 5).map((ord) => (
+                      <tr key={ord.id} className="hover:bg-slate-50/60 transition">
+                        <td className="p-3 text-slate-500 font-medium">
+                          {new Date(ord.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="p-3 font-semibold text-slate-900">{ord.userEmail}</td>
+                        <td className="p-3 font-medium text-slate-800">
+                          {ord.billingInterval === 'yearly' ? 'Yearly' : 'Monthly'}
+                        </td>
+                        <td className="p-3 font-bold text-slate-900">
+                          ₹{(ord.amountCents / 100).toFixed(0)}
+                        </td>
+                        <td className="p-3 font-mono text-slate-500">{ord.providerOrderId}</td>
+                        <td className="p-3 text-center">
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${
+                              ord.status === 'paid'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : ord.status === 'failed'
+                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}
+                          >
+                            {ord.status === 'paid' ? 'Paid' : ord.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="py-6 text-center text-xs text-slate-400">No Razorpay orders created yet.</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB: RAZORPAY ORDERS */}
+      {activeTab === 'RAZORPAY' && (
+        <div className="space-y-4">
+          {/* Razorpay Search & Filters */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={orderSearch}
+                onChange={(e) => setOrderSearch(e.target.value)}
+                placeholder="Search by User Email, Order ID, or Payment ID..."
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+              {(['ALL', 'paid', 'created', 'failed'] as const).map((st) => (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => setOrderStatusFilter(st)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    orderStatusFilter === st
+                      ? 'bg-blue-600 text-white shadow-2xs'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {st === 'ALL' ? 'All Orders' : st === 'paid' ? 'Paid' : st === 'created' ? 'Pending' : 'Failed'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Orders Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-700 font-bold uppercase tracking-wider text-[10px]">
+                    <th className="p-3.5">Date &amp; Time</th>
+                    <th className="p-3.5">User</th>
+                    <th className="p-3.5">Plan Duration</th>
+                    <th className="p-3.5">Amount</th>
+                    <th className="p-3.5">Razorpay Order ID</th>
+                    <th className="p-3.5">Payment ID</th>
+                    <th className="p-3.5 text-center">Status</th>
+                    <th className="p-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-600">
+                  {filteredOrders.length > 0 ? (
+                    filteredOrders.map((ord) => (
+                      <tr key={ord.id} className="hover:bg-slate-50/60 transition">
+                        <td className="p-3.5 font-medium text-slate-800">
+                          {new Date(ord.createdAt).toLocaleString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </td>
+                        <td className="p-3.5">
+                          <div className="font-bold text-slate-900">{ord.userEmail}</div>
+                          {ord.userName && <div className="text-[10px] text-slate-400">{ord.userName}</div>}
+                        </td>
+                        <td className="p-3.5 font-medium text-slate-800">
+                          Saarvi Pro ({ord.billingInterval === 'yearly' ? 'Yearly' : 'Monthly'})
+                        </td>
+                        <td className="p-3.5 font-bold text-slate-900">
+                          ₹{(ord.amountCents / 100).toFixed(0)} {ord.currency || 'INR'}
+                        </td>
+                        <td className="p-3.5 font-mono text-[11px] text-slate-600">
+                          {ord.providerOrderId}
+                        </td>
+                        <td className="p-3.5 font-mono text-[11px] text-slate-500">
+                          {ord.providerPaymentId || '—'}
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${
+                              ord.status === 'paid'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : ord.status === 'failed'
+                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}
+                          >
+                            {ord.status === 'paid' ? 'Paid / Captured' : ord.status}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedOrder(ord)}
+                            className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] transition cursor-pointer"
+                          >
+                            Details
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center text-xs text-slate-400">
+                        No Razorpay payment orders match the filter criteria.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* TAB 1: PAYMENT REQUESTS */}
       {activeTab === 'REQUESTS' && (
@@ -1022,13 +1426,84 @@ export default function AdminBillingPage() {
         </div>
       )}
 
-      {/* TAB 3: SUBSCRIPTIONS & INVOICES */}
-      {activeTab === 'SUBSCRIPTIONS' && (
+      {/* TAB: PLANS */}
+      {activeTab === 'PLANS' && (
+        <div className="space-y-6">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-6 rounded-3xl space-y-2">
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-blue-600" />
+              <span>Immutable Plan &amp; Pricing Architecture</span>
+            </h3>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              In accordance with financial compliance rules, existing orders and completed payments capture the exact price snapshot at the moment of checkout creation. Changing plan amounts or currencies creates new configuration versions and never alters historical customer receipts or past charges.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Default Tier</span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold">Active</span>
+              </div>
+              <div>
+                <h4 className="text-lg font-bold text-slate-900">Free Tier</h4>
+                <p className="text-xs text-slate-500">Everyday student academic utilities &amp; document tools.</p>
+              </div>
+              <div className="text-2xl font-black text-slate-900">₹0 <span className="text-xs font-normal text-slate-400">/ forever</span></div>
+              <ul className="text-xs text-slate-600 space-y-2 pt-3 border-t border-slate-100">
+                <li>• 10 files per batch queue</li>
+                <li>• 50 MB max file capacity</li>
+                <li>• Standard Resume Builder</li>
+                <li>• 100% In-Browser Privacy</li>
+              </ul>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl border-2 border-purple-600/80 shadow-md space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-purple-700">Monthly Pro</span>
+                <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 text-[10px] font-bold">Active</span>
+              </div>
+              <div>
+                <h4 className="text-lg font-bold text-slate-900">Saarvi Pro Monthly</h4>
+                <p className="text-xs text-slate-500">30-day fixed duration high-throughput processing package.</p>
+              </div>
+              <div className="text-2xl font-black text-slate-900">₹99 <span className="text-xs font-normal text-slate-400">/ month</span></div>
+              <ul className="text-xs text-slate-600 space-y-2 pt-3 border-t border-purple-100">
+                <li>• 50 files per batch queue</li>
+                <li>• 100 MB max file capacity</li>
+                <li>• Executive ATS Resume Templates</li>
+                <li>• 30-Day Entitlement Window</li>
+              </ul>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">Annual Pro</span>
+                <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold">Active</span>
+              </div>
+              <div>
+                <h4 className="text-lg font-bold text-slate-900">Saarvi Pro Yearly</h4>
+                <p className="text-xs text-slate-500">365-day fixed duration package with ~25% annual savings.</p>
+              </div>
+              <div className="text-2xl font-black text-slate-900">₹899 <span className="text-xs font-normal text-slate-400">/ year</span></div>
+              <ul className="text-xs text-slate-600 space-y-2 pt-3 border-t border-slate-100">
+                <li>• 50 files per batch queue</li>
+                <li>• 100 MB max file capacity</li>
+                <li>• Executive ATS Resume Templates</li>
+                <li>• 365-Day Entitlement Window</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: ENTITLEMENTS & SUBSCRIPTIONS */}
+      {activeTab === 'ENTITLEMENTS' && (
         <div className="space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
             <div className="p-4 sm:p-6 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h3 className="text-base font-bold text-slate-900">Active Pro Subscriptions</h3>
+                <h3 className="text-base font-bold text-slate-900">Active Pro Subscriptions &amp; Entitlements</h3>
                 <p className="text-xs text-slate-500">Authoritative records of users with active Pro entitlements.</p>
               </div>
               <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-bold">
@@ -1312,7 +1787,7 @@ export default function AdminBillingPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            setActiveTab('SUBSCRIPTIONS');
+                            setActiveTab('ENTITLEMENTS');
                             setModalMode(null);
                           }}
                           className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition cursor-pointer"
@@ -1440,6 +1915,85 @@ export default function AdminBillingPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* RAZORPAY ORDER DETAILS MODAL */}
+      {selectedOrder && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 space-y-4 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-blue-600" />
+                <span>Razorpay Order Details</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSelectedOrder(null)}
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold cursor-pointer"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2.5 text-xs">
+              <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Internal Order ID:</span>
+                <span className="font-mono font-bold text-slate-900">{selectedOrder.id}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Razorpay Order ID:</span>
+                <span className="font-mono text-blue-700 font-bold">{selectedOrder.providerOrderId}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Razorpay Payment ID:</span>
+                <span className="font-mono text-slate-800">{selectedOrder.providerPaymentId || 'Not Captured Yet'}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Customer:</span>
+                <span className="font-semibold text-slate-900">{selectedOrder.userEmail}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Plan &amp; Duration:</span>
+                <span className="font-bold text-slate-900">
+                  Saarvi Pro ({selectedOrder.billingInterval}) — ₹{(selectedOrder.amountCents / 100).toFixed(0)} {selectedOrder.currency}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Receipt:</span>
+                <span className="font-mono text-slate-600">{selectedOrder.receipt}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Status:</span>
+                <span className="font-bold uppercase text-slate-900">{selectedOrder.status}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Created At:</span>
+                <span className="text-slate-700">{new Date(selectedOrder.createdAt).toLocaleString()}</span>
+              </div>
+              {selectedOrder.paidAt && (
+                <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                  <span className="text-slate-500 font-medium">Paid At:</span>
+                  <span className="text-emerald-700 font-semibold">{new Date(selectedOrder.paidAt).toLocaleString()}</span>
+                </div>
+              )}
+              {selectedOrder.errorMessage && (
+                <div className="pt-2 text-rose-600 font-medium">
+                  Error: {selectedOrder.errorMessage}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedOrder(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -55,3 +55,21 @@ export async function POST(request: Request) {
     );
   }
 }
+
+/**
+ * GET /api/billing/webhook
+ * Health check & verification response for browser visits.
+ */
+export async function GET() {
+  return NextResponse.json({
+    status: 'active',
+    service: 'Saarvi Subscription Webhook Gateway',
+    timestamp: new Date().toISOString(),
+    allowedMethods: ['POST'],
+    message: 'Billing webhook endpoint is live and accepting POST events.',
+  });
+}
+
+export async function HEAD() {
+  return new Response(null, { status: 200 });
+}

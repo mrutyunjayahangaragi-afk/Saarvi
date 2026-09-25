@@ -190,6 +190,15 @@ export class RazorpayPaymentService {
 
     // 1. Fetch internal order record to verify it exists and retrieve trusted metadata
     const order = MockStorageProvider.getPaymentOrder(orderId);
+
+    // IDOR protection: Verify requesting user matches order owner if both present
+    if (order && params.userId && order.userId && order.userId !== params.userId) {
+      return {
+        success: false,
+        error: 'Security violation: Order owner does not match current user session.',
+      };
+    }
+
     const config = getRazorpayServerConfig();
     const secret = config.keySecret || 'rzp_test_secret_key_12345';
 
@@ -218,7 +227,24 @@ export class RazorpayPaymentService {
       };
     }
 
-    // 3. Signature is valid! Provision server entitlement idempotently
+    // 3. Optional remote gateway payment status check if official SDK is configured
+    const rzpClient = getRazorpayClient();
+    if (rzpClient) {
+      try {
+        const payment = await (rzpClient.payments as any).fetch(paymentId);
+        if (payment && payment.status && payment.status === 'failed') {
+          MockStorageProvider.updatePaymentOrderStatus(orderId, 'failed', paymentId, 'Provider marked payment as failed');
+          return {
+            success: false,
+            error: 'Payment was marked as failed by Razorpay gateway.',
+          };
+        }
+      } catch (sdkErr) {
+        console.warn('[RazorpayPaymentService] Gateway payment fetch warning:', sdkErr);
+      }
+    }
+
+    // 4. Signature is valid! Provision server entitlement idempotently
     const targetUserId = order?.userId || params.userId || '';
     const interval: BillingInterval = order?.billingInterval || 'monthly';
     const amountCents = order?.amountCents || PRO_PRICING[interval].amountCents;
@@ -257,10 +283,23 @@ export class RazorpayPaymentService {
     const { userId, orderId, paymentId, interval, amountCents } = params;
     const now = new Date();
     const durationDays = interval === 'yearly' ? 365 : 30;
-    const periodEnd = new Date(now.getTime() + durationDays * 86400000).toISOString();
 
     const existingSub = MockStorageProvider.getUserSubscription(userId);
-    const isAlreadyActive = existingSub && existingSub.status === 'ACTIVE' && new Date(existingSub.currentPeriodEnd).getTime() > Date.now();
+    const isAlreadyActive =
+      existingSub &&
+      existingSub.status === 'ACTIVE' &&
+      new Date(existingSub.currentPeriodEnd).getTime() > Date.now();
+
+    // If already active, extend from current expiry date so user doesn't lose days!
+    const baseTime =
+      isAlreadyActive && existingSub?.currentPeriodEnd
+        ? new Date(existingSub.currentPeriodEnd).getTime()
+        : now.getTime();
+    const periodEnd = new Date(baseTime + durationDays * 86400000).toISOString();
+    const periodStart =
+      isAlreadyActive && existingSub?.currentPeriodStart
+        ? existingSub.currentPeriodStart
+        : now.toISOString();
 
     const subscriptionRecord: SubscriptionRecord = {
       id: existingSub?.id || `sub_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -272,7 +311,7 @@ export class RazorpayPaymentService {
       billingInterval: interval,
       currency: 'INR',
       amountCents,
-      currentPeriodStart: now.toISOString(),
+      currentPeriodStart: periodStart,
       currentPeriodEnd: periodEnd,
       cancelAtPeriodEnd: false,
       metadata: {

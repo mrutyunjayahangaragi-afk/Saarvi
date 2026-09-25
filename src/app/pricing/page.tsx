@@ -71,7 +71,7 @@ export default function PricingPage() {
 
     try {
       // 1. Call server-authoritative checkout creation (sends ONLY plan and interval)
-      const res = await fetch('/api/billing/checkout', {
+      const res = await fetch('/api/payments/razorpay/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -88,8 +88,8 @@ export default function PricingPage() {
         throw new Error(data.error?.message || data.error || 'Failed to initialize checkout');
       }
 
-      const session = data.data?.session || data.session;
-      const keyId = session?.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+      const order = data.data || data.order;
+      const keyId = order?.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
       // 2. Launch Razorpay Standard Checkout Modal if Key ID is configured
       if (keyId) {
@@ -99,10 +99,9 @@ export default function PricingPage() {
         if (scriptLoaded && RazorpayGlobal) {
           const rzp = new RazorpayGlobal({
             key: keyId,
-            subscription_id: session.providerSubscriptionId,
-            order_id: session.providerOrderId,
-            amount: session.amount,
-            currency: session.currency || 'INR',
+            order_id: order.orderId,
+            amount: order.amount,
+            currency: order.currency || 'INR',
             name: 'Saarvi',
             description: `Saarvi Pro (${interval === 'yearly' ? 'Yearly' : 'Monthly'})`,
             prefill: {
@@ -120,10 +119,10 @@ export default function PricingPage() {
             handler: function (response: Record<string, string>) {
               // Redirect to server confirmation holding screen. Entitlement is determined exclusively server-side.
               const paymentId = response.razorpay_payment_id || '';
-              const orderId = response.razorpay_order_id || session.providerOrderId || '';
+              const orderId = response.razorpay_order_id || order.orderId || '';
               const signature = response.razorpay_signature || '';
               router.push(
-                `/checkout/confirmation?session_id=${session.sessionId}&payment_id=${paymentId}&order_id=${orderId}&signature=${signature}&provider=razorpay`
+                `/checkout/confirmation?order_id=${orderId}&payment_id=${paymentId}&signature=${signature}&provider=razorpay`
               );
             },
             modal: {
@@ -144,8 +143,8 @@ export default function PricingPage() {
       }
 
       // 3. Fallback to confirmation holding screen if in development or test environment
-      if (session?.checkoutUrl) {
-        window.location.href = session.checkoutUrl;
+      if (order?.checkoutUrl) {
+        window.location.href = order.checkoutUrl;
       }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Unable to start checkout. Please try again.');

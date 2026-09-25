@@ -36,7 +36,9 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { plan, interval, userId, userEmail, userName } = body;
+    const plan = body.plan_id || body.plan || 'pro';
+    const interval = body.interval || body.billingInterval || (body.planDuration ? body.planDuration.toLowerCase() : 'monthly');
+    const { userId, userEmail, userName } = body;
 
     // 2. Security Invariant: Detect and reject client tampering with price/amount/currency (PART 7.4)
     if (body.price || body.amount || body.currency || body.discount) {

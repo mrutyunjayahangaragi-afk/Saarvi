@@ -31,7 +31,10 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { orderId, paymentId, signature, userId } = body;
+    const orderId = body.orderId || body.razorpay_order_id;
+    const paymentId = body.paymentId || body.razorpay_payment_id;
+    const signature = body.signature || body.razorpay_signature;
+    const userId = body.userId;
 
     if (!orderId || !paymentId || !signature) {
       return NextResponse.json(

@@ -11,6 +11,7 @@ export interface RazorpayEnvConfig {
   monthlyPlanId: string;
   yearlyPlanId: string;
   isConfigured: boolean;
+  isWebhookConfigured: boolean;
 }
 
 /**
@@ -26,7 +27,8 @@ export function getRazorpayServerConfig(): RazorpayEnvConfig {
   const yearlyPlanId =
     process.env.RAZORPAY_PRO_YEARLY_PLAN_ID || process.env.RAZORPAY_PLAN_YEARLY_ID || '';
 
-  const isConfigured = Boolean(keyId && keySecret && webhookSecret);
+  const isConfigured = Boolean(keyId && keySecret);
+  const isWebhookConfigured = Boolean(webhookSecret);
 
   return {
     keyId,
@@ -35,6 +37,7 @@ export function getRazorpayServerConfig(): RazorpayEnvConfig {
     monthlyPlanId,
     yearlyPlanId,
     isConfigured,
+    isWebhookConfigured,
   };
 }
 

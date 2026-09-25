@@ -59,3 +59,24 @@ export async function POST(request: Request) {
     );
   }
 }
+
+/**
+ * GET /api/payments/razorpay/webhook
+ * Health check & verification response for browser visits and uptime monitors.
+ * Prevents HTTP 405 Method Not Allowed error when tested in browser.
+ */
+export async function GET() {
+  return NextResponse.json({
+    status: 'active',
+    gateway: 'Razorpay',
+    service: 'Saarvi Payment Webhook Gateway',
+    timestamp: new Date().toISOString(),
+    allowedMethods: ['POST'],
+    supportedEvents: ['order.paid', 'payment.captured', 'payment.failed'],
+    message: 'Saarvi Razorpay Webhook endpoint is live and accepting POST webhook events.',
+  });
+}
+
+export async function HEAD() {
+  return new Response(null, { status: 200 });
+}

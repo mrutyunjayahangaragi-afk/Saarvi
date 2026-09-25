@@ -76,15 +76,18 @@ export async function GET(request: Request) {
 
     const subscription = await subscriptionService.getUserSubscriptionRecord(targetUserId);
     const invoices = MockStorageProvider.getInvoices(targetUserId);
+    const paymentOrders = MockStorageProvider.getUserPaymentOrders(targetUserId);
 
     return NextResponse.json({
       success: true,
       data: {
         subscription,
         invoices,
+        paymentOrders,
       },
       subscription, // Backward compatibility
       invoices,
+      paymentOrders,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to retrieve subscription';
