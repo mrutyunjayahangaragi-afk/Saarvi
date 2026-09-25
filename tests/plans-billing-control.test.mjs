@@ -75,25 +75,46 @@ test('SAARVI PLANS & BILLING CONTROL CENTER TEST SUITE', async (t) => {
     assert.match(serviceFile, /saveNotification/);
   });
 
-  await t.test('7. Plans Page: Displays Free vs Pro with Standard Razorpay Checkout', () => {
+  await t.test('7. Clean Plans Page Architecture: No inline forms/QR codes, dynamic discount percentage', () => {
     const plansPage = fs.readFileSync(path.join(rootDir, 'src/app/plans/page.tsx'), 'utf8');
-    assert.match(plansPage, /checkout\.razorpay\.com\/v1\/checkout\.js/);
-    assert.match(plansPage, /\/api\/payments\/razorpay\/create-order/);
-    assert.match(plansPage, /\/api\/payments\/razorpay\/verify/);
-    assert.match(plansPage, /Creating payment\.\.\./);
-    assert.match(plansPage, /Verifying payment\.\.\./);
-    assert.match(plansPage, /Pro Active/);
-    assert.match(plansPage, /Try Again/);
+    // Verifies PaymentMethodModal integration
+    assert.match(plansPage, /PaymentMethodModal/);
+    assert.match(plansPage, /Simple, Honest Pricing/);
+    assert.match(plansPage, /Simple, Transparent &amp; Private by Design/);
+    // Verifies dynamic discount percentage calculation
+    assert.match(plansPage, /discountPercent\s*=\s*Math\.round/);
+    // Verifies that neither inline UTR input nor inline UPI app launching exists directly on page
+    assert.doesNotMatch(plansPage, /<input[^>]*utrNumber/);
+    assert.doesNotMatch(plansPage, /handleLaunchUpiApp/);
+    // Verifies Free vs Pro cards and compare matrix
+    assert.match(plansPage, /Essential Productivity/);
+    assert.match(plansPage, /Compare Plan Capabilities/);
   });
 
-  await t.test('8. User Dashboard Billing: Expiration handling and real Razorpay orders history', () => {
+  await t.test('8. Payment Method Modal: Clean selector, Razorpay and UPI/QR steps with 2-hour SLA', () => {
+    const modalFile = fs.readFileSync(path.join(rootDir, 'src/components/billing/PaymentMethodModal.tsx'), 'utf8');
+    assert.match(modalFile, /Choose payment method/);
+    assert.match(modalFile, /Continue with Razorpay/);
+    assert.match(modalFile, /Continue with UPI/);
+    assert.match(modalFile, /checkout\.razorpay\.com\/v1\/checkout\.js/);
+    assert.match(modalFile, /\/api\/payments\/razorpay\/create-order/);
+    assert.match(modalFile, /\/api\/payments\/razorpay\/verify/);
+    assert.match(modalFile, /\/api\/billing\/payment-request/);
+    assert.match(modalFile, /Creating payment order\.\.\./);
+    assert.match(modalFile, /Verifying payment signature\.\.\./);
+    assert.match(modalFile, /Payment submitted/);
+    assert.match(modalFile, /Pending review/);
+    assert.match(modalFile, /Manual UPI payments are reviewed by the Saarvi team within/);
+  });
+
+  await t.test('9. User Dashboard Billing: Expiration handling and real Razorpay orders history', () => {
     const dashboardBilling = fs.readFileSync(path.join(rootDir, 'src/app/dashboard/billing/page.tsx'), 'utf8');
     assert.match(dashboardBilling, /paymentOrders/);
     assert.match(dashboardBilling, /Razorpay Payments (&amp;|&) Billing History/);
     assert.match(dashboardBilling, /Expires On/);
   });
 
-  await t.test('9. Admin Payment & Billing Control Center: Includes Overview, Razorpay, Manual UPI, Plans, and Entitlements', () => {
+  await t.test('10. Admin Payment & Billing Control Center: Includes Overview, Razorpay, Manual UPI, Plans, and Entitlements', () => {
     const adminBilling = fs.readFileSync(path.join(rootDir, 'src/app/admin/billing/page.tsx'), 'utf8');
     assert.match(adminBilling, /activeTab === 'OVERVIEW'/);
     assert.match(adminBilling, /activeTab === 'RAZORPAY'/);
@@ -104,11 +125,17 @@ test('SAARVI PLANS & BILLING CONTROL CENTER TEST SUITE', async (t) => {
     assert.match(adminBilling, /Razorpay Order Details/);
   });
 
-  await t.test('10. Decoupled Manual UPI Workflow: Superadmin review remains intact and separate', () => {
+  await t.test('11. Decoupled Manual UPI Workflow: Superadmin review remains intact and separate', () => {
     const adminBilling = fs.readFileSync(path.join(rootDir, 'src/app/admin/billing/page.tsx'), 'utf8');
     assert.match(adminBilling, /PENDING_REVIEW/);
     assert.match(adminBilling, /2-Hour SLA/);
     assert.match(adminBilling, /Approve Payment (&amp;|&) Grant Pro/);
     assert.match(adminBilling, /Reject Payment Request/);
+  });
+
+  await t.test('12. Unified Pricing Route: /pricing renders the same clean experience with zero split-brain', () => {
+    const pricingPage = fs.readFileSync(path.join(rootDir, 'src/app/pricing/page.tsx'), 'utf8');
+    assert.match(pricingPage, /import PlansPage from '@\/app\/plans\/page'/);
+    assert.match(pricingPage, /<PlansPage/);
   });
 });

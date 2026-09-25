@@ -251,7 +251,7 @@ export function evaluateGroundedKnowledge(
       reply:
         "**How to upgrade to Saarvi Pro:**\n\n" +
         "1. Visit the **Plans** page (`/pricing`).\n" +
-        "2. Select either the **Monthly** (₹49/mo) or **Yearly** (₹399/yr) plan.\n" +
+        "2. Select either the **Monthly** (₹99/mo) or **Yearly** (₹899/yr) plan.\n" +
         "3. Scan the official Saarvi UPI QR code using any UPI app (Google Pay, PhonePe, Paytm).\n" +
         "4. Submit your **12-digit UPI UTR / Reference Number** on the confirmation page.\n" +
         "5. Our admin team verifies the transaction and activates your Pro subscription within 2–4 hours.",

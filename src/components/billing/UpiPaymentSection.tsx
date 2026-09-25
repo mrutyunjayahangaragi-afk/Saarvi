@@ -133,11 +133,11 @@ export function UpiPaymentSection({
 
   const currentAmount =
     selectedPlan === 'monthly'
-      ? config?.amountMonthly ?? 49
-      : config?.amountYearly ?? 399;
+      ? config?.amountMonthly ?? 99
+      : config?.amountYearly ?? 899;
 
-  const currentUpiId = config?.upiId || 'saarvi@upi';
-  const currentPayee = config?.payeeName || 'Saarvi';
+  const currentUpiId = config?.upiId || '9036745164-3@axl';
+  const currentPayee = config?.payeeName || 'Saarvi Educational Services';
 
   const handleCopyUpi = () => {
     navigator.clipboard.writeText(currentUpiId);
@@ -241,7 +241,7 @@ export function UpiPaymentSection({
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Monthly (₹{config?.amountMonthly ?? 49}/mo)
+            Monthly (₹{config?.amountMonthly ?? 99}/mo)
           </button>
           <button
             type="button"
@@ -252,9 +252,9 @@ export function UpiPaymentSection({
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Yearly (₹{config?.amountYearly ?? 399}/yr)
+            Yearly (₹{config?.amountYearly ?? 899}/yr)
             <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-              Save 32%
+              Save ~25%
             </span>
           </button>
         </div>
