@@ -37,6 +37,35 @@ export interface CanonicalTool {
   badge?: string;
   popular?: boolean;
   keywords?: string[];
+  workerMode?: 'client' | 'server' | 'hybrid';
+  processingType?: 'local' | 'server' | 'mixed';
+  betaFreeLimit?: number;
+  version?: string;
+}
+
+export function getToolOperationalMetadata(tool: CanonicalTool) {
+  const isAi = tool.category === 'ai';
+  const workerMode: 'client' | 'server' | 'hybrid' = tool.workerMode || (isAi ? 'hybrid' : 'client');
+  const processingType: 'local' | 'server' | 'mixed' = tool.processingType || (isAi ? 'mixed' : 'local');
+  const betaFreeLimit = tool.betaFreeLimit || 10;
+  const version = tool.version || '1.0.0';
+  const proRequired = tool.defaultAccess === 'SUBSCRIPTION';
+
+  return {
+    tool_key: tool.key,
+    display_name: tool.name,
+    category: tool.category,
+    description: tool.description,
+    status: tool.status,
+    access_mode: tool.defaultAccess === 'SUBSCRIPTION' ? 'PRO' : (tool.status === 'beta' ? 'BETA' : 'FREE'),
+    beta_enabled: tool.status === 'beta',
+    beta_free_limit: betaFreeLimit,
+    pro_required: proRequired,
+    version,
+    enabled: tool.status !== 'coming_soon',
+    worker_mode: workerMode,
+    processing_type: processingType,
+  };
 }
 
 export const CANONICAL_TOOL_REGISTRY: CanonicalTool[] = [

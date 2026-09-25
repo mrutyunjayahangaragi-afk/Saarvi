@@ -25,6 +25,7 @@ import {
   Briefcase,
   Video,
   LifeBuoy,
+  Wrench,
 } from 'lucide-react';
 import { SaarviMark } from '@/components/brand/SaarviLogo';
 import { useAuth } from '@/context/AuthContext';
@@ -61,6 +62,7 @@ export default function AdminSidebar({
       title: 'OPERATIONS',
       items: [
         { label: 'Overview', href: '/admin', icon: LayoutDashboard },
+        { label: 'Tools Control Center', href: '/admin/tools', icon: Wrench, badge: '65' },
         { label: 'Users', href: '/admin/users', icon: Users },
         { label: 'Notifications', href: '/admin/notifications', icon: Bell },
         { label: 'Support', href: '/admin/support', icon: LifeBuoy },

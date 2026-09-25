@@ -36,6 +36,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import type { UserRole, UserAccountStatus } from '@/types/auth';
 import type { UserAnalyticsSummary } from '@/lib/analytics/analytics-store';
+import type { UserToolUsageSummary } from '@/types/tool-control';
 
 interface UserDetail {
   id: string;
@@ -102,9 +103,10 @@ export default function UserAnalyticsDashboardPage() {
   const { user: currentAdmin, profile: currentProfile } = useAuth();
 
   const [period, setPeriod] = useState<'today' | '7d' | '30d' | '90d' | 'all'>('30d');
-  const [activeTab, setActiveTab] = useState<'overview' | 'conversions' | 'interviews' | 'notifications' | 'billing' | 'privacy'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'conversions' | 'interviews' | 'notifications' | 'billing' | 'privacy' | 'usage'>('overview');
   const [userData, setUserData] = useState<UserDetail | null>(null);
   const [analytics, setAnalytics] = useState<UserAnalyticsSummary | null>(null);
+  const [userToolUsage, setUserToolUsage] = useState<UserToolUsageSummary | null>(null);
   const [conversions, setConversions] = useState<ConversionRecord[]>([]);
   const [interviews, setInterviews] = useState<InterviewRecord[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -143,6 +145,16 @@ export default function UserAnalyticsDashboardPage() {
         setInterviews(data.interviews || []);
         setNotifications(data.notifications || []);
         setSubscriptions(data.subscriptions || []);
+
+        try {
+          const usageRes = await fetch(`/api/admin/tools/user-usage?userId=${userId}`);
+          if (usageRes.ok) {
+            const uData = await usageRes.json();
+            if (uData.success) {
+              setUserToolUsage(uData.summary);
+            }
+          }
+        } catch {}
       }
     } catch (err: any) {
       console.error('Error fetching user details:', err);
@@ -435,6 +447,7 @@ export default function UserAnalyticsDashboardPage() {
       <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
         {[
           { id: 'overview', label: 'Telemetry Overview', icon: Activity, count: analytics?.totalToolUses ?? 0 },
+          { id: 'usage', label: 'Usage Analytics', icon: Wrench, count: userToolUsage?.totalOperations ?? analytics?.totalToolUses ?? 0 },
           { id: 'conversions', label: 'Conversion History', icon: FileText, count: conversions.length },
           { id: 'interviews', label: 'Mock Interviews', icon: Video, count: interviews.length },
           { id: 'notifications', label: 'Notifications', icon: Bell, count: notifications.length },
@@ -870,6 +883,109 @@ export default function UserAnalyticsDashboardPage() {
               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
                 <EyeOff className="w-3 h-3" /> Zero Impersonation
               </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: USAGE ANALYTICS */}
+      {activeTab === 'usage' && (
+        <div className="space-y-6">
+          {/* Usage Metrics Header Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="p-4 bg-white rounded-2xl border border-slate-200/90 shadow-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total Operations</span>
+              <span className="text-2xl font-black text-slate-900 mt-1 block">
+                {userToolUsage?.totalOperations ?? analytics?.totalToolUses ?? 0}
+              </span>
+            </div>
+            <div className="p-4 bg-white rounded-2xl border border-slate-200/90 shadow-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Unique Tools</span>
+              <span className="text-2xl font-black text-blue-600 mt-1 block">
+                {userToolUsage?.uniqueTools ?? analytics?.mostUsedTools?.length ?? 0}
+              </span>
+            </div>
+            <div className="p-4 bg-white rounded-2xl border border-slate-200/90 shadow-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Most Used Tool</span>
+              <span className="text-sm font-bold text-slate-900 mt-1 block truncate">
+                {userToolUsage?.mostUsedTool !== 'None' ? userToolUsage?.mostUsedTool : (analytics?.mostUsedTools?.[0]?.toolName || 'None')}
+              </span>
+            </div>
+            <div className="p-4 bg-white rounded-2xl border border-slate-200/90 shadow-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Last Used Tool</span>
+              <span className="text-sm font-bold text-slate-900 mt-1 block truncate">
+                {userToolUsage?.lastUsedTool !== 'None' ? userToolUsage?.lastUsedTool : (analytics?.lastUsedTool?.name || 'None')}
+              </span>
+            </div>
+            <div className="p-4 bg-white rounded-2xl border border-slate-200/90 shadow-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Last Activity</span>
+              <span className="text-xs font-semibold text-slate-600 mt-1 block">
+                {userToolUsage?.lastActivity ? new Date(userToolUsage.lastActivity).toLocaleDateString() : 'Never'}
+              </span>
+            </div>
+            <div className="p-4 bg-white rounded-2xl border border-slate-200/90 shadow-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Success Rate</span>
+              <span className="text-2xl font-black text-emerald-600 mt-1 block">
+                {userToolUsage?.successRate ?? 100}%
+              </span>
+            </div>
+          </div>
+
+          {/* Tool Breakdown Table */}
+          <div className="bg-white rounded-3xl border border-slate-200/90 overflow-hidden shadow-xs">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Per-Tool Usage Breakdown</h3>
+                <p className="text-xs text-slate-500">Live operational telemetry recorded for this user.</p>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-100">
+                {userToolUsage?.tools?.length || 0} tools accessed
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50/80 text-slate-500 font-bold uppercase tracking-wider border-b border-slate-100 text-[10px]">
+                  <tr>
+                    <th className="py-3 px-4">Tool</th>
+                    <th className="py-3 px-4">Category</th>
+                    <th className="py-3 px-4 text-center">Total Uses</th>
+                    <th className="py-3 px-4 text-center">Successful</th>
+                    <th className="py-3 px-4 text-center">Failed</th>
+                    <th className="py-3 px-4 text-right">Last Used</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {userToolUsage && userToolUsage.tools && userToolUsage.tools.length > 0 ? (
+                    userToolUsage.tools.map((t) => (
+                      <tr key={t.toolKey} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-3.5 px-4 font-bold text-slate-900">
+                          {t.toolName}
+                          <span className="block text-[10px] font-mono text-slate-400 font-normal">{t.toolKey}</span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase bg-slate-100 text-slate-600">
+                            {t.category}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-center font-bold text-slate-900">{t.totalUses}</td>
+                        <td className="py-3.5 px-4 text-center font-bold text-emerald-600">{t.successfulUses}</td>
+                        <td className="py-3.5 px-4 text-center font-bold text-rose-500">{t.failedUses}</td>
+                        <td className="py-3.5 px-4 text-right text-slate-500 font-mono text-[11px]">
+                          {t.lastUsedAt ? new Date(t.lastUsedAt).toLocaleString() : '—'}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-slate-400">
+                        <Wrench className="w-8 h-8 text-slate-300 mx-auto mb-2 opacity-50" />
+                        No tool usage records recorded for this user yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

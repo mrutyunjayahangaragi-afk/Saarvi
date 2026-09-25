@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, ChangeEvent, DragEvent, useEffect, useMemo } from "react";
+import { useState, useRef, ChangeEvent, DragEvent, useEffect, useMemo, useCallback } from "react";
 import {
   Upload,
   File as FileIcon,
@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import JSZip from "jszip";
 import { ToolDefinition } from "@/types/tool";
+import { ToolAccessResult } from "@/types/tool-control";
 import { getToolOperation } from "@/lib/tools/registry";
 import { SingleFileResult, MultiFileResult } from "@/lib/tools/types";
 import { formatBytes } from "@/lib/utils";
@@ -236,6 +237,32 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
   const { isMaintenance, maintenanceMessage, isGuestAccessEnabled } = usePlatform();
   const { user } = useAuth();
 
+  const [serverAccess, setServerAccess] = useState<ToolAccessResult | null>(null);
+  const [betaBlocked, setBetaBlocked] = useState<boolean>(false);
+  const [activeReservationToken, setActiveReservationToken] = useState<string | null>(null);
+
+  const loadToolAccess = useCallback(async () => {
+    try {
+      const url = user?.id
+        ? `/api/tools/access?toolId=${tool.slug}&userId=${user.id}`
+        : `/api/tools/access?toolId=${tool.slug}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          setServerAccess(json.data);
+          if (!json.data.isAllowed && json.data.reason === 'beta_limit_reached') {
+            setBetaBlocked(true);
+          } else {
+            setBetaBlocked(false);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Tool access check error:', err);
+    }
+  }, [tool.slug, user?.id]);
+
   useEffect(() => {
     const checkTool = () => {
       adminService.getEffectiveTool(tool.slug).then((eff) => {
@@ -244,6 +271,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           setRuntimeMaxSizeMB(eff.maxSizeMB);
         }
       }).catch(() => {});
+      loadToolAccess();
     };
 
     checkTool();
@@ -251,7 +279,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
     return () => {
       window.removeEventListener('saarvi_platform_change', checkTool);
     };
-  }, [tool.slug, tool.status, tool.maxSizeMB]);
+  }, [tool.slug, tool.status, tool.maxSizeMB, loadToolAccess]);
   const entitlement = planService.canUseTool(tool.slug, user);
   const userPlan = planService.getUserPlan(user);
   const planLimits = planService.getPlanLimits(userPlan);
@@ -718,6 +746,32 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
       return;
     }
 
+    // Atomic Beta Usage Reservation (PART 2.5 & 2.6)
+    let currentReservationToken: string | null = null;
+    if (serverAccess?.isBeta && !serverAccess?.isPro) {
+      try {
+        const reserveRes = await fetch('/api/tools/beta-usage/reserve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toolKey: tool.slug,
+            userId: user?.id,
+          }),
+        });
+        const reserveData = await reserveRes.json();
+        if (!reserveData.allowed) {
+          setBetaBlocked(true);
+          setErrorMessage(reserveData.message || 'Your free Beta access for this tool has been reached.');
+          setState('ERROR');
+          return;
+        }
+        currentReservationToken = reserveData.reservationToken || null;
+        setActiveReservationToken(currentReservationToken);
+      } catch (reserveErr) {
+        console.warn('Beta reservation notice:', reserveErr);
+      }
+    }
+
     setState("PROCESSING");
     setProgress(5);
     const startTime = performance.now();
@@ -746,6 +800,32 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
       setResult(res);
       setState("RESULT_READY");
 
+      // Atomic Beta Usage Commit upon verified successful completion (PART 2.5)
+      if (currentReservationToken) {
+        fetch('/api/tools/beta-usage/commit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toolKey: tool.slug,
+            reservationToken: currentReservationToken,
+            userId: user?.id,
+            processingTimeMs: durationMs,
+          }),
+        }).then(async (commitRes) => {
+          if (commitRes.ok) {
+            const commitJson = await commitRes.json();
+            if (commitJson.data) {
+              setServerAccess((prev) => prev ? {
+                ...prev,
+                usageCount: commitJson.data.usageCount,
+                remainingUses: commitJson.data.remainingUses,
+              } : null);
+            }
+          }
+        }).catch(() => {});
+        setActiveReservationToken(null);
+      }
+
       // Asynchronously record conversion metadata for authenticated users (NON-BLOCKING)
       // Privacy guaranteed: Zero document bytes, text, or file contents are sent
       const inputFilename = files.length === 1 ? files[0].name : `${files.length} files`;
@@ -767,6 +847,22 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
       });
     } catch (err: unknown) {
       if (isCancelledRef.current) return;
+
+      // Release reserved slot on failure (PART 2.5 & 2.6)
+      if (currentReservationToken) {
+        fetch('/api/tools/beta-usage/release', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toolKey: tool.slug,
+            reservationToken: currentReservationToken,
+            userId: user?.id,
+            reason: err instanceof Error ? err.message : 'Processing failed',
+          }),
+        }).catch(() => {});
+        setActiveReservationToken(null);
+      }
+
       console.warn("Local tool conversion notice:", err);
       const msg = err instanceof Error ? err.message : ERROR_MESSAGES.GENERIC_PROCESSING_ERROR;
       setErrorMessage(msg);
@@ -794,7 +890,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
     }
   }
 
-  // If tool is DISABLED by admin (Section 16)
+  // If tool is DISABLED by admin (Section 16 / PART 2.1)
   if (runtimeStatus === "disabled" || (!entitlement.allowed && entitlement.reason === "disabled")) {
     return (
       <div className="p-8 rounded-3xl border-2 border-dashed border-red-200 bg-red-50/50 text-center space-y-4 shadow-xs">
@@ -848,6 +944,43 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
     );
   }
 
+  // If Beta Free Usage Limit has been reached (PART 2.2)
+  if (betaBlocked || (serverAccess && !serverAccess.isAllowed && serverAccess.reason === "beta_limit_reached")) {
+    return (
+      <div className="p-8 rounded-3xl border-2 border-dashed border-amber-300 bg-amber-50/80 text-center space-y-4 shadow-xs">
+        <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto">
+          <Lock className="w-6 h-6" />
+        </div>
+        <div className="space-y-1.5 max-w-md mx-auto">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900 mb-1">
+            Beta Limit Reached
+          </div>
+          <h3 className="text-base font-bold text-slate-800">
+            Your free Beta access for {tool.name} has been used up.
+          </h3>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Continue with Pro to keep using this tool without limits.
+          </p>
+        </div>
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link
+            href="/pricing"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-xs"
+          >
+            <span>Upgrade to Pro</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+          <Link
+            href="/pricing"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
+          >
+            View Plans
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (state === "RESULT_READY" && result) {
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
@@ -858,6 +991,31 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
   return (
     <div className="space-y-6">
+      {/* Beta Access Banner (PART 2.8) */}
+      {serverAccess?.isBeta && !serverAccess?.isPro && (
+        <div className={`p-3 sm:p-3.5 rounded-2xl border text-xs flex items-center justify-between gap-3 ${
+          serverAccess.remainingUses <= 2
+            ? 'bg-amber-50 border-amber-200/90 text-amber-900 shadow-xs'
+            : 'bg-blue-50/80 border-blue-200/80 text-blue-900 shadow-xs'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            <span className="px-2 py-0.5 rounded-md font-bold text-[10px] uppercase bg-white border border-current tracking-wide">
+              Beta Access
+            </span>
+            <span className="font-medium">
+              {serverAccess.remainingUses <= 2
+                ? `Only ${serverAccess.remainingUses} / ${serverAccess.freeLimit} free uses remaining`
+                : `${serverAccess.remainingUses} / ${serverAccess.freeLimit} free uses remaining`}
+            </span>
+          </div>
+          <Link
+            href="/pricing"
+            className="text-xs font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2 shrink-0"
+          >
+            Upgrade to Pro
+          </Link>
+        </div>
+      )}
       {/* PROCESSING STATE OR DROPZONE (Transforms in-place) */}
       {state === "PROCESSING" || state === "VALIDATING" ? (
         <ProcessingProgress

@@ -246,3 +246,26 @@ export interface ApiResponse<T = unknown> {
   };
 }
 
+export type RazorpayPaymentOrderStatus = 'created' | 'attempted' | 'paid' | 'failed' | 'cancelled';
+
+export interface RazorpayPaymentOrder {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName?: string;
+  provider: 'razorpay';
+  providerOrderId: string;
+  providerPaymentId?: string;
+  amountCents: number;
+  currency: string;
+  plan: 'pro';
+  billingInterval: BillingInterval;
+  status: RazorpayPaymentOrderStatus;
+  receipt: string;
+  errorMessage?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  paidAt?: string;
+  updatedAt: string;
+}
+

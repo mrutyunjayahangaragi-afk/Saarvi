@@ -32,6 +32,8 @@ function CheckoutConfirmationContent() {
   const statusParam = searchParams.get('status');
   const sessionId = searchParams.get('session_id');
   const paymentId = searchParams.get('payment_id');
+  const orderId = searchParams.get('order_id');
+  const signature = searchParams.get('signature');
 
   const [confirmationState, setConfirmationState] = useState<ConfirmationState>(() => {
     if (statusParam === 'failed' || statusParam === 'cancelled') return 'failed';
@@ -49,6 +51,33 @@ function CheckoutConfirmationContent() {
     setChecking(true);
 
     try {
+      // 1. Direct Razorpay signature verification if callback parameters are present
+      if (orderId && paymentId && signature) {
+        try {
+          const verifyRes = await fetch('/api/payments/razorpay/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              orderId,
+              paymentId,
+              signature,
+              userId: user.id,
+            }),
+          });
+          if (verifyRes.ok) {
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              setConfirmationState('active');
+              refreshPlan();
+              return;
+            }
+          }
+        } catch (verifyErr) {
+          console.warn('Direct signature verification notice:', verifyErr);
+        }
+      }
+
+      // 2. Poll subscription service for server-verified state
       const res = await fetch(`/api/billing/subscription?userId=${user.id}`);
       if (res.ok) {
         const data = await res.json();

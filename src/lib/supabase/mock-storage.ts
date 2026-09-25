@@ -36,6 +36,8 @@ import type {
   SubscriptionRecord,
   BillingEventRecord,
   BillingInvoiceRecord,
+  RazorpayPaymentOrder,
+  RazorpayPaymentOrderStatus,
 } from '@/types/plan';
 import type {
   NotificationRecord,
@@ -46,6 +48,8 @@ import type {
   NotificationAuditLogRecord,
 } from '@/types/notifications-v2';
 
+import type { ToolControlConfig, UserToolUsageSummary } from '@/types/tool-control';
+
 export interface RoleAuditLogRecord {
   id: string;
   actor_user_id: string;
@@ -55,6 +59,16 @@ export interface RoleAuditLogRecord {
   action: string;
   reason?: string;
   timestamp: string;
+}
+
+export interface StoredBetaUsage {
+  userId: string;
+  toolKey: string;
+  usageCount: number;
+  reservedCount: number;
+  lastUsedAt: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 const STORAGE_KEYS = {
@@ -95,6 +109,11 @@ const STORAGE_KEYS = {
   NOTIFICATION_PREFERENCES_V2: 'saarvi_notification_preferences_v2',
   NOTIFICATION_AUDIT_LOGS_V2: 'saarvi_notification_audit_logs_v2',
   NOTIFICATION_SETTINGS_V2: 'saarvi_notification_settings_v2',
+  // Phase 41 Tool Control Center & Beta Usage Keys
+  TOOL_ACCESS_CONFIGS: 'saarvi_tool_access_configs_v1',
+  TOOL_BETA_USAGES: 'saarvi_tool_beta_usages_v1',
+  // Phase 42 Razorpay Orders Key
+  PAYMENT_ORDERS: 'saarvi_payment_orders_v1',
 };
 
 interface StoredUser {
@@ -1380,21 +1399,35 @@ export const MockStorageProvider = {
 
   // --- Privacy-Safe Platform Events ---
   recordPlatformEvent(event: {
-    eventType: PlatformEventType;
+    eventType?: PlatformEventType | string;
+    eventName?: string;
     targetId?: string;
-    category: 'tool' | 'student' | 'account' | 'system';
-  }): PlatformEventRecord {
-    const events = getStored<PlatformEventRecord[]>(STORAGE_KEYS.PLATFORM_EVENTS, []);
-    const record: PlatformEventRecord = {
+    toolKey?: string;
+    userId?: string | null;
+    success?: boolean;
+    durationMs?: number;
+    metadata?: Record<string, any>;
+    category?: 'tool' | 'student' | 'account' | 'system' | string;
+    timestamp?: string;
+  }): PlatformEventRecord & Record<string, any> {
+    const events = getStored<any[]>(STORAGE_KEYS.PLATFORM_EVENTS, []);
+    const record: any = {
       id: `evt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      eventType: event.eventType,
-      targetId: event.targetId,
-      category: event.category,
-      timestamp: new Date().toISOString(),
+      eventType: event.eventType || event.eventName || 'feature_used',
+      eventName: event.eventName || event.eventType || 'feature_used',
+      targetId: event.targetId || event.toolKey,
+      toolKey: event.toolKey || event.targetId,
+      userId: event.userId || null,
+      success: event.success !== false,
+      durationMs: event.durationMs || 0,
+      metadata: event.metadata || {},
+      category: event.category || 'tool',
+      timestamp: event.timestamp || new Date().toISOString(),
+      createdAt: event.timestamp || new Date().toISOString(),
     };
     events.unshift(record);
-    if (events.length > 1000) {
-      events.length = 1000;
+    if (events.length > 2000) {
+      events.length = 2000;
     }
     setStored(STORAGE_KEYS.PLATFORM_EVENTS, events);
     return record;
@@ -1669,6 +1702,276 @@ export const MockStorageProvider = {
       updated_by: updatedBy || current.updated_by,
     };
     setStored(STORAGE_KEYS.NOTIFICATION_SETTINGS_V2, updated);
+    return updated;
+  },
+
+  // =========================================================================
+  // Phase 41: Tool Control Center & Beta Usage Persistence
+  // =========================================================================
+
+  getToolAccessConfigs(): Record<string, ToolControlConfig> {
+    return getStored<Record<string, ToolControlConfig>>(STORAGE_KEYS.TOOL_ACCESS_CONFIGS, {});
+  },
+
+  saveToolAccessConfig(config: ToolControlConfig): ToolControlConfig {
+    const configs = this.getToolAccessConfigs();
+    configs[config.toolKey] = config;
+    setStored(STORAGE_KEYS.TOOL_ACCESS_CONFIGS, configs);
+    return config;
+  },
+
+  getToolBetaUsage(userId: string, toolKey: string): StoredBetaUsage | null {
+    const usages = getStored<StoredBetaUsage[]>(STORAGE_KEYS.TOOL_BETA_USAGES, []);
+    return usages.find((u) => u.userId === userId && u.toolKey === toolKey) || null;
+  },
+
+  getAllToolBetaUsages(): StoredBetaUsage[] {
+    return getStored<StoredBetaUsage[]>(STORAGE_KEYS.TOOL_BETA_USAGES, []);
+  },
+
+  atomicReserveBetaUse(
+    userId: string,
+    toolKey: string,
+    freeLimit: number
+  ): { allowed: boolean; usageCount: number; reservedCount: number; remainingUses: number } {
+    const usages = getStored<StoredBetaUsage[]>(STORAGE_KEYS.TOOL_BETA_USAGES, []);
+    let item = usages.find((u) => u.userId === userId && u.toolKey === toolKey);
+
+    if (!item) {
+      item = {
+        userId,
+        toolKey,
+        usageCount: 0,
+        reservedCount: 0,
+        lastUsedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      usages.push(item);
+    }
+
+    if (item.usageCount + item.reservedCount < freeLimit) {
+      item.reservedCount += 1;
+      item.updatedAt = new Date().toISOString();
+      setStored(STORAGE_KEYS.TOOL_BETA_USAGES, usages);
+      const remainingUses = Math.max(0, freeLimit - (item.usageCount + item.reservedCount));
+      return {
+        allowed: true,
+        usageCount: item.usageCount,
+        reservedCount: item.reservedCount,
+        remainingUses,
+      };
+    }
+
+    return {
+      allowed: false,
+      usageCount: item.usageCount,
+      reservedCount: item.reservedCount,
+      remainingUses: 0,
+    };
+  },
+
+  commitBetaUse(
+    userId: string,
+    toolKey: string,
+    durationMs: number = 0
+  ): { success: boolean; usageCount: number } {
+    const usages = getStored<StoredBetaUsage[]>(STORAGE_KEYS.TOOL_BETA_USAGES, []);
+    let item = usages.find((u) => u.userId === userId && u.toolKey === toolKey);
+
+    if (!item) {
+      item = {
+        userId,
+        toolKey,
+        usageCount: 1,
+        reservedCount: 0,
+        lastUsedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      usages.push(item);
+    } else {
+      item.usageCount += 1;
+      item.reservedCount = Math.max(0, item.reservedCount - 1);
+      item.lastUsedAt = new Date().toISOString();
+      item.updatedAt = new Date().toISOString();
+    }
+
+    setStored(STORAGE_KEYS.TOOL_BETA_USAGES, usages);
+
+    // Record privacy-safe platform event
+    this.recordPlatformEvent({
+      eventType: 'tool_execution' as any,
+      eventName: 'tool_execution',
+      toolKey,
+      userId,
+      success: true,
+      durationMs,
+      category: 'tool',
+    });
+
+    return { success: true, usageCount: item.usageCount };
+  },
+
+  releaseBetaUse(
+    userId: string,
+    toolKey: string,
+    error?: string
+  ): { success: boolean; usageCount: number } {
+    const usages = getStored<StoredBetaUsage[]>(STORAGE_KEYS.TOOL_BETA_USAGES, []);
+    const item = usages.find((u) => u.userId === userId && u.toolKey === toolKey);
+
+    if (item) {
+      item.reservedCount = Math.max(0, item.reservedCount - 1);
+      item.updatedAt = new Date().toISOString();
+      setStored(STORAGE_KEYS.TOOL_BETA_USAGES, usages);
+    }
+
+    // Record failed platform event
+    this.recordPlatformEvent({
+      eventType: 'tool_execution' as any,
+      eventName: 'tool_execution',
+      toolKey,
+      userId,
+      success: false,
+      metadata: error ? { error } : {},
+      category: 'tool',
+    });
+
+    return { success: true, usageCount: item ? item.usageCount : 0 };
+  },
+
+  getUserToolUsageSummary(userId: string): UserToolUsageSummary {
+    const events = (this.getPlatformEvents() as any[]).filter(
+      (e) => (e.userId === userId || e.user_id === userId) && (e.toolKey || e.tool_key || e.targetId)
+    );
+
+    const toolMap = new Map<string, { uses: number; succ: number; fail: number; lastUsed: string }>();
+
+    for (const ev of events) {
+      const k = ev.toolKey || ev.tool_key || ev.targetId;
+      if (!k) continue;
+      const current = toolMap.get(k) || { uses: 0, succ: 0, fail: 0, lastUsed: ev.timestamp || ev.created_at };
+      current.uses += 1;
+      if (ev.success !== false) current.succ += 1;
+      else current.fail += 1;
+      if (new Date(ev.timestamp || ev.created_at) > new Date(current.lastUsed)) {
+        current.lastUsed = ev.timestamp || ev.created_at;
+      }
+      toolMap.set(k, current);
+    }
+
+    const tools: Array<{
+      toolKey: string;
+      toolName: string;
+      category: string;
+      totalUses: number;
+      successfulUses: number;
+      failedUses: number;
+      lastUsedAt?: string | null;
+    }> = [];
+
+    let totalOperations = 0;
+    let totalSuccess = 0;
+    let mostUsedTool = 'None';
+    let maxUses = 0;
+    let lastUsedTool = 'None';
+    let latestTime = 0;
+
+    for (const [toolKey, stats] of toolMap.entries()) {
+      totalOperations += stats.uses;
+      totalSuccess += stats.succ;
+      if (stats.uses > maxUses) {
+        maxUses = stats.uses;
+        mostUsedTool = toolKey;
+      }
+      const timeMs = new Date(stats.lastUsed).getTime();
+      if (timeMs > latestTime) {
+        latestTime = timeMs;
+        lastUsedTool = toolKey;
+      }
+      tools.push({
+        toolKey,
+        toolName: toolKey.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+        category: 'tool',
+        totalUses: stats.uses,
+        successfulUses: stats.succ,
+        failedUses: stats.fail,
+        lastUsedAt: stats.lastUsed,
+      });
+    }
+
+    tools.sort((a, b) => b.totalUses - a.totalUses);
+
+    const successRate = totalOperations > 0 ? Math.round((totalSuccess / totalOperations) * 1000) / 10 : 100.0;
+
+    return {
+      userId,
+      totalOperations,
+      uniqueTools: toolMap.size,
+      mostUsedTool,
+      lastUsedTool,
+      lastActivity: latestTime > 0 ? new Date(latestTime).toISOString() : null,
+      successRate,
+      tools,
+    };
+  },
+
+  // =========================================================================
+  // RAZORPAY PAYMENT ORDERS (PART 7 & 8)
+  // =========================================================================
+
+  savePaymentOrder(order: RazorpayPaymentOrder): RazorpayPaymentOrder {
+    const all = getStored<RazorpayPaymentOrder[]>(STORAGE_KEYS.PAYMENT_ORDERS, []);
+    const idx = all.findIndex((o) => o.id === order.id || o.providerOrderId === order.providerOrderId);
+    const updated: RazorpayPaymentOrder = {
+      ...order,
+      updatedAt: new Date().toISOString(),
+    };
+    if (idx !== -1) {
+      all[idx] = updated;
+    } else {
+      all.unshift(updated);
+      if (all.length > 500) all.length = 500;
+    }
+    setStored(STORAGE_KEYS.PAYMENT_ORDERS, all);
+    return updated;
+  },
+
+  getPaymentOrder(orderId: string): RazorpayPaymentOrder | null {
+    if (!orderId) return null;
+    const all = getStored<RazorpayPaymentOrder[]>(STORAGE_KEYS.PAYMENT_ORDERS, []);
+    return all.find((o) => o.id === orderId || o.providerOrderId === orderId) || null;
+  },
+
+  getUserPaymentOrders(userId: string): RazorpayPaymentOrder[] {
+    if (!userId) return [];
+    const all = getStored<RazorpayPaymentOrder[]>(STORAGE_KEYS.PAYMENT_ORDERS, []);
+    return all.filter((o) => o.userId === userId);
+  },
+
+  updatePaymentOrderStatus(
+    orderId: string,
+    status: RazorpayPaymentOrderStatus,
+    paymentId?: string,
+    error?: string
+  ): RazorpayPaymentOrder | null {
+    const all = getStored<RazorpayPaymentOrder[]>(STORAGE_KEYS.PAYMENT_ORDERS, []);
+    const idx = all.findIndex((o) => o.id === orderId || o.providerOrderId === orderId);
+    if (idx === -1) return null;
+
+    const existing = all[idx];
+    const updated: RazorpayPaymentOrder = {
+      ...existing,
+      status,
+      providerPaymentId: paymentId || existing.providerPaymentId,
+      errorMessage: error || existing.errorMessage,
+      paidAt: status === 'paid' ? (existing.paidAt || new Date().toISOString()) : existing.paidAt,
+      updatedAt: new Date().toISOString(),
+    };
+
+    all[idx] = updated;
+    setStored(STORAGE_KEYS.PAYMENT_ORDERS, all);
     return updated;
   },
 };

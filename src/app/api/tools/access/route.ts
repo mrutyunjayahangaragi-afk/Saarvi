@@ -5,6 +5,7 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin';
 import { canAccessTool, getDefaultToolAccessMode, ToolAccessMode } from '@/lib/tools/access-control';
 import { MockStorageProvider } from '@/lib/supabase/mock-storage';
 import { enforceRateLimit, createRateLimitResponse } from '@/lib/security/rate-limit';
+import { toolAccessService } from '@/lib/tools/tool-access-service';
 import type { AuthSessionUser } from '@/types/auth';
 
 export const dynamic = 'force-dynamic';
@@ -106,15 +107,31 @@ export async function GET(request: Request) {
       }
     }
 
+    const accessResult = await toolAccessService.getToolAccess(authUser?.id, toolId);
+
     const decision = canAccessTool(authUser, toolId, {
-      isPro,
+      isPro: isPro || accessResult.isPro,
       override,
     });
+
+    const isAllowed = decision.allowed && accessResult.isAllowed;
 
     return NextResponse.json({
       success: true,
       toolId,
-      ...decision,
+      allowed: isAllowed,
+      reason: !isAllowed
+        ? (accessResult.requiresPro ? 'PRO_REQUIRED' : (!decision.allowed ? decision.reason : 'PRO_REQUIRED'))
+        : decision.reason,
+      accessMode: decision.accessMode,
+      toolName: decision.toolName,
+      isPro: accessResult.isPro,
+      isBeta: accessResult.isBeta,
+      usageCount: accessResult.usageCount,
+      freeLimit: accessResult.freeLimit,
+      remainingUses: accessResult.remainingUses,
+      requiresPro: accessResult.requiresPro,
+      maintenanceMessage: accessResult.maintenanceMessage,
     });
   } catch (err: unknown) {
     return NextResponse.json(
