@@ -58,66 +58,216 @@ CREATE INDEX IF NOT EXISTS idx_platform_events_tool_user_type
     ON public.platform_events(tool_key, user_type, success, created_at DESC);
 
 
--- 2. AUTHORITATIVE ACADEMIC SUBJECTS TABLE
+-- 2. AUTHORITATIVE ACADEMIC SUBJECTS TABLE (ROBUST & BACKWARD COMPATIBLE)
+-- A. Create table if fresh setup
 CREATE TABLE IF NOT EXISTS public.academic_subjects (
     id TEXT PRIMARY KEY, -- e.g. "vtu_2022_cse_sem3_21cs32"
     university_id TEXT NOT NULL,
     scheme_id TEXT NOT NULL,
     branch_id TEXT NOT NULL,
-    semester INTEGER NOT NULL CHECK (semester >= 1 AND semester <= 12),
+    semester INTEGER NOT NULL DEFAULT 1 CHECK (semester >= 1 AND semester <= 12),
     academic_year TEXT NOT NULL DEFAULT '2022-2026',
-    subject_code TEXT NOT NULL,
-    subject_name TEXT NOT NULL,
-    credits NUMERIC(3, 1) NOT NULL CHECK (credits >= 0),
-    course_type TEXT NOT NULL DEFAULT 'Theory' CHECK (course_type IN ('Theory', 'Lab', 'Practical', 'Project', 'Activity', 'Other')),
+    subject_code TEXT NOT NULL DEFAULT '',
+    subject_name TEXT NOT NULL DEFAULT '',
+    credits NUMERIC(4, 2) NOT NULL DEFAULT 3.0 CHECK (credits >= 0),
+    course_type TEXT NOT NULL DEFAULT 'Theory',
     see_applicable BOOLEAN NOT NULL DEFAULT TRUE,
     cie_applicable BOOLEAN NOT NULL DEFAULT TRUE,
-    source_type TEXT NOT NULL DEFAULT 'OFFICIAL_CURRICULUM_PDF' CHECK (source_type IN (
-        'OFFICIAL_UNIVERSITY_WEBSITE',
-        'OFFICIAL_CURRICULUM_PDF',
-        'OFFICIAL_UNIVERSITY_API',
-        'VERIFIED_ACADEMIC_DATASET',
-        'MANUAL_ADMIN_ENTRY'
-    )),
+    source_type TEXT NOT NULL DEFAULT 'OFFICIAL_CURRICULUM_PDF',
     source_url TEXT,
     source_document TEXT,
-    verification_status TEXT NOT NULL DEFAULT 'VERIFIED' CHECK (verification_status IN (
-        'VERIFIED',
-        'UNVERIFIED',
-        'DISPUTED',
-        'CONFLICT_REQUIRES_REVIEW',
-        'REJECTED'
-    )),
+    verification_status TEXT NOT NULL DEFAULT 'VERIFIED',
     conflict_details JSONB DEFAULT NULL,
     audit_history JSONB NOT NULL DEFAULT '[]'::jsonb,
+    status TEXT NOT NULL DEFAULT 'ENABLED',
+    publish_status TEXT NOT NULL DEFAULT 'PUBLISHED',
     version INTEGER NOT NULL DEFAULT 1,
     last_verified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_academic_subject_scope UNIQUE(university_id, scheme_id, branch_id, semester, subject_code)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- B. Dynamically add all authoritative pipeline columns if table already existed (from migration 010)
+ALTER TABLE public.academic_subjects
+    ADD COLUMN IF NOT EXISTS semester INTEGER,
+    ADD COLUMN IF NOT EXISTS subject_code TEXT,
+    ADD COLUMN IF NOT EXISTS subject_name TEXT,
+    ADD COLUMN IF NOT EXISTS academic_year TEXT DEFAULT '2022-2026',
+    ADD COLUMN IF NOT EXISTS cie_applicable BOOLEAN DEFAULT TRUE,
+    ADD COLUMN IF NOT EXISTS source_type TEXT DEFAULT 'OFFICIAL_CURRICULUM_PDF',
+    ADD COLUMN IF NOT EXISTS source_url TEXT,
+    ADD COLUMN IF NOT EXISTS source_document TEXT,
+    ADD COLUMN IF NOT EXISTS verification_status TEXT DEFAULT 'VERIFIED',
+    ADD COLUMN IF NOT EXISTS conflict_details JSONB DEFAULT NULL,
+    ADD COLUMN IF NOT EXISTS audit_history JSONB DEFAULT '[]'::jsonb,
+    ADD COLUMN IF NOT EXISTS last_verified_at TIMESTAMPTZ DEFAULT NOW(),
+    ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ENABLED',
+    ADD COLUMN IF NOT EXISTS publish_status TEXT DEFAULT 'PUBLISHED';
+
+-- C. Remove legacy blocking foreign keys & constraints, backfill missing values
+DO $$
+BEGIN
+    -- 1. Drop strict legacy foreign key constraints that prevent autonomous authoritative ingestion
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'academic_subjects_semester_id_fkey') THEN
+        ALTER TABLE public.academic_subjects DROP CONSTRAINT academic_subjects_semester_id_fkey;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'academic_subjects_branch_id_fkey') THEN
+        ALTER TABLE public.academic_subjects DROP CONSTRAINT academic_subjects_branch_id_fkey;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'academic_subjects_scheme_id_fkey') THEN
+        ALTER TABLE public.academic_subjects DROP CONSTRAINT academic_subjects_scheme_id_fkey;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'academic_subjects_university_id_fkey') THEN
+        ALTER TABLE public.academic_subjects DROP CONSTRAINT academic_subjects_university_id_fkey;
+    END IF;
+
+    -- 2. Drop NOT NULL on legacy columns if they exist
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'academic_subjects' AND column_name = 'semester_id'
+    ) THEN
+        ALTER TABLE public.academic_subjects ALTER COLUMN semester_id DROP NOT NULL;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'academic_subjects' AND column_name = 'code'
+    ) THEN
+        ALTER TABLE public.academic_subjects ALTER COLUMN code DROP NOT NULL;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'academic_subjects' AND column_name = 'name'
+    ) THEN
+        ALTER TABLE public.academic_subjects ALTER COLUMN name DROP NOT NULL;
+    END IF;
+
+    -- 3. Backfill subject_code from legacy code column
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'academic_subjects' AND column_name = 'code'
+    ) THEN
+        UPDATE public.academic_subjects 
+        SET subject_code = code 
+        WHERE (subject_code IS NULL OR subject_code = '') AND code IS NOT NULL;
+    END IF;
+
+    -- 4. Backfill subject_name from legacy name column
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'academic_subjects' AND column_name = 'name'
+    ) THEN
+        UPDATE public.academic_subjects 
+        SET subject_name = name 
+        WHERE (subject_name IS NULL OR subject_name = '') AND name IS NOT NULL;
+    END IF;
+
+    -- 5. Backfill semester integer from academic_semesters via semester_id if available
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'academic_subjects' AND column_name = 'semester_id'
+    ) AND EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'academic_semesters'
+    ) THEN
+        UPDATE public.academic_subjects s
+        SET semester = sem.semester_number
+        FROM public.academic_semesters sem
+        WHERE s.semester_id = sem.id AND s.semester IS NULL;
+    END IF;
+
+    -- 6. Guarantee sensible defaults for all required columns
+    UPDATE public.academic_subjects 
+    SET semester = 1 
+    WHERE semester IS NULL;
+
+    UPDATE public.academic_subjects 
+    SET subject_code = id 
+    WHERE subject_code IS NULL OR subject_code = '';
+
+    UPDATE public.academic_subjects 
+    SET subject_name = subject_code 
+    WHERE subject_name IS NULL OR subject_name = '';
+
+    UPDATE public.academic_subjects 
+    SET verification_status = 'VERIFIED' 
+    WHERE verification_status IS NULL;
+
+    UPDATE public.academic_subjects 
+    SET source_type = 'OFFICIAL_CURRICULUM_PDF' 
+    WHERE source_type IS NULL;
+END $$;
+
+-- D. Enforce NOT NULL constraints on canonical columns
+ALTER TABLE public.academic_subjects ALTER COLUMN semester SET NOT NULL;
+ALTER TABLE public.academic_subjects ALTER COLUMN subject_code SET NOT NULL;
+ALTER TABLE public.academic_subjects ALTER COLUMN subject_name SET NOT NULL;
+
+-- E. Create unique index and query acceleration indexes
+CREATE UNIQUE INDEX IF NOT EXISTS uq_academic_subject_scope 
+    ON public.academic_subjects(university_id, scheme_id, branch_id, semester, subject_code);
 
 CREATE INDEX IF NOT EXISTS idx_academic_subjects_scope 
     ON public.academic_subjects(university_id, scheme_id, branch_id, semester);
+
 CREATE INDEX IF NOT EXISTS idx_academic_subjects_code 
     ON public.academic_subjects(subject_code);
+
 CREATE INDEX IF NOT EXISTS idx_academic_subjects_status 
     ON public.academic_subjects(verification_status);
 
--- Enable RLS on academic_subjects
+-- F. Bidirectional sync trigger for legacy code/name <-> subject_code/subject_name
+CREATE OR REPLACE FUNCTION public.sync_academic_subject_columns()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.subject_code IS NULL AND NEW.code IS NOT NULL THEN
+        NEW.subject_code := NEW.code;
+    ELSIF NEW.code IS NULL AND NEW.subject_code IS NOT NULL THEN
+        NEW.code := NEW.subject_code;
+    END IF;
+
+    IF NEW.subject_name IS NULL AND NEW.name IS NOT NULL THEN
+        NEW.subject_name := NEW.name;
+    ELSIF NEW.name IS NULL AND NEW.subject_name IS NOT NULL THEN
+        NEW.name := NEW.subject_name;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'academic_subjects' AND column_name = 'code'
+    ) THEN
+        DROP TRIGGER IF EXISTS trg_sync_academic_subject_columns ON public.academic_subjects;
+        CREATE TRIGGER trg_sync_academic_subject_columns
+        BEFORE INSERT OR UPDATE ON public.academic_subjects
+        FOR EACH ROW EXECUTE FUNCTION public.sync_academic_subject_columns();
+    END IF;
+END $$;
+
+-- G. Enable Row Level Security and Policies
 ALTER TABLE public.academic_subjects ENABLE ROW LEVEL SECURITY;
 
--- Anyone can read verified academic subjects
+DROP POLICY IF EXISTS "Public read academic subjects" ON public.academic_subjects;
 DROP POLICY IF EXISTS "Anyone can read verified academic subjects" ON public.academic_subjects;
 CREATE POLICY "Anyone can read verified academic subjects"
     ON public.academic_subjects FOR SELECT
-    USING (verification_status = 'VERIFIED' OR EXISTS (
-        SELECT 1 FROM public.profiles
-        WHERE public.profiles.id = auth.uid()
-        AND public.profiles.role IN ('ADMIN', 'SUPER_ADMIN')
-    ));
+    USING (
+        verification_status = 'VERIFIED'
+        OR (publish_status = 'PUBLISHED' AND status = 'ENABLED')
+        OR EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE public.profiles.id = auth.uid()
+            AND public.profiles.role IN ('ADMIN', 'SUPER_ADMIN')
+        )
+    );
 
--- Admins can manage all academic subjects
+DROP POLICY IF EXISTS "Admin manage academic subjects" ON public.academic_subjects;
 DROP POLICY IF EXISTS "Admins manage academic subjects" ON public.academic_subjects;
 CREATE POLICY "Admins manage academic subjects"
     ON public.academic_subjects FOR ALL
@@ -128,6 +278,9 @@ CREATE POLICY "Admins manage academic subjects"
             AND public.profiles.role IN ('ADMIN', 'SUPER_ADMIN')
         )
     );
+
+GRANT SELECT ON public.academic_subjects TO anon, authenticated, service_role;
+GRANT ALL ON public.academic_subjects TO authenticated, service_role;
 
 
 -- 3. ACADEMIC SUBJECT CONFLICTS TABLE (FOR ADMIN REVIEW QUEUE)
@@ -301,3 +454,8 @@ BEGIN
     );
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION public.get_tool_overview_telemetry(INT) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_user_tool_usage_summary(UUID) TO authenticated, service_role;
+GRANT ALL ON public.academic_subject_conflicts TO authenticated, service_role;
+
