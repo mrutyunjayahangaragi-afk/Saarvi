@@ -39,14 +39,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, usageCount: 0 });
     }
 
-    const result = await toolAccessService.releaseBetaUse(
-      effectiveUserId,
-      toolKey.trim(),
-      typeof errorMsg === 'string' ? errorMsg : undefined
-    );
+    const opId =
+      typeof body.operationId === 'string' && body.operationId.trim()
+        ? body.operationId.trim()
+        : `op_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+    const result = await toolAccessService.recordToolEvent({
+      eventName: 'tool_error',
+      toolKey: toolKey.trim(),
+      operationId: opId,
+      success: false,
+      userId: effectiveUserId,
+      userType: effectiveUserId ? 'authenticated' : 'guest',
+      metadata: { error: typeof errorMsg === 'string' ? errorMsg : 'Operation failed' },
+    });
 
     return NextResponse.json({
-      ...result,
+      success: true,
+      usageCount: result.usageCount ?? 0,
+      remainingUses: result.remainingUses ?? 10,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Failed to release Beta usage';

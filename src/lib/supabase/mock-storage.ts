@@ -116,7 +116,56 @@ const STORAGE_KEYS = {
   PAYMENT_ORDERS: 'saarvi_payment_orders_v1',
   // Phase 43 Feedback System Key
   FEEDBACK: 'saarvi_feedback_v1',
+  // Phase 44 Canonical Tool Telemetry & Academic Pipeline Keys
+  ACADEMIC_SUBJECTS: 'saarvi_academic_subjects_v1',
+  ACADEMIC_CONFLICTS: 'saarvi_academic_conflicts_v1',
+  ACADEMIC_AUDIT_LOGS: 'saarvi_academic_audit_logs_v1',
 };
+
+export interface StoredAcademicSubject {
+  id: string;
+  universityId: string;
+  schemeId: string;
+  branchId: string;
+  semester: number;
+  academicYear: string;
+  subjectCode: string;
+  subjectName: string;
+  credits: number;
+  courseType: string;
+  seeApplicable: boolean;
+  cieApplicable: boolean;
+  sourceType: 'OFFICIAL_UNIVERSITY_WEBSITE' | 'OFFICIAL_CURRICULUM_PDF' | 'OFFICIAL_UNIVERSITY_API' | 'VERIFIED_ACADEMIC_DATASET' | 'MANUAL_ADMIN_ENTRY';
+  sourceUrl?: string;
+  sourceDocument?: string;
+  verificationStatus: 'VERIFIED' | 'UNVERIFIED' | 'DISPUTED' | 'CONFLICT_REQUIRES_REVIEW' | 'REJECTED';
+  conflictDetails?: any;
+  auditHistory?: Array<{ timestamp: string; action: string; actor: string; changes: any }>;
+  version: number;
+  lastVerifiedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StoredAcademicConflict {
+  id: string;
+  subjectCode: string;
+  subjectId?: string;
+  universityId: string;
+  schemeId: string;
+  branchId: string;
+  semester: number;
+  existingSource: string;
+  existingData: any;
+  conflictingSource: string;
+  conflictingData: any;
+  resolutionStatus: 'PENDING' | 'RESOLVED' | 'REJECTED';
+  resolvedBy?: string;
+  resolvedAt?: string;
+  adminNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface StoredFeedback {
   id: string;
@@ -1510,6 +1559,9 @@ export const MockStorageProvider = {
     targetId?: string;
     toolKey?: string;
     userId?: string | null;
+    userType?: 'authenticated' | 'guest';
+    guestSessionId?: string | null;
+    operationId?: string;
     success?: boolean;
     durationMs?: number;
     metadata?: Record<string, any>;
@@ -1517,16 +1569,36 @@ export const MockStorageProvider = {
     timestamp?: string;
   }): PlatformEventRecord & Record<string, any> {
     const events = getStored<any[]>(STORAGE_KEYS.PLATFORM_EVENTS, []);
+    const toolKey = event.toolKey || event.targetId || '';
+    const opId = event.operationId || event.metadata?.operationId || null;
+
+    // Strict Idempotency check: same operationId + toolKey must count only once!
+    if (opId && toolKey) {
+      const existing = events.find(
+        (e) =>
+          (e.operationId === opId || e.metadata?.operationId === opId) &&
+          (e.toolKey === toolKey || e.targetId === toolKey)
+      );
+      if (existing) {
+        return existing;
+      }
+    }
+
+    const userType = event.userType || (event.userId ? 'authenticated' : 'guest');
+
     const record: any = {
       id: `evt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       eventType: event.eventType || event.eventName || 'feature_used',
       eventName: event.eventName || event.eventType || 'feature_used',
-      targetId: event.targetId || event.toolKey,
-      toolKey: event.toolKey || event.targetId,
+      targetId: toolKey,
+      toolKey,
       userId: event.userId || null,
+      userType,
+      guestSessionId: event.guestSessionId || null,
+      operationId: opId,
       success: event.success !== false,
       durationMs: event.durationMs || 0,
-      metadata: event.metadata || {},
+      metadata: event.metadata || (opId ? { operationId: opId } : {}),
       category: event.category || 'tool',
       timestamp: event.timestamp || new Date().toISOString(),
       createdAt: event.timestamp || new Date().toISOString(),
@@ -2178,6 +2250,134 @@ export const MockStorageProvider = {
       byCategory,
       byTool,
     };
+  },
+
+  // =========================================================================
+  // Phase 44: Authoritative Academic Subjects & Conflict Management
+  // =========================================================================
+
+  getAcademicSubjects(filters?: {
+    universityId?: string;
+    schemeId?: string;
+    branchId?: string;
+    semester?: number;
+    search?: string;
+    status?: string;
+  }): StoredAcademicSubject[] {
+    let list = getStored<StoredAcademicSubject[]>(STORAGE_KEYS.ACADEMIC_SUBJECTS, []);
+
+    if (filters?.universityId) list = list.filter((s) => s.universityId === filters.universityId);
+    if (filters?.schemeId) list = list.filter((s) => s.schemeId === filters.schemeId);
+    if (filters?.branchId) list = list.filter((s) => s.branchId === filters.branchId);
+    if (filters?.semester !== undefined) list = list.filter((s) => s.semester === filters.semester);
+    if (filters?.status) list = list.filter((s) => s.verificationStatus === filters.status);
+    if (filters?.search) {
+      const q = filters.search.toLowerCase();
+      list = list.filter(
+        (s) => s.subjectCode.toLowerCase().includes(q) || s.subjectName.toLowerCase().includes(q)
+      );
+    }
+
+    return list;
+  },
+
+  saveAcademicSubject(subject: StoredAcademicSubject): StoredAcademicSubject {
+    const list = getStored<StoredAcademicSubject[]>(STORAGE_KEYS.ACADEMIC_SUBJECTS, []);
+    const idx = list.findIndex(
+      (s) =>
+        s.id === subject.id ||
+        (s.universityId === subject.universityId &&
+          s.schemeId === subject.schemeId &&
+          s.branchId === subject.branchId &&
+          s.semester === subject.semester &&
+          s.subjectCode.toUpperCase() === subject.subjectCode.toUpperCase())
+    );
+
+    const now = new Date().toISOString();
+    const updated: StoredAcademicSubject = {
+      ...subject,
+      updatedAt: now,
+    };
+
+    if (idx >= 0) {
+      list[idx] = updated;
+    } else {
+      list.push(updated);
+    }
+
+    setStored(STORAGE_KEYS.ACADEMIC_SUBJECTS, list);
+    return updated;
+  },
+
+  getAcademicSubjectConflicts(filters?: { status?: string }): StoredAcademicConflict[] {
+    let list = getStored<StoredAcademicConflict[]>(STORAGE_KEYS.ACADEMIC_CONFLICTS, []);
+    if (filters?.status) {
+      list = list.filter((c) => c.resolutionStatus === filters.status);
+    }
+    return list;
+  },
+
+  saveAcademicSubjectConflict(conflict: StoredAcademicConflict): StoredAcademicConflict {
+    const list = getStored<StoredAcademicConflict[]>(STORAGE_KEYS.ACADEMIC_CONFLICTS, []);
+    const idx = list.findIndex(
+      (c) =>
+        c.id === conflict.id ||
+        (c.universityId === conflict.universityId &&
+          c.schemeId === conflict.schemeId &&
+          c.branchId === conflict.branchId &&
+          c.semester === conflict.semester &&
+          c.subjectCode.toUpperCase() === conflict.subjectCode.toUpperCase() &&
+          c.resolutionStatus === 'PENDING')
+    );
+
+    if (idx >= 0) {
+      list[idx] = { ...conflict, updatedAt: new Date().toISOString() };
+    } else {
+      list.push(conflict);
+    }
+
+    setStored(STORAGE_KEYS.ACADEMIC_CONFLICTS, list);
+    return conflict;
+  },
+
+  resolveAcademicSubjectConflict(
+    conflictId: string,
+    resolution: 'RESOLVED' | 'REJECTED',
+    resolvedBy: string,
+    notes?: string
+  ): boolean {
+    const list = getStored<StoredAcademicConflict[]>(STORAGE_KEYS.ACADEMIC_CONFLICTS, []);
+    const item = list.find((c) => c.id === conflictId);
+    if (!item) return false;
+
+    item.resolutionStatus = resolution;
+    item.resolvedBy = resolvedBy;
+    item.resolvedAt = new Date().toISOString();
+    if (notes) item.adminNotes = notes;
+    item.updatedAt = new Date().toISOString();
+
+    setStored(STORAGE_KEYS.ACADEMIC_CONFLICTS, list);
+    return true;
+  },
+
+  recordAcademicAuditLog(entry: {
+    action: string;
+    subjectCode: string;
+    actor: string;
+    details: any;
+  }): void {
+    const logs = getStored<any[]>(STORAGE_KEYS.ACADEMIC_AUDIT_LOGS, []);
+    logs.unshift({
+      id: `audit_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      timestamp: new Date().toISOString(),
+      ...entry,
+    });
+    if (logs.length > 500) logs.length = 500;
+    setStored(STORAGE_KEYS.ACADEMIC_AUDIT_LOGS, logs);
+  },
+
+  getAcademicAuditLogs(): any[] {
+    return getStored<any[]>(STORAGE_KEYS.ACADEMIC_AUDIT_LOGS, []);
   },
 };
 

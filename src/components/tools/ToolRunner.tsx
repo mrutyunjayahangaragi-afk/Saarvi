@@ -746,6 +746,11 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
       return;
     }
 
+    const operationId =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `op_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
     // Atomic Beta Usage Reservation (PART 2.5 & 2.6)
     let currentReservationToken: string | null = null;
     if (serverAccess?.isBeta && !serverAccess?.isPro) {
@@ -776,6 +781,17 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
     setProgress(5);
     const startTime = performance.now();
 
+    // Canonical tool_started telemetry
+    fetch('/api/tools/telemetry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        toolKey: tool.slug,
+        eventName: 'tool_started',
+        operationId,
+      }),
+    }).catch(() => {});
+
     try {
       const res = await operation.execute(files, config as never, (pct: number, stage?: string) => {
         if (!isCancelledRef.current) {
@@ -786,7 +802,19 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
         }
       });
 
-      if (isCancelledRef.current) return;
+      if (isCancelledRef.current) {
+        fetch('/api/tools/telemetry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toolKey: tool.slug,
+            eventName: 'tool_cancelled',
+            operationId,
+            durationMs: Math.round(performance.now() - startTime),
+          }),
+        }).catch(() => {});
+        return;
+      }
 
       // Phase 16 Output Validation Engine Check
       const valRes = await validateToolOutput(res);
@@ -794,19 +822,28 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
         throw new Error(valRes.error || "Processing failed. Your original file was not changed.");
       }
 
-      if (isCancelledRef.current) return;
+      if (isCancelledRef.current) {
+        fetch('/api/tools/telemetry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toolKey: tool.slug,
+            eventName: 'tool_cancelled',
+            operationId,
+            durationMs: Math.round(performance.now() - startTime),
+          }),
+        }).catch(() => {});
+        return;
+      }
 
       const durationMs = Math.round(performance.now() - startTime);
       setResult(res);
       setState("RESULT_READY");
 
-      // Atomic Beta Usage Commit upon verified successful completion (PART 2.5)
+      // Canonical tool usage commit / telemetry:
+      // If beta token is present, commit beta usage (which records tool_completed).
+      // Otherwise emit tool_completed directly to canonical telemetry API.
       if (currentReservationToken) {
-        const operationId =
-          typeof crypto !== 'undefined' && crypto.randomUUID
-            ? crypto.randomUUID()
-            : `op_${Date.now()}_${Math.random()}`;
-
         fetch('/api/tools/beta-usage/commit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -836,6 +873,18 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           })
           .catch(() => {});
         setActiveReservationToken(null);
+      } else {
+        fetch('/api/tools/telemetry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toolKey: tool.slug,
+            eventName: 'tool_completed',
+            operationId,
+            durationMs,
+            success: true,
+          }),
+        }).catch((tErr) => console.warn('Telemetry recording notice:', tErr));
       }
 
       // Asynchronously record conversion metadata for authenticated users (NON-BLOCKING)
@@ -860,7 +909,10 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
     } catch (err: unknown) {
       if (isCancelledRef.current) return;
 
-      // Release reserved slot on failure (PART 2.5 & 2.6)
+      const durationMs = Math.round(performance.now() - startTime);
+      const errorMsg = err instanceof Error ? err.message : 'Processing failed';
+
+      // Release reserved slot on failure or emit error telemetry
       if (currentReservationToken) {
         fetch('/api/tools/beta-usage/release', {
           method: 'POST',
@@ -868,11 +920,25 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           body: JSON.stringify({
             toolKey: tool.slug,
             reservationToken: currentReservationToken,
+            operationId,
             userId: user?.id,
-            reason: err instanceof Error ? err.message : 'Processing failed',
+            reason: errorMsg,
           }),
         }).catch(() => {});
         setActiveReservationToken(null);
+      } else {
+        fetch('/api/tools/telemetry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toolKey: tool.slug,
+            eventName: 'tool_error',
+            operationId,
+            durationMs,
+            success: false,
+            errorMessage: errorMsg,
+          }),
+        }).catch(() => {});
       }
 
       console.warn("Local tool conversion notice:", err);

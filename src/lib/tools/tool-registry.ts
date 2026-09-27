@@ -1010,10 +1010,41 @@ export const CANONICAL_TOOL_REGISTRY: CanonicalTool[] = [
 
 // Pre-indexed lookup maps for instant O(1) queries without main-thread linear scans
 export const CANONICAL_TOOL_MAP = new Map<string, CanonicalTool>();
+
+// Aliases for common tool key variants
+const TOOL_KEY_ALIASES: Record<string, string> = {
+  pdf_compress: 'compress-pdf',
+  compress_pdf: 'compress-pdf',
+  pdf_merge: 'merge-pdf',
+  merge_pdf: 'merge-pdf',
+  pdf_split: 'split-pdf',
+  split_pdf: 'split-pdf',
+  pdf_protect: 'protect-pdf',
+  protect_pdf: 'protect-pdf',
+  pdf_unlock: 'unlock-pdf',
+  unlock_pdf: 'unlock-pdf',
+  sgpa_calc: 'sgpa-calculator',
+  cgpa_calc: 'cgpa-calculator',
+};
+
 for (const tool of CANONICAL_TOOL_REGISTRY) {
   CANONICAL_TOOL_MAP.set(tool.key, tool);
+  // Also index snake_case version
+  const snakeKey = tool.key.replace(/-/g, '_');
+  CANONICAL_TOOL_MAP.set(snakeKey, tool);
+
   if (tool.featureFlagKey && !CANONICAL_TOOL_MAP.has(tool.featureFlagKey)) {
     CANONICAL_TOOL_MAP.set(tool.featureFlagKey, tool);
+    CANONICAL_TOOL_MAP.set(tool.featureFlagKey.replace(/-/g, '_'), tool);
+  }
+}
+
+// Index aliases
+for (const [alias, canonicalKey] of Object.entries(TOOL_KEY_ALIASES)) {
+  const tool = CANONICAL_TOOL_MAP.get(canonicalKey);
+  if (tool) {
+    CANONICAL_TOOL_MAP.set(alias, tool);
+    CANONICAL_TOOL_MAP.set(alias.replace(/_/g, '-'), tool);
   }
 }
 
@@ -1030,13 +1061,31 @@ for (const tool of CANONICAL_TOOL_REGISTRY) {
   ROUTE_TOOLS_CACHE.set(tool.route, tool);
 }
 
-// Helper query functions
-export function getAllCanonicalTools(): CanonicalTool[] {
-  return CANONICAL_TOOL_REGISTRY;
+/**
+ * Normalizes any tool key variant to its canonical snake_case tool_key.
+ * E.g. "pdf-to-jpg" -> "pdf_to_jpg", "compress-pdf" -> "pdf_compress" or canonical form.
+ */
+export function normalizeToolKey(rawKey: string): string {
+  if (!rawKey) return '';
+  const trimmed = rawKey.trim().toLowerCase();
+  const matched = CANONICAL_TOOL_MAP.get(trimmed);
+  if (matched) {
+    return matched.key.replace(/-/g, '_');
+  }
+  return trimmed.replace(/-/g, '_');
 }
 
+/**
+ * Returns canonical tool definition for any valid key (kebab, snake, route, flag).
+ */
 export function getCanonicalToolByKey(key: string): CanonicalTool | undefined {
-  return CANONICAL_TOOL_MAP.get(key);
+  if (!key) return undefined;
+  const clean = key.trim().toLowerCase();
+  return CANONICAL_TOOL_MAP.get(clean) || CANONICAL_TOOL_MAP.get(clean.replace(/-/g, '_')) || CANONICAL_TOOL_MAP.get(clean.replace(/_/g, '-'));
+}
+
+export function getAllCanonicalTools(): CanonicalTool[] {
+  return CANONICAL_TOOL_REGISTRY;
 }
 
 export function getCanonicalToolByRoute(route: string): CanonicalTool | undefined {

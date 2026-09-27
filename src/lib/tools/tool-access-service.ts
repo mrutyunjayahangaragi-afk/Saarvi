@@ -9,7 +9,7 @@
  * 4. Deterministic health calculations from real platform telemetry.
  */
 
-import { CANONICAL_TOOL_REGISTRY, CanonicalTool } from './tool-registry';
+import { CANONICAL_TOOL_REGISTRY, CanonicalTool, normalizeToolKey, getCanonicalToolByKey } from './tool-registry';
 import { getUserEntitlement } from '@/lib/billing/entitlements';
 import { MockStorageProvider } from '@/lib/supabase/mock-storage';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
@@ -21,6 +21,7 @@ import type {
   ToolHealthStatus,
   ToolOperationalStatus,
   ToolAccessTier,
+  ToolTelemetryEventPayload,
 } from '@/types/tool-control';
 
 export class ToolAccessService {
@@ -351,6 +352,128 @@ export class ToolAccessService {
   }
 
   /**
+   * Authoritative canonical telemetry and quota event recorder.
+   * Handles authenticated users and anonymous guest sessions identically.
+   * Strictly enforces idempotency on (operation_id, tool_key) to eliminate double counting.
+   */
+  async recordToolEvent(
+    params: ToolTelemetryEventPayload
+  ): Promise<{
+    success: boolean;
+    eventId?: string;
+    isDuplicate?: boolean;
+    usageCount?: number;
+    remainingUses?: number;
+    error?: string;
+  }> {
+    const {
+      eventName,
+      toolKey,
+      operationId,
+      success,
+      durationMs = 0,
+      userType: explicitUserType,
+      userId = null,
+      guestSessionId = null,
+      category,
+      metadata = {},
+    } = params;
+
+    const normalizedKey = normalizeToolKey(toolKey);
+    const userType = explicitUserType || (userId ? 'authenticated' : 'guest');
+
+    this.clearTelemetryCache();
+
+    // 1. Resolve tool metadata
+    const tool = getCanonicalToolByKey(toolKey);
+    const config = await this.getToolConfig(normalizedKey);
+    const isBeta = config?.status === 'BETA' || tool?.status === 'beta';
+    const betaLimit = config?.betaFreeLimit ?? tool?.betaFreeLimit ?? 10;
+    const resolvedCategory = category || config?.category || tool?.category || 'tool';
+
+    let usageCount = 0;
+    let remainingUses = 10;
+
+    // 2. Beta quota handling for authenticated users
+    if (userId && isBeta) {
+      if (eventName === 'tool_completed' && success) {
+        const commitRes = await this.commitBetaUse(userId, normalizedKey, durationMs, operationId);
+        usageCount = commitRes.usageCount;
+        remainingUses = commitRes.remainingUses;
+      } else if ((eventName === 'tool_error' || eventName === 'tool_cancelled') && !success) {
+        const releaseRes = await this.releaseBetaUse(userId, normalizedKey, (metadata.error as string) || undefined);
+        usageCount = releaseRes.usageCount;
+        remainingUses = releaseRes.remainingUses;
+      }
+    } else if (userId) {
+      usageCount = await this.getToolUsageCount(userId, normalizedKey);
+      remainingUses = Math.max(0, betaLimit - usageCount);
+    }
+
+    // 3. Database persistence to platform_events
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabaseAdminClient();
+      if (supabase) {
+        try {
+          const eventId = `evt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          const { error } = await supabase.from('platform_events').insert({
+            id: eventId,
+            event_name: eventName,
+            tool_key: normalizedKey,
+            category: resolvedCategory,
+            user_id: userId,
+            user_type: userType,
+            guest_session_id: guestSessionId,
+            operation_id: operationId,
+            success,
+            duration_ms: durationMs,
+            metadata,
+            created_at: new Date().toISOString(),
+          });
+
+          if (error) {
+            // Check for unique violation on (operation_id, tool_key)
+            if (
+              error.code === '23505' ||
+              error.message?.includes('duplicate key') ||
+              error.message?.includes('uq_platform_events_operation_tool')
+            ) {
+              return { success: true, isDuplicate: true, usageCount, remainingUses };
+            }
+            console.warn('[ToolAccessService] Supabase platform_events insert error:', error);
+          } else {
+            return { success: true, eventId, usageCount, remainingUses };
+          }
+        } catch (dbErr) {
+          console.warn('[ToolAccessService] Supabase platform_events fallback to mock:', dbErr);
+        }
+      }
+    }
+
+    // Local / Mock storage persistence
+    const mockRecord = MockStorageProvider.recordPlatformEvent({
+      eventName,
+      eventType: eventName,
+      toolKey: normalizedKey,
+      userId,
+      userType,
+      guestSessionId,
+      operationId,
+      success,
+      durationMs,
+      category: resolvedCategory,
+      metadata,
+    });
+
+    return {
+      success: true,
+      eventId: mockRecord.id,
+      usageCount,
+      remainingUses,
+    };
+  }
+
+  /**
    * Reads tool access config override.
    */
   async getToolConfig(toolKey: string): Promise<ToolControlConfig | null> {
@@ -537,17 +660,19 @@ export class ToolAccessService {
         }
       }
 
-      // In-memory / mock events fallback - strictly filter for completed operations
+      // In-memory / mock events fallback - strictly filter for completed and error operations
       const rawEvents = (MockStorageProvider.getPlatformEvents() as any[]) || [];
       const now = Date.now();
       const periodStart = periodDays <= 0 ? 0 : now - periodDays * 86400000;
 
       const filteredEvents = rawEvents.filter((e) => {
-        const isCompleted =
-          e.eventName === 'tool_completed' ||
-          e.event_name === 'tool_completed' ||
-          e.eventType === 'tool_completed';
-        if (!isCompleted) return false;
+        const evName = e.eventName || e.event_name || e.eventType;
+        const isValidEvent =
+          evName === 'tool_completed' ||
+          evName === 'tool_error' ||
+          evName === 'tool_cancelled' ||
+          evName === 'tool_execution';
+        if (!isValidEvent) return false;
         const time = new Date(e.timestamp || e.created_at || 0).getTime();
         return periodDays <= 0 || time >= periodStart;
       });
@@ -555,11 +680,14 @@ export class ToolAccessService {
       const eventMap = new Map<
         string,
         {
-          uses: number;
+          totalUses: number;
+          authUses: number;
+          guestUses: number;
           succ: number;
           fail: number;
           durations: number[];
           users: Set<string>;
+          guests: Set<string>;
           lastUsed: string;
         }
       >();
@@ -567,33 +695,51 @@ export class ToolAccessService {
       const seenOperations = new Set<string>();
 
       for (const ev of filteredEvents) {
-        // Concurrency deduplication by operationId if present
-        if (ev.operationId) {
-          if (seenOperations.has(ev.operationId)) continue;
-          seenOperations.add(ev.operationId);
+        const rawK = ev.toolKey || ev.tool_key || ev.targetId;
+        if (!rawK) continue;
+        const k = normalizeToolKey(rawK);
+
+        // Concurrency deduplication by operationId + toolKey if present
+        const opKey = ev.operationId ? `${ev.operationId}_${k}` : null;
+        if (opKey) {
+          if (seenOperations.has(opKey)) continue;
+          seenOperations.add(opKey);
         }
 
-        const k = ev.toolKey || ev.tool_key || ev.targetId;
-        if (!k) continue;
         const current = eventMap.get(k) || {
-          uses: 0,
+          totalUses: 0,
+          authUses: 0,
+          guestUses: 0,
           succ: 0,
           fail: 0,
           durations: [] as number[],
           users: new Set<string>(),
+          guests: new Set<string>(),
           lastUsed: ev.timestamp || ev.created_at,
         };
 
-        current.uses += 1;
-        if (ev.success !== false) current.succ += 1;
-        else current.fail += 1;
+        const isSuccess = ev.success === true;
+        const isAuth = ev.userType === 'authenticated' || Boolean(ev.userId || ev.user_id);
+        const isGuest = ev.userType === 'guest' || (!ev.userId && Boolean(ev.guestSessionId || ev.guest_session_id));
 
-        if (ev.durationMs && ev.durationMs > 0) {
-          current.durations.push(ev.durationMs);
+        if (isSuccess) {
+          current.totalUses += 1;
+          current.succ += 1;
+          if (isAuth) {
+            current.authUses += 1;
+            if (ev.userId || ev.user_id) current.users.add(ev.userId || ev.user_id);
+          }
+          if (isGuest) {
+            current.guestUses += 1;
+            if (ev.guestSessionId || ev.guest_session_id) current.guests.add(ev.guestSessionId || ev.guest_session_id);
+          }
+          if (ev.durationMs && ev.durationMs > 0) {
+            current.durations.push(ev.durationMs);
+          }
+        } else {
+          current.fail += 1;
         }
-        if (ev.userId || ev.user_id) {
-          current.users.add(ev.userId || ev.user_id);
-        }
+
         if (new Date(ev.timestamp || ev.created_at) > new Date(current.lastUsed)) {
           current.lastUsed = ev.timestamp || ev.created_at;
         }
@@ -605,9 +751,10 @@ export class ToolAccessService {
 
       // Map each Canonical Tool to a ToolTelemetryMetric
       const results: ToolTelemetryMetric[] = CANONICAL_TOOL_REGISTRY.map((tool) => {
-        const cfg = configs[tool.key];
-        const dbRow = dbTelemetry.find((row) => row.toolKey === tool.key);
-        const memRow = eventMap.get(tool.key);
+        const normKey = normalizeToolKey(tool.key);
+        const cfg = configs[tool.key] || configs[normKey];
+        const dbRow = dbTelemetry.find((row) => normalizeToolKey(row.toolKey) === normKey);
+        const memRow = eventMap.get(normKey);
 
         const status: ToolOperationalStatus =
           cfg?.status ||
@@ -621,13 +768,17 @@ export class ToolAccessService {
         const betaFreeLimit = cfg?.betaFreeLimit ?? tool.betaFreeLimit ?? 10;
         const betaEnabled = status === 'BETA';
 
-        const totalUses = (dbRow?.totalUses ?? 0) + (memRow?.uses ?? 0);
+        const totalUses = (dbRow?.totalUses ?? 0) + (memRow?.totalUses ?? 0);
+        const authenticatedUses = (dbRow?.authenticatedUses ?? 0) + (memRow?.authUses ?? 0);
+        const guestUses = (dbRow?.guestUses ?? 0) + (memRow?.guestUses ?? 0);
         const uniqueUsers = (dbRow?.uniqueUsers ?? 0) + (memRow?.users.size ?? 0);
+        const uniqueGuestSessions = (dbRow?.uniqueGuestSessions ?? 0) + (memRow?.guests.size ?? 0);
         const successfulOperations = (dbRow?.successfulOperations ?? 0) + (memRow?.succ ?? 0);
         const failedOperations = (dbRow?.failedOperations ?? 0) + (memRow?.fail ?? 0);
 
+        const totalAttempts = successfulOperations + failedOperations;
         const successRate =
-          totalUses > 0 ? Math.round((successfulOperations / totalUses) * 1000) / 10 : 100.0;
+          totalAttempts > 0 ? Math.round((successfulOperations / totalAttempts) * 1000) / 10 : 100.0;
 
         // Durations
         let avgDurationMs = dbRow?.avgDurationMs || 0;
@@ -652,21 +803,21 @@ export class ToolAccessService {
           health = 'Disabled';
         } else if (totalUses === 0) {
           health = 'No Recent Usage';
-        } else if (failedOperations > 0 && (failedOperations / totalUses) * 100 > maxErrorRate) {
+        } else if (failedOperations > 0 && (failedOperations / totalAttempts) * 100 > maxErrorRate) {
           health = 'High Error Rate';
         } else if (p95DurationMs > maxP95) {
           health = 'Slow';
-        } else if (failedOperations > 0 && (failedOperations / totalUses) * 100 > 2.0) {
+        } else if (failedOperations > 0 && (failedOperations / totalAttempts) * 100 > 2.0) {
           health = 'Degraded';
         }
 
         // Calculate how many users reached Beta limit
         const limitReachedUsers = allBetaUsages.filter(
-          (u) => u.toolKey === tool.key && u.usageCount >= betaFreeLimit
+          (u) => (u.toolKey === tool.key || u.toolKey === normKey) && u.usageCount >= betaFreeLimit
         ).length;
 
         return {
-          toolKey: tool.key,
+          toolKey: normKey,
           displayName: tool.name,
           category: tool.category,
           status,
@@ -674,7 +825,10 @@ export class ToolAccessService {
           betaEnabled,
           betaFreeLimit,
           totalUses,
+          authenticatedUses,
+          guestUses,
           uniqueUsers,
+          uniqueGuestSessions,
           successfulOperations,
           failedOperations,
           successRate,
@@ -711,7 +865,9 @@ export class ToolAccessService {
     const totalRuns = metrics.reduce((acc, m) => acc + m.totalUses, 0);
     const successfulRuns = metrics.reduce((acc, m) => acc + m.successfulOperations, 0);
     const failedRuns = metrics.reduce((acc, m) => acc + m.failedOperations, 0);
-    const successRate = totalRuns > 0 ? Math.round((successfulRuns / totalRuns) * 1000) / 10 : 100.0;
+    const totalAuthenticatedUses = metrics.reduce((acc, m) => acc + m.authenticatedUses, 0);
+    const totalGuestUses = metrics.reduce((acc, m) => acc + m.guestUses, 0);
+    const successRate = (successfulRuns + failedRuns) > 0 ? Math.round((successfulRuns / (successfulRuns + failedRuns)) * 1000) / 10 : 100.0;
     const sorted = [...metrics].sort((a, b) => b.totalUses - a.totalUses);
     const mostUsedTool =
       sorted[0] && sorted[0].totalUses > 0
@@ -727,6 +883,8 @@ export class ToolAccessService {
       totalRuns,
       successfulRuns,
       failedRuns,
+      totalAuthenticatedUses,
+      totalGuestUses,
       successRate,
       mostUsedTool,
       metrics,

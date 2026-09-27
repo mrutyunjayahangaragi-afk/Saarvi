@@ -33,6 +33,7 @@ import { studentService } from "@/lib/services/studentService";
 import { conversationService } from "@/lib/services/conversationService";
 import { ConversionHistoryRecord, SavedResumeDraft } from "@/types/auth";
 import { Conversation } from "@/types/conversation";
+import type { UserToolUsageSummary } from "@/types/tool-control";
 import { formatBytes } from "@/lib/utils";
 import StatCard from "@/components/dashboard/StatCard";
 import SkeletonCard from "@/components/dashboard/SkeletonCard";
@@ -93,6 +94,7 @@ export default function DashboardOverviewPage() {
     completedSemesters: 0,
   });
   const [recentConversations, setRecentConversations] = useState<Conversation[]>([]);
+  const [userUsageSummary, setUserUsageSummary] = useState<UserToolUsageSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   const displayName =
@@ -103,17 +105,21 @@ export default function DashboardOverviewPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [h, r, sSummary, convs] = await Promise.all([
+        const [h, r, sSummary, convs, usageRes] = await Promise.all([
           conversionHistoryService.getHistory(),
           resumeService.getResumes(),
           studentService.getStudentSummary(),
           conversationService.listConversations(user?.id || "guest"),
+          fetch("/api/user/tool-usage").then((res) => (res.ok ? res.json() : null)).catch(() => null),
         ]);
         setAllHistory(h);
         setRecentHistory(h.slice(0, 5));
         setResumes(r);
         setStudentSummary(sSummary);
         setRecentConversations(convs.slice(0, 3));
+        if (usageRes?.success && usageRes?.summary) {
+          setUserUsageSummary(usageRes.summary);
+        }
       } catch (e) {
         console.error("Failed to load dashboard data:", e);
       } finally {
@@ -140,10 +146,12 @@ export default function DashboardOverviewPage() {
           </h2>
           {!loading && (
             <p className="text-xs sm:text-sm text-slate-500 max-w-xl leading-relaxed">
-              {allHistory.length > 0 || resumes.length > 0 ? (
+              {allHistory.length > 0 || resumes.length > 0 || (userUsageSummary && userUsageSummary.totalOperations > 0) ? (
                 <>
                   You&apos;ve completed{" "}
-                  <strong className="text-slate-700">{allHistory.length} conversion{allHistory.length !== 1 ? "s" : ""}</strong>{" "}
+                  <strong className="text-slate-700">
+                    {userUsageSummary?.totalOperations ?? allHistory.length} tool operation{(userUsageSummary?.totalOperations ?? allHistory.length) !== 1 ? "s" : ""}
+                  </strong>{" "}
                   and have{" "}
                   <strong className="text-slate-700">{resumes.length} saved resume{resumes.length !== 1 ? "s" : ""}</strong> in your account.
                 </>
@@ -168,9 +176,10 @@ export default function DashboardOverviewPage() {
         <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
           Your Activity
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {loading ? (
             <>
+              <SkeletonCard lines={2} />
               <SkeletonCard lines={2} />
               <SkeletonCard lines={2} />
               <SkeletonCard lines={2} />
@@ -178,18 +187,25 @@ export default function DashboardOverviewPage() {
           ) : (
             <>
               <StatCard
-                value={allHistory.length}
-                label="Total Conversions"
+                value={userUsageSummary?.totalOperations ?? allHistory.length}
+                label="Tool Executions"
                 icon={BarChart3}
                 iconColor="text-blue-600"
                 iconBg="bg-blue-50"
               />
               <StatCard
-                value={successCount}
-                label="Successful Conversions"
+                value={`${Math.round(userUsageSummary?.successRate ?? (allHistory.length > 0 ? (successCount / allHistory.length) * 100 : 100))}%`}
+                label="Success Rate"
                 icon={CheckCircle2}
                 iconColor="text-emerald-600"
                 iconBg="bg-emerald-50"
+              />
+              <StatCard
+                value={userUsageSummary?.uniqueTools ?? (allHistory.length > 0 ? 1 : 0)}
+                label="Distinct Tools"
+                icon={Zap}
+                iconColor="text-amber-600"
+                iconBg="bg-amber-50"
               />
               <StatCard
                 value={resumes.length}
@@ -202,6 +218,41 @@ export default function DashboardOverviewPage() {
           )}
         </div>
       </section>
+
+      {/* CANONICAL TOOL USAGE BREAKDOWN */}
+      {!loading && userUsageSummary && userUsageSummary.tools.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Zap className="w-4 h-4 text-blue-600" />
+              <span>Tool Usage Breakdown</span>
+            </h3>
+            <span className="text-xs font-semibold text-slate-500">
+              {userUsageSummary.totalOperations} runs across {userUsageSummary.uniqueTools} tools
+            </span>
+          </div>
+
+          <div className="bg-white border border-slate-200/90 rounded-3xl p-5 shadow-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {userUsageSummary.tools.map((t) => (
+                <div
+                  key={t.toolKey}
+                  className="p-3.5 bg-slate-50/70 border border-slate-200/80 rounded-2xl flex items-center justify-between gap-3 hover:border-blue-200 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-bold text-slate-900 truncate">{t.toolName}</h4>
+                    <span className="text-[10px] font-mono text-slate-400 block">{t.toolKey}</span>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-sm font-black text-blue-600 block">{t.totalUses} uses</span>
+                    <span className="text-[10px] text-emerald-600 font-semibold">{t.successfulUses} ok</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* STUDENT WORKSPACE */}
       <section className="space-y-4">

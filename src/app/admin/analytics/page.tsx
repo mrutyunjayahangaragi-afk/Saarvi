@@ -140,7 +140,9 @@ export default function AdminAnalyticsPage() {
             <span>{overview?.totalToolRuns ?? 0}</span>
             <span className="text-xs font-semibold text-slate-400">runs</span>
           </div>
-          <div className="text-[11px] text-slate-500">Successful client operations</div>
+          <div className="text-[11px] text-slate-500 font-medium">
+            <span className="text-emerald-700 font-bold">{overview?.authenticatedToolRuns ?? 0}</span> auth · <span className="text-slate-700 font-bold">{overview?.guestToolRuns ?? 0}</span> guest
+          </div>
         </div>
 
         {/* Tool Adoption Rate */}
@@ -167,7 +169,9 @@ export default function AdminAnalyticsPage() {
             <span>{overview?.totalEvents ?? 0}</span>
             <span className="text-xs font-semibold text-slate-400">events</span>
           </div>
-          <div className="text-[11px] text-slate-500">Total recorded telemetry points</div>
+          <div className="text-[11px] text-slate-500 font-medium">
+            <span className="text-purple-700 font-bold">{overview?.uniqueGuestSessions ?? 0}</span> guest sessions
+          </div>
         </div>
       </div>
 

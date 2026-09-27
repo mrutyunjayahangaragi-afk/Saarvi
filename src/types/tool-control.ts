@@ -53,7 +53,10 @@ export interface ToolTelemetryMetric {
   betaEnabled: boolean;
   betaFreeLimit: number;
   totalUses: number;
+  authenticatedUses: number;
+  guestUses: number;
   uniqueUsers: number;
+  uniqueGuestSessions: number;
   successfulOperations: number;
   failedOperations: number;
   successRate: number;
@@ -66,6 +69,25 @@ export interface ToolTelemetryMetric {
   processingType: ToolProcessingType;
   conversionsCount?: number;
   limitReachedUsers?: number;
+}
+
+export type ToolTelemetryEventName =
+  | 'tool_started'
+  | 'tool_completed'
+  | 'tool_error'
+  | 'tool_cancelled';
+
+export interface ToolTelemetryEventPayload {
+  eventName: ToolTelemetryEventName;
+  toolKey: string;
+  operationId: string;
+  success: boolean;
+  userType?: 'authenticated' | 'guest';
+  userId?: string | null;
+  guestSessionId?: string | null;
+  durationMs?: number;
+  category?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ToolActivityEvent {

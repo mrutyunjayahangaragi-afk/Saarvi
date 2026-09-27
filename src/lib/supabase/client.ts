@@ -22,6 +22,14 @@ export function createClient(): SupabaseClient {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
+
+  // Auto-recover from stale/invalid refresh tokens by signing out cleanly.
+  // This prevents repeated AuthApiError logs when old session cookies persist.
+  browserClientInstance.auth.onAuthStateChange((event, session) => {
+    if (event === 'TOKEN_REFRESHED' && !session) {
+      browserClientInstance?.auth.signOut();
+    }
+  });
+
   return browserClientInstance;
 }
-

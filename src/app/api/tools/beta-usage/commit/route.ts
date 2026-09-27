@@ -46,15 +46,28 @@ export async function POST(request: Request) {
         ? body.processingTimeMs
         : 0;
 
-    const result = await toolAccessService.commitBetaUse(
-      effectiveUserId,
-      toolKey.trim(),
-      elapsed,
-      body.operationId
-    );
+    const opId =
+      typeof body.operationId === 'string' && body.operationId.trim()
+        ? body.operationId.trim()
+        : `op_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+    const result = await toolAccessService.recordToolEvent({
+      eventName: 'tool_completed',
+      toolKey: toolKey.trim(),
+      operationId: opId,
+      success: true,
+      durationMs: elapsed,
+      userId: effectiveUserId,
+      userType: effectiveUserId ? 'authenticated' : 'guest',
+      guestSessionId: body.guestSessionId || null,
+      metadata: body.metadata || {},
+    });
 
     return NextResponse.json({
-      ...result,
+      success: true,
+      usageCount: result.usageCount ?? 0,
+      remainingUses: result.remainingUses ?? 10,
+      isDuplicate: result.isDuplicate,
       data: result,
     });
   } catch (err: unknown) {

@@ -56,6 +56,9 @@ export interface PlatformAnalyticsOverview {
   mau: number;
   totalEvents: number;
   totalToolRuns: number;
+  authenticatedToolRuns?: number;
+  guestToolRuns?: number;
+  uniqueGuestSessions?: number;
   toolAdoptionRate: number; // percentage of canonical tools used
   activeToolsCount: number;
   totalCanonicalTools: number;

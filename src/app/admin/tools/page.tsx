@@ -457,12 +457,18 @@ export default function AdminToolsControlCenterPage() {
                     <th className="py-3 px-3">Status</th>
                     <th className="py-3 px-3">Access</th>
                     <th className="py-3 px-3">Beta</th>
-                    <th className="py-3 px-3">Free Limit</th>
+                    <th className="py-3 px-3">Free Beta Limit</th>
                     <th className="py-3 px-3 text-center">Total Uses</th>
+                    <th className="py-3 px-3 text-center">Auth Uses</th>
+                    <th className="py-3 px-3 text-center">Guest Uses</th>
                     <th className="py-3 px-3 text-center">Unique Users</th>
+                    <th className="py-3 px-3 text-center">Guest Sessions</th>
+                    <th className="py-3 px-3 text-center">Successful</th>
+                    <th className="py-3 px-3 text-center">Failed</th>
                     <th className="py-3 px-3 text-center">Success Rate</th>
                     <th className="py-3 px-3 text-right">Avg Duration</th>
                     <th className="py-3 px-3 text-right">P95 Duration</th>
+                    <th className="py-3 px-3">Last Used</th>
                     <th className="py-3 px-3">Health</th>
                     <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
@@ -470,14 +476,14 @@ export default function AdminToolsControlCenterPage() {
                 <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
                   {loading ? (
                     <tr>
-                      <td colSpan={13} className="py-12 text-center text-slate-400">
+                      <td colSpan={19} className="py-12 text-center text-slate-400">
                         <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
                         Loading authoritative tool inventory & telemetry...
                       </td>
                     </tr>
                   ) : filteredMetrics.length === 0 ? (
                     <tr>
-                      <td colSpan={13} className="py-12 text-center text-slate-400">
+                      <td colSpan={19} className="py-12 text-center text-slate-400">
                         No canonical tools match the selected filters.
                       </td>
                     </tr>
@@ -541,7 +547,27 @@ export default function AdminToolsControlCenterPage() {
 
                         <td className="py-3.5 px-3 text-center font-bold text-slate-900">{tool.totalUses}</td>
 
+                        <td className="py-3.5 px-3 text-center font-bold text-emerald-600">
+                          {tool.authenticatedUses ?? 0}
+                        </td>
+
+                        <td className="py-3.5 px-3 text-center font-bold text-slate-600">
+                          {tool.guestUses ?? 0}
+                        </td>
+
                         <td className="py-3.5 px-3 text-center font-bold text-blue-600">{tool.uniqueUsers}</td>
+
+                        <td className="py-3.5 px-3 text-center font-bold text-purple-600">
+                          {tool.uniqueGuestSessions ?? 0}
+                        </td>
+
+                        <td className="py-3.5 px-3 text-center font-bold text-emerald-600">
+                          {tool.successfulOperations ?? 0}
+                        </td>
+
+                        <td className="py-3.5 px-3 text-center font-bold text-rose-600">
+                          {tool.failedOperations ?? 0}
+                        </td>
 
                         <td className="py-3.5 px-3 text-center">
                           <span
@@ -563,6 +589,10 @@ export default function AdminToolsControlCenterPage() {
 
                         <td className="py-3.5 px-3 text-right font-mono text-[11px] text-slate-600">
                           {tool.p95DurationMs > 0 ? `${(tool.p95DurationMs / 1000).toFixed(1)}s` : '—'}
+                        </td>
+
+                        <td className="py-3.5 px-3 text-slate-500 text-[11px] whitespace-nowrap">
+                          {tool.lastUsedAt ? new Date(tool.lastUsedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never'}
                         </td>
 
                         <td className="py-3.5 px-3">{renderHealthBadge(tool.health)}</td>

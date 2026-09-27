@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -179,6 +179,59 @@ export default function SGPACalculatorPage() {
     let isMounted = true;
 
     async function loadCurriculum() {
+      // 1. First attempt authoritative academic pipeline endpoint
+      try {
+        const subRes = await fetch(
+          `/api/academic/subjects?universityId=${selectedUniversity}&schemeId=${selectedScheme}&branchId=${selectedBranch}&semester=${selectedSemester}`
+        );
+        if (subRes.ok) {
+          const subData = await subRes.json();
+          if (isMounted && subData.success && subData.subjects && subData.subjects.length > 0) {
+            const rows: CourseRowState[] = subData.subjects.map((s: any) => {
+              const hasSEE = s.seeApplicable !== false;
+              const allowedInputModes: MarksInputMode[] = ["cie-see", "total"];
+              const preferredMode = allowedInputModes.includes(globalInputMode) ? globalInputMode : "cie-see";
+              return {
+                courseCode: s.subjectCode,
+                courseTitle: s.subjectName,
+                credits: s.credits, // Strictly use authoritative verified credits
+                category: s.courseType || "Core",
+                assessment: {
+                  hasSEE,
+                  cie: { maxMarks: 50 },
+                  see: hasSEE ? { maxMarks: 50 } : undefined,
+                  total: { maxMarks: 100 },
+                  allowedInputModes,
+                  passingRules: {
+                    minCIE: 20,
+                    minSEE: hasSEE ? 18 : 0,
+                    minAggregate: 40,
+                  },
+                  components: [
+                    { id: "cie", name: "CIE", maxMarks: 50, minPassMarks: 20, weight: 0.5 },
+                    ...(hasSEE ? [{ id: "see", name: "SEE", maxMarks: 50, minPassMarks: 18, weight: 0.5 }] : []),
+                  ],
+                },
+                inputMode: preferredMode,
+                cie: "",
+                see: "",
+                total: "",
+                includedInSGPA: s.includedInSGPA !== false && s.credits > 0,
+                includedInCGPA: s.includedInCGPA !== false && s.credits > 0,
+                isElectiveGroup: Boolean(s.isElective),
+                electiveGroupTitle: s.electiveGroup,
+              };
+            });
+            setCoursesState(rows);
+            setCurriculumMissing(false);
+            return;
+          }
+        }
+      } catch (subErr) {
+        console.warn('Academic subjects pipeline notice:', subErr);
+      }
+
+      // 2. Fallback to existing curriculum endpoint
       try {
         const res = await fetch(
           `/api/academic/curriculum?universityId=${selectedUniversity}&schemeId=${selectedScheme}&branchId=${selectedBranch}&semester=${selectedSemester}`
@@ -650,6 +703,53 @@ export default function SGPACalculatorPage() {
     return curriculumIndex.getCourses(selectedScheme, selectedBranch, selectedSemester);
   }, [selectedScheme, selectedBranch, selectedSemester]);
 
+  // Canonical tool telemetry for SGPA Calculator
+  const lastRecordedSgpaRef = useRef<string>("");
+  useEffect(() => {
+    if (evaluatedCourses.length === 0 || sgpaResult.totalCredits === 0) return;
+
+    // Form unique signature to prevent repeat calls for the identical SGPA computation
+    const calcSignature = `${selectedUniversity}_${selectedScheme}_${selectedBranch}_sem${selectedSemester}_sgpa${sgpaResult.sgpa.toFixed(2)}_credits${sgpaResult.totalCredits}`;
+    if (lastRecordedSgpaRef.current === calcSignature) return;
+
+    const timer = setTimeout(() => {
+      lastRecordedSgpaRef.current = calcSignature;
+      const opId =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `sgpa_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+      fetch("/api/tools/telemetry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          toolKey: "sgpa_calculator",
+          eventName: "tool_completed",
+          operationId: opId,
+          success: true,
+          metadata: {
+            sgpa: sgpaResult.sgpa,
+            totalCredits: sgpaResult.totalCredits,
+            totalPoints: sgpaResult.totalCreditPoints,
+            university: selectedUniversity,
+            scheme: selectedScheme,
+            branch: selectedBranch,
+            semester: selectedSemester,
+          },
+        }),
+      }).catch((e) => console.warn("SGPA calculation telemetry notice:", e));
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [
+    sgpaResult,
+    evaluatedCourses.length,
+    selectedUniversity,
+    selectedScheme,
+    selectedBranch,
+    selectedSemester,
+  ]);
+
   // Copy Result
   const handleCopy = async () => {
     const text = `VTU Semester ${selectedSemester} SGPA: ${sgpaResult.sgpa.toFixed(2)} | Credits: ${sgpaResult.totalCredits} | Points: ${sgpaResult.totalCreditPoints}`;
@@ -665,6 +765,23 @@ export default function SGPACalculatorPage() {
   // Save to Local IndexedDB & Workspace Snapshot
   const handleSaveSnapshot = async () => {
     try {
+      // Emit canonical tool completion event immediately on snapshot save
+      fetch("/api/tools/telemetry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          toolKey: "sgpa_calculator",
+          eventName: "tool_completed",
+          operationId: `sgpa_save_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          success: true,
+          metadata: {
+            action: "save_snapshot",
+            sgpa: sgpaResult.sgpa,
+            semester: selectedSemester,
+          },
+        }),
+      }).catch(() => {});
+
       // 1. Save to local-first IndexedDB semester records
       await academicStorage.saveSemesterRecord({
         id: `sem_${selectedSemester}`,

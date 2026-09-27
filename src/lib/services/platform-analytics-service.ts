@@ -2,6 +2,7 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { MockStorageProvider } from '@/lib/supabase/mock-storage';
 import { TOOLS_CONFIG } from '@/config/tools';
+import { CANONICAL_TOOL_REGISTRY, normalizeToolKey, getCanonicalToolByKey } from '@/lib/tools/tool-registry';
 
 export interface DateRangeBoundaries {
   start: Date;
@@ -31,6 +32,9 @@ export interface ProductionAnalyticsMetrics {
   totalNotificationsSent: number;
   totalRevenueInr: number;
   pendingPaymentRequests: number;
+  authenticatedToolRuns: number;
+  guestToolRuns: number;
+  uniqueGuestSessions: number;
   topTools: Array<{ toolId: string; toolName: string; count: number; category: string }>;
   categoryDistribution: Array<{ category: string; count: number; percentage: number }>;
   discoveryChannels: Array<{ channel: string; count: number; percentage: number }>;
@@ -115,6 +119,7 @@ export class PlatformAnalyticsService {
     let conversions: any[] = [];
     let interviews: any[] = [];
     let analyticsEvents: any[] = [];
+    let platformEvents: any[] = [];
     let notificationsCount = 0;
     let totalRevenueInr = 0;
     let pendingPaymentRequests = 0;
@@ -254,6 +259,19 @@ export class PlatformAnalyticsService {
         } catch (nErr) {
           console.warn('[PlatformAnalytics] Notifications count error:', nErr);
         }
+
+        // 7. Canonical Platform Events
+        try {
+          const { data: peData } = await supabase
+            .from('platform_events')
+            .select('*')
+            .gte('created_at', boundaries.start.toISOString())
+            .lte('created_at', boundaries.end.toISOString())
+            .order('created_at', { ascending: false });
+          platformEvents = peData || [];
+        } catch (peErr) {
+          console.warn('[PlatformAnalytics] Platform events error:', peErr);
+        }
       }
     } else {
       // Mock storage fallback for tests
@@ -266,7 +284,46 @@ export class PlatformAnalyticsService {
         if (u.status === 'SUSPENDED') suspendedUsers++;
         if (u.plan === 'PRO' || u.role === 'SUPER_ADMIN') proUsers++;
       });
+
+      const peData = MockStorageProvider.getPlatformEvents();
+      platformEvents = peData.filter((e: any) => {
+        const t = new Date(e.createdAt || e.created_at).getTime();
+        return t >= startMs && t <= endMs;
+      });
     }
+
+    // Process platform_events for active users, guests, and authenticated telemetry
+    const guestSessionSet = new Set<string>();
+    let authenticatedToolRuns = 0;
+    let guestToolRuns = 0;
+
+    platformEvents.forEach((pe: any) => {
+      const uid = pe.user_id || pe.userId;
+      const guestId = pe.guest_session_id || pe.guestSessionId;
+      const userType = pe.user_type || pe.userType || (uid ? 'authenticated' : 'guest');
+      const createdAt = pe.created_at || pe.createdAt;
+      const peMs = new Date(createdAt).getTime();
+
+      if (uid) {
+        activeUserIdsInPeriod.add(uid);
+        if (peMs >= oneDayAgoMs) dauSet.add(uid);
+        if (peMs >= sevenDaysAgoMs) wauSet.add(uid);
+        if (peMs >= thirtyDaysAgoMs) mauSet.add(uid);
+      }
+
+      const eventName = pe.event_name || pe.eventName;
+      const isToolEvent = eventName === 'tool_completed' || eventName === 'tool_started' || eventName === 'tool_error';
+      if (isToolEvent) {
+        if (userType === 'authenticated' || uid) {
+          authenticatedToolRuns++;
+        } else {
+          guestToolRuns++;
+          if (guestId) {
+            guestSessionSet.add(guestId);
+          }
+        }
+      }
+    });
 
     dau = dauSet.size;
     wau = wauSet.size;
@@ -282,18 +339,52 @@ export class PlatformAnalyticsService {
       userGrowthPercent = 100;
     }
 
-    // Tool counts combining conversion_history & analytics_events
+    // Tool counts combining canonical platform_events & legacy conversion_history & analytics_events
     const toolRunMap = new Map<string, number>();
     const categoryMap = new Map<string, number>();
 
     let completedConversions = 0;
     let failedConversions = 0;
 
+    // 1. Process canonical platform_events first
+    platformEvents.forEach((pe: any) => {
+      const eventName = pe.event_name || pe.eventName;
+      const rawKey = pe.tool_key || pe.toolKey || pe.metadata?.tool_key;
+      if (!rawKey) return;
+
+      const toolKey = normalizeToolKey(rawKey);
+      const isCompleted = eventName === 'tool_completed';
+      const isError = eventName === 'tool_error' || pe.success === false;
+
+      if (isCompleted || isError) {
+        toolRunMap.set(toolKey, (toolRunMap.get(toolKey) || 0) + 1);
+
+        const canonical = getCanonicalToolByKey(toolKey) || canonicalMap.get(rawKey);
+        const cat = canonical?.category || 'general';
+        categoryMap.set(cat, (categoryMap.get(cat) || 0) + 1);
+
+        if (isError) {
+          failedConversions++;
+        } else {
+          completedConversions++;
+        }
+      }
+    });
+
+    // 2. Process legacy conversions without double-counting operations already present in platform_events
+    const peOperationIds = new Set(
+      platformEvents.map((pe: any) => pe.operation_id || pe.operationId).filter(Boolean)
+    );
+
     conversions.forEach((c) => {
-      const toolKey = c.tool_type || c.tool_id || 'conversion';
+      if (c.id && peOperationIds.has(c.id)) return;
+      if (c.operation_id && peOperationIds.has(c.operation_id)) return;
+
+      const rawKey = c.tool_type || c.tool_id || 'conversion';
+      const toolKey = normalizeToolKey(rawKey);
       toolRunMap.set(toolKey, (toolRunMap.get(toolKey) || 0) + 1);
 
-      const canonical = canonicalMap.get(toolKey);
+      const canonical = getCanonicalToolByKey(toolKey) || canonicalMap.get(rawKey);
       const cat = canonical?.category || 'pdf';
       categoryMap.set(cat, (categoryMap.get(cat) || 0) + 1);
 
@@ -302,17 +393,21 @@ export class PlatformAnalyticsService {
       else completedConversions++;
     });
 
+    // 3. Process legacy analytics_events if not already captured
     analyticsEvents.forEach((e) => {
       const key = e.tool_slug || e.tool_id;
       if (key) {
-        toolRunMap.set(key, (toolRunMap.get(key) || 0) + 1);
-        const canonical = canonicalMap.get(key);
-        const cat = canonical?.category || 'general';
-        categoryMap.set(cat, (categoryMap.get(cat) || 0) + 1);
+        const toolKey = normalizeToolKey(key);
+        if (!toolRunMap.has(toolKey)) {
+          toolRunMap.set(toolKey, (toolRunMap.get(toolKey) || 0) + 1);
+          const canonical = getCanonicalToolByKey(toolKey) || canonicalMap.get(key);
+          const cat = canonical?.category || 'general';
+          categoryMap.set(cat, (categoryMap.get(cat) || 0) + 1);
+        }
       }
     });
 
-    const totalConversions = conversions.length;
+    const totalConversions = completedConversions + failedConversions;
     const conversionSuccessRate =
       totalConversions > 0 ? Math.round((completedConversions / totalConversions) * 100) : 100;
 
@@ -332,7 +427,7 @@ export class PlatformAnalyticsService {
     // Top Tools List
     const topTools = Array.from(toolRunMap.entries())
       .map(([toolId, count]) => {
-        const canonical = canonicalMap.get(toolId);
+        const canonical = getCanonicalToolByKey(toolId) || canonicalMap.get(toolId);
         return {
           toolId,
           toolName: canonical?.name || toolId,
@@ -376,7 +471,7 @@ export class PlatformAnalyticsService {
       percentage: totalChannels > 0 ? Math.round((count / totalChannels) * 100) : 0,
     }));
 
-    // Trends: User Growth Trend
+    // Trends: User Growth Trend & Conversion Trend
     const userTrendMap = new Map<string, number>();
     const convTrendMap = new Map<string, number>();
 
@@ -388,7 +483,19 @@ export class PlatformAnalyticsService {
       convTrendMap.set(key, 0);
     }
 
+    platformEvents.forEach((pe: any) => {
+      const eventName = pe.event_name || pe.eventName;
+      if (eventName === 'tool_completed') {
+        const key = (pe.created_at || pe.createdAt || '').split('T')[0];
+        if (convTrendMap.has(key)) {
+          convTrendMap.set(key, (convTrendMap.get(key) || 0) + 1);
+        }
+      }
+    });
+
     conversions.forEach((c) => {
+      if (c.id && peOperationIds.has(c.id)) return;
+      if (c.operation_id && peOperationIds.has(c.operation_id)) return;
       const key = (c.created_at || '').split('T')[0];
       if (convTrendMap.has(key)) {
         convTrendMap.set(key, (convTrendMap.get(key) || 0) + 1);
@@ -429,6 +536,9 @@ export class PlatformAnalyticsService {
       totalNotificationsSent: notificationsCount,
       totalRevenueInr,
       pendingPaymentRequests,
+      authenticatedToolRuns,
+      guestToolRuns,
+      uniqueGuestSessions: guestSessionSet.size,
       topTools,
       categoryDistribution,
       discoveryChannels,

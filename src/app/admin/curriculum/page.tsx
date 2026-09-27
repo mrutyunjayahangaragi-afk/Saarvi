@@ -39,7 +39,7 @@ import {
 import AdminConfirmModal from "@/components/admin/AdminConfirmModal";
 import { useAuth } from "@/context/AuthContext";
 
-type ActiveTab = "universities" | "schemes" | "branches" | "subjects" | "import" | "vtu-sync";
+type ActiveTab = "universities" | "schemes" | "branches" | "subjects" | "conflicts" | "import" | "vtu-sync";
 
 export default function MultiUniversityAcademicPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("subjects");
@@ -51,6 +51,18 @@ export default function MultiUniversityAcademicPage() {
   const [branches, setBranches] = useState<BranchRecord[]>([]);
   const [semesters, setSemesters] = useState<AcademicSemesterRecord[]>([]);
   const [subjects, setSubjects] = useState<AcademicSubjectRecord[]>([]);
+
+  // Conflicts queue
+  const [conflicts, setConflicts] = useState<any[]>([]);
+  const [conflictsLoading, setConflictsLoading] = useState(false);
+  const [correctModalOpen, setCorrectModalOpen] = useState(false);
+  const [activeConflict, setActiveConflict] = useState<any | null>(null);
+  const [correctionForm, setCorrectionForm] = useState({
+    subjectName: "",
+    credits: 4,
+    officialSourceUrl: "https://vtu.ac.in/syllabus",
+    notes: "",
+  });
 
   // Selected hierarchy filters
   const [selectedUnivId, setSelectedUnivId] = useState<string>("vtu");
@@ -113,7 +125,82 @@ export default function MultiUniversityAcademicPage() {
   useEffect(() => {
     loadHierarchy();
     loadVtuVersions();
+    loadConflicts();
   }, []);
+
+  const loadConflicts = async () => {
+    setConflictsLoading(true);
+    try {
+      const res = await fetch("/api/admin/academic/conflicts?status=PENDING");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.conflicts)) {
+          setConflicts(data.conflicts);
+        }
+      }
+    } catch (err) {
+      console.warn("Error loading academic conflicts:", err);
+    } finally {
+      setConflictsLoading(false);
+    }
+  };
+
+  const handleResolveConflict = async (conflictId: string, resolution: "RESOLVED" | "REJECTED") => {
+    try {
+      const res = await fetch("/api/admin/academic/conflicts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "RESOLVE_CONFLICT",
+          conflictId,
+          resolution,
+          notes: `Conflict marked ${resolution} from Admin Portal`,
+        }),
+      });
+      if (res.ok) {
+        loadConflicts();
+      }
+    } catch (err) {
+      console.warn("Resolve conflict error:", err);
+    }
+  };
+
+  const handleSaveCorrection = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeConflict) return;
+    try {
+      const res = await fetch("/api/admin/academic/conflicts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "CORRECT_SUBJECT",
+          conflictId: activeConflict.id,
+          correction: {
+            scope: activeConflict.scope || {
+              universityId: activeConflict.university_id || "vtu",
+              schemeId: activeConflict.scheme_id || "vtu-2022",
+              branchId: activeConflict.branch_id || "vtu-2022-cse",
+              semester: activeConflict.semester || 3,
+            },
+            subjectCode: activeConflict.subject_code,
+            newSubjectName: correctionForm.subjectName,
+            newCredits: Number(correctionForm.credits),
+            officialSourceUrl: correctionForm.officialSourceUrl,
+            officialDocument: "Admin Verified Regulation PDF",
+            notes: correctionForm.notes,
+          },
+        }),
+      });
+      if (res.ok) {
+        setCorrectModalOpen(false);
+        setActiveConflict(null);
+        loadConflicts();
+        loadSubjects();
+      }
+    } catch (err) {
+      console.warn("Correction error:", err);
+    }
+  };
 
   useEffect(() => {
     loadSchemes(selectedUnivId);
@@ -678,6 +765,17 @@ export default function MultiUniversityAcademicPage() {
         >
           <Sparkles className="w-3.5 h-3.5 text-amber-500" />
           <span>VTU Curriculum Engine ({vtuVersions.length})</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("conflicts")}
+          className={`pb-2.5 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+            activeTab === "conflicts"
+              ? "border-amber-600 text-amber-700 font-bold"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <AlertTriangle className={`w-3.5 h-3.5 ${conflicts.length > 0 ? "text-amber-500" : ""}`} />
+          <span>Academic Conflicts ({conflicts.length})</span>
         </button>
       </div>
 
@@ -1813,6 +1911,235 @@ export default function MultiUniversityAcademicPage() {
                 {editingSubject ? "Save Changes" : "Create Subject"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. ACADEMIC CONFLICTS QUEUE TAB */}
+      {activeTab === "conflicts" && (
+        <div className="space-y-5">
+          <div className="bg-white rounded-3xl border border-slate-200/90 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wide">
+                  Academic Integrity Engine
+                </span>
+                <span className="text-xs text-slate-400 font-mono">Multi-Source Verification</span>
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 mt-1 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+                <span>Conflicting Academic Subjects Queue</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5 max-w-2xl leading-relaxed">
+                When external syllabus providers return conflicting course credits, names, or regulations, Saarvi halts automated updates with status <code className="text-amber-700 bg-amber-50 px-1 py-0.5 rounded">CONFLICT_REQUIRES_REVIEW</code> until an administrator reviews and verifies official university documents.
+              </p>
+            </div>
+            <button
+              onClick={loadConflicts}
+              disabled={conflictsLoading}
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${conflictsLoading ? "animate-spin text-amber-600" : ""}`} />
+              <span>Refresh Queue</span>
+            </button>
+          </div>
+
+          {conflictsLoading ? (
+            <div className="p-12 text-center text-slate-400 bg-white rounded-3xl border border-slate-200">
+              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-amber-500" />
+              Loading pending academic subject conflicts...
+            </div>
+          ) : conflicts.length === 0 ? (
+            <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 space-y-2">
+              <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
+              <h4 className="text-sm font-bold text-slate-800">No Discrepancies in Queue</h4>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                All subject codes, credits, and course metadata match authoritative regulations across all university schemes.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {conflicts.map((conf) => (
+                <div
+                  key={conf.id}
+                  className="bg-white rounded-3xl border border-amber-200/80 p-5 shadow-xs space-y-4 hover:border-amber-300 transition-colors"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <span className="font-mono text-sm font-black px-2.5 py-1 bg-amber-50 text-amber-900 border border-amber-200 rounded-xl">
+                        {conf.subject_code}
+                      </span>
+                      <div>
+                        <span className="text-xs font-bold text-slate-900 block">{conf.subject_name || "Discrepant Subject"}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {conf.scope?.universityId || conf.university_id || "vtu"} · {conf.scope?.schemeId || conf.scheme_id || "2022"} · {conf.scope?.branchId || conf.branch_id || "cse"} · Sem {conf.scope?.semester || conf.semester || 3}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">
+                        {conf.resolution_status || "PENDING"}
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        {new Date(conf.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    {/* Source 1 */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-700">Source Candidate A</span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold">
+                          {conf.existing_source_type || conf.source_a_type || "Regulation PDF"}
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        <p><strong className="text-slate-600">Name:</strong> {conf.existing_subject_name || conf.source_a_name || "—"}</p>
+                        <p><strong className="text-slate-600">Credits:</strong> <span className="font-bold text-blue-600">{conf.existing_credits ?? conf.source_a_credits ?? "—"}</span></p>
+                      </div>
+                    </div>
+
+                    {/* Source 2 */}
+                    <div className="p-3.5 rounded-2xl bg-amber-50/50 border border-amber-200 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-700">Source Candidate B</span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">
+                          {conf.incoming_source_type || conf.source_b_type || "Incoming Scrape"}
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        <p><strong className="text-slate-600">Name:</strong> {conf.incoming_subject_name || conf.source_b_name || "—"}</p>
+                        <p><strong className="text-slate-600">Credits:</strong> <span className="font-bold text-amber-700">{conf.incoming_credits ?? conf.source_b_credits ?? "—"}</span></p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {conf.discrepancy_details && (
+                    <div className="p-3 rounded-xl bg-slate-50 text-[11px] text-slate-600 font-mono">
+                      <strong>Discrepancy Details:</strong> {typeof conf.discrepancy_details === "object" ? JSON.stringify(conf.discrepancy_details) : conf.discrepancy_details}
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button
+                      onClick={() => handleResolveConflict(conf.id, "REJECTED")}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-semibold cursor-pointer"
+                    >
+                      Reject Candidate
+                    </button>
+                    <button
+                      onClick={() => handleResolveConflict(conf.id, "RESOLVED")}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition cursor-pointer"
+                    >
+                      Accept Source A
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveConflict(conf);
+                        setCorrectionForm({
+                          subjectName: conf.incoming_subject_name || conf.existing_subject_name || conf.subject_name || "",
+                          credits: conf.incoming_credits || conf.existing_credits || 4,
+                          officialSourceUrl: "https://vtu.ac.in",
+                          notes: "",
+                        });
+                        setCorrectModalOpen(true);
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition cursor-pointer"
+                    >
+                      Manual Override &amp; Verify
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Manual Override & Verification Modal */}
+      {correctModalOpen && activeConflict && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Manual Subject Correction</h3>
+                <p className="text-xs text-slate-400 font-mono">{activeConflict.subject_code}</p>
+              </div>
+              <button
+                onClick={() => setCorrectModalOpen(false)}
+                className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCorrection} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Official Subject Name</label>
+                <input
+                  type="text"
+                  required
+                  value={correctionForm.subjectName}
+                  onChange={(e) => setCorrectionForm({ ...correctionForm, subjectName: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Verified Credits (Authoritative)</label>
+                <input
+                  type="number"
+                  required
+                  min={0}
+                  max={20}
+                  value={correctionForm.credits}
+                  onChange={(e) => setCorrectionForm({ ...correctionForm, credits: Number(e.target.value) })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Official Source URL</label>
+                <input
+                  type="url"
+                  required
+                  value={correctionForm.officialSourceUrl}
+                  onChange={(e) => setCorrectionForm({ ...correctionForm, officialSourceUrl: e.target.value })}
+                  placeholder="https://vtu.ac.in/pdf/syllabus.pdf"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono text-[11px] focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Audit Notes</label>
+                <textarea
+                  rows={2}
+                  value={correctionForm.notes}
+                  onChange={(e) => setCorrectionForm({ ...correctionForm, notes: e.target.value })}
+                  placeholder="Verified against official university gazette notification"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setCorrectModalOpen(false)}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-slate-600 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold transition shadow-xs"
+                >
+                  Save &amp; Log Audit Record
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
