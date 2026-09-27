@@ -87,7 +87,8 @@ export const adminDbAggregates = {
           const todayStartIso = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
 
           const [
-            totalUsersRes,
+            activeUsersRes,
+            pendingUsersRes,
             newUsersRes,
             prevNewUsersRes,
             proUsersRes,
@@ -95,20 +96,24 @@ export const adminDbAggregates = {
             todayEventsRes,
             openErrorsRes,
           ] = await Promise.all([
-            supabase.from('profiles').select('id', { count: 'exact', head: true }),
-            supabase.from('profiles').select('id', { count: 'exact', head: true }).gte('created_at', startIso),
+            supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'ACTIVE'),
+            supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'PENDING_EMAIL_VERIFICATION'),
+            supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'ACTIVE').gte('created_at', startIso),
             supabase
               .from('profiles')
               .select('id', { count: 'exact', head: true })
+              .eq('status', 'ACTIVE')
               .gte('created_at', prevStartIso)
               .lt('created_at', startIso),
             supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('plan', 'PRO'),
             supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'SUSPENDED'),
-            supabase.from('analytics_events').select('id', { count: 'exact', head: true }).gte('created_at', todayStartIso),
+            supabase.from('platform_events').select('id', { count: 'exact', head: true }).eq('event_name', 'tool_completed').gte('created_at', todayStartIso),
             supabase.from('system_errors').select('id', { count: 'exact', head: true }).eq('status', 'NEW'),
           ]);
 
-          const totalUsers = totalUsersRes.count ?? 0;
+          const activeUsers = activeUsersRes.count ?? 0;
+          const pendingUsers = pendingUsersRes.count ?? 0;
+          const totalUsers = activeUsers; // Authoritative active verified users
           const newUsers = newUsersRes.count ?? 0;
           const prevNewUsers = prevNewUsersRes.count ?? 0;
           const proUsers = proUsersRes.count ?? 0;
@@ -124,19 +129,17 @@ export const adminDbAggregates = {
               ? 100
               : 0;
 
-          // Active users: count of profiles updated recently or having activity
-          const activeUsers = Math.max(1, Math.round(totalUsers * 0.75));
-
           const systemStatus: 'Healthy' | 'Warning' | 'Critical' =
             openErrors > 10 ? 'Critical' : openErrors > 2 ? 'Warning' : 'Healthy';
 
           return {
             totalUsers,
+            activeUsers,
+            pendingUsersCount: pendingUsers,
             newUsers,
             previousPeriodNewUsers: prevNewUsers,
             newUsersChangePct: trendPct,
             newUsersDiff: diff,
-            activeUsers,
             freeUsers: Math.max(0, totalUsers - proUsers),
             proUsers,
             suspendedUsers,
@@ -157,16 +160,26 @@ export const adminDbAggregates = {
     const endMs = bounds.end.getTime();
     const prevStartMs = bounds.previousStart.getTime();
 
+    const activeList = allUsers.filter(
+      (u) => u.status === 'ACTIVE' || (!u.status && u.emailVerified)
+    );
+    const pendingList = allUsers.filter(
+      (u) => u.status === 'PENDING_EMAIL_VERIFICATION' || (u.authProvider === 'EMAIL' && !u.emailVerified)
+    );
+
     let newUsers = 0;
     let prevNewUsers = 0;
     let proUsers = 0;
     let suspendedUsers = 0;
 
-    allUsers.forEach((u) => {
+    activeList.forEach((u) => {
       const createdMs = new Date(u.createdAt).getTime();
       if (createdMs >= startMs && createdMs <= endMs) newUsers++;
       if (createdMs >= prevStartMs && createdMs < startMs) prevNewUsers++;
       if (u.plan === 'PRO' || u.role === 'SUPER_ADMIN') proUsers++;
+    });
+
+    allUsers.forEach((u) => {
       if (u.status === 'SUSPENDED') suspendedUsers++;
     });
 
@@ -174,34 +187,44 @@ export const adminDbAggregates = {
     const trendPct =
       prevNewUsers > 0 ? Math.round((diff / prevNewUsers) * 1000) / 10 : newUsers > 0 ? 100 : 0;
 
-      const oppAdmin = opportunityStore.getAdminOpportunities({ pageSize: 1000 });
-      const approvedItems = oppAdmin.items.filter((o) => o.status === 'APPROVED' || o.status === 'PUBLISHED');
-      const jobsPublished = approvedItems.filter((o) => !o.isInternship && o.category !== 'internship').length;
-      const internshipsPublished = approvedItems.filter((o) => o.isInternship || o.category === 'internship').length;
+    const oppAdmin = opportunityStore.getAdminOpportunities({ pageSize: 1000 });
+    const approvedItems = oppAdmin.items.filter((o) => o.status === 'APPROVED' || o.status === 'PUBLISHED');
+    const jobsPublished = approvedItems.filter((o) => !o.isInternship && o.category !== 'internship').length;
+    const internshipsPublished = approvedItems.filter((o) => o.isInternship || o.category === 'internship').length;
 
-      return {
-        totalUsers: allUsers.length,
-        newUsers,
-        previousPeriodNewUsers: prevNewUsers,
-        newUsersChangePct: trendPct,
-        newUsersDiff: diff,
-        activeUsers: Math.max(1, Math.round(allUsers.length * 0.75)),
-        freeUsers: Math.max(0, allUsers.length - proUsers),
-        proUsers,
-        suspendedUsers,
-        todayActivity: 12,
-        openErrorsCount: 0,
-        jobsPublishedCount: jobsPublished,
-        internshipsPublishedCount: internshipsPublished,
-        pendingReviewsCount: oppAdmin.counts.pending,
-        mockInterviewsCount: 14,
-        unreadNotificationsCount: 0,
-        systemStatus: 'Healthy' as const,
-        maintenanceMode: false,
-        version: '3.0.0',
-        generatedAt: new Date().toISOString(),
-      };
-    },
+    // Real today activity from platform_events
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayToolEvents = (MockStorageProvider.getPlatformEvents() as any[]).filter((e) => {
+      const isCompleted = e.eventName === 'tool_completed' || e.event_name === 'tool_completed' || e.eventType === 'tool_completed';
+      const time = new Date(e.timestamp || e.created_at || 0).getTime();
+      return isCompleted && time >= todayStart.getTime();
+    });
+
+    return {
+      totalUsers: activeList.length,
+      activeUsers: activeList.length,
+      pendingUsersCount: pendingList.length,
+      newUsers,
+      previousPeriodNewUsers: prevNewUsers,
+      newUsersChangePct: trendPct,
+      newUsersDiff: diff,
+      freeUsers: Math.max(0, activeList.length - proUsers),
+      proUsers,
+      suspendedUsers,
+      todayActivity: todayToolEvents.length,
+      openErrorsCount: 0,
+      jobsPublishedCount: jobsPublished,
+      internshipsPublishedCount: internshipsPublished,
+      pendingReviewsCount: oppAdmin.counts.pending,
+      mockInterviewsCount: 14,
+      unreadNotificationsCount: 0,
+      systemStatus: 'Healthy' as const,
+      maintenanceMode: false,
+      version: '3.0.0',
+      generatedAt: new Date().toISOString(),
+    };
+  },
 
   /**
    * P1: User Growth Time Series Aggregation
@@ -298,18 +321,45 @@ export const adminDbAggregates = {
 
     // Mock storage fallback
     const allUsers = MockStorageProvider.listAllUsers();
+    const activeList = allUsers.filter(
+      (u) => u.status === 'ACTIVE' || (!u.status && u.emailVerified)
+    );
+    const pendingList = allUsers.filter(
+      (u) => u.status === 'PENDING_EMAIL_VERIFICATION' || (u.authProvider === 'EMAIL' && !u.emailVerified)
+    );
+    const suspendedList = allUsers.filter((u) => u.status === 'SUSPENDED');
+    const totalCount = allUsers.length || 1;
+
     const series = [
-      { date: '2026-09-01', label: 'Sep 01', newUsers: 3, cumulative: 3 },
-      { date: '2026-09-08', label: 'Sep 08', newUsers: 5, cumulative: 8 },
-      { date: '2026-09-15', label: 'Sep 15', newUsers: 6, cumulative: 14 },
-      { date: '2026-09-21', label: 'Sep 21', newUsers: 3, cumulative: 17 },
+      {
+        date: new Date().toISOString().split('T')[0],
+        label: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        newUsers: activeList.length,
+        cumulative: activeList.length,
+      },
     ];
 
     return {
       series,
       accountStatusDist: [
-        { label: 'Active', count: allUsers.length, color: '#10b981', percentage: 100 },
-        { label: 'Suspended', count: 0, color: '#f59e0b', percentage: 0 },
+        {
+          label: 'Active Verified',
+          count: activeList.length,
+          color: '#10b981',
+          percentage: Math.round((activeList.length / totalCount) * 100),
+        },
+        {
+          label: 'Pending Verification',
+          count: pendingList.length,
+          color: '#6366f1',
+          percentage: Math.round((pendingList.length / totalCount) * 100),
+        },
+        {
+          label: 'Suspended',
+          count: suspendedList.length,
+          color: '#f59e0b',
+          percentage: Math.round((suspendedList.length / totalCount) * 100),
+        },
       ],
     };
   },
@@ -342,10 +392,10 @@ export const adminDbAggregates = {
 
         // Fast query from platform_events or analytics_events
         try {
-          // Query analytics_events (has real rows)
           let query = supabase
-            .from('analytics_events')
-            .select('created_at, tool_slug, tool_id, event_type')
+            .from('platform_events')
+            .select('created_at, tool_slug, tool_id, event_name, success, duration_ms')
+            .eq('event_name', 'tool_completed')
             .gte('created_at', bounds.start.toISOString())
             .lte('created_at', bounds.end.toISOString())
             .order('created_at', { ascending: true });
@@ -353,7 +403,7 @@ export const adminDbAggregates = {
           const { data: events } = await query;
           const totalEvents = events?.length || 0;
 
-          const toolCounts = new Map<string, number>();
+          const toolCounts = new Map<string, { uses: number; succ: number; fail: number }>();
           const timeGroupMap = new Map<string, { label: string; total: number; success: number; error: number }>();
 
           const toolNameMap = new Map<string, string>();
@@ -364,7 +414,11 @@ export const adminDbAggregates = {
 
           (events || []).forEach((e) => {
             const toolKey = e.tool_slug || e.tool_id || 'general';
-            toolCounts.set(toolKey, (toolCounts.get(toolKey) || 0) + 1);
+            const tc = toolCounts.get(toolKey) || { uses: 0, succ: 0, fail: 0 };
+            tc.uses++;
+            if (e.success !== false) tc.succ++;
+            else tc.fail++;
+            toolCounts.set(toolKey, tc);
 
             const d = new Date(e.created_at);
             let key = d.toISOString().split('T')[0];
@@ -381,7 +435,8 @@ export const adminDbAggregates = {
             }
             const item = timeGroupMap.get(key)!;
             item.total++;
-            item.success++;
+            if (e.success !== false) item.success++;
+            else item.error++;
           });
 
           const timeSeries = Array.from(timeGroupMap.entries())
@@ -395,22 +450,26 @@ export const adminDbAggregates = {
             }));
 
           const topTools = Array.from(toolCounts.entries())
-            .sort(([, a], [, b]) => b - a)
+            .sort(([, a], [, b]) => b.uses - a.uses)
             .slice(0, 10)
-            .map(([toolKey, count]) => ({
+            .map(([toolKey, val]) => ({
               toolKey,
               toolName: toolNameMap.get(toolKey) || toolKey.replace(/-/g, ' ').toUpperCase(),
-              usageCount: count,
-              successCount: count,
-              errorCount: 0,
+              usageCount: val.uses,
+              successCount: val.succ,
+              errorCount: val.fail,
             }));
+
+          const successfulOperations = (events || []).filter((e) => e.success !== false).length;
+          const failedOperations = (events || []).filter((e) => e.success === false).length;
+          const successRate = totalEvents > 0 ? Math.round((successfulOperations / totalEvents) * 1000) / 10 : 100.0;
 
           return {
             grouping,
             totalEvents,
-            successfulOperations: totalEvents,
-            failedOperations: 0,
-            successRate: 100.0,
+            successfulOperations,
+            failedOperations,
+            successRate,
             timeSeries,
             topTools,
           };
@@ -420,24 +479,84 @@ export const adminDbAggregates = {
       }
     }
 
-    // Mock fallback
+    // Mock storage fallback: Calculate strictly from real completed platform events
+    const rawEvents = (MockStorageProvider.getPlatformEvents() as any[]) || [];
+    const completedEvents = rawEvents.filter((e) => {
+      const isCompleted = e.eventName === 'tool_completed' || e.event_name === 'tool_completed' || e.eventType === 'tool_completed';
+      const time = new Date(e.timestamp || e.created_at || 0).getTime();
+      return isCompleted && time >= bounds.start.getTime() && time <= bounds.end.getTime();
+    });
+
+    const totalEvents = completedEvents.length;
+    const successfulOperations = completedEvents.filter((e) => e.success !== false).length;
+    const failedOperations = completedEvents.filter((e) => e.success === false).length;
+    const successRate = totalEvents > 0 ? Math.round((successfulOperations / totalEvents) * 1000) / 10 : 100.0;
+
+    const toolNameMap = new Map<string, string>();
+    TOOLS_CONFIG.forEach((t) => {
+      toolNameMap.set(t.id, t.name);
+      toolNameMap.set(t.slug, t.name);
+    });
+
+    const toolCounts = new Map<string, { uses: number; succ: number; fail: number }>();
+    const timeGroupMap = new Map<string, { label: string; total: number; success: number; error: number }>();
+
+    completedEvents.forEach((e) => {
+      const toolKey = e.toolKey || e.tool_key || e.targetId || 'general';
+      const tc = toolCounts.get(toolKey) || { uses: 0, succ: 0, fail: 0 };
+      tc.uses++;
+      if (e.success !== false) tc.succ++;
+      else tc.fail++;
+      toolCounts.set(toolKey, tc);
+
+      const d = new Date(e.timestamp || e.created_at || Date.now());
+      let key = d.toISOString().split('T')[0];
+      let label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+      if (isHourly) {
+        const h = d.getHours().toString().padStart(2, '0');
+        key = `${key}T${h}:00`;
+        label = `${h}:00`;
+      }
+
+      if (!timeGroupMap.has(key)) {
+        timeGroupMap.set(key, { label, total: 0, success: 0, error: 0 });
+      }
+      const item = timeGroupMap.get(key)!;
+      item.total++;
+      if (e.success !== false) item.success++;
+      else item.error++;
+    });
+
+    const timeSeries = Array.from(timeGroupMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, val]) => ({
+        date,
+        label: val.label,
+        total: val.total,
+        success: val.success,
+        error: val.error,
+      }));
+
+    const topTools = Array.from(toolCounts.entries())
+      .sort(([, a], [, b]) => b.uses - a.uses)
+      .slice(0, 10)
+      .map(([toolKey, val]) => ({
+        toolKey,
+        toolName: toolNameMap.get(toolKey) || toolKey.replace(/-/g, ' ').toUpperCase(),
+        usageCount: val.uses,
+        successCount: val.succ,
+        errorCount: val.fail,
+      }));
+
     return {
       grouping,
-      totalEvents: 48,
-      successfulOperations: 46,
-      failedOperations: 2,
-      successRate: 95.8,
-      timeSeries: [
-        { date: '2026-09-18', label: 'Sep 18', total: 12, success: 12, error: 0 },
-        { date: '2026-09-19', label: 'Sep 19', total: 18, success: 17, error: 1 },
-        { date: '2026-09-20', label: 'Sep 20', total: 10, success: 9, error: 1 },
-        { date: '2026-09-21', label: 'Sep 21', total: 8, success: 8, error: 0 },
-      ],
-      topTools: [
-        { toolKey: 'pdf-to-word', toolName: 'PDF to Word', usageCount: 22, successCount: 21, errorCount: 1 },
-        { toolKey: 'pdf-to-jpg', toolName: 'PDF to JPG', usageCount: 16, successCount: 16, errorCount: 0 },
-        { toolKey: 'resume-builder', toolName: 'Resume Builder', usageCount: 10, successCount: 9, errorCount: 1 },
-      ],
+      totalEvents,
+      successfulOperations,
+      failedOperations,
+      successRate,
+      timeSeries,
+      topTools,
     };
   },
 

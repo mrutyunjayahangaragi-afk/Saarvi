@@ -2,7 +2,7 @@
 
 export type UserRole = 'USER' | 'ADMIN' | 'SUPER_ADMIN';
 
-export type UserAccountStatus = 'ACTIVE' | 'SUSPENDED' | 'DISABLED' | 'PENDING';
+export type UserAccountStatus = 'ACTIVE' | 'SUSPENDED' | 'DISABLED' | 'PENDING' | 'PENDING_EMAIL_VERIFICATION';
 
 export interface UserProfile {
   id: string;

@@ -802,27 +802,39 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
       // Atomic Beta Usage Commit upon verified successful completion (PART 2.5)
       if (currentReservationToken) {
+        const operationId =
+          typeof crypto !== 'undefined' && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `op_${Date.now()}_${Math.random()}`;
+
         fetch('/api/tools/beta-usage/commit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             toolKey: tool.slug,
             reservationToken: currentReservationToken,
-            userId: user?.id,
-            processingTimeMs: durationMs,
+            operationId,
+            durationMs,
           }),
-        }).then(async (commitRes) => {
-          if (commitRes.ok) {
-            const commitJson = await commitRes.json();
-            if (commitJson.data) {
-              setServerAccess((prev) => prev ? {
-                ...prev,
-                usageCount: commitJson.data.usageCount,
-                remainingUses: commitJson.data.remainingUses,
-              } : null);
+        })
+          .then(async (commitRes) => {
+            if (commitRes.ok) {
+              const commitJson = await commitRes.json();
+              const commitData = commitJson.data || commitJson;
+              if (commitData && typeof commitData.usageCount === 'number') {
+                setServerAccess((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        usageCount: commitData.usageCount,
+                        remainingUses: commitData.remainingUses,
+                      }
+                    : null
+                );
+              }
             }
-          }
-        }).catch(() => {});
+          })
+          .catch(() => {});
         setActiveReservationToken(null);
       }
 
@@ -944,8 +956,11 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
     );
   }
 
-  // If Beta Free Usage Limit has been reached (PART 2.2)
-  if (betaBlocked || (serverAccess && !serverAccess.isAllowed && serverAccess.reason === "beta_limit_reached")) {
+  // If Beta Free Usage Limit has been reached and not in RESULT_READY state (PART 2.2)
+  if (
+    state !== "RESULT_READY" &&
+    (betaBlocked || (serverAccess && !serverAccess.isAllowed && serverAccess.reason === "beta_limit_reached"))
+  ) {
     return (
       <div className="p-8 rounded-3xl border-2 border-dashed border-amber-300 bg-amber-50/80 text-center space-y-4 shadow-xs">
         <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto">
@@ -956,10 +971,10 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
             Beta Limit Reached
           </div>
           <h3 className="text-base font-bold text-slate-800">
-            Your free Beta access for {tool.name} has been used up.
+            You've used all {serverAccess?.freeLimit || 10} free Beta runs for {tool.name}.
           </h3>
           <p className="text-xs text-slate-600 leading-relaxed">
-            Continue with Pro to keep using this tool without limits.
+            Upgrade to Saarvi Pro to continue using this tool with unlimited runs and priority processing.
           </p>
         </div>
         <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -984,6 +999,23 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
   if (state === "RESULT_READY" && result) {
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
+        {serverAccess?.isBeta && !serverAccess?.isPro && serverAccess.remainingUses === 0 && (
+          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-amber-900">
+            <div className="flex items-center gap-2">
+              <span className="font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-950 text-[10px] uppercase tracking-wider">
+                Beta Limit Reached
+              </span>
+              <span>You've used all {serverAccess.freeLimit} free Beta runs for this tool. Your generated result is ready below!</span>
+            </div>
+            <Link
+              href="/pricing"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition shadow-xs text-xs whitespace-nowrap"
+            >
+              <span>Upgrade to Pro</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        )}
         <ResultDownload result={result} onReset={resetAll} />
       </div>
     );

@@ -310,9 +310,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async ({ email, password, fullName }: { email: string; password: string; fullName: string }) => {
     if (!isSupabaseConfigured()) {
-      const { user: sUser, profile: sProfile } = MockStorageProvider.signUp({ email, password, fullName });
-      setUser(sUser);
-      setProfile(sProfile);
+      MockStorageProvider.signUp({ email, password, fullName });
+      // Verification required: do NOT log user in yet. Branded mock email dispatched.
       return;
     }
 
@@ -336,33 +335,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (!isSupabaseConfigured()) {
-      const stored = MockStorageProvider.getUserByEmail(email);
-      if (!stored) throw new Error("No pending registration found for this email address.");
-      const sessionUser: AuthSessionUser = {
-        id: stored.id,
-        email: stored.email,
-        fullName: stored.fullName,
-        role: stored.role,
-        createdAt: stored.createdAt,
-      };
-      setUser(sessionUser);
-      setProfile({
-        id: stored.id,
-        fullName: stored.fullName,
-        email: stored.email,
-        role: stored.role,
-        createdAt: stored.createdAt,
-        updatedAt: stored.updatedAt,
-      });
+      const { user: verifiedUser, profile: verifiedProfile } = MockStorageProvider.verifyEmailOtp(email, cleanCode);
+      setUser(verifiedUser);
+      setProfile(verifiedProfile);
 
       // Dispatch registration success welcome email asynchronously (non-blocking)
       fetch('/api/auth/welcome', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: stored.email,
-          fullName: stored.fullName,
-          userId: stored.id,
+          email: verifiedUser.email,
+          fullName: verifiedUser.fullName,
+          userId: verifiedUser.id,
         }),
       }).catch((err) => console.warn('[Auth] Welcome email async dispatch failed:', err));
 

@@ -76,6 +76,9 @@ export const metadata: Metadata = {
   },
 };
 
+import { FeedbackProvider } from "@/context/FeedbackContext";
+import FeedbackModal from "@/components/feedback/FeedbackModal";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
@@ -101,9 +104,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <PlatformProvider>
             <AuthProvider>
-              <AdvertisementGate />
-              {children}
-              <GlobalAIAssistant />
+              <FeedbackProvider>
+                <AdvertisementGate />
+                {children}
+                <FeedbackModal />
+                <GlobalAIAssistant />
+              </FeedbackProvider>
             </AuthProvider>
           </PlatformProvider>
         </ThemeProvider>

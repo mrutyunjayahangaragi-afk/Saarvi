@@ -102,8 +102,22 @@ export async function GET(request: Request) {
             detectedProvider === 'GOOGLE' ? 'GOOGLE' : 'EMAIL';
 
           const isBanned = Boolean(u.banned_until && new Date(u.banned_until) > new Date());
-          const isSuspended = isBanned || u.user_metadata?.status === 'SUSPENDED';
-          const userStatus: UserAccountStatus = isSuspended ? 'SUSPENDED' : 'ACTIVE';
+          const isSuspended = isBanned || u.user_metadata?.status === 'SUSPENDED' || profile?.status === 'SUSPENDED';
+          const isDisabled = profile?.status === 'DISABLED';
+          const isEmailConfirmed = Boolean(u.email_confirmed_at || u.confirmed_at);
+
+          let userStatus: UserAccountStatus;
+          if (isSuspended) {
+            userStatus = 'SUSPENDED';
+          } else if (isDisabled) {
+            userStatus = 'DISABLED';
+          } else if (authProvider === 'EMAIL' && !isEmailConfirmed) {
+            userStatus = 'PENDING_EMAIL_VERIFICATION';
+          } else if (profile?.status === 'PENDING' || profile?.status === 'PENDING_EMAIL_VERIFICATION') {
+            userStatus = 'PENDING_EMAIL_VERIFICATION';
+          } else {
+            userStatus = 'ACTIVE';
+          }
 
           const fullName =
             profile?.full_name ||
@@ -127,6 +141,17 @@ export async function GET(request: Request) {
           };
         });
 
+        // Compute summary counts across entire population before pagination/filtering
+        const counts = {
+          total: users.length,
+          active: users.filter((u) => u.status === 'ACTIVE').length,
+          pending: users.filter((u) => (u.status as string) === 'PENDING_EMAIL_VERIFICATION' || (u.status as string) === 'PENDING').length,
+          suspended: users.filter((u) => u.status === 'SUSPENDED').length,
+          disabled: users.filter((u) => u.status === 'DISABLED').length,
+          free: users.filter((u) => u.plan === 'FREE' && u.status === 'ACTIVE').length,
+          pro: users.filter((u) => u.plan === 'PRO' && u.status === 'ACTIVE').length,
+        };
+
         // Filter: search
         if (search) {
           users = users.filter(
@@ -144,7 +169,11 @@ export async function GET(request: Request) {
 
         // Filter: status
         if (status) {
-          users = users.filter((u) => u.status === status);
+          if (status === 'PENDING' || status === 'PENDING_EMAIL_VERIFICATION') {
+            users = users.filter((u) => (u.status as string) === 'PENDING_EMAIL_VERIFICATION' || (u.status as string) === 'PENDING');
+          } else {
+            users = users.filter((u) => u.status === status);
+          }
         }
 
         // Filter: plan
@@ -163,6 +192,7 @@ export async function GET(request: Request) {
         return NextResponse.json({
           success: true,
           users: paginated,
+          counts,
           total,
           page,
           limit,

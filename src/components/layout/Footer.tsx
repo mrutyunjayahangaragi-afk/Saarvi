@@ -5,9 +5,11 @@ import { Shield, ExternalLink, Mail } from "lucide-react";
 import { SITE_CONFIG } from "@/config/site";
 import { SaarviMark } from "@/components/brand/SaarviLogo";
 import { usePlatform } from "@/context/PlatformContext";
+import { useFeedback } from "@/context/FeedbackContext";
 
 export default function Footer() {
   const { appName, tagline, supportEmail } = usePlatform();
+  const { openFeedback } = useFeedback();
 
   return (
     <footer className="w-full bg-slate-100/70 text-slate-600 text-xs border-t border-slate-200/90 no-print">
@@ -144,6 +146,16 @@ export default function Footer() {
                 >
                   Contact Us
                 </Link>
+              </li>
+
+              <li>
+                <button
+                  type="button"
+                  onClick={() => openFeedback()}
+                  className="text-slate-600 hover:text-blue-600 transition-colors cursor-pointer text-left"
+                >
+                  Share Your Feedback
+                </button>
               </li>
 
               <li>

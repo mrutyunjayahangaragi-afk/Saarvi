@@ -27,13 +27,20 @@ export async function GET(request: Request) {
     else if (periodParam === 'year' || periodParam === '365d') periodDays = 365;
     else if (periodParam === 'all') periodDays = 0;
 
-    const metrics = await toolAccessService.getAggregatedTelemetry(periodDays);
+    const forceRefresh = searchParams.get('refresh') === 'true';
+    const summary = await toolAccessService.getTelemetrySummary(periodDays, forceRefresh);
+    const metrics = summary.metrics;
 
     return NextResponse.json({
       success: true,
       period: periodParam,
       periodDays,
       metrics,
+      totalRuns: summary.totalRuns,
+      successfulRuns: summary.successfulRuns,
+      failedRuns: summary.failedRuns,
+      successRate: summary.successRate,
+      mostUsedTool: summary.mostUsedTool,
       categories: CANONICAL_TOOL_CATEGORIES,
       totalTools: metrics.length,
       activeTools: metrics.filter((m) => m.status === 'AVAILABLE' || m.status === 'BETA').length,

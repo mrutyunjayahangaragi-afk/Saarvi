@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       );
     }
 
-    let effectiveUserId: string | null = clientUserId || null;
+    let effectiveUserId: string | null = null;
 
     if (isSupabaseConfigured()) {
       try {

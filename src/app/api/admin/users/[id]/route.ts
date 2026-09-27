@@ -55,7 +55,26 @@ export async function GET(
             .maybeSingle();
 
           const isBanned = Boolean(u.banned_until && new Date(u.banned_until) > new Date());
-          const isSuspended = isBanned || u.user_metadata?.status === 'SUSPENDED';
+          const isSuspended = isBanned || u.user_metadata?.status === 'SUSPENDED' || profile?.status === 'SUSPENDED';
+          const isDisabled = profile?.status === 'DISABLED';
+          const isEmailConfirmed = Boolean(u.email_confirmed_at || u.confirmed_at);
+          const detectedProvider = (
+            u.app_metadata?.provider ||
+            (u.email?.toLowerCase().includes('gmail.com') ? 'google' : 'email')
+          ).toLowerCase();
+
+          let userStatus: UserAccountStatus;
+          if (isSuspended) {
+            userStatus = 'SUSPENDED';
+          } else if (isDisabled) {
+            userStatus = 'DISABLED';
+          } else if (detectedProvider === 'email' && !isEmailConfirmed) {
+            userStatus = 'PENDING_EMAIL_VERIFICATION';
+          } else if (profile?.status === 'PENDING' || profile?.status === 'PENDING_EMAIL_VERIFICATION') {
+            userStatus = 'PENDING_EMAIL_VERIFICATION';
+          } else {
+            userStatus = 'ACTIVE';
+          }
 
           // Check welcome email status from metadata or auth_email_logs
           welcomeSentAt =
@@ -93,12 +112,9 @@ export async function GET(
               u.user_metadata?.picture ||
               '',
             role: (profile?.role || u.user_metadata?.role || 'USER') as UserRole,
-            status: isSuspended ? 'SUSPENDED' : 'ACTIVE',
+            status: userStatus,
             plan: sub?.plan || profile?.plan || 'FREE',
-            authProvider: (
-              u.app_metadata?.provider ||
-              (u.email?.toLowerCase().includes('gmail.com') ? 'google' : 'email')
-            ).toUpperCase(),
+            authProvider: detectedProvider.toUpperCase() as 'EMAIL' | 'GOOGLE',
             createdAt: u.created_at,
             updatedAt: profile?.updated_at || u.updated_at || u.created_at,
             lastSignInAt: u.last_sign_in_at || null,

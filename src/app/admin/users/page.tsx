@@ -40,10 +40,19 @@ export default function AdminUsersPage() {
   const { user: currentUser, profile: currentProfile } = useAuth();
   const [users, setUsers] = useState<DisplayUser[]>([]);
   const [total, setTotal] = useState(0);
+  const [summaryCounts, setSummaryCounts] = useState({
+    total: 0,
+    active: 0,
+    pending: 0,
+    suspended: 0,
+    disabled: 0,
+    free: 0,
+    pro: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | UserAccountStatus>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | UserAccountStatus>('ACTIVE');
   const [planFilter, setPlanFilter] = useState<'all' | 'FREE' | 'PRO'>('all');
   const [providerFilter, setProviderFilter] = useState<'all' | 'EMAIL' | 'GOOGLE'>('all');
   const [page, setPage] = useState(1);
@@ -83,6 +92,9 @@ export default function AdminUsersPage() {
           if (data.success && Array.isArray(data.users)) {
             setUsers(data.users);
             setTotal(data.total);
+            if (data.counts) {
+              setSummaryCounts(data.counts);
+            }
             return;
           }
         }
@@ -155,26 +167,27 @@ export default function AdminUsersPage() {
     switch (status) {
       case 'ACTIVE':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <CheckCircle2 className="w-2.5 h-2.5" /> Active
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" /> Active Verified
+          </span>
+        );
+      case 'PENDING':
+      case 'PENDING_EMAIL_VERIFICATION':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+            <Clock className="w-2.5 h-2.5 text-indigo-600" /> Pending email verification
           </span>
         );
       case 'SUSPENDED':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-            <AlertTriangle className="w-2.5 h-2.5" /> Suspended
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+            <AlertTriangle className="w-2.5 h-2.5 text-amber-600" /> Suspended
           </span>
         );
       case 'DISABLED':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200">
-            <XCircle className="w-2.5 h-2.5" /> Disabled
-          </span>
-        );
-      case 'PENDING':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-            Pending
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200">
+            <XCircle className="w-2.5 h-2.5 text-red-600" /> Disabled
           </span>
         );
     }
@@ -192,23 +205,27 @@ export default function AdminUsersPage() {
             <span>User Account Management</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Manage account lifecycle, suspension, and plan entitlements. Strict privacy: user documents and notes remain client-side only.
+            Manage account lifecycle, suspension, and plan entitlements. Showing verified active users by default.
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap text-xs">
+          <div className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-1.5 font-medium">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Active Verified:</span>
+            <span className="font-bold text-emerald-950 font-mono text-sm">{summaryCounts.active || users.filter((u) => u.status === 'ACTIVE').length}</span>
+          </div>
+          <div className="text-xs text-indigo-800 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-1.5 font-medium">
+            <Clock className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Pending Verification:</span>
+            <span className="font-bold text-indigo-950 font-mono text-sm">{summaryCounts.pending}</span>
+          </div>
           <div className="text-xs text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-1.5 font-medium">
             <span>Total Accounts:</span>
-            <span className="font-bold text-slate-900 font-mono">{total}</span>
-          </div>
-          <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl font-medium">
-            Active: <strong className="font-mono">{users.filter((u) => u.status === 'ACTIVE').length}</strong>
-          </div>
-          <div className="text-xs text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-xl font-medium">
-            Free: <strong className="font-mono">{users.filter((u) => u.plan !== 'PRO').length}</strong>
+            <span className="font-bold text-slate-900 font-mono">{summaryCounts.total || total}</span>
           </div>
           <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-xl font-medium">
-            Pro: <strong className="font-mono">{users.filter((u) => u.plan === 'PRO').length}</strong>
+            Pro: <strong className="font-mono">{summaryCounts.pro}</strong>
           </div>
         </div>
       </div>
@@ -280,13 +297,13 @@ export default function AdminUsersPage() {
               setStatusFilter(e.target.value as any);
               setPage(1);
             }}
-            className="text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
           >
-            <option value="all">All Statuses</option>
-            <option value="ACTIVE">Active</option>
+            <option value="ACTIVE">Active / Verified (Default)</option>
+            <option value="PENDING_EMAIL_VERIFICATION">Pending Email Verification</option>
             <option value="SUSPENDED">Suspended</option>
             <option value="DISABLED">Disabled</option>
-            <option value="PENDING">Pending</option>
+            <option value="all">All Accounts</option>
           </select>
         </div>
       </div>

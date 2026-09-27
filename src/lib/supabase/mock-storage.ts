@@ -114,7 +114,25 @@ const STORAGE_KEYS = {
   TOOL_BETA_USAGES: 'saarvi_tool_beta_usages_v1',
   // Phase 42 Razorpay Orders Key
   PAYMENT_ORDERS: 'saarvi_payment_orders_v1',
+  // Phase 43 Feedback System Key
+  FEEDBACK: 'saarvi_feedback_v1',
 };
+
+export interface StoredFeedback {
+  id: string;
+  userId?: string | null;
+  userEmail?: string;
+  userName?: string;
+  rating: number;
+  category: string;
+  message: string;
+  toolKey?: string;
+  pageUrl?: string;
+  status: 'NEW' | 'IN_REVIEW' | 'RESOLVED' | 'ARCHIVED';
+  adminNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface StoredUser {
   id: string;
@@ -129,6 +147,8 @@ interface StoredUser {
   lastSignInAt?: string;
   authProvider?: 'EMAIL' | 'GOOGLE';
   plan?: 'FREE' | 'PRO';
+  emailVerified?: boolean;
+  emailConfirmedAt?: string;
 }
 
 const DEFAULT_SUPER_ADMINS: StoredUser[] = [
@@ -343,19 +363,36 @@ export const MockStorageProvider = {
       passwordHash: btoa(params.password),
       fullName: params.fullName.trim() || 'User',
       role: 'USER',
-      status: 'ACTIVE',
+      status: 'PENDING_EMAIL_VERIFICATION',
       createdAt: now,
       updatedAt: now,
       lastSignInAt: now,
+      authProvider: 'EMAIL',
+      plan: 'FREE',
+      emailVerified: false,
     };
 
     users.push(newUser);
     setStored(STORAGE_KEYS.USERS, users);
 
-    // Record privacy-safe account event
+    // Record privacy-safe account lifecycle events (never treat unverified signup as active registered user)
     this.recordPlatformEvent({
-      eventType: 'signup_completed',
+      eventType: 'signup_started' as any,
+      eventName: 'signup_started',
       category: 'account',
+      userId: newUser.id,
+    });
+    this.recordPlatformEvent({
+      eventType: 'signup_created' as any,
+      eventName: 'signup_created',
+      category: 'account',
+      userId: newUser.id,
+    });
+    this.recordPlatformEvent({
+      eventType: 'email_verification_requested' as any,
+      eventName: 'email_verification_requested',
+      category: 'account',
+      userId: newUser.id,
     });
 
     const sessionUser: AuthSessionUser = {
@@ -363,23 +400,88 @@ export const MockStorageProvider = {
       email: newUser.email,
       fullName: newUser.fullName,
       role: newUser.role,
-      status: newUser.status,
+      status: 'PENDING_EMAIL_VERIFICATION',
       createdAt: newUser.createdAt,
     };
-
-    const sessionCookie = JSON.stringify({ id: newUser.id, userId: newUser.id, email: newUser.email, role: newUser.role });
-    setCookie('saarvi_local_session', sessionCookie);
-    setCookie('docease_local_session', sessionCookie);
-    setStored(STORAGE_KEYS.SESSION, sessionUser);
 
     const profile: UserProfile = {
       id: newUser.id,
       fullName: newUser.fullName,
       email: newUser.email,
       role: newUser.role,
-      status: newUser.status,
+      status: 'PENDING_EMAIL_VERIFICATION',
       createdAt: newUser.createdAt,
       updatedAt: newUser.updatedAt,
+    };
+
+    // Unverified user is NOT logged in yet; no active session cookie is written
+    return { user: sessionUser, profile };
+  },
+
+  verifyEmailOtp(email: string, code: string): { user: AuthSessionUser; profile: UserProfile } {
+    const cleanEmail = email.trim().toLowerCase();
+    const users = getUsersList();
+    const found = users.find((u) => u.email === cleanEmail);
+    if (!found) {
+      throw new Error('No pending registration found for this email address.');
+    }
+
+    const cleanCode = code ? code.trim() : '';
+    if (!cleanCode || cleanCode.length !== 6) {
+      throw new Error('Please enter a valid 6-digit verification code.');
+    }
+
+    const now = new Date().toISOString();
+    found.status = 'ACTIVE';
+    found.emailVerified = true;
+    found.emailConfirmedAt = now;
+    found.updatedAt = now;
+    found.lastSignInAt = now;
+
+    const userIdx = users.findIndex((u) => u.id === found.id);
+    if (userIdx !== -1) {
+      users[userIdx] = found;
+      setStored(STORAGE_KEYS.USERS, users);
+    }
+
+    // Record verified and activated user analytics
+    this.recordPlatformEvent({
+      eventType: 'email_verification_completed' as any,
+      eventName: 'email_verification_completed',
+      category: 'account',
+      userId: found.id,
+      success: true,
+    });
+    this.recordPlatformEvent({
+      eventType: 'user_activated' as any,
+      eventName: 'user_activated',
+      category: 'account',
+      userId: found.id,
+      success: true,
+    });
+
+    const sessionUser: AuthSessionUser = {
+      id: found.id,
+      email: found.email,
+      fullName: found.fullName,
+      role: found.role,
+      status: 'ACTIVE',
+      createdAt: found.createdAt,
+    };
+
+    const sessionCookie = JSON.stringify({ id: found.id, userId: found.id, email: found.email, role: found.role });
+    setCookie('saarvi_local_session', sessionCookie);
+    setCookie('docease_local_session', sessionCookie);
+    setStored(STORAGE_KEYS.SESSION, sessionUser);
+
+    const profile: UserProfile = {
+      id: found.id,
+      fullName: found.fullName,
+      email: found.email,
+      role: found.role,
+      status: 'ACTIVE',
+      createdAt: found.createdAt,
+      updatedAt: found.updatedAt,
     };
 
     return { user: sessionUser, profile };
@@ -396,6 +498,10 @@ export const MockStorageProvider = {
 
     if (found.status === 'SUSPENDED' || found.status === 'DISABLED') {
       throw new Error("This account is currently suspended or disabled. Please contact support.");
+    }
+
+    if (found.status === 'PENDING_EMAIL_VERIFICATION' || found.status === 'PENDING' || found.emailVerified === false) {
+      throw new Error("Please verify your email address to activate your account. Check your inbox for the verification code.");
     }
 
     const now = new Date().toISOString();
@@ -1774,8 +1880,23 @@ export const MockStorageProvider = {
   commitBetaUse(
     userId: string,
     toolKey: string,
-    durationMs: number = 0
-  ): { success: boolean; usageCount: number } {
+    durationMs: number = 0,
+    operationId?: string
+  ): { success: boolean; usageCount: number; remainingUses: number } {
+    // Idempotency check: duplicate completion protection (PART 7.3)
+    if (operationId) {
+      const seenOps = getStored<string[]>('saarvi_seen_operations_v1', []);
+      if (seenOps.includes(operationId)) {
+        const usages = getStored<StoredBetaUsage[]>(STORAGE_KEYS.TOOL_BETA_USAGES, []);
+        const existing = usages.find((u) => u.userId === userId && u.toolKey === toolKey);
+        const usageCount = existing ? existing.usageCount : 0;
+        return { success: true, usageCount, remainingUses: Math.max(0, 10 - usageCount) };
+      }
+      seenOps.push(operationId);
+      if (seenOps.length > 1000) seenOps.shift();
+      setStored('saarvi_seen_operations_v1', seenOps);
+    }
+
     const usages = getStored<StoredBetaUsage[]>(STORAGE_KEYS.TOOL_BETA_USAGES, []);
     let item = usages.find((u) => u.userId === userId && u.toolKey === toolKey);
 
@@ -1799,25 +1920,27 @@ export const MockStorageProvider = {
 
     setStored(STORAGE_KEYS.TOOL_BETA_USAGES, usages);
 
-    // Record privacy-safe platform event
+    // Record authoritative successful tool completion telemetry (PART 2.5 & 3.2)
     this.recordPlatformEvent({
-      eventType: 'tool_execution' as any,
-      eventName: 'tool_execution',
+      eventType: 'tool_completed' as any,
+      eventName: 'tool_completed',
       toolKey,
       userId,
       success: true,
       durationMs,
       category: 'tool',
+      metadata: operationId ? { operationId } : {},
     });
 
-    return { success: true, usageCount: item.usageCount };
+    return { success: true, usageCount: item.usageCount, remainingUses: Math.max(0, 10 - item.usageCount) };
   },
 
   releaseBetaUse(
     userId: string,
     toolKey: string,
-    error?: string
-  ): { success: boolean; usageCount: number } {
+    error?: string,
+    operationId?: string
+  ): { success: boolean; usageCount: number; remainingUses: number } {
     const usages = getStored<StoredBetaUsage[]>(STORAGE_KEYS.TOOL_BETA_USAGES, []);
     const item = usages.find((u) => u.userId === userId && u.toolKey === toolKey);
 
@@ -1827,18 +1950,19 @@ export const MockStorageProvider = {
       setStored(STORAGE_KEYS.TOOL_BETA_USAGES, usages);
     }
 
-    // Record failed platform event
+    // Record failed platform event for health telemetry (PART 3.4)
     this.recordPlatformEvent({
-      eventType: 'tool_execution' as any,
-      eventName: 'tool_execution',
+      eventType: 'tool_error' as any,
+      eventName: 'tool_error',
       toolKey,
       userId,
       success: false,
-      metadata: error ? { error } : {},
+      metadata: error ? { error, operationId } : (operationId ? { operationId } : {}),
       category: 'tool',
     });
 
-    return { success: true, usageCount: item ? item.usageCount : 0 };
+    const usageCount = item ? item.usageCount : 0;
+    return { success: true, usageCount, remainingUses: Math.max(0, 10 - usageCount) };
   },
 
   getUserToolUsageSummary(userId: string): UserToolUsageSummary {
@@ -1977,6 +2101,83 @@ export const MockStorageProvider = {
     all[idx] = updated;
     setStored(STORAGE_KEYS.PAYMENT_ORDERS, all);
     return updated;
+  },
+
+  // =========================================================================
+  // FEEDBACK SYSTEM (PART 5)
+  // =========================================================================
+
+  getFeedbackList(): StoredFeedback[] {
+    return getStored<StoredFeedback[]>(STORAGE_KEYS.FEEDBACK, []);
+  },
+
+  addFeedback(item: Omit<StoredFeedback, 'id' | 'createdAt' | 'updatedAt' | 'status'>): StoredFeedback {
+    const all = this.getFeedbackList();
+    const newFeedback: StoredFeedback = {
+      ...item,
+      id: `fb_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      status: 'NEW',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    all.unshift(newFeedback);
+    if (all.length > 1000) all.length = 1000;
+    setStored(STORAGE_KEYS.FEEDBACK, all);
+    return newFeedback;
+  },
+
+  updateFeedbackStatus(
+    id: string,
+    status: StoredFeedback['status'],
+    adminNotes?: string
+  ): StoredFeedback | null {
+    const all = this.getFeedbackList();
+    const idx = all.findIndex((f) => f.id === id);
+    if (idx === -1) return null;
+
+    all[idx] = {
+      ...all[idx],
+      status,
+      adminNotes: adminNotes !== undefined ? adminNotes : all[idx].adminNotes,
+      updatedAt: new Date().toISOString(),
+    };
+    setStored(STORAGE_KEYS.FEEDBACK, all);
+    return all[idx];
+  },
+
+  getFeedbackAnalytics() {
+    const list = this.getFeedbackList();
+    const total = list.length;
+    const avgRating = total > 0 ? Math.round((list.reduce((acc, f) => acc + f.rating, 0) / total) * 10) / 10 : 0;
+    const openCount = list.filter((f) => f.status === 'NEW' || f.status === 'IN_REVIEW').length;
+    const resolvedCount = list.filter((f) => f.status === 'RESOLVED').length;
+
+    const byCategory: Record<string, number> = {};
+    const byTool: Record<string, { count: number; avgRating: number; bugCount: number; featureCount: number; ratingsSum: number }> = {};
+
+    for (const f of list) {
+      byCategory[f.category] = (byCategory[f.category] || 0) + 1;
+      if (f.toolKey) {
+        if (!byTool[f.toolKey]) {
+          byTool[f.toolKey] = { count: 0, avgRating: 0, bugCount: 0, featureCount: 0, ratingsSum: 0 };
+        }
+        const t = byTool[f.toolKey];
+        t.count++;
+        t.ratingsSum += f.rating;
+        t.avgRating = Math.round((t.ratingsSum / t.count) * 10) / 10;
+        if (f.category === 'Bug' || f.category === 'Tool Issue') t.bugCount++;
+        if (f.category === 'Feature Request') t.featureCount++;
+      }
+    }
+
+    return {
+      total,
+      avgRating,
+      openCount,
+      resolvedCount,
+      byCategory,
+      byTool,
+    };
   },
 };
 

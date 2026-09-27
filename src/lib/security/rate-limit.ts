@@ -42,6 +42,7 @@ export const RATE_LIMIT_POLICIES: Record<string, RateLimitPolicy> = {
   upload: { limit: 20, windowMs: 60 * 1000 },            // 20 requests/min
   search: { limit: 60, windowMs: 60 * 1000 },            // 60 requests/min
   curriculumImport: { limit: 10, windowMs: 60 * 1000 },  // 10 requests/min
+  feedback: { limit: 10, windowMs: 3600 * 1000 },        // 10 requests/hour
   public: { limit: 120, windowMs: 60 * 1000 },           // 120 requests/min
 };
 

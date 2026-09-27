@@ -25,12 +25,18 @@ import type {
 
 export class ToolAccessService {
   private static instance: ToolAccessService;
+  private telemetryCache = new Map<number, { data: ToolTelemetryMetric[]; expiresAt: number }>();
+  private inFlightTelemetry = new Map<number, Promise<ToolTelemetryMetric[]>>();
 
   public static getInstance(): ToolAccessService {
     if (!ToolAccessService.instance) {
       ToolAccessService.instance = new ToolAccessService();
     }
     return ToolAccessService.instance;
+  }
+
+  public clearTelemetryCache(): void {
+    this.telemetryCache.clear();
   }
 
   /**
@@ -280,9 +286,12 @@ export class ToolAccessService {
   async commitBetaUse(
     userId: string,
     toolKey: string,
-    durationMs: number = 0
-  ): Promise<{ success: boolean; usageCount: number }> {
-    if (!userId) return { success: true, usageCount: 0 };
+    durationMs: number = 0,
+    operationId?: string
+  ): Promise<{ success: boolean; usageCount: number; remainingUses: number }> {
+    if (!userId) return { success: true, usageCount: 0, remainingUses: 10 };
+
+    this.clearTelemetryCache();
 
     if (isSupabaseConfigured()) {
       const supabase = getSupabaseAdminClient();
@@ -294,7 +303,11 @@ export class ToolAccessService {
             p_duration_ms: durationMs,
           });
           if (!error && data) {
-            return { success: true, usageCount: data.usageCount ?? 0 };
+            return {
+              success: true,
+              usageCount: data.usageCount ?? 0,
+              remainingUses: data.remainingUses ?? Math.max(0, 10 - (data.usageCount ?? 0)),
+            };
           }
         } catch (rpcErr) {
           console.warn('[ToolAccessService] Supabase commit_beta_use fallback to mock:', rpcErr);
@@ -302,7 +315,7 @@ export class ToolAccessService {
       }
     }
 
-    return MockStorageProvider.commitBetaUse(userId, toolKey, durationMs);
+    return MockStorageProvider.commitBetaUse(userId, toolKey, durationMs, operationId);
   }
 
   /**
@@ -313,8 +326,8 @@ export class ToolAccessService {
     userId: string,
     toolKey: string,
     errorMsg?: string
-  ): Promise<{ success: boolean; usageCount: number }> {
-    if (!userId) return { success: true, usageCount: 0 };
+  ): Promise<{ success: boolean; usageCount: number; remainingUses: number }> {
+    if (!userId) return { success: true, usageCount: 0, remainingUses: 0 };
 
     if (isSupabaseConfigured()) {
       const supabase = getSupabaseAdminClient();
@@ -326,7 +339,7 @@ export class ToolAccessService {
             p_error_msg: errorMsg || null,
           });
           if (!error && data) {
-            return { success: true, usageCount: data.usageCount ?? 0 };
+            return { success: true, usageCount: data.usageCount ?? 0, remainingUses: data.remainingUses ?? 0 };
           }
         } catch (rpcErr) {
           console.warn('[ToolAccessService] Supabase release_beta_use fallback to mock:', rpcErr);
@@ -488,149 +501,236 @@ export class ToolAccessService {
   /**
    * Aggregates real operational telemetry across all canonical tools.
    * Performs database-side grouping without shipping raw events to client.
+   * Caches results with a 60s TTL and deduplicates concurrent requests.
    */
-  async getAggregatedTelemetry(periodDays: number = 30): Promise<ToolTelemetryMetric[]> {
-    const configs = MockStorageProvider.getToolAccessConfigs();
-    let dbTelemetry: any[] = [];
+  async getAggregatedTelemetry(
+    periodDays: number = 30,
+    forceRefresh: boolean = false
+  ): Promise<ToolTelemetryMetric[]> {
+    if (!forceRefresh) {
+      const cached = this.telemetryCache.get(periodDays);
+      if (cached && Date.now() < cached.expiresAt) {
+        return cached.data;
+      }
+      if (this.inFlightTelemetry.has(periodDays)) {
+        return this.inFlightTelemetry.get(periodDays)!;
+      }
+    }
 
-    if (isSupabaseConfigured()) {
-      const supabase = getSupabaseAdminClient();
-      if (supabase) {
-        try {
-          const { data, error } = await supabase.rpc('get_tool_overview_telemetry', {
-            p_period_days: periodDays,
-          });
-          if (!error && Array.isArray(data)) {
-            dbTelemetry = data;
+    const promise = (async () => {
+      const configs = MockStorageProvider.getToolAccessConfigs();
+      let dbTelemetry: any[] = [];
+
+      if (isSupabaseConfigured()) {
+        const supabase = getSupabaseAdminClient();
+        if (supabase) {
+          try {
+            const { data, error } = await supabase.rpc('get_tool_overview_telemetry', {
+              p_period_days: periodDays,
+            });
+            if (!error && Array.isArray(data)) {
+              dbTelemetry = data;
+            }
+          } catch (err) {
+            console.warn('[ToolAccessService] get_tool_overview_telemetry fallback:', err);
           }
-        } catch (err) {
-          console.warn('[ToolAccessService] get_tool_overview_telemetry fallback:', err);
         }
       }
-    }
 
-    // In-memory / mock events fallback
-    const rawEvents = (MockStorageProvider.getPlatformEvents() as any[]) || [];
-    const now = Date.now();
-    const periodStart = periodDays <= 0 ? 0 : now - periodDays * 86400000;
+      // In-memory / mock events fallback - strictly filter for completed operations
+      const rawEvents = (MockStorageProvider.getPlatformEvents() as any[]) || [];
+      const now = Date.now();
+      const periodStart = periodDays <= 0 ? 0 : now - periodDays * 86400000;
 
-    const filteredEvents = rawEvents.filter((e) => {
-      const time = new Date(e.timestamp || e.created_at || 0).getTime();
-      return time >= periodStart;
-    });
+      const filteredEvents = rawEvents.filter((e) => {
+        const isCompleted =
+          e.eventName === 'tool_completed' ||
+          e.event_name === 'tool_completed' ||
+          e.eventType === 'tool_completed';
+        if (!isCompleted) return false;
+        const time = new Date(e.timestamp || e.created_at || 0).getTime();
+        return periodDays <= 0 || time >= periodStart;
+      });
 
-    const eventMap = new Map<string, { uses: number; succ: number; fail: number; durations: number[]; users: Set<string>; lastUsed: string }>();
+      const eventMap = new Map<
+        string,
+        {
+          uses: number;
+          succ: number;
+          fail: number;
+          durations: number[];
+          users: Set<string>;
+          lastUsed: string;
+        }
+      >();
 
-    for (const ev of filteredEvents) {
-      const k = ev.toolKey || ev.tool_key || ev.targetId;
-      if (!k) continue;
-      const current = eventMap.get(k) || {
-        uses: 0,
-        succ: 0,
-        fail: 0,
-        durations: [] as number[],
-        users: new Set<string>(),
-        lastUsed: ev.timestamp || ev.created_at,
-      };
+      const seenOperations = new Set<string>();
 
-      current.uses += 1;
-      if (ev.success !== false) current.succ += 1;
-      else current.fail += 1;
+      for (const ev of filteredEvents) {
+        // Concurrency deduplication by operationId if present
+        if (ev.operationId) {
+          if (seenOperations.has(ev.operationId)) continue;
+          seenOperations.add(ev.operationId);
+        }
 
-      if (ev.durationMs && ev.durationMs > 0) {
-        current.durations.push(ev.durationMs);
-      }
-      if (ev.userId || ev.user_id) {
-        current.users.add(ev.userId || ev.user_id);
-      }
-      if (new Date(ev.timestamp || ev.created_at) > new Date(current.lastUsed)) {
-        current.lastUsed = ev.timestamp || ev.created_at;
-      }
-      eventMap.set(k, current);
-    }
+        const k = ev.toolKey || ev.tool_key || ev.targetId;
+        if (!k) continue;
+        const current = eventMap.get(k) || {
+          uses: 0,
+          succ: 0,
+          fail: 0,
+          durations: [] as number[],
+          users: new Set<string>(),
+          lastUsed: ev.timestamp || ev.created_at,
+        };
 
-    // All beta usages count to find users who hit limit
-    const allBetaUsages = MockStorageProvider.getAllToolBetaUsages();
+        current.uses += 1;
+        if (ev.success !== false) current.succ += 1;
+        else current.fail += 1;
 
-    // Map each Canonical Tool to a ToolTelemetryMetric
-    return CANONICAL_TOOL_REGISTRY.map((tool) => {
-      const cfg = configs[tool.key];
-      const dbRow = dbTelemetry.find((row) => row.toolKey === tool.key);
-      const memRow = eventMap.get(tool.key);
-
-      const status: ToolOperationalStatus = cfg?.status || (tool.status === 'beta' ? 'BETA' : (tool.status === 'coming_soon' ? 'COMING_SOON' : 'AVAILABLE'));
-      const accessMode: ToolAccessTier = cfg?.accessMode || (tool.defaultAccess === 'SUBSCRIPTION' ? 'PRO' : 'FREE');
-      const betaFreeLimit = cfg?.betaFreeLimit ?? tool.betaFreeLimit ?? 10;
-      const betaEnabled = status === 'BETA';
-
-      const totalUses = (dbRow?.totalUses ?? 0) + (memRow?.uses ?? 0);
-      const uniqueUsers = (dbRow?.uniqueUsers ?? 0) + (memRow?.users.size ?? 0);
-      const successfulOperations = (dbRow?.successfulOperations ?? 0) + (memRow?.succ ?? 0);
-      const failedOperations = (dbRow?.failedOperations ?? 0) + (memRow?.fail ?? 0);
-
-      const successRate = totalUses > 0
-        ? Math.round((successfulOperations / totalUses) * 1000) / 10
-        : 100.0;
-
-      // Durations
-      let avgDurationMs = dbRow?.avgDurationMs || 0;
-      let p95DurationMs = dbRow?.p95DurationMs || 0;
-      let p50DurationMs = 0;
-
-      if (memRow && memRow.durations.length > 0) {
-        const sorted = [...memRow.durations].sort((a, b) => a - b);
-        avgDurationMs = Math.round(sorted.reduce((a, b) => a + b, 0) / sorted.length);
-        p50DurationMs = sorted[Math.floor(sorted.length * 0.5)];
-        p95DurationMs = sorted[Math.floor(sorted.length * 0.95)] || p50DurationMs;
+        if (ev.durationMs && ev.durationMs > 0) {
+          current.durations.push(ev.durationMs);
+        }
+        if (ev.userId || ev.user_id) {
+          current.users.add(ev.userId || ev.user_id);
+        }
+        if (new Date(ev.timestamp || ev.created_at) > new Date(current.lastUsed)) {
+          current.lastUsed = ev.timestamp || ev.created_at;
+        }
+        eventMap.set(k, current);
       }
 
-      const lastUsedAt = dbRow?.lastUsedAt || memRow?.lastUsed || null;
+      // All beta usages count to find users who hit limit
+      const allBetaUsages = MockStorageProvider.getAllToolBetaUsages();
 
-      // Deterministic Health Evaluation
-      let health: ToolHealthStatus = 'Healthy';
-      const maxErrorRate = cfg?.maxErrorRatePct ?? 5.0;
-      const maxP95 = cfg?.maxP95DurationMs ?? 5000;
+      // Map each Canonical Tool to a ToolTelemetryMetric
+      const results: ToolTelemetryMetric[] = CANONICAL_TOOL_REGISTRY.map((tool) => {
+        const cfg = configs[tool.key];
+        const dbRow = dbTelemetry.find((row) => row.toolKey === tool.key);
+        const memRow = eventMap.get(tool.key);
 
-      if (status === 'DISABLED') {
-        health = 'Disabled';
-      } else if (totalUses === 0) {
-        health = 'No Recent Usage';
-      } else if (failedOperations > 0 && ((failedOperations / totalUses) * 100) > maxErrorRate) {
-        health = 'High Error Rate';
-      } else if (p95DurationMs > maxP95) {
-        health = 'Slow';
-      } else if (failedOperations > 0 && ((failedOperations / totalUses) * 100) > 2.0) {
-        health = 'Degraded';
-      }
+        const status: ToolOperationalStatus =
+          cfg?.status ||
+          (tool.status === 'beta'
+            ? 'BETA'
+            : tool.status === 'coming_soon'
+            ? 'COMING_SOON'
+            : 'AVAILABLE');
+        const accessMode: ToolAccessTier =
+          cfg?.accessMode || (tool.defaultAccess === 'SUBSCRIPTION' ? 'PRO' : 'FREE');
+        const betaFreeLimit = cfg?.betaFreeLimit ?? tool.betaFreeLimit ?? 10;
+        const betaEnabled = status === 'BETA';
 
-      // Calculate how many users reached Beta limit
-      const limitReachedUsers = allBetaUsages.filter(
-        (u) => u.toolKey === tool.key && u.usageCount >= betaFreeLimit
-      ).length;
+        const totalUses = (dbRow?.totalUses ?? 0) + (memRow?.uses ?? 0);
+        const uniqueUsers = (dbRow?.uniqueUsers ?? 0) + (memRow?.users.size ?? 0);
+        const successfulOperations = (dbRow?.successfulOperations ?? 0) + (memRow?.succ ?? 0);
+        const failedOperations = (dbRow?.failedOperations ?? 0) + (memRow?.fail ?? 0);
 
-      return {
-        toolKey: tool.key,
-        displayName: tool.name,
-        category: tool.category,
-        status,
-        accessMode,
-        betaEnabled,
-        betaFreeLimit,
-        totalUses,
-        uniqueUsers,
-        successfulOperations,
-        failedOperations,
-        successRate,
-        avgDurationMs,
-        p50DurationMs,
-        p95DurationMs,
-        lastUsedAt,
-        health,
-        workerMode: cfg?.workerMode || tool.workerMode || (tool.category === 'ai' ? 'hybrid' : 'client'),
-        processingType: cfg?.processingType || tool.processingType || (tool.category === 'ai' ? 'mixed' : 'local'),
-        limitReachedUsers,
-      };
-    });
+        const successRate =
+          totalUses > 0 ? Math.round((successfulOperations / totalUses) * 1000) / 10 : 100.0;
+
+        // Durations
+        let avgDurationMs = dbRow?.avgDurationMs || 0;
+        let p95DurationMs = dbRow?.p95DurationMs || 0;
+        let p50DurationMs = 0;
+
+        if (memRow && memRow.durations.length > 0) {
+          const sorted = [...memRow.durations].sort((a, b) => a - b);
+          avgDurationMs = Math.round(sorted.reduce((a, b) => a + b, 0) / sorted.length);
+          p50DurationMs = sorted[Math.floor(sorted.length * 0.5)];
+          p95DurationMs = sorted[Math.floor(sorted.length * 0.95)] || p50DurationMs;
+        }
+
+        const lastUsedAt = dbRow?.lastUsedAt || memRow?.lastUsed || null;
+
+        // Deterministic Health Evaluation
+        let health: ToolHealthStatus = 'Healthy';
+        const maxErrorRate = cfg?.maxErrorRatePct ?? 5.0;
+        const maxP95 = cfg?.maxP95DurationMs ?? 5000;
+
+        if (status === 'DISABLED') {
+          health = 'Disabled';
+        } else if (totalUses === 0) {
+          health = 'No Recent Usage';
+        } else if (failedOperations > 0 && (failedOperations / totalUses) * 100 > maxErrorRate) {
+          health = 'High Error Rate';
+        } else if (p95DurationMs > maxP95) {
+          health = 'Slow';
+        } else if (failedOperations > 0 && (failedOperations / totalUses) * 100 > 2.0) {
+          health = 'Degraded';
+        }
+
+        // Calculate how many users reached Beta limit
+        const limitReachedUsers = allBetaUsages.filter(
+          (u) => u.toolKey === tool.key && u.usageCount >= betaFreeLimit
+        ).length;
+
+        return {
+          toolKey: tool.key,
+          displayName: tool.name,
+          category: tool.category,
+          status,
+          accessMode,
+          betaEnabled,
+          betaFreeLimit,
+          totalUses,
+          uniqueUsers,
+          successfulOperations,
+          failedOperations,
+          successRate,
+          avgDurationMs,
+          p50DurationMs,
+          p95DurationMs,
+          lastUsedAt,
+          health,
+          workerMode:
+            cfg?.workerMode || tool.workerMode || (tool.category === 'ai' ? 'hybrid' : 'client'),
+          processingType:
+            cfg?.processingType ||
+            tool.processingType ||
+            (tool.category === 'ai' ? 'mixed' : 'local'),
+          limitReachedUsers,
+        };
+      });
+
+      // Cache for 60 seconds
+      this.telemetryCache.set(periodDays, { data: results, expiresAt: Date.now() + 60000 });
+      this.inFlightTelemetry.delete(periodDays);
+      return results;
+    })();
+
+    this.inFlightTelemetry.set(periodDays, promise);
+    return promise;
+  }
+
+  /**
+   * Summarizes tool telemetry for dashboards and reports.
+   */
+  async getTelemetrySummary(periodDays: number = 30, forceRefresh: boolean = false) {
+    const metrics = await this.getAggregatedTelemetry(periodDays, forceRefresh);
+    const totalRuns = metrics.reduce((acc, m) => acc + m.totalUses, 0);
+    const successfulRuns = metrics.reduce((acc, m) => acc + m.successfulOperations, 0);
+    const failedRuns = metrics.reduce((acc, m) => acc + m.failedOperations, 0);
+    const successRate = totalRuns > 0 ? Math.round((successfulRuns / totalRuns) * 1000) / 10 : 100.0;
+    const sorted = [...metrics].sort((a, b) => b.totalUses - a.totalUses);
+    const mostUsedTool =
+      sorted[0] && sorted[0].totalUses > 0
+        ? {
+            toolKey: sorted[0].toolKey,
+            displayName: sorted[0].displayName,
+            totalUses: sorted[0].totalUses,
+            successRate: sorted[0].successRate,
+          }
+        : null;
+
+    return {
+      totalRuns,
+      successfulRuns,
+      failedRuns,
+      successRate,
+      mostUsedTool,
+      metrics,
+    };
   }
 }
 

@@ -961,13 +961,23 @@ export const adminService = {
           all = (authData?.users || []).map((u) => {
             const prof = profileMap.get(u.id);
             const role = (prof?.role || u.user_metadata?.role || 'USER') as UserRole;
-            const isBanned = Boolean(u.banned_until && new Date(u.banned_until) > new Date());
-            const status: UserAccountStatus = isBanned || u.user_metadata?.status === 'SUSPENDED' ? 'SUSPENDED' : 'ACTIVE';
-            const plan: 'FREE' | 'PRO' = proSet.has(u.id) ? 'PRO' : 'FREE';
             const authProvider: 'EMAIL' | 'GOOGLE' =
               (u.app_metadata?.provider || u.identities?.[0]?.provider || 'email').toUpperCase() === 'GOOGLE'
                 ? 'GOOGLE'
                 : 'EMAIL';
+            const isBanned = Boolean(u.banned_until && new Date(u.banned_until) > new Date());
+            const isSuspended = isBanned || u.user_metadata?.status === 'SUSPENDED' || prof?.status === 'SUSPENDED';
+            const isDisabled = prof?.status === 'DISABLED';
+            const isEmailConfirmed = Boolean(u.email_confirmed_at || u.confirmed_at);
+
+            let status: UserAccountStatus;
+            if (isSuspended) status = 'SUSPENDED';
+            else if (isDisabled) status = 'DISABLED';
+            else if (authProvider === 'EMAIL' && !isEmailConfirmed) status = 'PENDING_EMAIL_VERIFICATION';
+            else if (prof?.status === 'PENDING' || prof?.status === 'PENDING_EMAIL_VERIFICATION') status = 'PENDING_EMAIL_VERIFICATION';
+            else status = 'ACTIVE';
+
+            const plan: 'FREE' | 'PRO' = proSet.has(u.id) ? 'PRO' : 'FREE';
             const fullName = prof?.full_name || u.user_metadata?.full_name || u.user_metadata?.name || (u.email ? u.email.split('@')[0] : 'User');
 
             return {
@@ -1014,7 +1024,11 @@ export const adminService = {
     }
 
     if (params?.status) {
-      all = all.filter((u) => u.status === params.status);
+      if (params.status === 'PENDING' || params.status === 'PENDING_EMAIL_VERIFICATION') {
+        all = all.filter((u) => u.status === 'PENDING' || u.status === 'PENDING_EMAIL_VERIFICATION');
+      } else {
+        all = all.filter((u) => u.status === params.status);
+      }
     }
 
     if (params?.plan) {

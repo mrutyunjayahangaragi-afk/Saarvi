@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       );
     }
 
-    let effectiveUserId: string | null = clientUserId || null;
+    let effectiveUserId: string | null = null;
 
     if (isSupabaseConfigured()) {
       try {
@@ -36,17 +36,26 @@ export async function POST(request: Request) {
     }
 
     if (!effectiveUserId) {
-      return NextResponse.json({ success: true, usageCount: 0 });
+      return NextResponse.json({ success: true, usageCount: 0, remainingUses: 10 });
     }
+
+    const elapsed =
+      typeof durationMs === 'number'
+        ? durationMs
+        : typeof body.processingTimeMs === 'number'
+        ? body.processingTimeMs
+        : 0;
 
     const result = await toolAccessService.commitBetaUse(
       effectiveUserId,
       toolKey.trim(),
-      typeof durationMs === 'number' ? durationMs : 0
+      elapsed,
+      body.operationId
     );
 
     return NextResponse.json({
       ...result,
+      data: result,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Failed to commit Beta usage';

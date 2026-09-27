@@ -28,6 +28,7 @@ import { SITE_CONFIG } from "@/config/site";
 import { SaarviMark } from "@/components/brand/SaarviLogo";
 import { useAuth } from "@/context/AuthContext";
 import { usePlatform } from "@/context/PlatformContext";
+import { useFeedback } from "@/context/FeedbackContext";
 import MegaMenu, { ActiveMenuCategory } from "./MegaMenu";
 import GlobalSearchModal from "@/components/tools/GlobalSearchModal";
 import AnnouncementBanner from "./AnnouncementBanner";
@@ -37,6 +38,7 @@ import { getStartupNavigation, getJobsFeatureControl } from "@/lib/api/request-c
 export default function Navbar() {
   const { user, profile, signOut, isLoading } = useAuth();
   const { appName, tagline } = usePlatform();
+  const { openFeedback } = useFeedback();
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState<ActiveMenuCategory>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -667,6 +669,17 @@ export default function Navbar() {
                     </div>
 
                     <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAccountMenuOpen(false);
+                          openFeedback();
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2 text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors font-medium text-left cursor-pointer border-b border-slate-100"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Share Feedback</span>
+                      </button>
                       <button
                         type="button"
                         onClick={async () => {
