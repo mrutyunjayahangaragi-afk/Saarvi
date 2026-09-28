@@ -17,12 +17,15 @@ export type OpportunityStatus =
   | "PENDING_REVIEW"
   | "APPROVED"
   | "PUBLISHED"
+  | "ACTIVE"
   | "DRAFT"
   | "PAUSED"
   | "REJECTED"
   | "EXPIRED"
   | "STALE"
-  | "MERGED";
+  | "MERGED"
+  | "ARCHIVED"
+  | "DELETED";
 
 export type RemoteType = "remote" | "hybrid" | "onsite";
 
@@ -75,6 +78,11 @@ export interface Opportunity {
   duplicateOfId?: string;
   duplicateSources?: string[];
   adminNotes?: string;
+  publishedAt?: string;
+  expiresAt?: string;
+  canonicalJobKey?: string;
+  viewsCount?: number;
+  savesCount?: number;
   createdAt: string;
   updatedAt: string;
 }

@@ -12,6 +12,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: baseUrl, lastModified: now, changeFrequency: 'daily', priority: 1.0 },
     { url: `${baseUrl}/tools`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
+    { url: `${baseUrl}/pdf`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
+    { url: `${baseUrl}/images`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
+    { url: `${baseUrl}/student-tools`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
+    { url: `${baseUrl}/jobs`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
     { url: `${baseUrl}/student`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
     { url: `${baseUrl}/career/opportunities`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
     { url: `${baseUrl}/pricing`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },

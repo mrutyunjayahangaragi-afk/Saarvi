@@ -20,8 +20,10 @@ import { deduplicateOpportunities } from "./deduplicator.ts";
 export interface OpportunityAuditEvent {
   id: string;
   opportunityId: string;
-  action: "APPROVED" | "REJECTED" | "EDITED" | "MERGED" | "EXPIRED" | "DISCOVERED" | "IMPORTED" | "CREATED_MANUAL" | "PAUSED" | "RESUMED";
+  action: "APPROVED" | "REJECTED" | "EDITED" | "MERGED" | "EXPIRED" | "DISCOVERED" | "IMPORTED" | "CREATED_MANUAL" | "PAUSED" | "RESUMED" | "PUBLISHED" | "ARCHIVED" | "DELETED";
   actorId: string;
+  previousStatus?: string;
+  newStatus?: string;
   details?: string;
   timestamp: string;
 }
@@ -484,20 +486,125 @@ class OpportunityStoreService {
     return updated;
   }
 
-  public markExpired(id: string, actorId = "system"): Opportunity | null {
+  public publishOpportunity(id: string, adminId: string): Opportunity | null {
     const opp = this.opportunities.get(id);
     if (!opp) return null;
 
-    opp.status = "EXPIRED";
+    const previousStatus = opp.status;
+    opp.status = "PUBLISHED";
+    opp.publishedAt = new Date().toISOString();
+    opp.verifiedByAdmin = true;
+    opp.approvedBy = adminId;
     opp.updatedAt = new Date().toISOString();
 
     this.recordAuditEvent({
       opportunityId: id,
-      action: "EXPIRED",
-      actorId,
-      details: "Deadline passed or source marked closed",
+      action: "PUBLISHED",
+      actorId: adminId,
+      previousStatus,
+      newStatus: "PUBLISHED",
+      details: "Published listing to public live feed by administrator",
     });
 
+    return opp;
+  }
+
+  public archiveOpportunity(id: string, adminId: string): Opportunity | null {
+    const opp = this.opportunities.get(id);
+    if (!opp) return null;
+
+    const previousStatus = opp.status;
+    opp.status = "ARCHIVED";
+    opp.updatedAt = new Date().toISOString();
+
+    this.recordAuditEvent({
+      opportunityId: id,
+      action: "ARCHIVED",
+      actorId: adminId,
+      previousStatus,
+      newStatus: "ARCHIVED",
+      details: "Archived opportunity by administrator",
+    });
+
+    return opp;
+  }
+
+  public deleteOpportunity(id: string, adminId: string, permanent = false): boolean {
+    const opp = this.opportunities.get(id);
+    if (!opp) return false;
+
+    if (permanent) {
+      this.opportunities.delete(id);
+      this.recordAuditEvent({
+        opportunityId: id,
+        action: "DELETED",
+        actorId: adminId,
+        previousStatus: opp.status,
+        newStatus: "PERMANENTLY_DELETED",
+        details: "Permanently deleted opportunity from database",
+      });
+      return true;
+    }
+
+    // Soft delete
+    const previousStatus = opp.status;
+    opp.status = "DELETED";
+    opp.updatedAt = new Date().toISOString();
+
+    this.recordAuditEvent({
+      opportunityId: id,
+      action: "DELETED",
+      actorId: adminId,
+      previousStatus,
+      newStatus: "DELETED",
+      details: "Soft deleted opportunity by administrator",
+    });
+
+    return true;
+  }
+
+  public checkAndExpireOutdatedJobs(): number {
+    let expiredCount = 0;
+    const now = Date.now();
+
+    for (const opp of this.opportunities.values()) {
+      if (opp.status === "APPROVED" || opp.status === "PUBLISHED" || opp.status === "ACTIVE") {
+        if (opp.applicationDeadline && opp.applicationDeadline !== "Deadline not provided") {
+          const deadlineTime = new Date(opp.applicationDeadline).getTime();
+          if (!isNaN(deadlineTime) && deadlineTime < now) {
+            opp.status = "EXPIRED";
+            opp.updatedAt = new Date().toISOString();
+            expiredCount++;
+            this.recordAuditEvent({
+              opportunityId: opp.id,
+              action: "EXPIRED",
+              actorId: "system_cron",
+              previousStatus: "PUBLISHED",
+              newStatus: "EXPIRED",
+              details: `Auto-expired: deadline (${opp.applicationDeadline}) has passed`,
+            });
+          }
+        }
+      }
+    }
+
+    return expiredCount;
+  }
+
+  public markExpired(id: string, adminId: string): Opportunity | null {
+    const opp = this.opportunities.get(id);
+    if (!opp) return null;
+    const oldStatus = opp.status;
+    opp.status = "EXPIRED";
+    opp.updatedAt = new Date().toISOString();
+    this.recordAuditEvent({
+      opportunityId: id,
+      action: "EXPIRED",
+      actorId: adminId,
+      previousStatus: oldStatus,
+      newStatus: "EXPIRED",
+      details: "Marked as EXPIRED by admin",
+    });
     return opp;
   }
 

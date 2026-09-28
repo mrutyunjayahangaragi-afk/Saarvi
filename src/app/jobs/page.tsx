@@ -334,41 +334,60 @@ function JobsContent() {
       return;
     }
 
-    try {
-      await academicStorage.saveJobApplication({
-        id: job.id,
-        company: job.companyName,
-        role: job.title,
-        location: job.location,
-        jobUrl: job.applyUrl,
-        applicationDate: new Date().toISOString().split("T")[0],
-        deadline: job.applicationDeadline !== "Deadline not provided" ? job.applicationDeadline : undefined,
-        status: "SAVED",
-        priority: "medium",
-        notes: `Saved from ${job.sourceName}. Salary: ${job.salary}`,
-        events: [
-          {
-            id: `evt_${Date.now()}`,
-            status: "SAVED",
-            date: new Date().toISOString().split("T")[0],
-            notes: "Bookmarked opportunity via Saarvi Jobs",
-          },
-        ],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
+    const isAlreadySaved = savedJobIds.has(job.id);
+    const action = isAlreadySaved ? "UNSAVE" : "SAVE";
 
-      setSavedJobIds((prev) => new Set([...prev, job.id]));
-      setNotice(`Saved "${job.title}" to your private Application Tracker.`);
-      try {
-        analytics.trackEvent({
-          name: "job_saved" as any,
-          category: "student",
+    try {
+      // Sync with server API
+      fetch("/api/jobs/saved", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: job.id, action }),
+      }).catch(() => {});
+
+      if (isAlreadySaved) {
+        setSavedJobIds((prev) => {
+          const next = new Set(prev);
+          next.delete(job.id);
+          return next;
         });
-      } catch {}
+        setNotice(`Removed "${job.title}" from saved jobs.`);
+      } else {
+        await academicStorage.saveJobApplication({
+          id: job.id,
+          company: job.companyName,
+          role: job.title,
+          location: job.location,
+          jobUrl: job.applyUrl,
+          applicationDate: new Date().toISOString().split("T")[0],
+          deadline: job.applicationDeadline !== "Deadline not provided" ? job.applicationDeadline : undefined,
+          status: "SAVED",
+          priority: "medium",
+          notes: `Saved from ${job.sourceName}. Salary: ${job.salary}`,
+          events: [
+            {
+              id: `evt_${Date.now()}`,
+              status: "SAVED",
+              date: new Date().toISOString().split("T")[0],
+              notes: "Bookmarked opportunity via Saarvi Jobs",
+            },
+          ],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+
+        setSavedJobIds((prev) => new Set([...prev, job.id]));
+        setNotice(`Saved "${job.title}" to your private Application Tracker.`);
+        try {
+          analytics.trackEvent({
+            name: "job_saved" as any,
+            category: "student",
+          });
+        } catch {}
+      }
       setTimeout(() => setNotice(null), 3000);
     } catch {
-      setNotice("Could not save job locally.");
+      setNotice("Could not update saved job state.");
       setTimeout(() => setNotice(null), 2000);
     }
   };

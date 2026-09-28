@@ -32,9 +32,9 @@ export async function generateMetadata({ params }: JobPageProps): Promise<Metada
   const { id } = await params;
   const opp = opportunityStore.getOpportunityById(id);
 
-  if (!opp || opp.status !== "APPROVED") {
+  if (!opp || (opp.status !== "APPROVED" && opp.status !== "PUBLISHED" && opp.status !== "ACTIVE")) {
     return {
-      title: "Opportunity Not Found | Saarvi",
+      title: "Opportunity No Longer Available | Saarvi",
     };
   }
 
@@ -51,8 +51,39 @@ export default async function SingleJobPage({ params }: JobPageProps) {
   const { id } = await params;
   const opp = opportunityStore.getOpportunityById(id);
 
-  if (!opp || opp.status !== "APPROVED") {
+  if (!opp) {
     notFound();
+  }
+
+  const isAvailable = opp.status === "APPROVED" || opp.status === "PUBLISHED" || opp.status === "ACTIVE";
+
+  if (!isAvailable) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] flex flex-col text-slate-800">
+        <Navbar />
+        <main className="flex-1 max-w-xl mx-auto w-full px-4 sm:px-6 py-16 flex flex-col justify-center text-center space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
+            <Clock className="w-6 h-6" />
+          </div>
+          <h1 className="text-xl font-extrabold text-slate-900">
+            This opportunity is no longer available
+          </h1>
+          <p className="text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
+            The listing for <span className="font-semibold text-slate-800">{opp.title}</span> at <span className="font-semibold text-slate-800">{opp.companyName}</span> has expired or been closed by administrators.
+          </p>
+          <div className="pt-2">
+            <Link
+              href="/jobs"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white font-semibold text-xs hover:bg-blue-500 transition-colors shadow-xs"
+            >
+              <span>Browse Active Opportunities</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
   }
 
   // Server-Side Authentication Verification

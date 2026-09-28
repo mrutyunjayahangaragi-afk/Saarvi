@@ -121,6 +121,13 @@ const STORAGE_KEYS = {
   ACADEMIC_SUBJECTS: 'saarvi_academic_subjects_v1',
   ACADEMIC_CONFLICTS: 'saarvi_academic_conflicts_v1',
   ACADEMIC_AUDIT_LOGS: 'saarvi_academic_audit_logs_v1',
+  // Phase 45 Jobs & Internships Platform Keys
+  JOB_OPPORTUNITIES: 'saarvi_job_opportunities_v1',
+  JOB_SOURCE_RECORDS: 'saarvi_job_source_records_v1',
+  JOB_AUDIT_LOGS: 'saarvi_job_audit_logs_v1',
+  SAVED_JOBS: 'saarvi_saved_jobs_v1',
+  JOB_APPLICATIONS: 'saarvi_job_applications_v1',
+  JOB_REPORTS: 'saarvi_job_reports_v1',
 };
 
 export interface StoredAcademicSubject {
@@ -2430,5 +2437,131 @@ export const MockStorageProvider = {
   getAcademicAuditLogs(): any[] {
     return getStored<any[]>(STORAGE_KEYS.ACADEMIC_AUDIT_LOGS, []);
   },
+
+  // =========================================================================
+  // Phase 45: Canonical Jobs & Internships Platform Persistence
+  // =========================================================================
+
+  saveJob(userId: string, jobId: string): { success: boolean; isSaved: boolean } {
+    if (!userId || !jobId) return { success: false, isSaved: false };
+    const saved = getStored<Array<{ id: string; userId: string; jobId: string; createdAt: string }>>(
+      STORAGE_KEYS.SAVED_JOBS,
+      []
+    );
+    const existingIdx = saved.findIndex((s) => s.userId === userId && s.jobId === jobId);
+
+    if (existingIdx >= 0) {
+      // Already saved
+      return { success: true, isSaved: true };
+    }
+
+    saved.unshift({
+      id: `saved_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId,
+      jobId,
+      createdAt: new Date().toISOString(),
+    });
+
+    setStored(STORAGE_KEYS.SAVED_JOBS, saved);
+    return { success: true, isSaved: true };
+  },
+
+  unsaveJob(userId: string, jobId: string): { success: boolean; isSaved: boolean } {
+    if (!userId || !jobId) return { success: false, isSaved: false };
+    const saved = getStored<Array<{ id: string; userId: string; jobId: string; createdAt: string }>>(
+      STORAGE_KEYS.SAVED_JOBS,
+      []
+    );
+    const filtered = saved.filter((s) => !(s.userId === userId && s.jobId === jobId));
+    setStored(STORAGE_KEYS.SAVED_JOBS, filtered);
+    return { success: true, isSaved: false };
+  },
+
+  isJobSaved(userId: string, jobId: string): boolean {
+    if (!userId || !jobId) return false;
+    const saved = getStored<Array<{ id: string; userId: string; jobId: string; createdAt: string }>>(
+      STORAGE_KEYS.SAVED_JOBS,
+      []
+    );
+    return saved.some((s) => s.userId === userId && s.jobId === jobId);
+  },
+
+  getSavedJobs(userId: string): Array<{ id: string; userId: string; jobId: string; createdAt: string }> {
+    if (!userId) return [];
+    const saved = getStored<Array<{ id: string; userId: string; jobId: string; createdAt: string }>>(
+      STORAGE_KEYS.SAVED_JOBS,
+      []
+    );
+    return saved.filter((s) => s.userId === userId);
+  },
+
+  createOrUpdateJobApplication(
+    userId: string,
+    data: {
+      jobId: string;
+      jobTitle: string;
+      companyName: string;
+      status: 'SAVED' | 'APPLIED' | 'ASSESSMENT' | 'INTERVIEW' | 'OFFER' | 'REJECTED' | 'WITHDRAWN';
+      notes?: string;
+    }
+  ): any {
+    if (!userId || !data.jobId) return null;
+    const apps = getStored<any[]>(STORAGE_KEYS.JOB_APPLICATIONS, []);
+    const existingIdx = apps.findIndex((a) => a.userId === userId && a.jobId === data.jobId);
+    const now = new Date().toISOString();
+
+    if (existingIdx >= 0) {
+      apps[existingIdx] = {
+        ...apps[existingIdx],
+        ...data,
+        updatedAt: now,
+      };
+      setStored(STORAGE_KEYS.JOB_APPLICATIONS, apps);
+      return apps[existingIdx];
+    }
+
+    const newApp = {
+      id: `app_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId,
+      ...data,
+      appliedAt: now,
+      updatedAt: now,
+    };
+    apps.unshift(newApp);
+    setStored(STORAGE_KEYS.JOB_APPLICATIONS, apps);
+    return newApp;
+  },
+
+  getJobApplications(userId: string): any[] {
+    if (!userId) return [];
+    const apps = getStored<any[]>(STORAGE_KEYS.JOB_APPLICATIONS, []);
+    return apps.filter((a) => a.userId === userId);
+  },
+
+  reportJob(report: {
+    jobId: string;
+    jobTitle: string;
+    companyName: string;
+    reason: string;
+    notes?: string;
+    reporterId?: string;
+  }): any {
+    const reports = getStored<any[]>(STORAGE_KEYS.JOB_REPORTS, []);
+    const newReport = {
+      id: `rep_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      status: 'PENDING',
+      reportedAt: new Date().toISOString(),
+      ...report,
+    };
+    reports.unshift(newReport);
+    setStored(STORAGE_KEYS.JOB_REPORTS, reports);
+    return newReport;
+  },
+
+  getJobReports(): any[] {
+    return getStored<any[]>(STORAGE_KEYS.JOB_REPORTS, []);
+  },
 };
+
+export const mockStorage = MockStorageProvider;
 

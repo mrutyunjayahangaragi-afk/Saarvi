@@ -101,17 +101,22 @@ export default function Footer() {
             </h4>
             <ul className="space-y-2.5">
               <li>
-                <Link href="/about" className="hover:text-blue-400 transition-colors">
-                  About Saarvi
-                </Link>
-              </li>
-              <li>
                 <Link href="/tools" className="hover:text-blue-400 transition-colors">
                   All Tools
                 </Link>
               </li>
               <li>
-                <Link href="/student" className="hover:text-blue-400 transition-colors">
+                <Link href="/pdf" className="hover:text-blue-400 transition-colors">
+                  PDF Tools
+                </Link>
+              </li>
+              <li>
+                <Link href="/images" className="hover:text-blue-400 transition-colors">
+                  Image Tools
+                </Link>
+              </li>
+              <li>
+                <Link href="/student-tools" className="hover:text-blue-400 transition-colors">
                   Student Tools
                 </Link>
               </li>
@@ -124,11 +129,6 @@ export default function Footer() {
               <li>
                 <Link href="/pricing" className="hover:text-blue-400 transition-colors">
                   Plans &amp; Pro
-                </Link>
-              </li>
-              <li>
-                <Link href="/blog" className="hover:text-blue-400 transition-colors">
-                  Guides &amp; Tutorials
                 </Link>
               </li>
             </ul>

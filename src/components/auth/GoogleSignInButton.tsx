@@ -8,6 +8,7 @@ interface GoogleSignInButtonProps {
   loading?: boolean;
   disabled?: boolean;
   className?: string;
+  text?: string;
 }
 
 export function GoogleIcon({ className = "w-5 h-5", size = 20 }: { className?: string; size?: number }) {
@@ -45,6 +46,7 @@ export default function GoogleSignInButton({
   loading = false,
   disabled = false,
   className = "",
+  text,
 }: GoogleSignInButtonProps) {
   return (
     <button
@@ -64,7 +66,7 @@ export default function GoogleSignInButton({
       ) : (
         <>
           <GoogleIcon className="w-5 h-5 shrink-0" />
-          <span className="font-medium text-slate-700">Continue with Google</span>
+          <span className="font-medium text-slate-700">{text || "Continue with Google"}</span>
         </>
       )}
     </button>

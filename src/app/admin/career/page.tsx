@@ -32,9 +32,12 @@ import {
   Compass,
   GraduationCap,
   Layers,
-  ChevronRight,
   AlertCircle,
   HelpCircle,
+  Trash2,
+  Archive,
+  Pause,
+  ShieldCheck,
 } from "lucide-react";
 
 type AdminTab =
@@ -148,6 +151,14 @@ export default function AdminCareerPage() {
 
   // Edit Opportunity Modal State
   const [editOpp, setEditOpp] = useState<Opportunity | null>(null);
+  const [editForm, setEditForm] = useState<any>({});
+
+  // Delete Confirmation Modal State
+  const [deleteConfirmOpp, setDeleteConfirmOpp] = useState<Opportunity | null>(null);
+  const [isPermanentDelete, setIsPermanentDelete] = useState(false);
+
+  // Bulk Selection State
+  const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -344,6 +355,193 @@ export default function AdminCareerPage() {
       }
     } catch {
       setNotice("Failed to expire opportunity.");
+    }
+  };
+
+  const handlePublish = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/career/opportunities/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "PUBLISH" }),
+      });
+      if (res.ok) {
+        setNotice("Opportunity published and active.");
+        await loadData();
+      }
+    } catch {
+      setNotice("Failed to publish opportunity.");
+    }
+  };
+
+  const handlePause = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/career/opportunities/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "PAUSE" }),
+      });
+      if (res.ok) {
+        setNotice("Opportunity paused.");
+        await loadData();
+      }
+    } catch {
+      setNotice("Failed to pause opportunity.");
+    }
+  };
+
+  const handleResume = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/career/opportunities/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "RESUME" }),
+      });
+      if (res.ok) {
+        setNotice("Opportunity resumed and active.");
+        await loadData();
+      }
+    } catch {
+      setNotice("Failed to resume opportunity.");
+    }
+  };
+
+  const handleArchive = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/career/opportunities/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "ARCHIVE" }),
+      });
+      if (res.ok) {
+        setNotice("Opportunity archived.");
+        await loadData();
+      }
+    } catch {
+      setNotice("Failed to archive opportunity.");
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmOpp) return;
+    try {
+      const res = await fetch(
+        `/api/admin/career/opportunities/${deleteConfirmOpp.id}?permanent=${isPermanentDelete}`,
+        { method: "DELETE" }
+      );
+      if (res.ok) {
+        setNotice(
+          isPermanentDelete
+            ? "Opportunity permanently deleted from database."
+            : "Opportunity archived / soft-deleted."
+        );
+        setDeleteConfirmOpp(null);
+        await loadData();
+      } else {
+        setNotice("Failed to delete opportunity.");
+      }
+    } catch {
+      setNotice("Error deleting opportunity.");
+    }
+  };
+
+  const handleBulkAction = async (action: "APPROVE" | "REJECT" | "ARCHIVE" | "EXPIRE" | "DELETE") => {
+    if (bulkSelectedIds.size === 0) return;
+    if (action === "DELETE") {
+      const ok = window.confirm(
+        `Permanently remove ${bulkSelectedIds.size} selected opportunity(s)? This cannot be undone.`
+      );
+      if (!ok) return;
+    }
+    try {
+      for (const id of Array.from(bulkSelectedIds)) {
+        if (action === "DELETE") {
+          await fetch(`/api/admin/career/opportunities/${id}?permanent=true`, { method: "DELETE" });
+        } else {
+          await fetch(`/api/admin/career/opportunities/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action }),
+          });
+        }
+      }
+      setNotice(`Bulk operation ${action} completed on ${bulkSelectedIds.size} items.`);
+      setBulkSelectedIds(new Set());
+      await loadData();
+    } catch {
+      setNotice("Bulk operation encountered an error.");
+    }
+  };
+
+  const openEditModal = (opp: Opportunity) => {
+    setEditOpp(opp);
+    setEditForm({
+      title: opp.title,
+      companyName: opp.companyName,
+      companyLogo: opp.companyLogo || "",
+      description: opp.description,
+      location: opp.location,
+      remoteType: opp.remoteType,
+      employmentType: opp.employmentType,
+      experienceLevel: opp.experienceLevel,
+      skills: (opp.skills || []).join(", "),
+      salaryMin: opp.salary?.min ? String(opp.salary.min) : "",
+      salaryMax: opp.salary?.max ? String(opp.salary.max) : "",
+      currency: opp.salary?.currency || "₹",
+      applicationDeadline: opp.applicationDeadline || "",
+      applyUrl: opp.applyUrl,
+      status: opp.status,
+    });
+  };
+
+  const handleSaveEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editOpp) return;
+    try {
+      const skillsArray = (editForm.skills || "")
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+
+      const patch = {
+        title: editForm.title,
+        companyName: editForm.companyName,
+        companyLogo: editForm.companyLogo || undefined,
+        description: editForm.description,
+        location: editForm.location,
+        remoteType: editForm.remoteType,
+        employmentType: editForm.employmentType,
+        experienceLevel: editForm.experienceLevel,
+        skills: skillsArray,
+        salary:
+          editForm.salaryMin || editForm.salaryMax
+            ? {
+                min: editForm.salaryMin ? parseInt(editForm.salaryMin) : undefined,
+                max: editForm.salaryMax ? parseInt(editForm.salaryMax) : undefined,
+                currency: editForm.currency,
+              }
+            : null,
+        applicationDeadline: editForm.applicationDeadline || null,
+        applyUrl: editForm.applyUrl,
+        status: editForm.status,
+      };
+
+      const res = await fetch(`/api/admin/career/opportunities/${editOpp.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "EDIT", patch }),
+      });
+
+      if (res.ok) {
+        setNotice(`Opportunity "${editForm.title}" updated successfully.`);
+        setEditOpp(null);
+        await loadData();
+      } else {
+        const d = await res.json();
+        setNotice(`Failed to update: ${d.error || "Validation error"}`);
+      }
+    } catch (err: any) {
+      setNotice(`Error saving edit: ${err.message}`);
     }
   };
 
@@ -875,109 +1073,295 @@ export default function AdminCareerPage() {
         activeTab === "REJECTED" ||
         activeTab === "EXPIRED") && (
         <div className="space-y-4">
-          {/* List Search Bar */}
-          <div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
-            <Search className="w-4 h-4 text-slate-400 ml-1" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search listings by title, company name, skills, or location..."
-              className="w-full text-xs sm:text-sm bg-transparent border-none focus:outline-hidden"
-            />
+          {/* List Search Bar & Bulk Selection Toolbar */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
+              <Search className="w-4 h-4 text-slate-400 ml-1" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search listings by title, company name, skills, or location..."
+                className="w-full text-xs sm:text-sm bg-transparent border-none focus:outline-hidden"
+              />
+              {items.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (bulkSelectedIds.size === items.length) {
+                      setBulkSelectedIds(new Set());
+                    } else {
+                      setBulkSelectedIds(new Set(items.map((i) => i.id)));
+                    }
+                  }}
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition shrink-0 cursor-pointer"
+                >
+                  {bulkSelectedIds.size === items.length ? "Deselect All" : "Select All"}
+                </button>
+              )}
+            </div>
+
+            {bulkSelectedIds.size > 0 && (
+              <div className="flex items-center justify-between flex-wrap gap-2 p-3 bg-blue-50 border border-blue-200 rounded-2xl text-xs">
+                <span className="font-bold text-blue-900">
+                  {bulkSelectedIds.size} listing(s) selected:
+                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => handleBulkAction("APPROVE")}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-xs transition cursor-pointer"
+                  >
+                    Approve Selected
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleBulkAction("REJECT")}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-xs transition cursor-pointer"
+                  >
+                    Reject Selected
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleBulkAction("ARCHIVE")}
+                    className="px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-xl font-bold shadow-xs transition cursor-pointer"
+                  >
+                    Archive Selected
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleBulkAction("EXPIRE")}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold shadow-xs transition cursor-pointer"
+                  >
+                    Expire Selected
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleBulkAction("DELETE")}
+                    className="px-3 py-1.5 bg-red-700 hover:bg-red-800 text-white rounded-xl font-bold shadow-xs transition cursor-pointer"
+                  >
+                    Delete Selected
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBulkSelectedIds(new Set())}
+                    className="px-2.5 py-1.5 text-slate-500 hover:text-slate-700 font-semibold cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Listings Cards */}
           <div className="space-y-3">
-            {items.map((opp) => (
-              <div
-                key={opp.id}
-                className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:border-slate-300 transition space-y-3"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                        {opp.companyName}
-                      </span>
-                      <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                        {opp.category}
-                      </span>
-                      <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                        {opp.source.replace(/_/g, " ")}
-                      </span>
-                      {opp.status === "APPROVED" && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> Admin Verified
-                        </span>
-                      )}
-                      {opp.status === "PENDING_REVIEW" && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                          Pending Review
-                        </span>
-                      )}
-                      {opp.status === "REJECTED" && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
-                          Rejected
-                        </span>
-                      )}
-                      {opp.status === "EXPIRED" && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                          Expired
-                        </span>
-                      )}
+            {items.map((opp) => {
+              const isSelected = bulkSelectedIds.has(opp.id);
+              // Factual Data Quality Check Calculations
+              const titlePass = Boolean(opp.title && opp.title.trim().length >= 3);
+              const companyPass = Boolean(opp.companyName && opp.companyName.trim().length >= 2);
+              const locationPass = Boolean(opp.location && opp.location.trim().length >= 2);
+              const descriptionPass = Boolean(opp.description && opp.description.trim().length >= 10);
+              const applyPass = Boolean(opp.applyUrl && /^https?:\/\//i.test(opp.applyUrl));
+              const duplicatePass = !opp.duplicateOfId;
+
+              return (
+                <div
+                  key={opp.id}
+                  className={`bg-white border rounded-2xl p-5 shadow-xs hover:border-slate-300 transition space-y-3 ${
+                    isSelected ? "border-blue-400 bg-blue-50/20" : "border-slate-200/90"
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          const next = new Set(bulkSelectedIds);
+                          if (e.target.checked) next.add(opp.id);
+                          else next.delete(opp.id);
+                          setBulkSelectedIds(next);
+                        }}
+                        className="mt-1 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                            {opp.companyName}
+                          </span>
+                          <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                            {opp.category}
+                          </span>
+                          <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                            {opp.source.replace(/_/g, " ")}
+                          </span>
+                          {(opp.status === "APPROVED" || opp.status === "PUBLISHED" || opp.status === "ACTIVE") && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" /> Admin Verified
+                            </span>
+                          )}
+                          {opp.status === "PENDING_REVIEW" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                              Pending Review
+                            </span>
+                          )}
+                          {opp.status === "PAUSED" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700 border border-yellow-200">
+                              Paused
+                            </span>
+                          )}
+                          {opp.status === "ARCHIVED" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-300">
+                              Archived
+                            </span>
+                          )}
+                          {opp.status === "REJECTED" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                              Rejected
+                            </span>
+                          )}
+                          {opp.status === "EXPIRED" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                              Expired
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="text-base font-extrabold text-slate-900 mt-1">{opp.title}</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {opp.location} • {opp.employmentType} • {opp.remoteType} •{" "}
+                          {opp.salary ? `${opp.salary.currency || "₹"} ${opp.salary.min} - ${opp.salary.max}` : "Salary undisclosed"}
+                        </p>
+                      </div>
                     </div>
-                    <h3 className="text-base font-extrabold text-slate-900 mt-1">{opp.title}</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {opp.location} • {opp.employmentType} • {opp.remoteType} •{" "}
-                      {opp.salary ? `${opp.salary.currency || "₹"} ${opp.salary.min} - ${opp.salary.max}` : "Salary undisclosed"}
-                    </p>
+
+                    {/* Actions for this opportunity */}
+                    <div className="flex items-center gap-1.5 sm:shrink-0 flex-wrap">
+                      {opp.status !== "APPROVED" && opp.status !== "PUBLISHED" && opp.status !== "ACTIVE" && (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmPublishOpp(opp)}
+                          className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow-xs flex items-center gap-1 cursor-pointer"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Approve &amp; Publish</span>
+                        </button>
+                      )}
+
+                      {(opp.status === "APPROVED" || opp.status === "PUBLISHED" || opp.status === "ACTIVE") && (
+                        <button
+                          type="button"
+                          onClick={() => handlePause(opp.id)}
+                          className="px-2.5 py-1.5 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-xl border border-amber-200 transition flex items-center gap-1 cursor-pointer"
+                          title="Pause active listing"
+                        >
+                          <Pause className="w-3.5 h-3.5" />
+                          <span>Pause</span>
+                        </button>
+                      )}
+
+                      {opp.status === "PAUSED" && (
+                        <button
+                          type="button"
+                          onClick={() => handleResume(opp.id)}
+                          className="px-2.5 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-xl border border-emerald-200 transition flex items-center gap-1 cursor-pointer"
+                          title="Resume listing"
+                        >
+                          <Play className="w-3.5 h-3.5" />
+                          <span>Resume</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(opp)}
+                        className="p-2 text-slate-600 hover:bg-slate-100 rounded-xl border border-slate-200 transition cursor-pointer"
+                        title="Edit opportunity details"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+
+                      {opp.status !== "EXPIRED" && (
+                        <button
+                          type="button"
+                          onClick={() => handleExpire(opp.id)}
+                          className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+                        >
+                          Expire
+                        </button>
+                      )}
+
+                      {opp.status !== "ARCHIVED" && (
+                        <button
+                          type="button"
+                          onClick={() => handleArchive(opp.id)}
+                          className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl border border-slate-200 transition cursor-pointer"
+                          title="Archive opportunity"
+                        >
+                          <Archive className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {opp.status !== "REJECTED" && (
+                        <button
+                          type="button"
+                          onClick={() => handleReject(opp.id)}
+                          className="px-2.5 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl border border-rose-200 transition cursor-pointer"
+                        >
+                          Reject
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeleteConfirmOpp(opp);
+                          setIsPermanentDelete(false);
+                        }}
+                        className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl border border-rose-200 transition cursor-pointer"
+                        title="Delete opportunity"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+
+                      <a
+                        href={opp.applyUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="p-2 text-slate-600 hover:bg-slate-100 rounded-xl border border-slate-200 transition"
+                        title="Open external application link"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
                   </div>
 
-                  {/* Actions for this opportunity */}
-                  <div className="flex items-center gap-2 sm:shrink-0 flex-wrap">
-                    {opp.status !== "APPROVED" && (
-                      <button
-                        type="button"
-                        onClick={() => setConfirmPublishOpp(opp)}
-                        className="px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow-xs flex items-center gap-1"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Approve & Publish</span>
-                      </button>
-                    )}
-
-                    {opp.status !== "REJECTED" && (
-                      <button
-                        type="button"
-                        onClick={() => handleReject(opp.id)}
-                        className="px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl border border-rose-200 transition"
-                      >
-                        Reject
-                      </button>
-                    )}
-
-                    {opp.status !== "EXPIRED" && (
-                      <button
-                        type="button"
-                        onClick={() => handleExpire(opp.id)}
-                        className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
-                      >
-                        Expire
-                      </button>
-                    )}
-
-                    <a
-                      href={opp.applyUrl}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="p-2 text-slate-600 hover:bg-slate-100 rounded-xl border border-slate-200 transition"
-                      title="Open external application link"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
+                  {/* Factual Data Quality Check Indicator Row */}
+                  <div className="flex flex-wrap items-center gap-1.5 p-2 bg-slate-50 rounded-xl border border-slate-200/60 text-[10px] font-semibold">
+                    <span className="text-slate-500 mr-1 flex items-center gap-1 font-bold">
+                      <ShieldCheck className="w-3 h-3 text-blue-600" />
+                      DATA QUALITY CHECK:
+                    </span>
+                    <span className={`px-2 py-0.5 rounded ${titlePass ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
+                      Title: {titlePass ? "PASS" : "FAIL"}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded ${companyPass ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
+                      Company: {companyPass ? "PASS" : "FAIL"}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded ${locationPass ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
+                      Location: {locationPass ? "PASS" : "FAIL"}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded ${descriptionPass ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
+                      Description: {descriptionPass ? "PASS" : "FAIL"}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded ${applyPass ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
+                      Apply URL: {applyPass ? "PASS" : "FAIL"}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded ${duplicatePass ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
+                      Duplicate: {duplicatePass ? "PASS" : "DUP"}
+                    </span>
                   </div>
-                </div>
 
                 <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
                   {opp.description}
@@ -1001,7 +1385,8 @@ export default function AdminCareerPage() {
                   </div>
                 </div>
               </div>
-            ))}
+            );
+          })}
 
             {items.length === 0 && (
               <div className="text-center py-16 bg-white border border-slate-200 rounded-2xl text-slate-400">
@@ -1780,6 +2165,293 @@ export default function AdminCareerPage() {
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs"
               >
                 Confirm &amp; Publish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* EDIT OPPORTUNITY MODAL                                                    */}
+      {/* ========================================================================= */}
+      {editOpp && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold">
+                  <Edit2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Edit Opportunity: {editOpp.title}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Update listing information, compensation, skills, or status with server-side audit logging.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditOpp(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditSubmit} className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Title *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.title || ""}
+                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                    className="w-full px-3 py-1.5 border border-slate-200 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Company Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.companyName || ""}
+                    onChange={(e) => setEditForm({ ...editForm, companyName: e.target.value })}
+                    className="w-full px-3 py-1.5 border border-slate-200 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Company Logo URL
+                  </label>
+                  <input
+                    type="url"
+                    value={editForm.companyLogo || ""}
+                    onChange={(e) => setEditForm({ ...editForm, companyLogo: e.target.value })}
+                    placeholder="https://..."
+                    className="w-full px-3 py-1.5 border border-slate-200 rounded-xl font-mono text-[11px]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={editForm.status || "APPROVED"}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
+                    className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white font-bold"
+                  >
+                    <option value="APPROVED">APPROVED / PUBLISHED</option>
+                    <option value="PENDING_REVIEW">PENDING_REVIEW</option>
+                    <option value="PAUSED">PAUSED</option>
+                    <option value="EXPIRED">EXPIRED</option>
+                    <option value="ARCHIVED">ARCHIVED</option>
+                    <option value="REJECTED">REJECTED</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                  Application Link (Safe URL) *
+                </label>
+                <input
+                  type="url"
+                  required
+                  value={editForm.applyUrl || ""}
+                  onChange={(e) => setEditForm({ ...editForm, applyUrl: e.target.value })}
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-xl font-mono text-[11px]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.location || ""}
+                    onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                    className="w-full px-3 py-1.5 border border-slate-200 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Remote Type
+                  </label>
+                  <select
+                    value={editForm.remoteType || "onsite"}
+                    onChange={(e) => setEditForm({ ...editForm, remoteType: e.target.value as any })}
+                    className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white"
+                  >
+                    <option value="onsite">On-site</option>
+                    <option value="hybrid">Hybrid</option>
+                    <option value="remote">Remote</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Employment Type
+                  </label>
+                  <select
+                    value={editForm.employmentType || "full-time"}
+                    onChange={(e) => setEditForm({ ...editForm, employmentType: e.target.value as any })}
+                    className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white"
+                  >
+                    <option value="full-time">Full-time</option>
+                    <option value="part-time">Part-time</option>
+                    <option value="internship">Internship</option>
+                    <option value="contract">Contract</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Salary Min
+                  </label>
+                  <input
+                    type="number"
+                    value={editForm.salaryMin || ""}
+                    onChange={(e) => setEditForm({ ...editForm, salaryMin: e.target.value })}
+                    placeholder="e.g. 500000"
+                    className="w-full px-3 py-1.5 border border-slate-200 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Salary Max
+                  </label>
+                  <input
+                    type="number"
+                    value={editForm.salaryMax || ""}
+                    onChange={(e) => setEditForm({ ...editForm, salaryMax: e.target.value })}
+                    placeholder="e.g. 1200000"
+                    className="w-full px-3 py-1.5 border border-slate-200 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Application Deadline
+                  </label>
+                  <input
+                    type="date"
+                    value={editForm.applicationDeadline || ""}
+                    onChange={(e) => setEditForm({ ...editForm, applicationDeadline: e.target.value })}
+                    className="w-full px-3 py-1.5 border border-slate-200 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                  Required Skills (comma-separated)
+                </label>
+                <input
+                  type="text"
+                  value={editForm.skills || ""}
+                  onChange={(e) => setEditForm({ ...editForm, skills: e.target.value })}
+                  placeholder="React, TypeScript, Node.js"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                  Description
+                </label>
+                <textarea
+                  rows={4}
+                  value={editForm.description || ""}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl"
+                />
+              </div>
+
+              <div className="p-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50 rounded-b-2xl">
+                <button
+                  type="button"
+                  onClick={() => setEditOpp(null)}
+                  className="px-3.5 py-2 text-slate-600 hover:bg-slate-200 rounded-xl text-xs font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* DELETE CONFIRMATION DIALOG (Soft vs Permanent Delete)                     */}
+      {/* ========================================================================= */}
+      {deleteConfirmOpp && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="text-center space-y-1">
+              <h3 className="text-base font-extrabold text-slate-900">
+                {isPermanentDelete ? "Permanently Delete Opportunity?" : "Delete / Archive Opportunity?"}
+              </h3>
+              <p className="text-xs text-slate-500">
+                &quot;{deleteConfirmOpp.title}&quot; at <strong>{deleteConfirmOpp.companyName}</strong>
+              </p>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-2">
+              <label className="flex items-center gap-2 font-semibold text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isPermanentDelete}
+                  onChange={(e) => setIsPermanentDelete(e.target.checked)}
+                  className="rounded text-rose-600 focus:ring-rose-500 cursor-pointer"
+                />
+                <span>Permanent Delete (Superadmin only)</span>
+              </label>
+              {isPermanentDelete ? (
+                <p className="text-[11px] text-rose-700 font-medium">
+                  This permanently removes this job from the Saarvi database. This action cannot be undone.
+                </p>
+              ) : (
+                <p className="text-[11px] text-slate-500">
+                  Default action: soft deletes / archives this listing, removing it from active search while preserving audit history.
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmOpp(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
+              >
+                {isPermanentDelete ? "Permanently Delete" : "Confirm Delete"}
               </button>
             </div>
           </div>

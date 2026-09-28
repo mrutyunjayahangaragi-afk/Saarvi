@@ -80,25 +80,44 @@ export default function ToolsPage() {
           <ToolsCatalogClient initialTools={TOOLS_CONFIG} />
         </section>
 
-        {/* Server-Rendered Crawlable Category Hubs (Phase 9 & 11) */}
+        {/* Structured Category Hubs & Dedicated Workspaces */}
         <section className="space-y-12 pt-8 border-t border-slate-200/80">
-          <div className="space-y-2">
-            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              Crawlable Category Directory
-            </h2>
-            <p className="text-xs text-slate-500">
-              Direct links to every specialized converter, compressor, and student calculator.
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            <div className="space-y-1.5">
+              <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                Explore by Category
+              </h2>
+              <p className="text-xs text-slate-500 max-w-2xl">
+                Dedicated category workspaces and quick links to every specialized converter, compressor, and student calculator.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs font-medium">
+              <Link href="/pdf" className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors">
+                PDF Workspace
+              </Link>
+              <Link href="/images" className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors">
+                Image Workspace
+              </Link>
+              <Link href="/student-tools" className="px-3 py-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors">
+                Student Workspace
+              </Link>
+            </div>
           </div>
 
           {/* 1. PDF Tools */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-base font-bold text-slate-900">
-              <FileText className="w-5 h-5 text-blue-600" />
-              <h3>PDF Tools</h3>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                {pdfTools.length} utilities
-              </span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-base font-bold text-slate-900">
+                <FileText className="w-5 h-5 text-blue-600" />
+                <h3>PDF Tools</h3>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                  {pdfTools.length} utilities
+                </span>
+              </div>
+              <Link href="/pdf" className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1">
+                <span>View all PDF tools</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 text-xs">
               {pdfTools.map((t) => (
@@ -123,12 +142,18 @@ export default function ToolsPage() {
 
           {/* 2. Image Tools */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-base font-bold text-slate-900">
-              <FileImage className="w-5 h-5 text-indigo-600" />
-              <h3>Image Tools</h3>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
-                {imageTools.length} utilities
-              </span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-base font-bold text-slate-900">
+                <FileImage className="w-5 h-5 text-indigo-600" />
+                <h3>Image Tools</h3>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  {imageTools.length} utilities
+                </span>
+              </div>
+              <Link href="/images" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:underline flex items-center gap-1">
+                <span>View all Image tools</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 text-xs">
               {imageTools.map((t) => (
@@ -153,12 +178,18 @@ export default function ToolsPage() {
 
           {/* 3. Student & Academic Tools */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-base font-bold text-slate-900">
-              <GraduationCap className="w-5 h-5 text-purple-600" />
-              <h3>Academic & Student Tools</h3>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
-                {studentTools.length} utilities
-              </span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-base font-bold text-slate-900">
+                <GraduationCap className="w-5 h-5 text-purple-600" />
+                <h3>Academic & Student Tools</h3>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                  {studentTools.length} utilities
+                </span>
+              </div>
+              <Link href="/student-tools" className="text-xs font-semibold text-purple-600 hover:text-purple-700 hover:underline flex items-center gap-1">
+                <span>View all Student tools</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 text-xs">
               {studentTools.map((t) => (
@@ -183,12 +214,18 @@ export default function ToolsPage() {
 
           {/* 4. Career Tools */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-base font-bold text-slate-900">
-              <Briefcase className="w-5 h-5 text-emerald-600" />
-              <h3>Career & Resume Tools</h3>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                {careerTools.length} utilities
-              </span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-base font-bold text-slate-900">
+                <Briefcase className="w-5 h-5 text-emerald-600" />
+                <h3>Career & Resume Tools</h3>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  {careerTools.length} utilities
+                </span>
+              </div>
+              <Link href="/jobs" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:underline flex items-center gap-1">
+                <span>Explore Jobs & Internships</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 text-xs">
               {careerTools.map((t) => (

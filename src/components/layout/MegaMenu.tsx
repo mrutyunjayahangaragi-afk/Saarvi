@@ -278,11 +278,11 @@ export default function MegaMenu({
                     PDF Tools
                   </h3>
                   <Link
-                    href="/tools?category=pdf"
+                    href="/pdf"
                     onClick={onClose}
                     className="text-[10px] font-semibold text-blue-600 hover:underline"
                   >
-                    All →
+                    View All →
                   </Link>
                 </div>
                 <div className="space-y-1">
@@ -304,11 +304,11 @@ export default function MegaMenu({
                     Image Tools
                   </h3>
                   <Link
-                    href="/tools?category=image"
+                    href="/images"
                     onClick={onClose}
                     className="text-[10px] font-semibold text-blue-600 hover:underline"
                   >
-                    All →
+                    View All →
                   </Link>
                 </div>
                 <div className="space-y-1">
@@ -356,11 +356,11 @@ export default function MegaMenu({
                     Student
                   </h3>
                   <Link
-                    href="/student"
+                    href="/student-tools"
                     onClick={onClose}
                     className="text-[10px] font-semibold text-blue-600 hover:underline"
                   >
-                    Hub →
+                    View All →
                   </Link>
                 </div>
                 <div className="space-y-1">
@@ -379,14 +379,14 @@ export default function MegaMenu({
               <div className="space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Career
+                    Career &amp; Jobs
                   </h3>
                   <Link
-                    href="/student/resume"
+                    href="/jobs"
                     onClick={onClose}
                     className="text-[10px] font-semibold text-blue-600 hover:underline"
                   >
-                    Resume →
+                    Jobs →
                   </Link>
                 </div>
                 <div className="space-y-1">
@@ -497,7 +497,7 @@ export default function MegaMenu({
                     All PDF rendering, extraction, and page manipulations execute 100% inside your browser WebAssembly sandbox.
                   </p>
                   <Link
-                    href="/tools?category=pdf"
+                    href="/pdf"
                     onClick={onClose}
                     className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline pt-1"
                   >
@@ -511,112 +511,136 @@ export default function MegaMenu({
 
           {/* 3. SPECIFIC IMAGE MENU */}
           {activeCategory === "images" && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
-                  Convert to PDF
-                </h3>
-                <div className="space-y-1">
-                  {imageTools
-                    .filter((t) => ["jpg-to-pdf", "image-to-pdf", "multiple-images-to-pdf"].includes(t.key))
-                    .map((t) => (
-                      <MenuItem
-                        key={t.key}
-                        tool={t}
-                        featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
-                        onClick={onClose}
-                      />
-                    ))}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+                    Convert to PDF
+                  </h3>
+                  <div className="space-y-1">
+                    {imageTools
+                      .filter((t) => ["jpg-to-pdf", "image-to-pdf", "multiple-images-to-pdf"].includes(t.key))
+                      .map((t) => (
+                        <MenuItem
+                          key={t.key}
+                          tool={t}
+                          featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                          onClick={onClose}
+                        />
+                      ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+                    Format Conversion
+                  </h3>
+                  <div className="space-y-1">
+                    {imageTools
+                      .filter((t) => ["png-to-jpg", "jpg-to-png", "svg-to-png", "heic-to-jpg"].includes(t.key))
+                      .map((t) => (
+                        <MenuItem
+                          key={t.key}
+                          tool={t}
+                          featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                          onClick={onClose}
+                        />
+                      ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+                    Adjust & Compress
+                  </h3>
+                  <div className="space-y-1">
+                    {imageTools
+                      .filter((t) => ["image-resize", "crop-image", "compress-image"].includes(t.key))
+                      .map((t) => (
+                        <MenuItem
+                          key={t.key}
+                          tool={t}
+                          featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                          onClick={onClose}
+                        />
+                      ))}
+                  </div>
                 </div>
               </div>
-
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
-                  Format Conversion
-                </h3>
-                <div className="space-y-1">
-                  {imageTools
-                    .filter((t) => ["png-to-jpg", "jpg-to-png", "svg-to-png", "heic-to-jpg"].includes(t.key))
-                    .map((t) => (
-                      <MenuItem
-                        key={t.key}
-                        tool={t}
-                        featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
-                        onClick={onClose}
-                      />
-                    ))}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
-                  Adjust & Compress
-                </h3>
-                <div className="space-y-1">
-                  {imageTools
-                    .filter((t) => ["image-resize", "crop-image", "compress-image"].includes(t.key))
-                    .map((t) => (
-                      <MenuItem
-                        key={t.key}
-                        tool={t}
-                        featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
-                        onClick={onClose}
-                      />
-                    ))}
-                </div>
+              <div className="pt-2 border-t border-slate-100 flex justify-end">
+                <Link
+                  href="/images"
+                  onClick={onClose}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
+                >
+                  <span>Explore all Image tools</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
               </div>
             </div>
           )}
 
           {/* 4. SPECIFIC STUDENT MENU */}
           {activeCategory === "student" && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
-                  Academic Intelligence
-                </h3>
-                <div className="space-y-1">
-                  {academicTools.map((t) => (
-                    <MenuItem
-                      key={t.key}
-                      tool={t}
-                      featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
-                      onClick={onClose}
-                    />
-                  ))}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+                    Academic Intelligence
+                  </h3>
+                  <div className="space-y-1">
+                    {academicTools.map((t) => (
+                      <MenuItem
+                        key={t.key}
+                        tool={t}
+                        featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                        onClick={onClose}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+                    Career & Placement
+                  </h3>
+                  <div className="space-y-1">
+                    {careerTools.map((t) => (
+                      <MenuItem
+                        key={t.key}
+                        tool={t}
+                        featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                        onClick={onClose}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+                    Planning & Productivity
+                  </h3>
+                  <div className="space-y-1">
+                    {studentTools.slice(0, 5).map((t) => (
+                      <MenuItem
+                        key={t.key}
+                        tool={t}
+                        featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
+                        onClick={onClose}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
-
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
-                  Career & Placement
-                </h3>
-                <div className="space-y-1">
-                  {careerTools.map((t) => (
-                    <MenuItem
-                      key={t.key}
-                      tool={t}
-                      featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
-                      onClick={onClose}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
-                  Planning & Productivity
-                </h3>
-                <div className="space-y-1">
-                  {studentTools.slice(0, 5).map((t) => (
-                    <MenuItem
-                      key={t.key}
-                      tool={t}
-                      featureFlag={featureFlags[t.featureFlagKey] || featureFlags[t.key]}
-                      onClick={onClose}
-                    />
-                  ))}
-                </div>
+              <div className="pt-2 border-t border-slate-100 flex justify-end">
+                <Link
+                  href="/student-tools"
+                  onClick={onClose}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
+                >
+                  <span>Explore all Student tools</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
               </div>
             </div>
           )}

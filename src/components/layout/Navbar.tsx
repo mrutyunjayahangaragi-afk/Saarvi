@@ -361,10 +361,7 @@ export default function Navbar() {
                 aria-expanded={activeCategory === "tools"}
                 aria-haspopup="true"
                 onFocus={() => handleNavMouseEnter("tools")}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setActiveCategory((prev) => (prev === "tools" ? null : "tools"));
-                }}
+                onClick={() => setActiveCategory(null)}
                 onKeyDown={(e) => {
                   if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
@@ -372,7 +369,7 @@ export default function Navbar() {
                   }
                 }}
                 className={`px-3.5 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
-                  activeCategory === "tools"
+                  activeCategory === "tools" || pathname === "/tools"
                     ? "text-blue-600 font-semibold bg-blue-50"
                     : "hover:text-slate-900 hover:bg-slate-100/70 text-slate-700"
                 }`}
@@ -393,14 +390,11 @@ export default function Navbar() {
               className="relative py-2"
             >
               <Link
-                href="/tools?category=pdf"
+                href="/pdf"
                 aria-expanded={activeCategory === "pdf"}
                 aria-haspopup="true"
                 onFocus={() => handleNavMouseEnter("pdf")}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setActiveCategory((prev) => (prev === "pdf" ? null : "pdf"));
-                }}
+                onClick={() => setActiveCategory(null)}
                 onKeyDown={(e) => {
                   if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
@@ -408,7 +402,7 @@ export default function Navbar() {
                   }
                 }}
                 className={`px-3.5 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
-                  activeCategory === "pdf"
+                  activeCategory === "pdf" || pathname === "/pdf"
                     ? "text-blue-600 font-semibold bg-blue-50"
                     : "hover:text-slate-900 hover:bg-slate-100/70 text-slate-700"
                 }`}
@@ -429,14 +423,11 @@ export default function Navbar() {
               className="relative py-2"
             >
               <Link
-                href="/tools?category=image"
+                href="/images"
                 aria-expanded={activeCategory === "images"}
                 aria-haspopup="true"
                 onFocus={() => handleNavMouseEnter("images")}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setActiveCategory((prev) => (prev === "images" ? null : "images"));
-                }}
+                onClick={() => setActiveCategory(null)}
                 onKeyDown={(e) => {
                   if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
@@ -444,7 +435,7 @@ export default function Navbar() {
                   }
                 }}
                 className={`px-3.5 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
-                  activeCategory === "images"
+                  activeCategory === "images" || pathname === "/images"
                     ? "text-blue-600 font-semibold bg-blue-50"
                     : "hover:text-slate-900 hover:bg-slate-100/70 text-slate-700"
                 }`}
@@ -465,14 +456,11 @@ export default function Navbar() {
               className="relative py-2"
             >
               <Link
-                href="/student"
+                href="/student-tools"
                 aria-expanded={activeCategory === "student"}
                 aria-haspopup="true"
                 onFocus={() => handleNavMouseEnter("student")}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setActiveCategory((prev) => (prev === "student" ? null : "student"));
-                }}
+                onClick={() => setActiveCategory(null)}
                 onKeyDown={(e) => {
                   if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
@@ -480,7 +468,7 @@ export default function Navbar() {
                   }
                 }}
                 className={`px-3.5 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
-                  activeCategory === "student"
+                  activeCategory === "student" || pathname === "/student-tools"
                     ? "text-blue-600 font-semibold bg-blue-50"
                     : "hover:text-slate-900 hover:bg-slate-100/70 text-slate-700"
                 }`}
@@ -818,7 +806,7 @@ export default function Navbar() {
               {mobileExpandedSection === "pdf" && (
                 <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs">
                   <Link
-                    href="/tools?category=pdf"
+                    href="/pdf"
                     onClick={() => setMobileMenuOpen(false)}
                     className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50"
                   >
@@ -863,7 +851,7 @@ export default function Navbar() {
               {mobileExpandedSection === "images" && (
                 <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs">
                   <Link
-                    href="/tools?category=image"
+                    href="/images"
                     onClick={() => setMobileMenuOpen(false)}
                     className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50"
                   >
@@ -945,8 +933,11 @@ export default function Navbar() {
               </button>
               {mobileExpandedSection === "student" && (
                 <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs">
-                  <Link href="/student" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50">
-                    Student Portal Overview →
+                  <Link href="/student-tools" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50">
+                    View All Student Tools →
+                  </Link>
+                  <Link href="/student" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50 font-medium">
+                    Student Portal Overview
                   </Link>
                   <Link href="/student/timetable" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
                     Timetable Generator
@@ -992,6 +983,9 @@ export default function Navbar() {
               </button>
               {mobileExpandedSection === "career" && (
                 <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs">
+                  <Link href="/jobs" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50">
+                    Jobs &amp; Internships Platform →
+                  </Link>
                   <Link href="/student/resume" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold">
                     Resume Builder (Live Preview)
                   </Link>

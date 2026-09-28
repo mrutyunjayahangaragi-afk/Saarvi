@@ -102,14 +102,14 @@ export default function JobsAuthGateModal({
               <span>Saarvi Career Intelligence</span>
             </div>
             <h2 id="jobs-auth-gate-title" className="text-xl font-extrabold text-slate-900 mt-1">
-              Create your Saarvi account
+              Create a free Saarvi account to search jobs and internships
             </h2>
           </div>
         </div>
 
         {/* Explanatory Copy */}
         <p id="jobs-auth-gate-desc" className="text-sm text-slate-600 leading-relaxed">
-          Sign up to search jobs and internships, save opportunities, and manage your career journey.
+          Sign up to search verified opportunities, save jobs, and track your applications. Your search query is saved and will resume automatically.
         </p>
 
         {/* Search Context Pill (if guest typed search criteria) */}
@@ -124,8 +124,8 @@ export default function JobsAuthGateModal({
                 <span className="text-slate-500">in {searchSummary.location}</span>
               )}
             </div>
-            <span className="text-[11px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
-              Search Saved
+            <span className="text-[11px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md font-semibold">
+              Search Intent Saved
             </span>
           </div>
         )}
@@ -149,10 +149,6 @@ export default function JobsAuthGateModal({
               <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
               <span>Match opportunities with your resume &amp; skills</span>
             </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-              <span>Track deadlines &amp; manage your career journey</span>
-            </li>
           </ul>
         </div>
 
@@ -164,23 +160,26 @@ export default function JobsAuthGateModal({
 
         {/* Action CTAs */}
         <div className="space-y-3 pt-1">
-          {/* Primary CTA: Create Account */}
-          <Link
-            ref={primaryButtonRef}
-            href={signupUrl}
-            onClick={onClose}
-            className="w-full min-h-[44px] py-3 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm rounded-xl transition flex items-center justify-center gap-2 shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
-          >
-            <span>Create account</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-
-          {/* Google Option */}
+          {/* Option 1: Continue with Google */}
           <GoogleSignInButton
             onClick={handleGoogleAuth}
             loading={googleLoading}
             disabled={googleLoading}
+            text="Continue with Google"
           />
+
+          {/* Option 2: Continue with Email */}
+          <Link
+            ref={primaryButtonRef}
+            href={signupUrl}
+            onClick={onClose}
+            aria-label="Continue with Email / Create account"
+            className="w-full min-h-[44px] py-3 px-4 bg-slate-900 hover:bg-slate-800 active:bg-slate-800 text-white font-bold text-sm rounded-xl transition flex items-center justify-center gap-2 shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
+          >
+            <span>Continue with Email</span>
+            <span className="sr-only">Create account</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
 
           {/* Secondary CTA: Log in */}
           <div className="text-center pt-2">
