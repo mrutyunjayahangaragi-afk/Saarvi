@@ -128,6 +128,7 @@ const STORAGE_KEYS = {
   SAVED_JOBS: 'saarvi_saved_jobs_v1',
   JOB_APPLICATIONS: 'saarvi_job_applications_v1',
   JOB_REPORTS: 'saarvi_job_reports_v1',
+  JOB_DISCOVERY_BATCHES: 'saarvi_job_discovery_batches_v1',
 };
 
 export interface StoredAcademicSubject {
@@ -178,6 +179,8 @@ export interface StoredAcademicConflict {
 export interface StoredFeedback {
   id: string;
   userId?: string | null;
+  guestSessionId?: string | null;
+  userType?: 'GUEST' | 'FREE' | 'PRO';
   userEmail?: string;
   userName?: string;
   rating: number;
@@ -186,9 +189,32 @@ export interface StoredFeedback {
   toolKey?: string;
   pageUrl?: string;
   status: 'NEW' | 'IN_REVIEW' | 'RESOLVED' | 'ARCHIVED';
+  sentiment?: 'POSITIVE' | 'NEUTRAL' | 'NEGATIVE' | 'UNKNOWN';
   adminNotes?: string;
+  idempotencyKey?: string | null;
+  resolvedAt?: string | null;
+  resolvedBy?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface StoredJobDiscoveryBatch {
+  id: string;
+  query: string;
+  location: string;
+  filters?: Record<string, any>;
+  provider: string;
+  requestedCount: number;
+  fetchedCount: number;
+  validCount: number;
+  newCount: number;
+  existingCount: number;
+  rejectedCount: number;
+  status: 'PENDING' | 'COMPLETED' | 'FAILED';
+  startedAt: string;
+  completedAt?: string;
+  createdBy?: string;
+  errorSummary?: string;
 }
 
 interface StoredUser {
@@ -2241,12 +2267,31 @@ export const MockStorageProvider = {
     return getStored<StoredFeedback[]>(STORAGE_KEYS.FEEDBACK, []);
   },
 
-  addFeedback(item: Omit<StoredFeedback, 'id' | 'createdAt' | 'updatedAt' | 'status'>): StoredFeedback {
+  addFeedback(item: Omit<StoredFeedback, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { status?: StoredFeedback['status'] }): StoredFeedback {
     const all = this.getFeedbackList();
+
+    // Idempotency check: prevent accidental duplicate feedback caused by double-clicks or retries
+    if (item.idempotencyKey) {
+      const existing = all.find((f) => f.idempotencyKey === item.idempotencyKey);
+      if (existing) {
+        return existing;
+      }
+    }
+
+    // Derive non-destructive automated sentiment if unspecified
+    const sentiment = item.sentiment || (
+      item.rating >= 4 ? 'POSITIVE' : item.rating === 3 ? 'NEUTRAL' : 'NEGATIVE'
+    );
+
+    // Resolve userType if not provided
+    const userType = item.userType || (item.userId ? 'FREE' : 'GUEST');
+
     const newFeedback: StoredFeedback = {
       ...item,
       id: `fb_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-      status: 'NEW',
+      userType,
+      sentiment,
+      status: item.status || 'NEW',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -2258,18 +2303,25 @@ export const MockStorageProvider = {
 
   updateFeedbackStatus(
     id: string,
-    status: StoredFeedback['status'],
-    adminNotes?: string
+    status: StoredFeedback['status'] | 'UNDER_REVIEW',
+    adminNotes?: string,
+    resolvedBy?: string
   ): StoredFeedback | null {
     const all = this.getFeedbackList();
     const idx = all.findIndex((f) => f.id === id);
     if (idx === -1) return null;
 
+    // Normalize UNDER_REVIEW to canonical IN_REVIEW
+    const canonicalStatus = status === 'UNDER_REVIEW' ? 'IN_REVIEW' : status;
+    const now = new Date().toISOString();
+
     all[idx] = {
       ...all[idx],
-      status,
+      status: canonicalStatus,
       adminNotes: adminNotes !== undefined ? adminNotes : all[idx].adminNotes,
-      updatedAt: new Date().toISOString(),
+      resolvedAt: canonicalStatus === 'RESOLVED' ? (all[idx].resolvedAt || now) : null,
+      resolvedBy: canonicalStatus === 'RESOLVED' ? (resolvedBy || all[idx].resolvedBy || 'admin') : null,
+      updatedAt: now,
     };
     setStored(STORAGE_KEYS.FEEDBACK, all);
     return all[idx];
@@ -2282,10 +2334,20 @@ export const MockStorageProvider = {
     const openCount = list.filter((f) => f.status === 'NEW' || f.status === 'IN_REVIEW').length;
     const resolvedCount = list.filter((f) => f.status === 'RESOLVED').length;
 
+    const starCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    const byStatus = { NEW: 0, IN_REVIEW: 0, RESOLVED: 0, ARCHIVED: 0 };
     const byCategory: Record<string, number> = {};
     const byTool: Record<string, { count: number; avgRating: number; bugCount: number; featureCount: number; ratingsSum: number }> = {};
 
     for (const f of list) {
+      const r = Math.min(5, Math.max(1, Math.round(f.rating))) as 1 | 2 | 3 | 4 | 5;
+      starCounts[r] = (starCounts[r] || 0) + 1;
+
+      const st = f.status === 'IN_REVIEW' ? 'IN_REVIEW' : f.status;
+      if (st in byStatus) {
+        byStatus[st as keyof typeof byStatus] = (byStatus[st as keyof typeof byStatus] || 0) + 1;
+      }
+
       byCategory[f.category] = (byCategory[f.category] || 0) + 1;
       if (f.toolKey) {
         if (!byTool[f.toolKey]) {
@@ -2305,6 +2367,8 @@ export const MockStorageProvider = {
       avgRating,
       openCount,
       resolvedCount,
+      starCounts,
+      byStatus,
       byCategory,
       byTool,
     };
@@ -2561,7 +2625,77 @@ export const MockStorageProvider = {
   getJobReports(): any[] {
     return getStored<any[]>(STORAGE_KEYS.JOB_REPORTS, []);
   },
+
+  // =========================================================================
+  // Persistent Job Opportunities & Discovery Batches (Production Pipeline)
+  // =========================================================================
+
+  getJobOpportunities(): any[] {
+    return getStored<any[]>(STORAGE_KEYS.JOB_OPPORTUNITIES, []);
+  },
+
+  saveJobOpportunitiesBatch(items: any[]): void {
+    const existing = this.getJobOpportunities();
+    const map = new Map<string, any>();
+    for (const item of existing) {
+      map.set(item.id, item);
+    }
+    for (const item of items) {
+      map.set(item.id, item);
+    }
+    setStored(STORAGE_KEYS.JOB_OPPORTUNITIES, Array.from(map.values()));
+  },
+
+  saveJobOpportunity(item: any): any {
+    const existing = this.getJobOpportunities();
+    const idx = existing.findIndex((o) => o.id === item.id);
+    if (idx >= 0) {
+      existing[idx] = { ...existing[idx], ...item, updatedAt: new Date().toISOString() };
+    } else {
+      existing.unshift(item);
+    }
+    setStored(STORAGE_KEYS.JOB_OPPORTUNITIES, existing);
+    return item;
+  },
+
+  deleteJobOpportunity(id: string, permanent = false): boolean {
+    const existing = this.getJobOpportunities();
+    if (permanent) {
+      const filtered = existing.filter((o) => o.id !== id);
+      setStored(STORAGE_KEYS.JOB_OPPORTUNITIES, filtered);
+      return true;
+    }
+    const idx = existing.findIndex((o) => o.id === id);
+    if (idx >= 0) {
+      existing[idx] = { ...existing[idx], status: 'DELETED', updatedAt: new Date().toISOString() };
+      setStored(STORAGE_KEYS.JOB_OPPORTUNITIES, existing);
+      return true;
+    }
+    return false;
+  },
+
+  createDiscoveryBatch(batch: StoredJobDiscoveryBatch): StoredJobDiscoveryBatch {
+    const batches = getStored<StoredJobDiscoveryBatch[]>(STORAGE_KEYS.JOB_DISCOVERY_BATCHES, []);
+    batches.unshift(batch);
+    if (batches.length > 500) batches.length = 500;
+    setStored(STORAGE_KEYS.JOB_DISCOVERY_BATCHES, batches);
+    return batch;
+  },
+
+  getDiscoveryBatches(): StoredJobDiscoveryBatch[] {
+    return getStored<StoredJobDiscoveryBatch[]>(STORAGE_KEYS.JOB_DISCOVERY_BATCHES, []);
+  },
+
+  updateDiscoveryBatch(id: string, patch: Partial<StoredJobDiscoveryBatch>): StoredJobDiscoveryBatch | null {
+    const batches = this.getDiscoveryBatches();
+    const idx = batches.findIndex((b) => b.id === id);
+    if (idx === -1) return null;
+    batches[idx] = { ...batches[idx], ...patch };
+    setStored(STORAGE_KEYS.JOB_DISCOVERY_BATCHES, batches);
+    return batches[idx];
+  },
 };
 
 export const mockStorage = MockStorageProvider;
+
 

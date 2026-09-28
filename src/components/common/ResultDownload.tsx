@@ -48,9 +48,11 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
     resultId,
   });
 
-  // Feedback prompt state (temporary_feedback_prompt = true)
+  // Feedback prompt state (canonical user feedback)
+  const temporary_feedback_prompt = true;
   const [feedbackRating, setFeedbackRating] = useState<number>(0);
   const [feedbackHover, setFeedbackHover] = useState<number>(0);
+  const [feedbackCategory, setFeedbackCategory] = useState<string>('General');
   const [feedbackComment, setFeedbackComment] = useState<string>('');
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
@@ -78,18 +80,32 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
     if (feedbackRating < 1) return;
     setFeedbackSubmitting(true);
     try {
-      const defaultMsg = `Rated ${feedbackRating} out of 5 stars for completed file processing.`;
+      const defaultMsg = `Rated ${feedbackRating} of 5 stars for tool completion.`;
       const msg = feedbackComment.trim() || defaultMsg;
+
+      // Extract tool slug from URL or target filename
+      let derivedToolKey = targetFilename;
+      if (typeof window !== 'undefined') {
+        const parts = window.location.pathname.split('/').filter(Boolean);
+        if (parts.length >= 2 && parts[0] === 'tools') {
+          derivedToolKey = parts[1];
+        } else if (parts.length >= 1) {
+          derivedToolKey = parts[parts.length - 1];
+        }
+      }
+
+      const idempotencyKey = `idem_${resultId}_${feedbackRating}_${feedbackCategory}_${Date.now()}`;
+
       const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rating: feedbackRating,
-          category: feedbackRating >= 4 ? 'UX' : 'OTHER',
-          message: msg.length < 10 ? `${msg} (Tool Completed)` : msg,
-          toolSlug: targetFilename,
+          category: feedbackCategory,
+          message: msg,
+          toolKey: derivedToolKey,
           pageUrl: typeof window !== 'undefined' ? window.location.pathname : undefined,
-          temporary_feedback_prompt: true,
+          idempotencyKey,
         }),
       });
       if (res.ok) {
@@ -379,9 +395,9 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
           ) : (
             <>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-800">Was this result helpful?</span>
-                  <span className="text-[11px] text-slate-400">• Quick rating</span>
+                <div className="flex items-center gap-2" title="Was this result helpful?">
+                  <span className="font-bold text-slate-800 text-xs sm:text-sm">Was this tool helpful?</span>
+                  <span className="text-[11px] text-slate-400">• Optional rating</span>
                 </div>
                 <div className="flex items-center gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -408,30 +424,49 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
 
               {feedbackRating > 0 && (
                 <div className="space-y-2 pt-1 animate-in fade-in duration-150">
-                  <input
-                    type="text"
-                    value={feedbackComment}
-                    onChange={(e) => setFeedbackComment(e.target.value)}
-                    placeholder="Optional: What worked well or what can we improve?"
-                    maxLength={300}
-                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
-                  />
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <select
+                      value={feedbackCategory}
+                      onChange={(e) => setFeedbackCategory(e.target.value)}
+                      className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-hidden focus:ring-1 focus:ring-blue-500 cursor-pointer shrink-0"
+                      aria-label="Feedback Category"
+                    >
+                      <option value="General">General</option>
+                      <option value="Bug">Bug</option>
+                      <option value="Tool Issue">Tool Issue</option>
+                      <option value="Feature Request">Feature Request</option>
+                      <option value="Performance">Performance</option>
+                      <option value="Privacy">Privacy</option>
+                      <option value="Payment">Payment</option>
+                      <option value="Other">Other</option>
+                    </select>
+
+                    <input
+                      type="text"
+                      value={feedbackComment}
+                      onChange={(e) => setFeedbackComment(e.target.value)}
+                      placeholder="What could we improve?"
+                      maxLength={300}
+                      className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-0.5">
                     <button
                       type="button"
                       onClick={handleDismissFeedback}
                       className="px-2.5 py-1 text-slate-500 hover:text-slate-700 font-medium rounded-lg text-xs cursor-pointer"
                     >
-                      Not now
+                      Not Now
                     </button>
                     <button
                       type="button"
                       disabled={feedbackSubmitting}
                       onClick={handleSubmitFeedback}
-                      className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-lg text-xs cursor-pointer inline-flex items-center gap-1"
+                      className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-lg text-xs cursor-pointer inline-flex items-center gap-1.5 shadow-2xs"
                     >
                       {feedbackSubmitting && <Loader2 className="w-3 h-3 animate-spin" />}
-                      Send Feedback
+                      <span>Send Feedback</span>
                     </button>
                   </div>
                 </div>

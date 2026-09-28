@@ -31,44 +31,57 @@ import {
 
 interface FeedbackItem {
   id: string;
-  userId?: string;
+  userId?: string | null;
+  userType?: 'GUEST' | 'FREE' | 'PRO';
+  guestSessionId?: string | null;
   rating: number;
-  category: 'BUG' | 'FEATURE' | 'PERFORMANCE' | 'UX' | 'OTHER';
+  category: string;
+  toolKey?: string;
   toolSlug?: string;
   pageUrl?: string;
   message: string;
   email?: string;
   userAgent?: string;
   viewport?: string;
-  status: 'NEW' | 'UNDER_REVIEW' | 'RESOLVED' | 'ARCHIVED';
+  status: 'NEW' | 'IN_REVIEW' | 'UNDER_REVIEW' | 'RESOLVED' | 'ARCHIVED';
+  sentiment?: 'POSITIVE' | 'NEUTRAL' | 'NEGATIVE' | 'UNKNOWN';
   adminNotes?: string;
   createdAt: string;
   updatedAt?: string;
+  resolvedAt?: string | null;
+  resolvedBy?: string | null;
 }
 
 interface FeedbackAnalytics {
   total: number;
   avgRating: number;
   unresolvedCount: number;
-  byCategory: Record<string, number>;
-  byStatus: Record<string, number>;
+  starCounts?: { 5: number; 4: number; 3: number; 2: number; 1: number };
+  byCategory?: Record<string, number>;
+  byStatus?: Record<string, number>;
+  byTool?: Record<string, number>;
 }
 
 export default function AdminFeedbackPage() {
   const [items, setItems] = useState<FeedbackItem[]>([]);
   const [analytics, setAnalytics] = useState<FeedbackAnalytics>({
     total: 0,
-    avgRating: 5.0,
+    avgRating: 0,
     unresolvedCount: 0,
+    starCounts: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
     byCategory: {},
-    byStatus: {},
+    byStatus: { NEW: 0, IN_REVIEW: 0, RESOLVED: 0, ARCHIVED: 0 },
+    byTool: {},
   });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [minRatingFilter, setMinRatingFilter] = useState('ALL');
-  const [sentimentFilter, setSentimentFilter] = useState<'ALL' | 'POSITIVE' | 'NEUTRAL' | 'NEGATIVE'>('ALL');
+  const [ratingFilter, setRatingFilter] = useState('ALL');
+  const [userTypeFilter, setUserTypeFilter] = useState('ALL');
+  const [toolFilter, setToolFilter] = useState('ALL');
+  const [dateFilter, setDateFilter] = useState('ALL');
+  const [sentimentFilter, setSentimentFilter] = useState('ALL');
   const [selectedItem, setSelectedItem] = useState<FeedbackItem | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [adminNotesInput, setAdminNotesInput] = useState('');
@@ -79,7 +92,10 @@ export default function AdminFeedbackPage() {
       const params = new URLSearchParams();
       if (categoryFilter !== 'ALL') params.set('category', categoryFilter);
       if (statusFilter !== 'ALL') params.set('status', statusFilter);
-      if (minRatingFilter !== 'ALL') params.set('minRating', minRatingFilter);
+      if (ratingFilter !== 'ALL') params.set('rating', ratingFilter);
+      if (userTypeFilter !== 'ALL') params.set('userType', userTypeFilter);
+      if (toolFilter !== 'ALL') params.set('tool', toolFilter);
+      if (dateFilter !== 'ALL') params.set('dateRange', dateFilter);
       if (search.trim()) params.set('q', search.trim());
 
       const res = await fetch(`/api/admin/feedback?${params.toString()}`);
@@ -93,7 +109,7 @@ export default function AdminFeedbackPage() {
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter, statusFilter, minRatingFilter, search]);
+  }, [categoryFilter, statusFilter, ratingFilter, userTypeFilter, toolFilter, dateFilter, search]);
 
   useEffect(() => {
     fetchFeedback();
@@ -101,7 +117,7 @@ export default function AdminFeedbackPage() {
 
   const updateStatus = async (
     id: string,
-    newStatus: 'NEW' | 'UNDER_REVIEW' | 'RESOLVED' | 'ARCHIVED',
+    newStatus: 'NEW' | 'IN_REVIEW' | 'RESOLVED' | 'ARCHIVED',
     notes?: string
   ) => {
     setUpdatingId(id);
@@ -124,6 +140,7 @@ export default function AdminFeedbackPage() {
             prev ? { ...prev, status: newStatus, adminNotes: notes ?? prev.adminNotes } : null
           );
         }
+        await fetchFeedback();
       }
     } catch (err) {
       console.error('Failed to update status:', err);
@@ -195,7 +212,7 @@ export default function AdminFeedbackPage() {
   }, [items]);
 
   // Filter items including Sentiment
-  const filteredItems = useMemo(() => {
+  const displayedItems = useMemo(() => {
     return items.filter((item) => {
       if (sentimentFilter === 'ALL') return true;
       return getSentiment(item.rating) === sentimentFilter;
@@ -322,26 +339,30 @@ export default function AdminFeedbackPage() {
       </div>
 
       {/* Top Analytics Cards + 1-5 Star Distribution */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* KPI 1: Avg Rating */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4">
+        {/* KPI 1: Total & Avg Rating */}
         <div className="lg:col-span-3 p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
             <span>Average Rating</span>
             <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
           </div>
           <div className="my-2">
-            <div className="text-3xl font-black text-slate-900 tracking-tight">
-              {analytics.avgRating.toFixed(1)}{' '}
-              <span className="text-xs font-semibold text-slate-400">/ 5.0</span>
-            </div>
+            {analytics.total === 0 ? (
+              <div className="text-xl font-bold text-slate-400">No feedback yet</div>
+            ) : (
+              <div className="text-3xl font-black text-slate-900 tracking-tight">
+                {analytics.avgRating.toFixed(1)}{' '}
+                <span className="text-xs font-semibold text-slate-400">/ 5.0</span>
+              </div>
+            )}
             <div className="flex items-center gap-1 mt-1">
               {[1, 2, 3, 4, 5].map((s) => (
                 <Star
                   key={s}
                   className={`w-3.5 h-3.5 ${
-                    analytics.avgRating >= s
+                    analytics.total > 0 && analytics.avgRating >= s
                       ? 'text-amber-400 fill-amber-400'
-                      : analytics.avgRating >= s - 0.5
+                      : analytics.total > 0 && analytics.avgRating >= s - 0.5
                       ? 'text-amber-300 fill-amber-200'
                       : 'text-slate-200'
                   }`}
@@ -350,22 +371,22 @@ export default function AdminFeedbackPage() {
             </div>
           </div>
           <div className="text-[11px] text-slate-500 font-medium">
-            Across {analytics.total} total genuine user submissions
+            Total Feedback: <span className="font-bold text-slate-800">{analytics.total}</span>
           </div>
         </div>
 
         {/* KPI 2: Star Distribution Progress Bars */}
         <div className="lg:col-span-5 p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-2">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-            1-to-5 Star Distribution
+            1-to-5 Star Distribution (5★ to 1★)
           </span>
           <div className="space-y-1.5">
             {[5, 4, 3, 2, 1].map((star) => {
-              const count = starCounts[star as 1 | 2 | 3 | 4 | 5] || 0;
-              const pct = items.length > 0 ? Math.round((count / items.length) * 100) : 0;
+              const count = analytics.starCounts?.[star as 1 | 2 | 3 | 4 | 5] || 0;
+              const pct = analytics.total > 0 ? Math.round((count / analytics.total) * 100) : 0;
               return (
                 <div key={star} className="flex items-center gap-2 text-xs">
-                  <span className="font-bold text-slate-700 w-6 font-mono flex items-center gap-0.5">
+                  <span className="font-bold text-slate-700 w-8 font-mono flex items-center gap-0.5">
                     {star} <Star className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
                   </span>
                   <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -376,7 +397,7 @@ export default function AdminFeedbackPage() {
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <span className="w-12 text-right text-[11px] font-mono text-slate-500">
+                  <span className="w-14 text-right text-[11px] font-mono text-slate-500">
                     {count} ({pct}%)
                   </span>
                 </div>
@@ -385,96 +406,134 @@ export default function AdminFeedbackPage() {
           </div>
         </div>
 
-        {/* KPI 3: Satisfaction & Unresolved */}
+        {/* KPI 3: Status Breakdown */}
         <div className="lg:col-span-4 grid grid-cols-2 gap-3">
-          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
-              <span>Satisfaction</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            </div>
+          <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs flex flex-col justify-between">
+            <span className="text-slate-500 text-xs font-medium">New</span>
             <div className="my-1">
-              <span className="text-2xl font-black text-slate-900">{satisfactionRate}%</span>
-              <span className="block text-[11px] text-emerald-600 font-bold mt-0.5">4–5 Star Reviews</span>
+              <span className="text-2xl font-black text-indigo-600">{analytics.byStatus?.NEW || 0}</span>
+              <span className="block text-[10px] text-slate-400 mt-0.5">Fresh submissions</span>
             </div>
-            <span className="text-[10px] text-slate-400">High user trust</span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
-              <span>Unresolved</span>
-              <AlertCircle className="w-4 h-4 text-indigo-500" />
-            </div>
+          <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs flex flex-col justify-between">
+            <span className="text-slate-500 text-xs font-medium">In Review</span>
             <div className="my-1">
-              <span className="text-2xl font-black text-indigo-600">{analytics.unresolvedCount}</span>
-              <span className="block text-[11px] text-indigo-600 font-bold mt-0.5">Awaiting Action</span>
+              <span className="text-2xl font-black text-amber-600">{analytics.byStatus?.IN_REVIEW || 0}</span>
+              <span className="block text-[10px] text-slate-400 mt-0.5">Under evaluation</span>
             </div>
-            <span className="text-[10px] text-slate-400">Requires review</span>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs flex flex-col justify-between">
+            <span className="text-slate-500 text-xs font-medium">Resolved</span>
+            <div className="my-1">
+              <span className="text-2xl font-black text-emerald-600">{analytics.byStatus?.RESOLVED || 0}</span>
+              <span className="block text-[10px] text-slate-400 mt-0.5">Completed</span>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs flex flex-col justify-between">
+            <span className="text-slate-500 text-xs font-medium">Archived</span>
+            <div className="my-1">
+              <span className="text-2xl font-black text-slate-600">{analytics.byStatus?.ARCHIVED || 0}</span>
+              <span className="block text-[10px] text-slate-400 mt-0.5">Stored for history</span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
       <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3">
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search feedback text, email, or tool slug..."
+              placeholder="Search feedback text, email, user, or tool..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-800"
             />
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Sentiment Filter */}
-            <select
-              value={sentimentFilter}
-              onChange={(e) => setSentimentFilter(e.target.value as any)}
-              className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-slate-800 font-bold cursor-pointer"
-            >
-              <option value="ALL">All Sentiments</option>
-              <option value="POSITIVE">Positive (4–5 ★)</option>
-              <option value="NEUTRAL">Neutral (3 ★)</option>
-              <option value="NEGATIVE">Attention Needed (1–2 ★)</option>
-            </select>
-
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {/* Status Filter */}
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-slate-800 font-bold cursor-pointer"
+              className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden text-slate-800 font-semibold cursor-pointer"
             >
-              <option value="ALL">All Statuses</option>
+              <option value="ALL">Status: All</option>
               <option value="NEW">New</option>
-              <option value="UNDER_REVIEW">Under Review</option>
+              <option value="IN_REVIEW">In Review</option>
               <option value="RESOLVED">Resolved</option>
               <option value="ARCHIVED">Archived</option>
             </select>
 
+            {/* Rating Filter */}
             <select
-              value={minRatingFilter}
-              onChange={(e) => setMinRatingFilter(e.target.value)}
-              className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-slate-800 font-bold cursor-pointer"
+              value={ratingFilter}
+              onChange={(e) => setRatingFilter(e.target.value)}
+              className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden text-slate-800 font-semibold cursor-pointer"
             >
-              <option value="ALL">All Ratings</option>
+              <option value="ALL">Rating: All</option>
               <option value="5">5 Stars</option>
-              <option value="4">4+ Stars</option>
-              <option value="3">3+ Stars</option>
-              <option value="1">1-2 Stars</option>
+              <option value="4">4 Stars</option>
+              <option value="3">3 Stars</option>
+              <option value="2">2 Stars</option>
+              <option value="1">1 Star</option>
+            </select>
+
+            {/* User Type Filter */}
+            <select
+              value={userTypeFilter}
+              onChange={(e) => setUserTypeFilter(e.target.value)}
+              className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden text-slate-800 font-semibold cursor-pointer"
+            >
+              <option value="ALL">User Type: All</option>
+              <option value="GUEST">Guest</option>
+              <option value="FREE">Free Account</option>
+              <option value="PRO">Pro Account</option>
+            </select>
+
+            {/* Date Filter */}
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden text-slate-800 font-semibold cursor-pointer"
+            >
+              <option value="ALL">Date: All</option>
+              <option value="today">Today</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+            </select>
+
+            {/* Sentiment Filter */}
+            <select
+              value={sentimentFilter}
+              onChange={(e) => setSentimentFilter(e.target.value)}
+              className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden text-slate-800 font-semibold cursor-pointer"
+            >
+              <option value="ALL">Sentiment: All</option>
+              <option value="POSITIVE">Positive</option>
+              <option value="NEUTRAL">Neutral</option>
+              <option value="NEGATIVE">Negative</option>
             </select>
           </div>
         </div>
 
-        {/* Category Pills */}
+        {/* Category Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
           {[
             { id: 'ALL', label: 'All Categories' },
-            { id: 'BUG', label: 'Bugs' },
-            { id: 'FEATURE', label: 'Features' },
-            { id: 'PERFORMANCE', label: 'Performance' },
-            { id: 'UX', label: 'UX & Design' },
-            { id: 'OTHER', label: 'Other' },
+            { id: 'General', label: 'General' },
+            { id: 'Bug', label: 'Bug' },
+            { id: 'Tool Issue', label: 'Tool Issue' },
+            { id: 'Feature Request', label: 'Feature Request' },
+            { id: 'Performance', label: 'Performance' },
+            { id: 'Privacy', label: 'Privacy' },
+            { id: 'Payment', label: 'Payment' },
+            { id: 'Other', label: 'Other' },
           ].map((cat) => (
             <button
               key={cat.id}
@@ -491,110 +550,141 @@ export default function AdminFeedbackPage() {
         </div>
       </div>
 
-      {/* Feedback Items List */}
+      {/* Feedback Table */}
       <div className="bg-white rounded-3xl border border-slate-200/90 overflow-hidden shadow-xs">
         {loading ? (
           <div className="p-12 text-center text-slate-400 text-xs">
             <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
-            Loading feedback & sentiment entries...
+            Loading real feedback database records...
           </div>
-        ) : filteredItems.length === 0 ? (
+        ) : displayedItems.length === 0 ? (
           <div className="p-12 text-center space-y-2">
             <MessageSquare className="w-8 h-8 text-slate-300 mx-auto" />
-            <div className="text-sm font-bold text-slate-700">No feedback entries found</div>
+            <div className="text-sm font-bold text-slate-700">No feedback yet</div>
             <p className="text-xs text-slate-400">
-              Try adjusting your search query, sentiment, or category filters.
+              When users complete tools and submit ratings, feedback records will appear here in real time.
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {filteredItems.map((item) => (
-              <div
-                key={item.id}
-                className="p-4 sm:p-5 hover:bg-slate-50/70 transition flex flex-col sm:flex-row items-start justify-between gap-4 cursor-pointer"
-                onClick={() => {
-                  setSelectedItem(item);
-                  setAdminNotesInput(item.adminNotes || '');
-                }}
-              >
-                <div className="space-y-2 flex-1">
-                  {/* Rating + Sentiment + Category + Status */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex items-center gap-0.5">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <Star
-                          key={star}
-                          className={`w-3.5 h-3.5 ${
-                            item.rating >= star
-                              ? 'text-amber-400 fill-amber-400'
-                              : 'text-slate-200'
-                          }`}
-                        />
-                      ))}
-                    </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+                  <th className="py-3 px-4">Rating</th>
+                  <th className="py-3 px-3">Category</th>
+                  <th className="py-3 px-4 min-w-[220px]">Message</th>
+                  <th className="py-3 px-3">Tool</th>
+                  <th className="py-3 px-3">User Type</th>
+                  <th className="py-3 px-3">User</th>
+                  <th className="py-3 px-3">Date</th>
+                  <th className="py-3 px-3">Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {displayedItems.map((item) => {
+                  const userLabel = item.email || (item.userId ? `User: ${item.userId.slice(0, 8)}...` : item.guestSessionId ? `Guest: ${item.guestSessionId.slice(0, 10)}...` : 'Guest');
+                  const userTypeBadgeColor =
+                    item.userType === 'PRO'
+                      ? 'bg-purple-50 text-purple-700 border-purple-200'
+                      : item.userType === 'FREE'
+                      ? 'bg-blue-50 text-blue-700 border-blue-200'
+                      : 'bg-slate-100 text-slate-600 border-slate-200';
 
-                    {renderSentimentBadge(item.rating)}
+                  return (
+                    <tr
+                      key={item.id}
+                      className="hover:bg-slate-50/80 transition cursor-pointer"
+                      onClick={() => {
+                        setSelectedItem(item);
+                        setAdminNotesInput(item.adminNotes || '');
+                      }}
+                    >
+                      {/* Rating */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <div className="flex items-center gap-0.5">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`w-3 h-3 ${
+                                item.rating >= star
+                                  ? 'text-amber-400 fill-amber-400'
+                                  : 'text-slate-200'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </td>
 
-                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700">
-                      {categoryIcon(item.category)}
-                      <span>{item.category}</span>
-                    </div>
-
-                    {item.toolSlug && (
-                      <Link
-                        href={`/admin/tools`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition"
-                      >
-                        <Wrench className="w-3 h-3" />
-                        <span>{item.toolSlug}</span>
-                        <ArrowUpRight className="w-2.5 h-2.5 opacity-60" />
-                      </Link>
-                    )}
-
-                    {statusBadge(item.status)}
-                  </div>
-
-                  {/* Message */}
-                  <p className="text-xs text-slate-800 leading-relaxed font-medium">
-                    {item.message}
-                  </p>
-
-                  {/* Metadata Footer */}
-                  <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
-                    <span className="font-semibold text-slate-600">{item.email || 'Anonymous User'}</span>
-                    <span>•</span>
-                    <span>{new Date(item.createdAt).toLocaleString()}</span>
-                    {item.adminNotes && (
-                      <>
-                        <span>•</span>
-                        <span className="text-blue-600 font-semibold truncate max-w-xs">
-                          Internal Note: {item.adminNotes}
+                      {/* Category */}
+                      <td className="py-3 px-3 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700">
+                          {categoryIcon(item.category)}
+                          <span>{item.category}</span>
                         </span>
-                      </>
-                    )}
-                  </div>
-                </div>
+                      </td>
 
-                {/* Status Dropdown */}
-                <div
-                  className="flex items-center gap-2 shrink-0"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <select
-                    value={item.status}
-                    disabled={updatingId === item.id}
-                    onChange={(e) => updateStatus(item.id, e.target.value as any)}
-                    className="px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-slate-700 font-bold cursor-pointer"
-                  >
-                    <option value="NEW">Mark as New</option>
-                    <option value="UNDER_REVIEW">Under Review</option>
-                    <option value="RESOLVED">Resolved</option>
-                    <option value="ARCHIVED">Archive</option>
-                  </select>
-                </div>
-              </div>
-            ))}
+                      {/* Message */}
+                      <td className="py-3 px-4 max-w-xs truncate text-slate-800 font-medium">
+                        "{item.message}"
+                      </td>
+
+                      {/* Tool */}
+                      <td className="py-3 px-3 whitespace-nowrap">
+                        {item.toolKey || item.toolSlug ? (
+                          <span className="inline-flex items-center gap-1 font-mono text-[11px] text-blue-700 font-bold bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                            {item.toolKey || item.toolSlug}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
+
+                      {/* User Type */}
+                      <td className="py-3 px-3 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border ${userTypeBadgeColor}`}>
+                          {item.userType || 'GUEST'}
+                        </span>
+                      </td>
+
+                      {/* User */}
+                      <td className="py-3 px-3 whitespace-nowrap text-slate-600 font-medium truncate max-w-[130px]">
+                        {userLabel}
+                      </td>
+
+                      {/* Date */}
+                      <td className="py-3 px-3 whitespace-nowrap text-slate-500 text-[11px]">
+                        {new Date(item.createdAt).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-3 px-3 whitespace-nowrap">
+                        {statusBadge(item.status)}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={item.status === 'UNDER_REVIEW' ? 'IN_REVIEW' : item.status}
+                          disabled={updatingId === item.id}
+                          onChange={(e) => updateStatus(item.id, e.target.value as any)}
+                          className="px-2.5 py-1 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-slate-700 font-bold cursor-pointer"
+                        >
+                          <option value="NEW">New</option>
+                          <option value="IN_REVIEW">In Review</option>
+                          <option value="RESOLVED">Resolved</option>
+                          <option value="ARCHIVED">Archived</option>
+                        </select>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -635,7 +725,11 @@ export default function AdminFeedbackPage() {
                   <span className="font-semibold text-slate-800">Category:</span> {selectedItem.category}
                 </div>
                 <div>
-                  <span className="font-semibold text-slate-800">Email:</span>{' '}
+                  <span className="font-semibold text-slate-800">User Type:</span>{' '}
+                  <span className="font-bold text-slate-800">{selectedItem.userType || 'GUEST'}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-800">User Identity:</span>{' '}
                   {selectedItem.email ? (
                     <a
                       href={`mailto:${selectedItem.email}?subject=Saarvi%20Support%20Follow-up`}
@@ -643,18 +737,22 @@ export default function AdminFeedbackPage() {
                     >
                       <Mail className="w-3 h-3" /> {selectedItem.email}
                     </a>
+                  ) : selectedItem.userId ? (
+                    <span className="font-mono text-[11px] text-slate-700">{selectedItem.userId}</span>
+                  ) : selectedItem.guestSessionId ? (
+                    <span className="font-mono text-[11px] text-slate-500">Guest ({selectedItem.guestSessionId.slice(0, 14)}...)</span>
                   ) : (
-                    'Anonymous'
+                    'Guest User'
                   )}
                 </div>
                 <div>
                   <span className="font-semibold text-slate-800">Tool:</span>{' '}
-                  {selectedItem.toolSlug ? (
+                  {selectedItem.toolKey || selectedItem.toolSlug ? (
                     <Link
                       href={`/admin/tools`}
                       className="text-blue-600 font-mono font-bold hover:underline"
                     >
-                      {selectedItem.toolSlug}
+                      {selectedItem.toolKey || selectedItem.toolSlug}
                     </Link>
                   ) : (
                     'General Platform'
@@ -675,12 +773,17 @@ export default function AdminFeedbackPage() {
                   <span className="font-semibold text-slate-800">Submitted:</span>{' '}
                   {new Date(selectedItem.createdAt).toLocaleString()}
                 </div>
+                {selectedItem.resolvedAt && (
+                  <div className="col-span-2 text-emerald-700 font-medium">
+                    Resolved at {new Date(selectedItem.resolvedAt).toLocaleString()} by {selectedItem.resolvedBy || 'Admin'}
+                  </div>
+                )}
               </div>
 
               {/* Admin Notes */}
               <div className="space-y-1.5 pt-2">
                 <label className="font-bold text-slate-700 block text-[11px] uppercase tracking-wider">
-                  Admin Internal Notes / Bug Ticket Log
+                  Internal Admin Note (Never shown to users)
                 </label>
                 <textarea
                   rows={3}
@@ -692,19 +795,26 @@ export default function AdminFeedbackPage() {
               </div>
             </div>
 
-            <div className="pt-2 flex items-center justify-between border-t border-slate-100">
-              <div className="flex items-center gap-1.5">
+            <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => updateStatus(selectedItem.id, 'IN_REVIEW', adminNotesInput)}
+                  className="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold cursor-pointer transition shadow-2xs"
+                >
+                  Mark In Review
+                </button>
                 <button
                   type="button"
                   onClick={() => updateStatus(selectedItem.id, 'RESOLVED', adminNotesInput)}
-                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer transition shadow-2xs"
+                  className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer transition shadow-2xs"
                 >
-                  Mark Resolved
+                  Resolve
                 </button>
                 <button
                   type="button"
                   onClick={() => updateStatus(selectedItem.id, 'ARCHIVED', adminNotesInput)}
-                  className="px-3 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold cursor-pointer transition"
+                  className="px-2.5 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold cursor-pointer transition"
                 >
                   Archive
                 </button>
@@ -713,10 +823,10 @@ export default function AdminFeedbackPage() {
               <button
                 type="button"
                 onClick={() => {
-                  updateStatus(selectedItem.id, selectedItem.status, adminNotesInput);
+                  updateStatus(selectedItem.id, selectedItem.status as any, adminNotesInput);
                   setSelectedItem(null);
                 }}
-                className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer transition shadow-xs"
+                className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer transition shadow-xs"
               >
                 Save & Close
               </button>

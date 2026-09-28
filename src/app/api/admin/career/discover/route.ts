@@ -70,11 +70,22 @@ export async function POST(request: Request) {
       rawResults = res.results;
     }
 
-    // Run preview validation and duplicate detection against Saarvi's catalog
-    const { results: previewItems, summary } = opportunityStore.previewDiscoveryResults(rawResults);
+    // 1. Immediately persist all valid discovered provider results into Saarvi database as PENDING_REVIEW
+    // with unique deterministic deduplication, batch tracking, and freshness upsert.
+    const { batch, summary: persistSummary } = opportunityStore.persistDiscoveredResults(rawResults, {
+      query: queryTerm,
+      location: `${location} ${country}`.trim(),
+      provider: source,
+      createdBy: authResult.user.id,
+    });
+
+    // 2. Build preview annotations for immediate UI inspection
+    const { results: previewItems } = opportunityStore.previewDiscoveryResults(rawResults);
 
     const response = NextResponse.json({
       success: true,
+      batchId: batch.id,
+      batch,
       query: {
         keyword: queryTerm,
         location,
@@ -82,7 +93,18 @@ export async function POST(request: Request) {
         isInternship,
       },
       results: previewItems,
-      summary,
+      summary: {
+        found: rawResults.length,
+        fetched: rawResults.length,
+        valid: persistSummary.valid,
+        new: persistSummary.newCount,
+        newCount: persistSummary.newCount,
+        existing: persistSummary.existingCount,
+        existingCount: persistSummary.existingCount,
+        rejected: persistSummary.rejectedCount,
+        rejectedCount: persistSummary.rejectedCount,
+        savedToSaarvi: persistSummary.valid,
+      },
     });
 
     return withRateLimitHeaders(response, rateLimit);

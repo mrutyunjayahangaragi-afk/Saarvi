@@ -81,10 +81,31 @@ export interface Opportunity {
   publishedAt?: string;
   expiresAt?: string;
   canonicalJobKey?: string;
+  discoveryBatchId?: string;
+  fetchedAt?: string;
   viewsCount?: number;
   savesCount?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface JobDiscoveryBatch {
+  id: string;
+  query: string;
+  location: string;
+  filters?: Record<string, any>;
+  provider: string;
+  requestedCount: number;
+  fetchedCount: number;
+  validCount: number;
+  newCount: number;
+  existingCount: number;
+  rejectedCount: number;
+  status: 'PENDING' | 'COMPLETED' | 'FAILED';
+  startedAt: string;
+  completedAt?: string;
+  createdBy?: string;
+  errorSummary?: string;
 }
 
 export interface PreviewOpportunity extends Opportunity {

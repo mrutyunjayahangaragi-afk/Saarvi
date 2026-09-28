@@ -796,15 +796,11 @@ export default function HomePage() {
         {/* FREQUENTLY ASKED QUESTIONS                                     */}
         {/* ============================================================== */}
         <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              Frequently asked questions
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-500">
-              Clear answers about privacy, guest access, and file conversions.
-            </p>
-          </div>
-          <FaqAccordion items={GLOBAL_FAQS} />
+          <FaqAccordion
+            items={GLOBAL_FAQS}
+            eyebrow="Frequently asked questions"
+            title="Clear answers about privacy, guest access, and file conversions."
+          />
         </section>
 
         {/* ============================================================== */}

@@ -14,8 +14,10 @@ import type {
   PreviewOpportunity,
   ManualOpportunityInput,
   BulkImportSummary,
+  JobDiscoveryBatch,
 } from "./types.ts";
 import { deduplicateOpportunities } from "./deduplicator.ts";
+import { MockStorageProvider } from "../supabase/mock-storage.ts";
 
 export interface OpportunityAuditEvent {
   id: string;
@@ -104,6 +106,31 @@ class OpportunityStoreService {
 
   constructor() {
     this.initDefaultSources();
+    this.loadFromStorage();
+  }
+
+  private loadFromStorage(): void {
+    try {
+      const stored = MockStorageProvider.getJobOpportunities();
+      if (Array.isArray(stored) && stored.length > 0) {
+        for (const item of stored) {
+          if (item && item.id) {
+            this.opportunities.set(item.id, item);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[OpportunityStore] Error loading from storage:", e);
+    }
+  }
+
+  public persistToStorage(): void {
+    try {
+      const items = Array.from(this.opportunities.values());
+      MockStorageProvider.saveJobOpportunitiesBatch(items);
+    } catch (e) {
+      console.warn("[OpportunityStore] Error saving to storage:", e);
+    }
   }
 
   private initDefaultSources(): void {
@@ -560,7 +587,303 @@ class OpportunityStoreService {
       details: "Soft deleted opportunity by administrator",
     });
 
+    this.persistToStorage();
     return true;
+  }
+
+  /**
+   * Production-grade discovery persistence & deduplication pipeline.
+   * Discovered provider opportunities are immediately stored in the database as PENDING_REVIEW.
+   * Safe upsert behavior: updates freshness for existing opportunities without overwriting admin edits.
+   */
+  public persistDiscoveredResults(
+    rawItems: Opportunity[],
+    batchInfo: { query: string; location: string; provider: string; createdBy?: string }
+  ): {
+    batch: JobDiscoveryBatch;
+    saved: Opportunity[];
+    summary: { fetched: number; valid: number; newCount: number; existingCount: number; rejectedCount: number };
+  } {
+    const now = new Date().toISOString();
+    const batchId = `batch_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    let newCount = 0;
+    let existingCount = 0;
+    let rejectedCount = 0;
+    const savedList: Opportunity[] = [];
+
+    // Pre-index existing opportunities for fast deterministic matching
+    const existingList = Array.from(this.opportunities.values());
+    const existingUrlMap = new Map<string, Opportunity>();
+    const existingKeyMap = new Map<string, Opportunity>();
+    const existingSourceIdMap = new Map<string, Opportunity>();
+
+    for (const opp of existingList) {
+      const cleanApply = cleanAndSanitizeUrl(opp.applyUrl).toLowerCase();
+      if (cleanApply) existingUrlMap.set(cleanApply, opp);
+
+      const normKey = `${opp.companyName.toLowerCase().trim()}|${opp.title.toLowerCase().trim()}|${opp.location.toLowerCase().trim()}`;
+      existingKeyMap.set(normKey, opp);
+
+      if (opp.sourceId) existingSourceIdMap.set(`${opp.source}:${opp.sourceId}`, opp);
+    }
+
+    for (const item of rawItems) {
+      const cleanApply = cleanAndSanitizeUrl(item.applyUrl);
+      if (!isSafeUrl(cleanApply) || !item.title || item.title.trim().length < 3 || !item.companyName) {
+        rejectedCount++;
+        continue;
+      }
+
+      const normApply = cleanApply.toLowerCase();
+      const normKey = `${item.companyName.toLowerCase().trim()}|${item.title.toLowerCase().trim()}|${item.location.toLowerCase().trim()}`;
+      const sourceKey = `${item.source}:${item.sourceId}`;
+
+      const existing = existingSourceIdMap.get(sourceKey) || existingUrlMap.get(normApply) || existingKeyMap.get(normKey);
+
+      if (existing) {
+        // Upsert behavior: update safe freshness fields without overwriting admin edits or approval status
+        existing.sourceLastUpdatedAt = now;
+        existing.fetchedAt = now;
+        existing.contentHash = item.contentHash || generateOpportunityHash(item.title, item.companyName, item.location);
+        if (item.salary && !existing.salary) {
+          existing.salary = item.salary;
+        }
+        if (item.applicationDeadline && !existing.applicationDeadline) {
+          existing.applicationDeadline = item.applicationDeadline;
+        }
+        existing.updatedAt = now;
+        existingCount++;
+        savedList.push(existing);
+      } else {
+        // Fresh insertion into PENDING_REVIEW
+        const newOpp: Opportunity = {
+          ...item,
+          applyUrl: cleanApply,
+          status: "PENDING_REVIEW",
+          discoveryBatchId: batchId,
+          discoveredAt: now,
+          fetchedAt: now,
+          verifiedByAdmin: false,
+          verifiedAt: null,
+          createdAt: now,
+          updatedAt: now,
+          canonicalJobKey: normKey,
+          confidenceScore: item.confidenceScore || 90,
+        };
+
+        this.opportunities.set(newOpp.id, newOpp);
+        existingUrlMap.set(normApply, newOpp);
+        existingKeyMap.set(normKey, newOpp);
+        newCount++;
+        savedList.push(newOpp);
+
+        this.recordAuditEvent({
+          opportunityId: newOpp.id,
+          action: "IMPORTED",
+          actorId: batchInfo.createdBy || "system",
+          details: `Imported to PENDING_REVIEW from discovery batch ${batchId}`,
+        });
+      }
+    }
+
+    const batchRecord: JobDiscoveryBatch = {
+      id: batchId,
+      query: batchInfo.query,
+      location: batchInfo.location,
+      provider: batchInfo.provider,
+      requestedCount: rawItems.length,
+      fetchedCount: rawItems.length,
+      validCount: newCount + existingCount,
+      newCount,
+      existingCount,
+      rejectedCount,
+      status: "COMPLETED",
+      startedAt: now,
+      completedAt: now,
+      createdBy: batchInfo.createdBy || "admin",
+    };
+
+    MockStorageProvider.createDiscoveryBatch(batchRecord);
+    this.persistToStorage();
+
+    return {
+      batch: batchRecord,
+      saved: savedList,
+      summary: {
+        fetched: rawItems.length,
+        valid: newCount + existingCount,
+        newCount,
+        existingCount,
+        rejectedCount,
+      },
+    };
+  }
+
+  /**
+   * Server-side Bulk Publish operation.
+   * Single server transaction that publishes eligible opportunities, sets publication timestamp,
+   * audits the operation, and reports partial failures.
+   */
+  public bulkPublishOpportunities(
+    jobIds: string[],
+    adminId: string,
+    options?: { allMatching?: boolean; filterCriteria?: OpportunityFilterParams; discoveryBatchId?: string }
+  ): {
+    requested: number;
+    published: number;
+    skipped: number;
+    failed: number;
+    failures: Array<{ id: string; reason: string }>;
+  } {
+    let targetIds = jobIds;
+
+    if (options?.allMatching) {
+      const all = Array.from(this.opportunities.values());
+      let eligible = all.filter((o) => o.status === "PENDING_REVIEW" || o.status === "DISCOVERED" || o.status === "APPROVED");
+      if (options.discoveryBatchId) {
+        eligible = eligible.filter((o) => o.discoveryBatchId === options.discoveryBatchId);
+      }
+      if (options.filterCriteria?.category) {
+        eligible = eligible.filter((o) => o.category === options.filterCriteria!.category);
+      }
+      targetIds = eligible.map((o) => o.id);
+    }
+
+    const now = new Date().toISOString();
+    let published = 0;
+    let skipped = 0;
+    let failed = 0;
+    const failures: Array<{ id: string; reason: string }> = [];
+
+    for (const id of targetIds) {
+      const opp = this.opportunities.get(id);
+      if (!opp) {
+        failed++;
+        failures.push({ id, reason: "Opportunity not found" });
+        continue;
+      }
+
+      if (opp.status === "PUBLISHED" || opp.status === "ACTIVE") {
+        skipped++;
+        continue;
+      }
+
+      if (opp.status === "ARCHIVED" || opp.status === "DELETED") {
+        failed++;
+        failures.push({ id, reason: `Cannot publish opportunity in status: ${opp.status}` });
+        continue;
+      }
+
+      if (!isSafeUrl(opp.applyUrl)) {
+        failed++;
+        failures.push({ id, reason: "Invalid or missing application URL" });
+        continue;
+      }
+
+      // Check if already expired
+      if (opp.applicationDeadline && opp.applicationDeadline !== "Deadline not provided") {
+        const dl = new Date(opp.applicationDeadline).getTime();
+        if (!isNaN(dl) && dl < Date.now()) {
+          failed++;
+          failures.push({ id, reason: "Application deadline has already passed" });
+          continue;
+        }
+      }
+
+      const prevStatus = opp.status;
+      opp.status = "PUBLISHED";
+      opp.verifiedByAdmin = true;
+      opp.verifiedAt = now;
+      opp.publishedAt = now;
+      opp.approvedBy = adminId;
+      opp.updatedAt = now;
+
+      published++;
+
+      this.recordAuditEvent({
+        opportunityId: opp.id,
+        action: "PUBLISHED",
+        actorId: adminId,
+        previousStatus: prevStatus,
+        newStatus: "PUBLISHED",
+        details: "Bulk published to live public feed by administrator",
+      });
+    }
+
+    this.persistToStorage();
+
+    return {
+      requested: targetIds.length,
+      published,
+      skipped,
+      failed,
+      failures,
+    };
+  }
+
+  /**
+   * Server-side Bulk Delete / Archive operation.
+   * Defaults to soft delete / archive to preserve saved jobs and historical analytics.
+   * Permanent delete removes record if explicitly confirmed by admin.
+   */
+  public bulkDeleteOpportunities(
+    jobIds: string[],
+    adminId: string,
+    permanent = false
+  ): {
+    requested: number;
+    processed: number;
+    failed: number;
+  } {
+    const now = new Date().toISOString();
+    let processed = 0;
+    let failed = 0;
+
+    for (const id of jobIds) {
+      const opp = this.opportunities.get(id);
+      if (!opp) {
+        failed++;
+        continue;
+      }
+
+      if (permanent) {
+        this.opportunities.delete(id);
+        this.recordAuditEvent({
+          opportunityId: id,
+          action: "DELETED",
+          actorId: adminId,
+          previousStatus: opp.status,
+          newStatus: "PERMANENTLY_DELETED",
+          details: "Permanently deleted opportunity by administrator",
+        });
+      } else {
+        const prevStatus = opp.status;
+        opp.status = "ARCHIVED";
+        opp.updatedAt = now;
+        this.recordAuditEvent({
+          opportunityId: id,
+          action: "ARCHIVED",
+          actorId: adminId,
+          previousStatus: prevStatus,
+          newStatus: "ARCHIVED",
+          details: "Archived opportunity by administrator",
+        });
+      }
+      processed++;
+    }
+
+    this.persistToStorage();
+
+    return {
+      requested: jobIds.length,
+      processed,
+      failed,
+    };
+  }
+
+  public getDiscoveryBatches(): JobDiscoveryBatch[] {
+    return MockStorageProvider.getDiscoveryBatches();
   }
 
   public checkAndExpireOutdatedJobs(): number {

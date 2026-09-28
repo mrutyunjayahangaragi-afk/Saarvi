@@ -454,22 +454,76 @@ export default function AdminCareerPage() {
       if (!ok) return;
     }
     try {
-      for (const id of Array.from(bulkSelectedIds)) {
-        if (action === "DELETE") {
-          await fetch(`/api/admin/career/opportunities/${id}?permanent=true`, { method: "DELETE" });
+      const ids = Array.from(bulkSelectedIds);
+      if (action === "APPROVE") {
+        const res = await fetch("/api/admin/jobs/bulk-publish", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ job_ids: ids }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setNotice(
+            `Bulk Publish: ${data.summary?.published || 0} published (${data.summary?.skipped || 0} skipped, ${data.summary?.failed || 0} failed).`
+          );
         } else {
+          setNotice(`Bulk Publish failed: ${data.error || "Unknown error"}`);
+        }
+      } else if (action === "ARCHIVE" || action === "DELETE") {
+        const res = await fetch("/api/admin/jobs/bulk-delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ job_ids: ids, permanent: action === "DELETE" }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setNotice(
+            `Bulk ${action === "DELETE" ? "Delete" : "Archive"}: ${data.summary?.processed || 0} records processed.`
+          );
+        } else {
+          setNotice(`Bulk operation failed: ${data.error || "Unknown error"}`);
+        }
+      } else {
+        // Fallback for REJECT / EXPIRE
+        for (const id of ids) {
           await fetch(`/api/admin/career/opportunities/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action }),
           });
         }
+        setNotice(`Bulk operation ${action} completed on ${ids.length} items.`);
       }
-      setNotice(`Bulk operation ${action} completed on ${bulkSelectedIds.size} items.`);
+
       setBulkSelectedIds(new Set());
       await loadData();
-    } catch {
-      setNotice("Bulk operation encountered an error.");
+    } catch (err: any) {
+      setNotice(`Bulk operation encountered an error: ${err.message}`);
+    }
+  };
+
+  const handleBulkPublishAll = async () => {
+    const ok = window.confirm(
+      "You are about to publish all eligible matching opportunities currently in the review pipeline. Continue?"
+    );
+    if (!ok) return;
+    try {
+      const res = await fetch("/api/admin/jobs/bulk-publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ all_matching: true }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setNotice(
+          `Bulk Publish All: ${data.summary?.published || 0} opportunities published (${data.summary?.skipped || 0} skipped, ${data.summary?.failed || 0} failed).`
+        );
+        await loadData();
+      } else {
+        setNotice(`Failed to bulk publish: ${data.error || "Unknown error"}`);
+      }
+    } catch (err: any) {
+      setNotice(`Error publishing all: ${err.message}`);
     }
   };
 
@@ -615,6 +669,36 @@ export default function AdminCareerPage() {
       }
     } catch (err: any) {
       setNotice(`Import error: ${err.message}`);
+    } finally {
+      setDiscoveryImporting(false);
+    }
+  };
+
+  const handleDiscoveryPublishSelected = async () => {
+    if (selectedPreviewIds.size === 0) {
+      setNotice("Please select at least one opportunity to publish.");
+      return;
+    }
+    setDiscoveryImporting(true);
+    try {
+      const ids = Array.from(selectedPreviewIds);
+      const res = await fetch("/api/admin/jobs/bulk-publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_ids: ids }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setNotice(
+          `Bulk Publish: Successfully published ${data.summary?.published || 0} opportunities live to Saarvi!`
+        );
+        setDiscoveryModalOpen(false);
+        await loadData();
+      } else {
+        setNotice(`Publication failed: ${data.error || "Unknown error"}`);
+      }
+    } catch (err: any) {
+      setNotice(`Publication error: ${err.message}`);
     } finally {
       setDiscoveryImporting(false);
     }
@@ -1084,27 +1168,38 @@ export default function AdminCareerPage() {
                 placeholder="Search listings by title, company name, skills, or location..."
                 className="w-full text-xs sm:text-sm bg-transparent border-none focus:outline-hidden"
               />
-              {items.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (bulkSelectedIds.size === items.length) {
-                      setBulkSelectedIds(new Set());
-                    } else {
-                      setBulkSelectedIds(new Set(items.map((i) => i.id)));
-                    }
-                  }}
-                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition shrink-0 cursor-pointer"
-                >
-                  {bulkSelectedIds.size === items.length ? "Deselect All" : "Select All"}
-                </button>
-              )}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {items.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (bulkSelectedIds.size === items.length) {
+                        setBulkSelectedIds(new Set());
+                      } else {
+                        setBulkSelectedIds(new Set(items.map((i) => i.id)));
+                      }
+                    }}
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition shrink-0 cursor-pointer"
+                  >
+                    {bulkSelectedIds.size === items.length ? "Deselect Page" : `Select Page (${items.length})`}
+                  </button>
+                )}
+                {counts.pending > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleBulkPublishAll}
+                    className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shrink-0 cursor-pointer shadow-2xs"
+                  >
+                    Publish All Eligible ({counts.pending})
+                  </button>
+                )}
+              </div>
             </div>
 
             {bulkSelectedIds.size > 0 && (
               <div className="flex items-center justify-between flex-wrap gap-2 p-3 bg-blue-50 border border-blue-200 rounded-2xl text-xs">
                 <span className="font-bold text-blue-900">
-                  {bulkSelectedIds.size} listing(s) selected:
+                  {bulkSelectedIds.size} opportunity(s) selected:
                 </span>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <button
@@ -1112,14 +1207,14 @@ export default function AdminCareerPage() {
                     onClick={() => handleBulkAction("APPROVE")}
                     className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-xs transition cursor-pointer"
                   >
-                    Approve Selected
+                    Publish Selected
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleBulkAction("REJECT")}
-                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-xs transition cursor-pointer"
+                    onClick={handleBulkPublishAll}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-xs transition cursor-pointer"
                   >
-                    Reject Selected
+                    Publish All Eligible
                   </button>
                   <button
                     type="button"
@@ -1130,10 +1225,10 @@ export default function AdminCareerPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleBulkAction("EXPIRE")}
-                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold shadow-xs transition cursor-pointer"
+                    onClick={() => handleBulkAction("REJECT")}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-xs transition cursor-pointer"
                   >
-                    Expire Selected
+                    Reject Selected
                   </button>
                   <button
                     type="button"
@@ -1851,38 +1946,67 @@ export default function AdminCareerPage() {
             {/* Results Preview Area */}
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
               {discoverySummary && (
-                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between flex-wrap gap-2 text-xs">
-                  <div className="flex items-center gap-4">
-                    <span>Found: <strong className="text-slate-900">{discoverySummary.found}</strong></span>
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-xs">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="font-extrabold text-slate-900 text-xs sm:text-sm">Discovery Completed &amp; Stored to Database</span>
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      Saved to Saarvi: {discoverySummary.valid}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 flex-wrap text-slate-600">
+                    <span>Fetched: <strong className="text-slate-900">{discoverySummary.found}</strong></span>
                     <span>Valid: <strong className="text-emerald-700">{discoverySummary.valid}</strong></span>
-                    <span>Invalid: <strong className="text-rose-700">{discoverySummary.invalid}</strong></span>
-                    <span>Duplicates: <strong className="text-amber-700">{discoverySummary.duplicates}</strong></span>
+                    <span>New: <strong className="text-blue-700">{(discoverySummary as any).newCount || discoverySummary.valid}</strong></span>
+                    <span>Already Existed: <strong className="text-amber-700">{(discoverySummary as any).existingCount || discoverySummary.duplicates}</strong></span>
+                    <span>Rejected: <strong className="text-rose-700">{(discoverySummary as any).rejectedCount || discoverySummary.invalid}</strong></span>
                   </div>
                   {previewResults.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const allValid = new Set<string>();
-                          previewResults.forEach((r) => {
-                            if (r.validationStatus !== "INVALID") allValid.add(r.id);
-                          });
-                          setSelectedPreviewIds(allValid);
-                        }}
-                        className="text-blue-600 hover:underline font-semibold"
-                      >
-                        Select all valid
-                      </button>
-                      <button
-                        type="button"
-                        disabled={discoveryImporting || selectedPreviewIds.size === 0}
-                        onClick={handleBulkImport}
-                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition"
-                      >
-                        {discoveryImporting
-                          ? "Importing..."
-                          : `Import Selected (${selectedPreviewIds.size}) to Pending Review`}
-                      </button>
+                    <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-slate-200">
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const allValid = new Set<string>();
+                            previewResults.forEach((r) => {
+                              if (r.validationStatus !== "INVALID") allValid.add(r.id);
+                            });
+                            setSelectedPreviewIds(allValid);
+                          }}
+                          className="text-blue-600 hover:underline font-semibold cursor-pointer"
+                        >
+                          Select all valid ({previewResults.filter((r) => r.validationStatus !== "INVALID").length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPreviewIds(new Set())}
+                          className="text-slate-500 hover:text-slate-700 font-semibold cursor-pointer"
+                        >
+                          Clear selection
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDiscoveryModalOpen(false);
+                            setStatusFilter("PENDING_REVIEW");
+                          }}
+                          className="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl text-xs font-bold transition cursor-pointer"
+                        >
+                          View in Pending Review
+                        </button>
+                        <button
+                          type="button"
+                          disabled={discoveryImporting || selectedPreviewIds.size === 0}
+                          onClick={handleDiscoveryPublishSelected}
+                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
+                        >
+                          {discoveryImporting
+                            ? "Publishing..."
+                            : `Bulk Publish Selected (${selectedPreviewIds.size})`}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

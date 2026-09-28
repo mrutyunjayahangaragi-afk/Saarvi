@@ -7,13 +7,44 @@ import { MockStorageProvider } from '@/lib/supabase/mock-storage';
 
 export const dynamic = 'force-dynamic';
 
-const VALID_CATEGORIES = ['BUG', 'FEATURE', 'PERFORMANCE', 'UX', 'OTHER'] as const;
+const CANONICAL_CATEGORIES = [
+  'General',
+  'Bug',
+  'Tool Issue',
+  'Feature Request',
+  'Performance',
+  'Privacy',
+  'Payment',
+  'Other',
+] as const;
+
+type CanonicalCategory = (typeof CANONICAL_CATEGORIES)[number];
+
+function normalizeCategory(raw?: string): CanonicalCategory | null {
+  if (!raw) return 'General';
+  const trimmed = raw.trim();
+  const direct = CANONICAL_CATEGORIES.find((c) => c.toLowerCase() === trimmed.toLowerCase());
+  if (direct) return direct;
+  const upper = trimmed.toUpperCase();
+  if (upper === 'FEATURE') return 'Feature Request';
+  if (upper === 'UX') return 'General';
+  if (upper === 'BUG') return 'Bug';
+  if (upper === 'PERFORMANCE') return 'Performance';
+  if (upper === 'OTHER') return 'Other';
+  return null;
+}
 
 function sanitizeInput(text: string): string {
   return text
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
     .replace(/<[^>]+>/g, '')
     .trim();
+}
+
+function deriveSentiment(rating: number): 'POSITIVE' | 'NEUTRAL' | 'NEGATIVE' {
+  if (rating >= 4) return 'POSITIVE';
+  if (rating === 3) return 'NEUTRAL';
+  return 'NEGATIVE';
 }
 
 export async function POST(request: Request) {
@@ -28,43 +59,45 @@ export async function POST(request: Request) {
       rating,
       category,
       message,
+      toolKey,
       toolSlug,
       pageUrl,
+      page,
       email: rawEmail,
       viewport,
+      idempotencyKey,
+      operationId,
+      guestSessionId,
     } = body;
 
-    // Validation
+    // 1. Validate Rating (1-5 integer)
     const numRating = Number(rating);
-    if (!numRating || numRating < 1 || numRating > 5) {
+    if (!numRating || !Number.isInteger(numRating) || numRating < 1 || numRating > 5) {
       return NextResponse.json(
-        { success: false, error: 'Please provide a valid rating between 1 and 5.' },
+        { success: false, error: 'Please provide a valid rating between 1 and 5 stars.' },
         { status: 400 }
       );
     }
 
-    const upperCategory = (category || '').toUpperCase().trim();
-    if (!VALID_CATEGORIES.includes(upperCategory as any)) {
+    // 2. Validate Category
+    const validatedCategory = normalizeCategory(category);
+    if (!validatedCategory) {
       return NextResponse.json(
         {
           success: false,
-          error: `Invalid category. Must be one of: ${VALID_CATEGORIES.join(', ')}`,
+          error: `Invalid category. Allowed categories are: ${CANONICAL_CATEGORIES.join(', ')}`,
         },
         { status: 400 }
       );
     }
 
-    if (!message || typeof message !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Feedback message is required.' },
-        { status: 400 }
-      );
-    }
+    // 3. Validate & Sanitize Message
+    const rawMessageStr = typeof message === 'string' ? message : '';
+    const cleanMessage = sanitizeInput(rawMessageStr || `User submitted a ${numRating}-star rating.`);
 
-    const cleanMessage = sanitizeInput(message);
-    if (cleanMessage.length < 10) {
+    if (cleanMessage.length < 3) {
       return NextResponse.json(
-        { success: false, error: 'Feedback message must be at least 10 characters.' },
+        { success: false, error: 'Feedback message must be at least 3 characters.' },
         { status: 400 }
       );
     }
@@ -75,9 +108,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Resolve user from server session (never trust client userId)
+    // 4. Resolve User Identity Server-Side (Never trust client user_id)
     let authenticatedUserId: string | null = null;
     let authenticatedEmail: string | null = null;
+    let userType: 'GUEST' | 'FREE' | 'PRO' = 'GUEST';
 
     if (isSupabaseConfigured()) {
       try {
@@ -88,6 +122,7 @@ export async function POST(request: Request) {
         if (user) {
           authenticatedUserId = user.id;
           authenticatedEmail = user.email || null;
+          userType = (user.user_metadata?.plan === 'PRO') ? 'PRO' : 'FREE';
         }
       } catch {}
     } else {
@@ -95,64 +130,125 @@ export async function POST(request: Request) {
       if (session) {
         authenticatedUserId = session.id;
         authenticatedEmail = session.email;
+        const storedUser = MockStorageProvider.getUserById(session.id);
+        userType = storedUser?.plan === 'PRO' ? 'PRO' : 'FREE';
       }
     }
 
-    const effectiveEmail = authenticatedEmail || (typeof rawEmail === 'string' ? sanitizeInput(rawEmail) : undefined);
-    const userAgent = request.headers.get('user-agent') || undefined;
+    // Resolve Guest Session ID
+    const effectiveGuestSessionId =
+      !authenticatedUserId
+        ? (
+            request.headers.get('x-guest-session-id') ||
+            (typeof guestSessionId === 'string' ? sanitizeInput(guestSessionId).slice(0, 100) : null)
+          )
+        : null;
 
-    const feedbackData = {
-      userId: authenticatedUserId || undefined,
-      rating: Math.round(numRating),
-      category: upperCategory as 'BUG' | 'FEATURE' | 'PERFORMANCE' | 'UX' | 'OTHER',
-      toolSlug: toolSlug ? sanitizeInput(String(toolSlug)).slice(0, 100) : undefined,
-      pageUrl: pageUrl ? sanitizeInput(String(pageUrl)).slice(0, 500) : undefined,
+    // Resolve Tool Key
+    const rawToolKey = toolKey || toolSlug;
+    const sanitizedToolKey = rawToolKey
+      ? sanitizeInput(String(rawToolKey)).toLowerCase().slice(0, 100)
+      : undefined;
+
+    // Resolve Page
+    const rawPage = page || pageUrl;
+    const sanitizedPage = rawPage ? sanitizeInput(String(rawPage)).slice(0, 300) : undefined;
+
+    // Idempotency Key
+    const rawIdemKey = idempotencyKey || operationId;
+    const effectiveIdemKey = rawIdemKey ? sanitizeInput(String(rawIdemKey)).slice(0, 120) : null;
+
+    // Non-destructive automated sentiment classification
+    const sentiment = deriveSentiment(numRating);
+
+    const feedbackPayload = {
+      userId: authenticatedUserId,
+      userType,
+      guestSessionId: effectiveGuestSessionId,
+      userEmail: authenticatedEmail || (typeof rawEmail === 'string' ? sanitizeInput(rawEmail) : undefined),
+      rating: numRating,
+      category: validatedCategory,
+      toolKey: sanitizedToolKey,
+      pageUrl: sanitizedPage,
       message: cleanMessage,
-      email: effectiveEmail,
-      userAgent: userAgent ? userAgent.slice(0, 300) : undefined,
-      viewport: viewport ? sanitizeInput(String(viewport)).slice(0, 50) : undefined,
+      sentiment,
+      status: 'NEW' as const,
+      idempotencyKey: effectiveIdemKey,
     };
 
+    let createdRecordId: string | null = null;
+
+    // Persist to Supabase Database
     if (isSupabaseConfigured()) {
       const adminClient = getSupabaseAdminClient();
       if (adminClient) {
-        const { error: dbError } = await adminClient.from('feedback').insert({
-          user_id: feedbackData.userId || null,
-          rating: feedbackData.rating,
-          category: feedbackData.category,
-          tool_slug: feedbackData.toolSlug || null,
-          page_url: feedbackData.pageUrl || null,
-          message: feedbackData.message,
-          email: feedbackData.email || null,
-          user_agent: feedbackData.userAgent || null,
-          viewport: feedbackData.viewport || null,
-          status: 'NEW',
-        });
+        // Idempotency check in DB
+        if (effectiveIdemKey) {
+          const { data: existing } = await adminClient
+            .from('feedback')
+            .select('id')
+            .eq('idempotency_key', effectiveIdemKey)
+            .maybeSingle();
+
+          if (existing) {
+            return NextResponse.json({
+              success: true,
+              feedbackId: existing.id,
+              message: 'Feedback already recorded.',
+            });
+          }
+        }
+
+        const { data: inserted, error: dbError } = await adminClient
+          .from('feedback')
+          .insert({
+            user_id: feedbackPayload.userId,
+            guest_session_id: feedbackPayload.guestSessionId,
+            user_type: feedbackPayload.userType,
+            rating: feedbackPayload.rating,
+            category: feedbackPayload.category,
+            tool_key: feedbackPayload.toolKey || null,
+            tool_slug: feedbackPayload.toolKey || null,
+            page_url: feedbackPayload.pageUrl || null,
+            message: feedbackPayload.message,
+            email: feedbackPayload.userEmail || null,
+            sentiment: feedbackPayload.sentiment,
+            status: 'NEW',
+            idempotency_key: feedbackPayload.idempotencyKey,
+          })
+          .select('id')
+          .maybeSingle();
 
         if (dbError) {
-          console.warn('[Feedback API] DB insert error, falling back to mock:', dbError);
-          MockStorageProvider.addFeedback(feedbackData);
+          console.warn('[Feedback API] DB insert error, falling back to mock storage:', dbError.message);
+          const savedMock = MockStorageProvider.addFeedback(feedbackPayload);
+          createdRecordId = savedMock.id;
+        } else if (inserted) {
+          createdRecordId = inserted.id;
         }
       } else {
-        MockStorageProvider.addFeedback(feedbackData);
+        const savedMock = MockStorageProvider.addFeedback(feedbackPayload);
+        createdRecordId = savedMock.id;
       }
     } else {
-      MockStorageProvider.addFeedback(feedbackData);
+      const savedMock = MockStorageProvider.addFeedback(feedbackPayload);
+      createdRecordId = savedMock.id;
     }
 
     // Telemetry event (non-blocking)
     MockStorageProvider.recordPlatformEvent({
       eventName: 'feedback_submitted',
       userId: authenticatedUserId || undefined,
-      toolKey: feedbackData.toolSlug,
-      category: feedbackData.category,
+      toolKey: feedbackPayload.toolKey,
+      category: feedbackPayload.category,
       success: true,
-      metadata: { rating: feedbackData.rating },
+      metadata: { rating: feedbackPayload.rating, userType: feedbackPayload.userType },
       timestamp: new Date().toISOString(),
     });
 
     return NextResponse.json({
       success: true,
+      feedbackId: createdRecordId,
       message: 'Thank you! Your feedback has been received and helps us make Saarvi better.',
     });
   } catch (err: unknown) {

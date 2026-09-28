@@ -7,7 +7,7 @@ import { MockStorageProvider } from '@/lib/supabase/mock-storage';
 
 export const dynamic = 'force-dynamic';
 
-const VALID_STATUSES = ['NEW', 'UNDER_REVIEW', 'RESOLVED', 'ARCHIVED'] as const;
+const VALID_STATUSES = ['NEW', 'IN_REVIEW', 'UNDER_REVIEW', 'RESOLVED', 'ARCHIVED'] as const;
 
 export async function PATCH(
   request: Request,
@@ -28,22 +28,33 @@ export async function PATCH(
 
   try {
     const body = await request.json().catch(() => ({}));
-    const { status, adminNotes } = body;
+    const { status: rawStatus, adminNotes } = body;
 
-    if (status && !VALID_STATUSES.includes(status)) {
+    const normalizedStatus = rawStatus === 'UNDER_REVIEW' ? 'IN_REVIEW' : rawStatus;
+
+    if (rawStatus && !VALID_STATUSES.includes(rawStatus)) {
       return NextResponse.json(
         { error: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}` },
         { status: 400 }
       );
     }
 
+    const now = new Date().toISOString();
+
     if (isSupabaseConfigured()) {
       const supabase = getSupabaseAdminClient();
       if (supabase) {
         const updatePayload: Record<string, any> = {
-          updated_at: new Date().toISOString(),
+          updated_at: now,
+          updated_by: authResult.user.id,
         };
-        if (status) updatePayload.status = status;
+        if (normalizedStatus) {
+          updatePayload.status = normalizedStatus;
+          if (normalizedStatus === 'RESOLVED') {
+            updatePayload.resolved_at = now;
+            updatePayload.resolved_by = authResult.user.id;
+          }
+        }
         if (typeof adminNotes === 'string') updatePayload.admin_notes = adminNotes.trim();
 
         const { data, error } = await supabase
@@ -62,8 +73,9 @@ export async function PATCH(
     // Mock fallback
     const updated = MockStorageProvider.updateFeedbackStatus(
       id,
-      status || 'UNDER_REVIEW',
-      adminNotes
+      normalizedStatus || 'IN_REVIEW',
+      adminNotes,
+      authResult.user.id
     );
 
     if (!updated) {
