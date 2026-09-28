@@ -404,12 +404,10 @@ class OpportunityStoreService {
         }
         MockStorageProvider.saveJobOpportunitiesBatch(Array.from(this.opportunities.values()));
       } else {
-        // Table in Supabase is empty: seed with canonical verified opportunities
-        const rows = CANONICAL_SEED_OPPORTUNITIES.map(opportunityToRow);
-        await supabase.from("job_opportunities").upsert(rows, { onConflict: "id" });
-        for (const seed of CANONICAL_SEED_OPPORTUNITIES) {
-          this.opportunities.set(seed.id, seed);
-        }
+        // Supabase table is empty — no live opportunities yet.
+        // DO NOT seed SEED/demo records into the DB.
+        // Users will see the honest empty state: "No live opportunities yet".
+        console.info("[OpportunityStore] Supabase job_opportunities table is empty. Awaiting admin publication.");
       }
       this.lastSupabaseSync = Date.now();
     } catch (err) {
@@ -1134,6 +1132,12 @@ class OpportunityStoreService {
 
       const prevStatus = opp.status;
       opp.status = "PUBLISHED";
+      // Set ALL 5 lifecycle dimensions so getApprovedOpportunities finds this record
+      opp.reviewState = "APPROVED";
+      opp.publicationState = "PUBLISHED";
+      opp.verificationState = "PASSED";
+      opp.recordState = "ACTIVE";
+      opp.dataOrigin = opp.dataOrigin && opp.dataOrigin !== "SEED" && opp.dataOrigin !== "TEST" ? opp.dataOrigin : "PROVIDER";
       opp.verifiedByAdmin = true;
       opp.verifiedAt = now;
       opp.publishedAt = now;
