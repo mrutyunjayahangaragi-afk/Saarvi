@@ -25,7 +25,7 @@ import {
   Bell
 } from "lucide-react";
 import { SITE_CONFIG } from "@/config/site";
-import { SaarviMark } from "@/components/brand/SaarviLogo";
+import { SaarviNavbarLogo } from "@/components/brand/SaarviLogo";
 import { useAuth } from "@/context/AuthContext";
 import { usePlatform } from "@/context/PlatformContext";
 import { useFeedback } from "@/context/FeedbackContext";
@@ -201,25 +201,41 @@ export default function Navbar() {
     } catch {}
   };
 
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const openTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const accountDropdownRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
 
-  // Close account dropdown on outside click
+  // Clear pending timers on unmount
+  useEffect(() => {
+    return () => {
+      if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
+      if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    };
+  }, []);
+
+  // Close account dropdown and mega menu on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (accountDropdownRef.current && !accountDropdownRef.current.contains(e.target as Node)) {
         setAccountMenuOpen(false);
+      }
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
+        setActiveCategory(null);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Scroll elevation listener
+  // Scroll elevation & dismissal listener: scrolling closes active mega menu
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 15);
+      if (window.scrollY > 10) {
+        setActiveCategory(null);
+      }
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
@@ -251,39 +267,56 @@ export default function Navbar() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Hover zone buffer management
+  // Robust Pointer-Intent Hover Management (60ms intent delay, 280ms safe diagonal transit buffer)
   const handleNavMouseEnter = (category: ActiveMenuCategory) => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
     }
-    setActiveCategory(category);
+    // If a category is already visible, switch immediately with zero delay
+    if (activeCategory) {
+      if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
+      setActiveCategory(category);
+    } else {
+      if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
+      openTimeoutRef.current = setTimeout(() => {
+        setActiveCategory(category);
+      }, 60);
+    }
   };
 
   const handleNavMouseLeave = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+    if (openTimeoutRef.current) {
+      clearTimeout(openTimeoutRef.current);
+      openTimeoutRef.current = null;
     }
-    // Small buffer delay (150ms) to allow smooth transit between navbar and mega menu
-    timeoutRef.current = setTimeout(() => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+    }
+    // 280ms safe transit buffer allowing diagonal pointer movement without menu collapsing
+    closeTimeoutRef.current = setTimeout(() => {
       setActiveCategory(null);
-    }, 150);
+    }, 280);
   };
 
   const handleMenuMouseEnter = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+    if (openTimeoutRef.current) {
+      clearTimeout(openTimeoutRef.current);
+      openTimeoutRef.current = null;
     }
   };
 
   const handleMenuMouseLeave = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
     }
-    timeoutRef.current = setTimeout(() => {
+    closeTimeoutRef.current = setTimeout(() => {
       setActiveCategory(null);
-    }, 150);
+    }, 280);
   };
 
   const toggleMobileSection = (section: string) => {
@@ -294,6 +327,7 @@ export default function Navbar() {
     <>
       <AnnouncementBanner />
       <header
+        ref={headerRef}
         className={`sticky top-0 z-40 w-full transition-all duration-200 ${
           isScrolled
             ? "bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-xs"
@@ -302,21 +336,13 @@ export default function Navbar() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4 relative">
           
-          {/* LEFT: Saarvi Logo */}
+          {/* LEFT: Official Saarvi Logo */}
           <Link
             href="/"
-            className="flex items-center gap-2.5 group transition-transform duration-200 hover:scale-[1.02] active:scale-95 shrink-0"
+            className="flex items-center group transition-transform duration-200 hover:scale-[1.02] active:scale-95 shrink-0"
             aria-label="Saarvi Home"
           >
-            <SaarviMark size={36} className="group-hover:shadow-md group-hover:-translate-y-0.5 transition-all duration-200" />
-            <div className="flex flex-col">
-              <span className="font-extrabold text-lg text-slate-900 tracking-tight leading-tight">
-                {appName || SITE_CONFIG.name}
-              </span>
-              <span className="text-[10px] text-slate-500 font-medium hidden sm:inline">
-                {tagline || SITE_CONFIG.tagline}
-              </span>
-            </div>
+            <SaarviNavbarLogo />
           </Link>
 
           {/* CENTER: Desktop Mega Menu Navigation Links */}
@@ -335,6 +361,10 @@ export default function Navbar() {
                 aria-expanded={activeCategory === "tools"}
                 aria-haspopup="true"
                 onFocus={() => handleNavMouseEnter("tools")}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveCategory((prev) => (prev === "tools" ? null : "tools"));
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
@@ -367,6 +397,10 @@ export default function Navbar() {
                 aria-expanded={activeCategory === "pdf"}
                 aria-haspopup="true"
                 onFocus={() => handleNavMouseEnter("pdf")}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveCategory((prev) => (prev === "pdf" ? null : "pdf"));
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
@@ -399,6 +433,10 @@ export default function Navbar() {
                 aria-expanded={activeCategory === "images"}
                 aria-haspopup="true"
                 onFocus={() => handleNavMouseEnter("images")}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveCategory((prev) => (prev === "images" ? null : "images"));
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
@@ -431,6 +469,10 @@ export default function Navbar() {
                 aria-expanded={activeCategory === "student"}
                 aria-haspopup="true"
                 onFocus={() => handleNavMouseEnter("student")}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveCategory((prev) => (prev === "student" ? null : "student"));
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
                     e.preventDefault();

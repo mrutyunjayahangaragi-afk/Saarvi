@@ -22,6 +22,8 @@ import type {
   ToolOperationalStatus,
   ToolAccessTier,
   ToolTelemetryEventPayload,
+  ToolAccessAuditLog,
+  ToolChangeImpactSummary,
 } from '@/types/tool-control';
 
 export class ToolAccessService {
@@ -133,6 +135,44 @@ export class ToolAccessService {
     // 3. Resolve User Pro Entitlement
     const entitlement = userId ? await getUserEntitlement(userId) : { isPro: false };
     const isPro = entitlement.isPro;
+
+    // 3b. Server-Authoritative Matrix Check: Guest Access
+    const guestAllowed = config?.guestAllowed ?? (accessMode === 'FREE');
+    if (!userId && !guestAllowed) {
+      return {
+        toolKey: tool.key,
+        enabled: true,
+        status: operationalStatus,
+        accessMode: accessMode === 'PRO' ? 'PRO' : 'FREE',
+        isAllowed: false,
+        isPro: false,
+        isBeta: false,
+        usageCount: 0,
+        freeLimit: betaFreeLimit,
+        remainingUses: 0,
+        requiresPro: accessMode === 'PRO',
+        maintenanceMessage: 'Please sign in or create an account to access this tool.',
+      };
+    }
+
+    // 3c. Server-Authoritative Matrix Check: Free Account Access
+    const freeAllowed = config?.freeAllowed ?? true;
+    if (userId && !isPro && !freeAllowed) {
+      return {
+        toolKey: tool.key,
+        enabled: true,
+        status: operationalStatus,
+        accessMode: 'PRO',
+        isAllowed: false,
+        isPro: false,
+        isBeta: false,
+        usageCount: 0,
+        freeLimit: betaFreeLimit,
+        remainingUses: 0,
+        requiresPro: true,
+        maintenanceMessage: 'This tool is exclusively available for Saarvi Pro subscribers.',
+      };
+    }
 
     // 4. Pro-Only Gating
     if (accessMode === 'PRO') {
@@ -522,11 +562,22 @@ export class ToolAccessService {
    * Updates and persists an Admin tool configuration change.
    */
   async saveToolConfig(
-    updates: Partial<ToolControlConfig> & { toolKey: string },
+    updates: Partial<ToolControlConfig> & { toolKey: string; reason?: string },
     actor: { id: string; email: string; role: string }
   ): Promise<ToolControlConfig> {
     const tool = CANONICAL_TOOL_REGISTRY.find((t) => t.key === updates.toolKey);
     const existing = await this.getToolConfig(updates.toolKey);
+
+    // Optimistic Concurrency Check
+    if (updates.version !== undefined && existing?.version !== undefined && updates.version !== existing.version) {
+      const err = new Error(
+        `ConcurrencyConflict: Tool "${updates.toolKey}" was modified by another administrator (current v${existing.version} vs draft v${updates.version}). Please refresh.`
+      );
+      (err as unknown as { code: string }).code = 'CONCURRENCY_CONFLICT';
+      throw err;
+    }
+
+    const nextVersion = (existing?.version || 1) + 1;
 
     const merged: ToolControlConfig = {
       toolKey: updates.toolKey,
@@ -538,12 +589,21 @@ export class ToolAccessService {
       betaEnabled: updates.status ? updates.status === 'BETA' : (existing?.betaEnabled ?? (tool?.status === 'beta')),
       betaFreeLimit: updates.betaFreeLimit ?? existing?.betaFreeLimit ?? 10,
       proRequired: updates.accessMode ? updates.accessMode === 'PRO' : (existing?.proRequired ?? (tool?.defaultAccess === 'SUBSCRIPTION')),
+      guestAllowed: updates.guestAllowed !== undefined ? updates.guestAllowed : (existing?.guestAllowed ?? (updates.accessMode ? updates.accessMode === 'FREE' : tool?.defaultAccess !== 'SUBSCRIPTION')),
+      freeAllowed: updates.freeAllowed !== undefined ? updates.freeAllowed : (existing?.freeAllowed ?? true),
+      proAllowed: updates.proAllowed !== undefined ? updates.proAllowed : (existing?.proAllowed ?? true),
+      featured: updates.featured !== undefined ? updates.featured : (existing?.featured ?? Boolean(tool?.badge === 'Popular')),
+      navVisible: updates.navVisible !== undefined ? updates.navVisible : (existing?.navVisible ?? (updates.status ? updates.status !== 'DISABLED' : true)),
+      searchVisible: updates.searchVisible !== undefined ? updates.searchVisible : (existing?.searchVisible ?? true),
+      sortOrder: updates.sortOrder !== undefined ? updates.sortOrder : (existing?.sortOrder ?? 0),
+      feedbackPromptEnabled: updates.feedbackPromptEnabled !== undefined ? updates.feedbackPromptEnabled : (existing?.feedbackPromptEnabled ?? true),
       maintenanceMessage: updates.maintenanceMessage ?? existing?.maintenanceMessage,
       rolloutPercentage: updates.rolloutPercentage ?? existing?.rolloutPercentage ?? 100,
       maxP95DurationMs: updates.maxP95DurationMs ?? existing?.maxP95DurationMs ?? 5000,
       maxErrorRatePct: updates.maxErrorRatePct ?? existing?.maxErrorRatePct ?? 5.0,
       workerMode: updates.workerMode ?? existing?.workerMode ?? (tool?.category === 'ai' ? 'hybrid' : 'client'),
       processingType: updates.processingType ?? existing?.processingType ?? (tool?.category === 'ai' ? 'mixed' : 'local'),
+      version: nextVersion,
       updatedAt: new Date().toISOString(),
       updatedBy: actor.email,
     };
@@ -577,6 +637,20 @@ export class ToolAccessService {
 
     MockStorageProvider.saveToolAccessConfig(merged);
 
+    // Save snapshot to versioned audit log
+    const auditRecord: ToolAccessAuditLog = {
+      id: `audit_tool_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      toolKey: merged.toolKey,
+      toolName: merged.displayName,
+      version: nextVersion,
+      changedBy: actor.email,
+      timestamp: merged.updatedAt,
+      reason: updates.reason || 'Admin configuration update',
+      previousConfig: existing || {},
+      newConfig: merged,
+    };
+    MockStorageProvider.saveToolAccessAuditLog(auditRecord);
+
     // Audit Logging
     MockStorageProvider.addAuditLog({
       adminUserId: actor.id,
@@ -586,6 +660,7 @@ export class ToolAccessService {
       targetId: merged.toolKey,
       metadata: {
         toolKey: merged.toolKey,
+        version: nextVersion,
         status: merged.status,
         accessMode: merged.accessMode,
         betaFreeLimit: merged.betaFreeLimit,
@@ -593,6 +668,160 @@ export class ToolAccessService {
     });
 
     return merged;
+  }
+
+  /**
+   * Retrieves versioned audit history for a tool
+   */
+  getAuditHistory(toolKey?: string): ToolAccessAuditLog[] {
+    return MockStorageProvider.getToolAccessAuditLogs(toolKey);
+  }
+
+  /**
+   * Rolls back tool access configuration to a historical version snapshot
+   */
+  async rollbackToolConfig(
+    toolKey: string,
+    targetVersion: number,
+    actor: { id: string; email: string; role: string }
+  ): Promise<ToolControlConfig | null> {
+    const rolledBack = MockStorageProvider.rollbackToolAccessConfig(toolKey, targetVersion, actor.email);
+    if (!rolledBack) return null;
+
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabaseAdminClient();
+      if (supabase) {
+        try {
+          await supabase.from('tool_access_configs').upsert({
+            tool_key: rolledBack.toolKey,
+            display_name: rolledBack.displayName,
+            category: rolledBack.category,
+            description: rolledBack.description,
+            status: rolledBack.status,
+            access_mode: rolledBack.accessMode,
+            beta_free_limit: rolledBack.betaFreeLimit,
+            maintenance_message: rolledBack.maintenanceMessage,
+            rollout_percentage: rolledBack.rolloutPercentage,
+            max_p95_duration_ms: rolledBack.maxP95DurationMs,
+            max_error_rate_pct: rolledBack.maxErrorRatePct,
+            worker_mode: rolledBack.workerMode,
+            processing_type: rolledBack.processingType,
+            updated_at: rolledBack.updatedAt,
+            updated_by: rolledBack.updatedBy,
+          });
+        } catch (err) {
+          console.warn('[ToolAccessService] Supabase upsert rollback error:', err);
+        }
+      }
+    }
+
+    MockStorageProvider.addAuditLog({
+      adminUserId: actor.id,
+      adminEmail: actor.email,
+      action: 'TOOL_CONFIG_ROLLBACK',
+      targetType: 'TOOL',
+      targetId: toolKey,
+      metadata: {
+        targetVersion,
+        restoredVersion: rolledBack.version,
+      },
+    });
+
+    return rolledBack;
+  }
+
+  /**
+   * Detects logical configuration conflicts before saving
+   */
+  detectConfigConflicts(config: Partial<ToolControlConfig>): string[] {
+    const warnings: string[] = [];
+    if (config.status === 'DISABLED' && config.guestAllowed) {
+      warnings.push('Conflict: Tool is DISABLED but Guest Allowed is ON. Guests will still be blocked by the disabled status.');
+    }
+    if (config.status === 'DISABLED' && config.freeAllowed) {
+      warnings.push('Conflict: Tool is DISABLED but Free Users Allowed is ON. Free users will still be blocked.');
+    }
+    if (config.status === 'DISABLED' && (config.navVisible || config.searchVisible)) {
+      warnings.push('Visibility Warning: Tool is DISABLED but still visible in Navigation or Search.');
+    }
+    if (config.accessMode === 'PRO' && config.guestAllowed) {
+      warnings.push('Conflict: Pro Required is set, but Guest Allowed is ON. Unauthenticated guests cannot access Pro tools.');
+    }
+    if (config.accessMode === 'PRO' && config.freeAllowed) {
+      warnings.push('Conflict: Pro Required is set, but Free Users Allowed is ON. Standard free users will be blocked unless subscribed to Pro.');
+    }
+    if (config.status === 'BETA' && (config.betaFreeLimit === undefined || config.betaFreeLimit <= 0)) {
+      warnings.push('Beta Warning: Free trial quota is set to 0. Free users will immediately be blocked upon launch.');
+    }
+    return warnings;
+  }
+
+  /**
+   * Calculates real-time impact preview of proposed tool access changes
+   */
+  calculateImpactSummary(
+    toolKey: string,
+    updates: Partial<ToolControlConfig>,
+    currentConfig?: ToolControlConfig | null
+  ): ToolChangeImpactSummary {
+    const current = currentConfig || MockStorageProvider.getToolAccessConfigs()[toolKey];
+    const isDisabling = updates.status === 'DISABLED' && current?.status !== 'DISABLED';
+    const isEnabling = updates.status && updates.status !== 'DISABLED' && current?.status === 'DISABLED';
+    const isProLocking = updates.accessMode === 'PRO' && current?.accessMode !== 'PRO';
+    const isGuestBlocking = updates.guestAllowed === false && current?.guestAllowed === true;
+    const isGuestAllowing = updates.guestAllowed === true && current?.guestAllowed === false;
+
+    let usersAffected = 'Low (~0-5 active sessions)';
+    if (isDisabling) usersAffected = 'High: All users will be immediately blocked from launching this tool';
+    else if (isProLocking) usersAffected = 'Medium: All guest and free users will be prompted to upgrade to Pro';
+    else if (isGuestBlocking) usersAffected = 'Medium: Unauthenticated visitors will be prompted to sign in';
+    else if (isEnabling || isGuestAllowing) usersAffected = 'Positive: Tool becomes immediately discoverable and usable';
+
+    const navbarImpact = (updates.navVisible === false || updates.status === 'DISABLED')
+      ? 'Hidden from top navigation bar and category dropdowns'
+      : 'Visible in top navigation bar and category dropdowns';
+
+    const toolPageImpact = updates.status === 'DISABLED'
+      ? 'Access halted; displays disabled banner with contact link'
+      : updates.status === 'MAINTENANCE'
+      ? `Displays maintenance banner: "${updates.maintenanceMessage || 'Under scheduled maintenance'}"`
+      : 'Fully accessible for eligible user tiers';
+
+    const searchImpact = updates.searchVisible === false
+      ? 'Excluded from global search index and command palette'
+      : 'Searchable in command bar and tool search';
+
+    const apiImpact = updates.status === 'DISABLED'
+      ? 'All API requests rejected with HTTP 403 (tool_disabled)'
+      : updates.accessMode === 'PRO'
+      ? 'Requires authenticated Pro user bearer token'
+      : 'Standard rate-limited API access';
+
+    const freeImpact = updates.accessMode === 'PRO'
+      ? 'Blocked: Pro subscription required'
+      : updates.freeAllowed === false
+      ? 'Blocked by administrator access rule'
+      : updates.status === 'BETA'
+      ? `Trial limit: ${updates.betaFreeLimit ?? current?.betaFreeLimit ?? 10} free uses before requiring Pro`
+      : 'Unlimited free access';
+
+    const proImpact = updates.status === 'DISABLED'
+      ? 'Blocked (tool is disabled)'
+      : 'Unlimited access with priority client/server execution';
+
+    const warnings = this.detectConfigConflicts({ ...(current || {}), ...updates });
+
+    return {
+      toolKey,
+      usersAffected,
+      navbarImpact,
+      toolPageImpact,
+      searchImpact,
+      apiImpact,
+      freeImpact,
+      proImpact,
+      warnings,
+    };
   }
 
   /**
@@ -824,6 +1053,14 @@ export class ToolAccessService {
           accessMode,
           betaEnabled,
           betaFreeLimit,
+          guestAllowed: cfg?.guestAllowed ?? (accessMode === 'FREE' && status !== 'DISABLED'),
+          freeAllowed: cfg?.freeAllowed ?? (status !== 'DISABLED'),
+          proAllowed: cfg?.proAllowed ?? (status !== 'DISABLED'),
+          featured: cfg?.featured ?? Boolean(tool.badge === 'Popular'),
+          navVisible: cfg?.navVisible ?? (status !== 'DISABLED'),
+          searchVisible: cfg?.searchVisible ?? true,
+          sortOrder: cfg?.sortOrder ?? 0,
+          feedbackPromptEnabled: cfg?.feedbackPromptEnabled ?? true,
           totalUses,
           authenticatedUses,
           guestUses,

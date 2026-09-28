@@ -34,24 +34,66 @@ export interface ToolControlConfig {
   betaEnabled: boolean;
   betaFreeLimit: number;
   proRequired: boolean;
+  guestAllowed?: boolean;
+  freeAllowed?: boolean;
+  proAllowed?: boolean;
+  featured?: boolean;
+  navVisible?: boolean;
+  searchVisible?: boolean;
+  sortOrder?: number;
+  feedbackPromptEnabled?: boolean;
   maintenanceMessage?: string;
   rolloutPercentage?: number;
   maxP95DurationMs?: number;
   maxErrorRatePct?: number;
   workerMode: ToolWorkerMode;
   processingType: ToolProcessingType;
+  version?: number;
   updatedAt: string;
   updatedBy: string;
+}
+
+export interface ToolAccessAuditLog {
+  id: string;
+  toolKey: string;
+  toolName: string;
+  version: number;
+  changedBy: string;
+  timestamp: string;
+  reason?: string;
+  previousConfig: Partial<ToolControlConfig>;
+  newConfig: Partial<ToolControlConfig>;
+}
+
+export interface ToolChangeImpactSummary {
+  toolKey: string;
+  usersAffected: string;
+  navbarImpact: string;
+  toolPageImpact: string;
+  searchImpact: string;
+  apiImpact: string;
+  freeImpact: string;
+  proImpact: string;
+  warnings: string[];
 }
 
 export interface ToolTelemetryMetric {
   toolKey: string;
   displayName: string;
   category: string;
+  description?: string;
   status: ToolOperationalStatus;
   accessMode: ToolAccessTier;
   betaEnabled: boolean;
   betaFreeLimit: number;
+  guestAllowed?: boolean;
+  freeAllowed?: boolean;
+  proAllowed?: boolean;
+  featured?: boolean;
+  navVisible?: boolean;
+  searchVisible?: boolean;
+  sortOrder?: number;
+  feedbackPromptEnabled?: boolean;
   totalUses: number;
   authenticatedUses: number;
   guestUses: number;
@@ -67,6 +109,7 @@ export interface ToolTelemetryMetric {
   health: ToolHealthStatus;
   workerMode: ToolWorkerMode;
   processingType: ToolProcessingType;
+  version?: number;
   conversionsCount?: number;
   limitReachedUsers?: number;
 }

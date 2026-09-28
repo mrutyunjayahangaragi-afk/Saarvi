@@ -55,21 +55,68 @@ async function extractPageItems(page: pdfjsLib.PDFPageProxy): Promise<RawPdfText
 }
 
 /**
+ * Formats extracted text value safely:
+ * - Preserves numbers with commas (e.g. 1,250)
+ * - Preserves leading zeros (e.g. 0123)
+ * - Preserves dates, currencies, percentages
+ * - Converts pure integers/floats to numbers for native Excel calculation
+ */
+function parseCellValue(str: string): string | number {
+  const trimmed = str.trim();
+  if (!trimmed) return "";
+
+  // 1. Leading zeros (e.g. "0123", "007", phone numbers, employee codes)
+  if (/^0\d+/.test(trimmed) && trimmed.length > 1) {
+    return trimmed;
+  }
+
+  // 2. Dates (e.g. 2026-09-28, 28/09/2026, 09/28/2026)
+  if (/^\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  // 3. Formatted numbers with commas (e.g. 1,250 or 1,250,500.50)
+  if (/^[-+]?(\d{1,3}(,\d{3})+)(\.\d+)?$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  // 4. Currency and percentages ($100, ₹500, 25%)
+  if (/^[$€£₹¥]?\s*[-+]?\d+(\.\d+)?%?$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  // 5. Clean plain integer or floating point number
+  if (/^[-+]?\d+(\.\d+)?$/.test(trimmed)) {
+    const num = Number(trimmed);
+    if (!isNaN(num) && isFinite(num)) {
+      return num;
+    }
+  }
+
+  return trimmed;
+}
+
+/**
  * Detects whether a set of text items forms a valid tabular structure,
- * and compiles it into structured rows and column cells.
+ * and compiles it into structured rows and column cells using adaptive clustering.
  */
 function extractTableFromItems(items: RawPdfTextItem[]): (string | number | boolean | null)[][] | null {
   if (items.length < 4) return null;
 
-  // 1. Group items into rows by Y coordinate (tolerance 4 points)
+  // 1. Group items into rows using adaptive vertical baseline clustering
   const rows: DetectedRow[] = [];
   const sortedItems = [...items].sort((a, b) => b.y - a.y || a.x - b.x);
 
   for (const item of sortedItems) {
-    let matchedRow = rows.find((r) => Math.abs(r.y - item.y) <= 4);
+    const tolerance = Math.max(3.5, (item.fontSize || 10) * 0.45);
+    let matchedRow = rows.find((r) => Math.abs(r.y - item.y) <= tolerance);
+
     if (!matchedRow) {
       matchedRow = { y: item.y, items: [] };
       rows.push(matchedRow);
+    } else {
+      // Centroid running average tracking
+      matchedRow.y = (matchedRow.y * matchedRow.items.length + item.y) / (matchedRow.items.length + 1);
     }
     matchedRow.items.push(item);
   }
@@ -83,59 +130,61 @@ function extractTableFromItems(items: RawPdfTextItem[]): (string | number | bool
   rows.sort((a, b) => b.y - a.y);
 
   // 2. Table detection heuristic:
-  // Must have at least 2 rows with 2 or more distinct columns
+  // Must have at least 2 rows with 2 or more distinct items
   const multiColumnRows = rows.filter((r) => r.items.length >= 2);
   if (multiColumnRows.length < 2) {
     return null;
   }
 
-  // Check if column alignments align across rows
-  // Collect all unique X start positions
-  const xPositions: number[] = [];
+  // 3. Cluster horizontal X positions to establish column boundaries
+  const allXPositions: number[] = [];
   for (const r of multiColumnRows) {
     for (const item of r.items) {
-      const existing = xPositions.find((x) => Math.abs(x - item.x) <= 15);
-      if (existing === undefined) {
-        xPositions.push(item.x);
-      }
+      allXPositions.push(item.x);
     }
   }
-  xPositions.sort((a, b) => a - b);
+  allXPositions.sort((a, b) => a - b);
 
-  if (xPositions.length < 2) {
+  const columnAnchors: number[] = [];
+  const colClusterTolerance = 18;
+
+  for (const x of allXPositions) {
+    const last = columnAnchors[columnAnchors.length - 1];
+    if (last === undefined || x - last > colClusterTolerance) {
+      columnAnchors.push(x);
+    }
+  }
+
+  if (columnAnchors.length < 2) {
     return null;
   }
 
-  // 3. Construct dense 2D grid
+  // 4. Construct dense 2D grid
   const tableData: (string | number | boolean | null)[][] = [];
 
   for (const row of rows) {
-    // If a row has only 1 item and its length is very long (> 80 chars), it is likely body prose, skip or include as full-width
-    const rowCells: (string | number | null)[] = new Array(xPositions.length).fill(null);
+    const rowCells: (string | number | null)[] = new Array(columnAnchors.length).fill(null);
     let populatedCount = 0;
 
     for (const item of row.items) {
-      // Find closest column index
+      // Find closest column anchor
       let bestColIdx = 0;
       let minDiff = Infinity;
-      for (let c = 0; c < xPositions.length; c++) {
-        const diff = Math.abs(xPositions[c] - item.x);
+      for (let c = 0; c < columnAnchors.length; c++) {
+        const diff = Math.abs(columnAnchors[c] - item.x);
         if (diff < minDiff) {
           minDiff = diff;
           bestColIdx = c;
         }
       }
 
-      // Check if value is numeric
-      const cleanStr = item.str.replace(/,/g, "").trim();
-      const num = Number(cleanStr);
-      const isNum = cleanStr !== "" && !isNaN(num) && /^-?\d+(\.\d+)?$/.test(cleanStr);
-
+      const parsedVal = parseCellValue(item.str);
       const existingVal = rowCells[bestColIdx];
-      if (existingVal !== null && existingVal !== undefined) {
+
+      if (existingVal !== null && existingVal !== undefined && String(existingVal).trim() !== "") {
         rowCells[bestColIdx] = `${existingVal} ${item.str}`;
       } else {
-        rowCells[bestColIdx] = isNum ? num : item.str;
+        rowCells[bestColIdx] = parsedVal;
       }
       populatedCount++;
     }
@@ -165,7 +214,7 @@ function extractTableFromItems(items: RawPdfTextItem[]): (string | number | bool
 async function convertSinglePdfToXlsx(
   file: File,
   onProgress?: (pct: number) => void
-): Promise<{ filename: string; blob: Blob; originalSize: number; newSize: number }> {
+): Promise<{ filename: string; blob: Blob; originalSize: number; newSize: number; details?: Record<string, string | number> }> {
   const securityCheck = await validateInputFile(file, ["pdf"], 50 * 1024 * 1024);
   if (!securityCheck.valid) {
     throw new Error(securityCheck.error || "Invalid PDF file structure.");
@@ -212,10 +261,10 @@ async function convertSinglePdfToXlsx(
   }
 
   // As required: For PDFs with no meaningful tables:
-  // show: "This PDF does not contain a reliably detectable table."
+  // show: "This PDF does not contain a reliably detectable table. Saarvi requires structured rows and columns to generate clean Excel spreadsheets."
   // Do not generate an empty spreadsheet silently.
   if (sheets.length === 0) {
-    throw new Error("This PDF does not contain a reliably detectable table.");
+    throw new Error("This PDF does not contain a reliably detectable table. Saarvi requires structured rows and columns to generate clean Excel spreadsheets.");
   }
 
   if (onProgress) onProgress(85);
@@ -230,11 +279,21 @@ async function convertSinglePdfToXlsx(
 
   if (onProgress) onProgress(100);
 
+  const totalRows = sheets.reduce((sum, s) => sum + s.rows.length, 0);
+  const maxCols = Math.max(...sheets.map((s) => Math.max(...s.rows.map((r) => r.length), 0)), 0);
+
   return {
     filename,
     blob,
     originalSize: file.size,
     newSize: blob.size,
+    details: {
+      "Sheets": sheets.length,
+      "Total Rows Extracted": totalRows,
+      "Columns Detected": maxCols,
+      "Document Type": "Microsoft Excel (.xlsx)",
+      "Engine": "Adaptive Table Classifier v2",
+    },
   };
 }
 

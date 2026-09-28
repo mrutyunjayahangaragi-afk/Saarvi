@@ -48,7 +48,7 @@ import type {
   NotificationAuditLogRecord,
 } from '@/types/notifications-v2';
 
-import type { ToolControlConfig, UserToolUsageSummary } from '@/types/tool-control';
+import type { ToolControlConfig, ToolAccessAuditLog, UserToolUsageSummary } from '@/types/tool-control';
 
 export interface RoleAuditLogRecord {
   id: string;
@@ -111,6 +111,7 @@ const STORAGE_KEYS = {
   NOTIFICATION_SETTINGS_V2: 'saarvi_notification_settings_v2',
   // Phase 41 Tool Control Center & Beta Usage Keys
   TOOL_ACCESS_CONFIGS: 'saarvi_tool_access_configs_v1',
+  TOOL_ACCESS_AUDIT_LOGS: 'saarvi_tool_access_audit_logs_v1',
   TOOL_BETA_USAGES: 'saarvi_tool_beta_usages_v1',
   // Phase 42 Razorpay Orders Key
   PAYMENT_ORDERS: 'saarvi_payment_orders_v1',
@@ -1896,6 +1897,56 @@ export const MockStorageProvider = {
     configs[config.toolKey] = config;
     setStored(STORAGE_KEYS.TOOL_ACCESS_CONFIGS, configs);
     return config;
+  },
+
+  saveToolAccessAuditLog(log: ToolAccessAuditLog): ToolAccessAuditLog {
+    const logs = getStored<ToolAccessAuditLog[]>(STORAGE_KEYS.TOOL_ACCESS_AUDIT_LOGS, []);
+    logs.unshift(log);
+    if (logs.length > 200) logs.length = 200;
+    setStored(STORAGE_KEYS.TOOL_ACCESS_AUDIT_LOGS, logs);
+    return log;
+  },
+
+  getToolAccessAuditLogs(toolKey?: string): ToolAccessAuditLog[] {
+    const logs = getStored<ToolAccessAuditLog[]>(STORAGE_KEYS.TOOL_ACCESS_AUDIT_LOGS, []);
+    if (!toolKey) return logs;
+    return logs.filter((l) => l.toolKey === toolKey);
+  },
+
+  rollbackToolAccessConfig(toolKey: string, targetVersion: number, adminEmail: string): ToolControlConfig | null {
+    const logs = this.getToolAccessAuditLogs(toolKey);
+    const targetLog = logs.find((l) => l.version === targetVersion);
+    if (!targetLog || !targetLog.newConfig) return null;
+
+    const currentConfigs = this.getToolAccessConfigs();
+    const current = currentConfigs[toolKey];
+    const newVersion = (current?.version || 1) + 1;
+
+    const restored: ToolControlConfig = {
+      ...(targetLog.newConfig as ToolControlConfig),
+      toolKey,
+      version: newVersion,
+      updatedAt: new Date().toISOString(),
+      updatedBy: adminEmail,
+    };
+
+    currentConfigs[toolKey] = restored;
+    setStored(STORAGE_KEYS.TOOL_ACCESS_CONFIGS, currentConfigs);
+
+    const rollbackAudit: ToolAccessAuditLog = {
+      id: `audit_rollback_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      toolKey,
+      toolName: restored.displayName,
+      version: newVersion,
+      changedBy: adminEmail,
+      timestamp: restored.updatedAt,
+      reason: `Rollback to version ${targetVersion}`,
+      previousConfig: current || {},
+      newConfig: restored,
+    };
+    this.saveToolAccessAuditLog(rollbackAudit);
+
+    return restored;
   },
 
   getToolBetaUsage(userId: string, toolKey: string): StoredBetaUsage | null {

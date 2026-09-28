@@ -7,7 +7,8 @@ import {
   File as FileIcon,
   Loader2,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  Star,
 } from "lucide-react";
 import { formatBytes } from "@/lib/utils";
 import { SingleFileResult, MultiFileResult } from "@/lib/tools/types";
@@ -46,6 +47,63 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
     delaySeconds: 3,
     resultId,
   });
+
+  // Feedback prompt state (temporary_feedback_prompt = true)
+  const [feedbackRating, setFeedbackRating] = useState<number>(0);
+  const [feedbackHover, setFeedbackHover] = useState<number>(0);
+  const [feedbackComment, setFeedbackComment] = useState<string>('');
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [feedbackDismissed, setFeedbackDismissed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const dismissed = sessionStorage.getItem(`saarvi_feedback_dismissed_${resultId}`);
+      if (dismissed === 'true') {
+        setFeedbackDismissed(true);
+      }
+    }
+  }, [resultId]);
+
+  const handleDismissFeedback = () => {
+    setFeedbackDismissed(true);
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem(`saarvi_feedback_dismissed_${resultId}`, 'true');
+      } catch {}
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (feedbackRating < 1) return;
+    setFeedbackSubmitting(true);
+    try {
+      const defaultMsg = `Rated ${feedbackRating} out of 5 stars for completed file processing.`;
+      const msg = feedbackComment.trim() || defaultMsg;
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rating: feedbackRating,
+          category: feedbackRating >= 4 ? 'UX' : 'OTHER',
+          message: msg.length < 10 ? `${msg} (Tool Completed)` : msg,
+          toolSlug: targetFilename,
+          pageUrl: typeof window !== 'undefined' ? window.location.pathname : undefined,
+          temporary_feedback_prompt: true,
+        }),
+      });
+      if (res.ok) {
+        setFeedbackSubmitted(true);
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(`saarvi_feedback_dismissed_${resultId}`, 'true');
+        }
+      }
+    } catch {
+      setFeedbackSubmitted(true);
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  };
 
   // Size calculations
   const originalBytes = result.originalSize;
@@ -304,6 +362,82 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
               Not now
             </button>
           </div>
+        </div>
+      )}
+
+      {/* POST-TOOL COMPLETION FEEDBACK PROMPT (NON-BLOCKING, TEMPORARY) */}
+      {!feedbackDismissed && (
+        <div
+          data-testid="temporary-feedback-prompt"
+          className="p-4 rounded-2xl bg-slate-50/90 border border-slate-200/80 flex flex-col gap-3 text-xs shadow-2xs transition-all"
+        >
+          {feedbackSubmitted ? (
+            <div className="flex items-center gap-2 text-emerald-700 font-semibold py-1">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span>Thank you! Your feedback helps us make Saarvi faster and simpler.</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-slate-800">Was this result helpful?</span>
+                  <span className="text-[11px] text-slate-400">• Quick rating</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setFeedbackRating(star)}
+                      onMouseEnter={() => setFeedbackHover(star)}
+                      onMouseLeave={() => setFeedbackHover(0)}
+                      className="p-1 text-slate-300 hover:text-amber-400 transition-colors cursor-pointer"
+                      aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                    >
+                      <Star
+                        className={`w-4 h-4 ${
+                          (feedbackHover || feedbackRating) >= star
+                            ? 'fill-amber-400 text-amber-400'
+                            : 'text-slate-300'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {feedbackRating > 0 && (
+                <div className="space-y-2 pt-1 animate-in fade-in duration-150">
+                  <input
+                    type="text"
+                    value={feedbackComment}
+                    onChange={(e) => setFeedbackComment(e.target.value)}
+                    placeholder="Optional: What worked well or what can we improve?"
+                    maxLength={300}
+                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+                  />
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDismissFeedback}
+                      className="px-2.5 py-1 text-slate-500 hover:text-slate-700 font-medium rounded-lg text-xs cursor-pointer"
+                    >
+                      Not now
+                    </button>
+                    <button
+                      type="button"
+                      disabled={feedbackSubmitting}
+                      onClick={handleSubmitFeedback}
+                      className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-lg text-xs cursor-pointer inline-flex items-center gap-1"
+                    >
+                      {feedbackSubmitting && <Loader2 className="w-3 h-3 animate-spin" />}
+                      Send Feedback
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 

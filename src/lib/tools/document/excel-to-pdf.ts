@@ -62,7 +62,7 @@ async function convertSingleXlsxToPdf(
   file: File,
   config: ExcelToPdfConfig = {},
   onProgress?: (pct: number) => void
-): Promise<{ filename: string; blob: Blob; originalSize: number; newSize: number }> {
+): Promise<{ filename: string; blob: Blob; originalSize: number; newSize: number; details?: Record<string, string | number> }> {
   const securityCheck = await validateInputFile(file, ["xlsx"], 50 * 1024 * 1024);
   if (!securityCheck.valid) {
     throw new Error(securityCheck.error || "Invalid Excel (.xlsx) file structure.");
@@ -102,6 +102,7 @@ async function convertSingleXlsxToPdf(
   const rowPaddingY = 5;
 
   const pagesTotalAccumulator: PDFPage[] = [];
+  let detectedOrientation: "Landscape" | "Portrait" = "Portrait";
 
   for (let sIdx = 0; sIdx < targetSheets.length; sIdx++) {
     const sheet = targetSheets[sIdx];
@@ -119,6 +120,7 @@ async function convertSingleXlsxToPdf(
     } else if (config.orientation !== "landscape") {
       isLandscape = numCols > 6;
     }
+    detectedOrientation = isLandscape ? "Landscape" : "Portrait";
 
     const pageWidth = isLandscape ? 841.89 : 595.28;
     const pageHeight = isLandscape ? 595.28 : 841.89;
@@ -166,7 +168,8 @@ async function convertSingleXlsxToPdf(
       page: PDFPage,
       rowValues: (string | number | boolean | null | undefined)[],
       y: number,
-      isHeader: boolean
+      isHeader: boolean,
+      rowIndex: number = 0
     ): number => {
       const font = isHeader ? fontBold : fontRegular;
       const fSize = isHeader ? headerFontSize : fontSize;
@@ -195,6 +198,14 @@ async function convertSingleXlsxToPdf(
           width: printableWidth,
           height: rowHeight,
           color: rgb(0.94, 0.96, 0.98), // soft slate-100 header fill
+        });
+      } else if (rowIndex % 2 === 1) {
+        page.drawRectangle({
+          x: margin,
+          y: y - rowHeight,
+          width: printableWidth,
+          height: rowHeight,
+          color: rgb(0.985, 0.99, 1.0), // very soft zebra striping
         });
       }
 
@@ -272,7 +283,7 @@ async function convertSingleXlsxToPdf(
         currentY -= headerHeight;
       }
 
-      const actualHeight = drawRow(currentPage, rowData, currentY, false);
+      const actualHeight = drawRow(currentPage, rowData, currentY, false, r);
       currentY -= actualHeight;
     }
 
@@ -312,6 +323,13 @@ async function convertSingleXlsxToPdf(
     blob,
     originalSize: file.size,
     newSize: blob.size,
+    details: {
+      "Worksheets": targetSheets.length,
+      "Pages Generated": totalPages,
+      "Orientation": detectedOrientation,
+      "Document Type": "Adobe PDF Document (.pdf)",
+      "Engine": "Vector PDF Table Engine v2",
+    },
   };
 }
 

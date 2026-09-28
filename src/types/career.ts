@@ -19,7 +19,31 @@ export type ResumeTemplateId =
   | "modern-professional"
   | "executive"
   | "student-clean"
-  | "minimal";
+  | "minimal"
+  | "creative-accent"
+  | "tech-minimal"
+  | (string & {});
+
+export interface ResumeTemplateDefinition {
+  id: string;
+  name: string;
+  description: string;
+  category: "STANDARD" | "TECHNICAL" | "ACADEMIC" | "CREATIVE" | "EXECUTIVE";
+  isActive: boolean;
+  isPro: boolean;
+  isFeatured: boolean;
+  sortOrder: number;
+  primaryColor: string;
+  fontFamily: string;
+  layout: "single-column" | "two-column-left" | "two-column-right";
+  badges?: string[];
+  thumbnailPreview?: string;
+  sourceType?: "ORIGINAL" | "REFERENCE_RECREATION";
+  licenseNote?: string;
+  referenceSourceNotes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 export type CareerSkillCategory =
   | "Programming Languages"
@@ -178,6 +202,12 @@ export interface CareerProfile {
   leadership?: CareerLeadership[];
   languages?: CareerLanguage[];
   additionalInfo?: string;
+  isSample?: boolean;
+  websiteUrl?: string;
+  linkedinUrl?: string;
+  githubUrl?: string;
+  customSections?: any[];
+  createdAt?: string;
   updatedAt: string;
 }
 

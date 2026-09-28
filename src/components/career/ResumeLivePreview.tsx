@@ -7,6 +7,7 @@ import {
   ResumeTemplateId,
   ResumeSectionId,
 } from "@/types/career";
+import { resumeTemplateService } from "@/lib/services/resumeTemplateService";
 import {
   FileText,
   Printer,
@@ -36,11 +37,27 @@ export function ResumeLivePreview({
   const [zoomLevel, setZoomLevel] = useState<number>(100);
 
   const template: ResumeTemplateId = version.template || "classic-ats";
+  const templateDef = resumeTemplateService.getTemplateById(template);
   const isAtsClassic = template === "classic-ats" || template === "ats-latex";
   const isModern = template === "modern-professional";
   const isExecutive = template === "executive";
   const isStudent = template === "student-clean";
   const isMinimal = template === "minimal";
+  const isCreative = template === "creative-accent" || templateDef?.category === "CREATIVE";
+
+  const primaryColor = templateDef?.primaryColor || (
+    isModern ? "#2563eb" :
+    isExecutive ? "#1e293b" :
+    isStudent ? "#0d9488" :
+    isCreative ? "#7c3aed" :
+    "#0f172a"
+  );
+
+  const fontFamily = templateDef?.fontFamily || (
+    isExecutive ? "Georgia, Cambria, 'Times New Roman', serif" :
+    isMinimal ? "system-ui, -apple-system, sans-serif" :
+    "Inter, Helvetica, Arial, sans-serif"
+  );
 
   // Template accent color classes & inline styles
   const accentTextClass = isModern
@@ -49,6 +66,8 @@ export function ResumeLivePreview({
     ? "text-slate-900"
     : isStudent
     ? "text-teal-700"
+    : isCreative
+    ? "text-purple-700"
     : "text-slate-900";
 
   const dividerClass = isMinimal
@@ -93,15 +112,17 @@ export function ResumeLivePreview({
     if (profile.location && !isAtsClassic) {
       list.push({ label: profile.location });
     }
-    if (profile.linkedin) {
-      const url = profile.linkedin.startsWith("http") ? profile.linkedin : `https://${profile.linkedin}`;
+    const linkedinVal = profile.linkedin || profile.linkedinUrl;
+    if (linkedinVal) {
+      const url = linkedinVal.startsWith("http") ? linkedinVal : `https://${linkedinVal}`;
       list.push({ label: "LinkedIn", url, isLink: true });
     }
-    if (profile.github) {
-      const url = profile.github.startsWith("http") ? profile.github : `https://${profile.github}`;
+    const githubVal = profile.github || profile.githubUrl;
+    if (githubVal) {
+      const url = githubVal.startsWith("http") ? githubVal : `https://${githubVal}`;
       list.push({ label: "GitHub", url, isLink: true });
     }
-    const portfolioUrl = profile.portfolio || profile.website;
+    const portfolioUrl = profile.portfolio || profile.website || profile.websiteUrl;
     if (portfolioUrl) {
       const url = portfolioUrl.startsWith("http") ? portfolioUrl : `https://${portfolioUrl}`;
       list.push({ label: "Portfolio", url, isLink: true });
@@ -130,6 +151,11 @@ export function ResumeLivePreview({
           <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-600 border border-slate-200 capitalize">
             {isAtsClassic ? "ATS Classic" : template.replace("-", " ")}
           </span>
+          {profile.isSample && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-300 print:hidden">
+              Sample Preview
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -200,6 +226,7 @@ export function ResumeLivePreview({
             style={{
               fontSize: "12px",
               lineHeight: "1.45",
+              fontFamily,
             }}
           >
             {/* Header: Name & Title */}

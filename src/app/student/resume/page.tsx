@@ -19,7 +19,16 @@ import {
   CareerAchievement,
   ResumeValidationResult,
   JobMatchResult,
+  ResumeTemplateDefinition,
 } from "@/types/career";
+import {
+  SAMPLE_RESUME_PROFILE,
+  createSampleProfile,
+  createEmptyUserProfile,
+  isSampleProfile,
+  RESUME_PLACEHOLDERS,
+} from "@/lib/services/resumeSampleData";
+import { resumeTemplateService } from "@/lib/services/resumeTemplateService";
 import {
   careerService,
   ALL_SKILL_CATEGORIES,
@@ -137,6 +146,22 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
   const [mobileWorkflow, setMobileWorkflow] = useState<"editor" | "preview" | "ats" | "export">("editor");
   const [showReorderPanel, setShowReorderPanel] = useState(false);
 
+  // Dynamic template catalog from template service / API
+  const [availableTemplates, setAvailableTemplates] = useState<ResumeTemplateDefinition[]>(() =>
+    resumeTemplateService.getActiveTemplates()
+  );
+
+  useEffect(() => {
+    fetch("/api/career/templates")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.templates) && data.templates.length > 0) {
+          setAvailableTemplates(data.templates);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // PDF & LaTeX Export States
   const [exporting, setExporting] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -172,7 +197,19 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
     async function loadData() {
       try {
         const p = await careerService.getOrCreateProfile();
-        setProfile(p);
+        const hasContent = Boolean(
+          p.fullName?.trim() ||
+          (p.education && p.education.length > 0) ||
+          (p.experience && p.experience.length > 0) ||
+          (p.projects && p.projects.length > 0) ||
+          (p.skills && p.skills.length > 0)
+        );
+
+        if (!hasContent) {
+          setProfile(createSampleProfile());
+        } else {
+          setProfile(p);
+        }
 
         let vList = await academicStorage.getAllResumeVersions();
         if (vList.length === 0) {
@@ -193,6 +230,33 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
     }
     loadData();
   }, []);
+
+  const handleReplaceWithMyInfo = async () => {
+    try {
+      const savedProfile = await careerService.getOrCreateProfile();
+      const hasSavedReal = Boolean(
+        savedProfile.fullName?.trim() && !isSampleProfile(savedProfile)
+      );
+
+      if (hasSavedReal) {
+        setProfile(savedProfile);
+        setNotice("Restored your saved profile details.");
+      } else {
+        const emptyProfile = createEmptyUserProfile(savedProfile?.id || "user_career_profile");
+        setProfile(emptyProfile);
+        await academicStorage.saveCareerProfile(emptyProfile);
+        setNotice("Ready! Enter your information below. Placeholders will guide you.");
+      }
+      setActiveTab("contact");
+    } catch (err) {
+      console.error("Failed to replace sample profile:", err);
+    }
+  };
+
+  const handleLoadSampleResume = () => {
+    setProfile(createSampleProfile());
+    setNotice("Loaded realistic sample resume (Alex Johnson, Software Engineer).");
+  };
 
   const activeVersion = useMemo(() => {
     return versions.find((v) => v.id === activeVersionId) || versions[0] || null;
@@ -1119,35 +1183,104 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
         </div>
 
         {/* Template Selector Banner */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-6">
-          <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-3">
-            Select Professional Template
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            {TEMPLATES.map((tmpl) => {
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs mb-6">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+                Select Professional Template
+              </label>
+              <span className="text-[11px] text-slate-400 font-medium">
+                Data is preserved automatically across templates
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleLoadSampleResume}
+                className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/50 transition-colors flex items-center gap-1.5 cursor-pointer"
+                title="Preview this template with realistic completed sample resume data"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                Preview with Sample Data
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+            {availableTemplates.map((tmpl) => {
               const isSelected = activeVersion.template === tmpl.id;
+              const badge = tmpl.badges?.[0] || (tmpl.isPro ? "PRO" : tmpl.category);
               return (
                 <button
                   key={tmpl.id}
-                  onClick={() => updateActiveVersion((v) => ({ ...v, template: tmpl.id }))}
-                  className={`p-3 rounded-lg text-left border transition-all ${
+                  onClick={() => {
+                    updateActiveVersion((v) => ({ ...v, template: tmpl.id }));
+                    if (!profile?.fullName?.trim()) {
+                      setProfile(createSampleProfile());
+                    }
+                  }}
+                  className={`p-3 rounded-xl text-left border transition-all cursor-pointer ${
                     isSelected
-                      ? "border-blue-600 bg-blue-50/60 ring-2 ring-blue-500/20"
-                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                      ? "border-blue-600 bg-blue-50/70 ring-2 ring-blue-500/20 shadow-xs"
+                      : "border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-semibold text-slate-900">{tmpl.name}</span>
-                    <span className="text-[10px] uppercase font-bold tracking-wide px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                      {tmpl.badge}
+                  <div className="flex items-center justify-between mb-1 gap-1">
+                    <span className="text-xs font-bold text-slate-900 truncate">{tmpl.name}</span>
+                    <span className="text-[9px] uppercase font-bold tracking-wide px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 shrink-0">
+                      {badge}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 line-clamp-2">{tmpl.description}</p>
+                  <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">{tmpl.description}</p>
                 </button>
               );
             })}
           </div>
         </div>
+
+        {/* Sample Profile Active Notice Banner */}
+        {isSampleProfile(profile) && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50/60 p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-200">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-amber-100 text-amber-800 shrink-0 mt-0.5">
+                <Sparkles className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="text-sm font-bold text-amber-950">
+                    You're viewing sample information
+                  </h4>
+                  <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 border border-amber-300">
+                    Alex Johnson Demo
+                  </span>
+                </div>
+                <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
+                  This realistic sample demonstrates layout, spacing, and typography. Ready to add your own experience?
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+              <button
+                onClick={handleReplaceWithMyInfo}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Replace with My Information
+              </button>
+              <button
+                onClick={() => {
+                  if (profile) {
+                    updateProfile((p) => ({ ...p, isSample: false }));
+                    setNotice("Watermark cleared. You can edit this draft directly.");
+                  }
+                }}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-white border border-amber-300 hover:bg-amber-100/50 text-amber-900 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+                title="Keep sample text as initial template draft"
+              >
+                Edit Sample
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Mobile Workflow Bar (< md screens: 320px - 767px) */}
         <div className="md:hidden bg-white rounded-xl border border-slate-200 p-1.5 mb-6 shadow-sm sticky top-16 z-20">
@@ -1419,7 +1552,7 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
                         type="text"
                         value={profile.fullName}
                         onChange={(e) => updateProfile((p) => ({ ...p, fullName: e.target.value }))}
-                        placeholder="Your Name"
+                        placeholder="e.g. Alex Johnson"
                         className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       />
                     </div>
@@ -1431,7 +1564,7 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
                         type="text"
                         value={profile.professionalTitle}
                         onChange={(e) => updateProfile((p) => ({ ...p, professionalTitle: e.target.value }))}
-                        placeholder="e.g. Computer Science Student / Software Developer"
+                        placeholder="e.g. Software Engineer"
                         className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       />
                     </div>
@@ -1446,7 +1579,7 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
                         type="email"
                         value={profile.email}
                         onChange={(e) => updateProfile((p) => ({ ...p, email: e.target.value }))}
-                        placeholder="name@university.edu"
+                        placeholder="e.g. alex.johnson@example.com"
                         className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       />
                     </div>
@@ -1458,7 +1591,7 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
                         type="tel"
                         value={profile.phone}
                         onChange={(e) => updateProfile((p) => ({ ...p, phone: e.target.value }))}
-                        placeholder="+91 98765 43210"
+                        placeholder="e.g. +91 98765 43210"
                         className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       />
                     </div>
@@ -1471,7 +1604,7 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
                         type="text"
                         value={profile.location}
                         onChange={(e) => updateProfile((p) => ({ ...p, location: e.target.value }))}
-                        placeholder="Bengaluru, Karnataka"
+                        placeholder="e.g. Bengaluru, India"
                         className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       />
                     </div>
@@ -1480,8 +1613,8 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
                       <input
                         type="text"
                         value={profile.linkedin || ""}
-                        onChange={(e) => updateProfile((p) => ({ ...p, linkedin: e.target.value }))}
-                        placeholder="linkedin.com/in/username"
+                        onChange={(e) => updateProfile((p) => ({ ...p, linkedin: e.target.value, linkedinUrl: e.target.value }))}
+                        placeholder="e.g. linkedin.com/in/alexjohnson"
                         className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       />
                     </div>
@@ -1490,8 +1623,8 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
                       <input
                         type="text"
                         value={profile.github || ""}
-                        onChange={(e) => updateProfile((p) => ({ ...p, github: e.target.value }))}
-                        placeholder="github.com/username"
+                        onChange={(e) => updateProfile((p) => ({ ...p, github: e.target.value, githubUrl: e.target.value }))}
+                        placeholder="e.g. github.com/alexjohnson"
                         className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       />
                     </div>

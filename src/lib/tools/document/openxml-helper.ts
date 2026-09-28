@@ -167,12 +167,36 @@ export async function buildXlsxWorkbook(sheets: XlsxSheetData[]): Promise<Uint8A
   // 8. xl/worksheets/sheet{N}.xml
   for (let sIdx = 0; sIdx < safeSheets.length; sIdx++) {
     const sheet = safeSheets[sIdx];
+
+    // Compute max column count and optimal column widths
+    let maxColCount = 0;
+    for (const row of sheet.rows) {
+      if (row) maxColCount = Math.max(maxColCount, row.length);
+    }
+
+    let colsXml = "";
+    if (maxColCount > 0) {
+      colsXml += "\n  <cols>";
+      for (let c = 0; c < maxColCount; c++) {
+        let maxLen = 8;
+        for (const row of sheet.rows) {
+          if (row && row[c] !== null && row[c] !== undefined) {
+            const len = String(row[c]).length;
+            if (len > maxLen) maxLen = Math.min(len, 60);
+          }
+        }
+        const width = Math.max(12, Math.min(maxLen + 4, 60));
+        colsXml += `\n    <col min="${c + 1}" max="${c + 1}" width="${width}" customWidth="1"/>`;
+      }
+      colsXml += "\n  </cols>";
+    }
+
     let sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <sheetViews>
     <sheetView tabSelected="${sIdx === 0 ? "1" : "0"}" workbookViewId="0"/>
   </sheetViews>
-  <sheetFormatPr defaultRowHeight="16"/>
+  <sheetFormatPr defaultRowHeight="16"/>${colsXml}
   <sheetData>`;
 
     for (let r = 0; r < sheet.rows.length; r++) {
@@ -250,12 +274,26 @@ export async function parseXlsxWorkbook(data: ArrayBuffer | Uint8Array): Promise
         }
       }
     } catch {
-      // Fallback regex if xml2js encounters non-standard markup
-      const matches = sstText.match(/<t[^>]*>([\s\S]*?)<\/t>/g);
-      if (matches) {
-        for (const m of matches) {
-          const raw = m.replace(/^<t[^>]*>/, "").replace(/<\/t>$/, "");
-          sharedStrings.push(raw.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">"));
+      // Fallback regex per <si> element to correctly preserve rich-text run groupings
+      const siMatches = sstText.match(/<si[\s\S]*?<\/si>/g);
+      if (siMatches) {
+        for (const si of siMatches) {
+          const tMatches = si.match(/<t[^>]*>([\s\S]*?)<\/t>/g);
+          let strAccum = "";
+          if (tMatches) {
+            for (const t of tMatches) {
+              const raw = t.replace(/^<t[^>]*>/, "").replace(/<\/t>$/, "");
+              strAccum += raw;
+            }
+          }
+          sharedStrings.push(
+            strAccum
+              .replace(/&amp;/g, "&")
+              .replace(/&lt;/g, "<")
+              .replace(/&gt;/g, ">")
+              .replace(/&quot;/g, '"')
+              .replace(/&apos;/g, "'")
+          );
         }
       }
     }

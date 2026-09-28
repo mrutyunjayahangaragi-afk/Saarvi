@@ -68,10 +68,10 @@ export default function ToolsPage() {
         {/* Page Heading */}
         <div className="space-y-3 text-center sm:text-left">
           <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-            All Saarvi Tools & Utilities
+            Tools for study, work and everyday tasks
           </h1>
           <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
-            Fast, private, in-browser utilities for document conversions, image processing, and student workflows. All core utilities process files locally in your browser with no account required.
+            Fast, private utilities for document conversions, academic calculations, image formatting, and career growth. In-browser local processing with no account required for guest tools.
           </p>
         </div>
 

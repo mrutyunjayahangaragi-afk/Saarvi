@@ -241,16 +241,30 @@ export default function MegaMenu({
     <div
       role="region"
       aria-label="Navigation mega menu"
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      className="absolute top-full left-0 right-0 z-50 pt-2 animate-in fade-in slide-in-from-top-1 duration-150"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          onClose();
+        }
+      }}
+      className="absolute top-full left-0 right-0 z-50 pt-1.5 pointer-events-none animate-in fade-in slide-in-from-top-1 duration-150"
     >
-      {/* Invisible hover bridge to prevent flickering while cursor crosses the gap */}
-      <div className="absolute top-0 left-0 right-0 h-3" />
+      {/* Scoped Mega Menu Surface with precise pointer event handling */}
+      <div
+        className="max-w-6xl mx-auto px-4 sm:px-6 relative pointer-events-none"
+      >
+        {/* Safe contiguous hover bridge connecting navbar trigger to card */}
+        <div
+          className="absolute -top-3 left-4 right-4 h-6 pointer-events-auto"
+          onMouseEnter={onMouseEnter}
+          aria-hidden="true"
+        />
 
-      {/* Mega Menu Surface */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl shadow-slate-900/5 p-6 sm:p-7 relative overflow-hidden">
+        <div
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
+          className="bg-white rounded-3xl border border-slate-200/90 shadow-xl shadow-slate-900/5 p-6 sm:p-7 relative overflow-hidden pointer-events-auto"
+        >
           {/* Subtle top indicator bar */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 opacity-90" />
 

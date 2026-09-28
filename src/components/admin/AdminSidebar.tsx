@@ -28,7 +28,7 @@ import {
   Wrench,
   MessageSquare,
 } from 'lucide-react';
-import { SaarviMark } from '@/components/brand/SaarviLogo';
+import { SaarviNavbarLogo, SaarviMark } from '@/components/brand/SaarviLogo';
 import { useAuth } from '@/context/AuthContext';
 
 interface AdminSidebarProps {
@@ -74,6 +74,7 @@ export default function AdminSidebar({
       title: 'CAREER',
       items: [
         { label: 'Jobs & Internships', href: '/admin/career', icon: Briefcase },
+        { label: 'Resume Templates', href: '/admin/career/templates', icon: FileText },
         { label: 'Mock Interview', href: '/admin/mock-interview', icon: Video },
       ],
     },
@@ -128,17 +129,11 @@ export default function AdminSidebar({
     <div className="flex flex-col h-full bg-white border-r border-slate-200/90 w-64 select-none">
       {/* Platform Branding Header */}
       <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-        <Link href="/admin" className="flex items-center gap-2.5 group">
-          <SaarviMark size={32} className="group-hover:scale-105 transition-transform" />
-          <div>
-            <div className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
-              <span>Saarvi</span>
-              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 font-semibold border border-blue-100">
-                Admin
-              </span>
-            </div>
-            <div className="text-[11px] text-slate-500">Control Center 3.0</div>
-          </div>
+        <Link href="/admin" className="flex items-center gap-2 group">
+          <SaarviNavbarLogo className="h-8 w-auto object-contain group-hover:opacity-90 transition-opacity" />
+          <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 font-semibold border border-blue-100 shrink-0">
+            Admin
+          </span>
         </Link>
         {mobileOpen && (
           <button

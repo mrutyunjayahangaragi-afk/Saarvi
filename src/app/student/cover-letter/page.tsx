@@ -7,6 +7,11 @@ import Footer from "@/components/layout/Footer";
 import { CoverLetterVersion, CoverLetterType } from "@/types/career";
 import { academicStorage } from "@/lib/academic/storage/academic-db";
 import { careerService } from "@/lib/services/careerService";
+import {
+  SAMPLE_COVER_LETTER_DATA,
+  isSampleCoverLetter,
+  createSampleCoverLetterData,
+} from "@/lib/services/resumeSampleData";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import {
   FileText,
@@ -22,6 +27,10 @@ import {
   Trash2,
   Download,
   ShieldCheck,
+  Info,
+  AlertTriangle,
+  X,
+  Edit3,
 } from "lucide-react";
 
 const COVER_LETTER_TYPES: Array<{ type: CoverLetterType; label: string; desc: string }> = [
@@ -41,26 +50,26 @@ function createDefaultCoverLetter(
   userLoc: string = ""
 ): CoverLetterVersion {
   const now = new Date().toISOString();
+  const sample = SAMPLE_COVER_LETTER_DATA;
   return {
     id: `cl_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     name: `${COVER_LETTER_TYPES.find((t) => t.type === type)?.label || "General"} Cover Letter`,
     type,
-    fullName: userName,
-    email: userEmail,
-    phone: userPhone,
-    location: userLoc,
+    fullName: userName || sample.fullName,
+    email: userEmail || sample.email,
+    phone: userPhone || sample.phone,
+    location: userLoc || sample.location,
     date: now.split("T")[0],
-    recipientName: "Hiring Manager",
-    recipientTitle: "Engineering Lead",
-    companyName: "",
-    companyAddress: "",
-    targetRole: type === "frontend-developer" ? "Frontend Developer" : "Software Engineer",
-    opening: "",
-    bodyParagraph1: "",
-    bodyParagraph2: "",
-    skillsHighlight: "",
-    closing:
-      "Thank you for your time and consideration. I welcome the opportunity to discuss how my technical background, enthusiasm, and commitment to software quality align with your team's mission. I look forward to hearing from you.",
+    recipientName: sample.recipientName,
+    recipientTitle: sample.recipientTitle,
+    companyName: sample.companyName,
+    companyAddress: sample.companyAddress,
+    targetRole: type === "frontend-developer" ? "Frontend Developer" : sample.targetRole,
+    opening: sample.opening,
+    bodyParagraph1: sample.bodyParagraph1,
+    bodyParagraph2: sample.bodyParagraph2,
+    skillsHighlight: sample.skillsHighlight,
+    closing: sample.closing,
     template: "classic",
     createdAt: now,
     updatedAt: now,
@@ -77,6 +86,9 @@ export default function CoverLetterPage() {
   const [exporting, setExporting] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+
+  // Sample Safety Confirmation Modal state
+  const [safetyModalOpen, setSafetyModalOpen] = useState(false);
 
   // Load stored letters & career profile
   useEffect(() => {
@@ -111,6 +123,12 @@ export default function CoverLetterPage() {
   const activeLetter = useMemo(() => {
     return letters.find((l) => l.id === activeLetterId) || letters[0] || null;
   }, [letters, activeLetterId]);
+
+  // Is active letter displaying demonstration sample data?
+  const isSampleActive = useMemo(() => {
+    if (!activeLetter) return false;
+    return isSampleCoverLetter(activeLetter);
+  }, [activeLetter]);
 
   const updateActiveLetter = useCallback(
     async (updater: (prev: CoverLetterVersion) => CoverLetterVersion) => {
@@ -175,9 +193,37 @@ export default function CoverLetterPage() {
     setTimeout(() => setSavingNotice(null), 2500);
   };
 
+  // Build with this template action (replace sample personal info with user profile)
+  const handleBuildWithThisTemplate = async () => {
+    const profile = await careerService.getOrCreateProfile();
+    updateActiveLetter((l) => ({
+      ...l,
+      fullName: profile.fullName || "",
+      email: profile.email || "",
+      phone: profile.phone || "",
+      location: profile.location || "",
+      companyName: "",
+      recipientName: "Hiring Manager",
+      recipientTitle: "Engineering Lead",
+      companyAddress: "",
+    }));
+    setSavingNotice("Sample info cleared. Enter your details below.");
+    setTimeout(() => setSavingNotice(null), 3000);
+  };
+
+  // Check safety before export
+  const handleExportClick = () => {
+    if (isSampleActive) {
+      setSafetyModalOpen(true);
+      return;
+    }
+    executeExportPDF();
+  };
+
   // Vector PDF export via pdf-lib with 3-second countdown and single auto-download
-  const handleExportPDF = async () => {
+  const executeExportPDF = async () => {
     if (!activeLetter) return;
+    setSafetyModalOpen(false);
     setExporting(true);
     setDownloadUrl(null);
 
@@ -220,29 +266,19 @@ export default function CoverLetterPage() {
           font: fontRegular,
           color: rgb(0.3, 0.3, 0.3),
         });
-        curY -= 12;
+        curY -= 20;
       }
 
-      curY -= 8;
-      page.drawLine({
-        start: { x: margin, y: curY },
-        end: { x: margin + maxWidth, y: curY },
-        thickness: 0.75,
-        color: rgb(0.8, 0.8, 0.8),
+      // Date
+      page.drawText(activeLetter.date || new Date().toISOString().split("T")[0], {
+        x: margin,
+        y: curY,
+        size: 9,
+        font: fontRegular,
       });
       curY -= 20;
 
-      // Date
-      page.drawText(activeLetter.date || new Date().toLocaleDateString(), {
-        x: margin,
-        y: curY,
-        size: 10,
-        font: fontRegular,
-        color: rgb(0.2, 0.2, 0.2),
-      });
-      curY -= 18;
-
-      // Recipient
+      // Recipient Block
       if (activeLetter.recipientName) {
         page.drawText(activeLetter.recipientName, { x: margin, y: curY, size: 10, font: fontBold });
         curY -= 13;
@@ -386,7 +422,7 @@ export default function CoverLetterPage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between pb-6 border-b border-slate-200 gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Cover Letter Builder</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Cover Letter Builder 2.0</h1>
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
                 <ShieldCheck className="w-3.5 h-3.5 mr-1" />
                 Local-First
@@ -400,16 +436,16 @@ export default function CoverLetterPage() {
           <div className="flex flex-wrap items-center gap-2.5">
             <button
               onClick={handlePopulateTemplateCopy}
-              className="inline-flex items-center px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 shadow-sm transition-colors"
+              className="inline-flex items-center px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 shadow-2xs transition-colors cursor-pointer"
             >
               <Sparkles className="w-4 h-4 mr-1.5 text-blue-600" />
               Structured Draft Assistance
             </button>
 
             <button
-              onClick={handleExportPDF}
+              onClick={handleExportClick}
               disabled={exporting}
-              className="inline-flex items-center px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm transition-colors disabled:opacity-50"
+              className="inline-flex items-center px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
             >
               <FileDown className="w-4 h-4 mr-1.5" />
               {exporting
@@ -422,7 +458,7 @@ export default function CoverLetterPage() {
             {downloadUrl && (
               <button
                 onClick={handleDownloadAgain}
-                className="inline-flex items-center px-3 py-2 text-xs sm:text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                className="inline-flex items-center px-3 py-2 text-xs sm:text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors cursor-pointer"
               >
                 <Download className="w-4 h-4 mr-1" />
                 Download Again
@@ -431,9 +467,38 @@ export default function CoverLetterPage() {
           </div>
         </div>
 
+        {/* Sample Demonstration Banner */}
+        {isSampleActive && (
+          <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-4 my-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                <Info className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-amber-900 block">
+                  You are previewing completed demonstration sample data
+                </span>
+                <span className="text-[11px] text-amber-700 block mt-0.5">
+                  This realistic sample demonstrates typography and spacing. Replace fields below or click &quot;Build with this template&quot; to begin editing with your own credentials.
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleBuildWithThisTemplate}
+                className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs transition shadow-2xs cursor-pointer flex items-center gap-1.5"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Build with this template</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Top Control Bar: Version Selector & Types */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 my-6">
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm sm:col-span-2">
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs sm:col-span-2">
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Cover Letter Version
@@ -441,17 +506,17 @@ export default function CoverLetterPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    const name = prompt("Enter version name (e.g., 'Google Internship', 'Frontend Role'):");
+                    const name = prompt("Enter version name (e.g., 'Acme Internship', 'Frontend Role'):");
                     if (name) handleCreateNewLetter("company-specific");
                   }}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-medium inline-flex items-center"
+                  className="text-xs text-blue-600 hover:text-blue-700 font-bold inline-flex items-center cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5 mr-0.5" /> New Version
                 </button>
                 {letters.length > 1 && (
                   <button
                     onClick={() => handleDeleteLetter(activeLetter.id)}
-                    className="text-xs text-red-600 hover:text-red-700"
+                    className="text-xs text-red-600 hover:text-red-700 cursor-pointer"
                     title="Delete Draft"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -463,7 +528,7 @@ export default function CoverLetterPage() {
             <select
               value={activeLetter.id}
               onChange={(e) => setActiveLetterId(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              className="w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
             >
               {letters.map((l) => (
                 <option key={l.id} value={l.id}>
@@ -473,14 +538,14 @@ export default function CoverLetterPage() {
             </select>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs">
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-2">
               Letter Type
             </label>
             <select
               value={activeLetter.type}
               onChange={(e) => updateActiveLetter((l) => ({ ...l, type: e.target.value as CoverLetterType }))}
-              className="w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-lg px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              className="w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
             >
               {COVER_LETTER_TYPES.map((t) => (
                 <option key={t.type} value={t.type}>
@@ -490,18 +555,18 @@ export default function CoverLetterPage() {
             </select>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs">
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-2">
-              Template
+              Template Design
             </label>
             <div className="flex gap-2">
               {(["classic", "modern", "minimal"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => updateActiveLetter((l) => ({ ...l, template: t }))}
-                  className={`flex-1 py-1.5 text-xs font-medium rounded border capitalize transition-colors ${
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-xl border capitalize transition-colors cursor-pointer ${
                     activeLetter.template === t
-                      ? "bg-blue-50 border-blue-600 text-blue-700 font-semibold"
+                      ? "bg-blue-50 border-blue-600 text-blue-700 font-bold"
                       : "border-slate-200 text-slate-600 hover:bg-slate-50"
                   }`}
                 >
@@ -515,7 +580,7 @@ export default function CoverLetterPage() {
         {/* Main Editor & Live Preview */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Form Editor */}
-          <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-4">
+          <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200 p-6 shadow-2xs space-y-4">
             <h2 className="text-base font-bold text-slate-900 pb-3 border-b border-slate-100">
               Cover Letter Content
             </h2>
@@ -532,8 +597,8 @@ export default function CoverLetterPage() {
                     type="text"
                     value={activeLetter.fullName || ""}
                     onChange={(e) => updateActiveLetter((l) => ({ ...l, fullName: e.target.value }))}
-                    placeholder="Your Name"
-                    className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                    placeholder="e.g. Alex Johnson"
+                    className="w-full text-xs border border-slate-300 rounded-xl p-2.5 focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -542,8 +607,8 @@ export default function CoverLetterPage() {
                     type="email"
                     value={activeLetter.email || ""}
                     onChange={(e) => updateActiveLetter((l) => ({ ...l, email: e.target.value }))}
-                    placeholder="Your Email"
-                    className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                    placeholder="e.g. alex.johnson@example.com"
+                    className="w-full text-xs border border-slate-300 rounded-xl p-2.5 focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -554,8 +619,8 @@ export default function CoverLetterPage() {
                     type="tel"
                     value={activeLetter.phone || ""}
                     onChange={(e) => updateActiveLetter((l) => ({ ...l, phone: e.target.value }))}
-                    placeholder="Your Phone"
-                    className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                    placeholder="+91 98765 43210"
+                    className="w-full text-xs border border-slate-300 rounded-xl p-2.5 focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -564,8 +629,8 @@ export default function CoverLetterPage() {
                     type="text"
                     value={activeLetter.location || ""}
                     onChange={(e) => updateActiveLetter((l) => ({ ...l, location: e.target.value }))}
-                    placeholder="City, State"
-                    className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                    placeholder="Bengaluru, India"
+                    className="w-full text-xs border border-slate-300 rounded-xl p-2.5 focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -583,8 +648,8 @@ export default function CoverLetterPage() {
                     type="text"
                     value={activeLetter.companyName}
                     onChange={(e) => updateActiveLetter((l) => ({ ...l, companyName: e.target.value }))}
-                    placeholder="Company Name"
-                    className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                    placeholder="e.g. Acme Technologies"
+                    className="w-full text-xs border border-slate-300 rounded-xl p-2.5 focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -593,8 +658,8 @@ export default function CoverLetterPage() {
                     type="text"
                     value={activeLetter.targetRole}
                     onChange={(e) => updateActiveLetter((l) => ({ ...l, targetRole: e.target.value }))}
-                    placeholder="Job Title"
-                    className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                    placeholder="e.g. Software Engineer"
+                    className="w-full text-xs border border-slate-300 rounded-xl p-2.5 focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -606,8 +671,8 @@ export default function CoverLetterPage() {
                     type="text"
                     value={activeLetter.recipientName || ""}
                     onChange={(e) => updateActiveLetter((l) => ({ ...l, recipientName: e.target.value }))}
-                    placeholder="Hiring Manager"
-                    className="w-full text-xs border border-slate-300 rounded p-2"
+                    placeholder="e.g. Priya Sharma"
+                    className="w-full text-xs border border-slate-300 rounded-xl p-2.5"
                   />
                 </div>
                 <div>
@@ -616,8 +681,8 @@ export default function CoverLetterPage() {
                     type="text"
                     value={activeLetter.recipientTitle || ""}
                     onChange={(e) => updateActiveLetter((l) => ({ ...l, recipientTitle: e.target.value }))}
-                    placeholder="Engineering Lead"
-                    className="w-full text-xs border border-slate-300 rounded p-2"
+                    placeholder="e.g. Engineering Lead"
+                    className="w-full text-xs border border-slate-300 rounded-xl p-2.5"
                   />
                 </div>
               </div>
@@ -631,7 +696,7 @@ export default function CoverLetterPage() {
                 value={activeLetter.opening}
                 onChange={(e) => updateActiveLetter((l) => ({ ...l, opening: e.target.value }))}
                 placeholder="State the role you're applying for and why you're interested in the company..."
-                className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                className="w-full text-xs border border-slate-300 rounded-xl p-2.5 focus:ring-1 focus:ring-blue-500"
               />
             </div>
 
@@ -642,7 +707,7 @@ export default function CoverLetterPage() {
                 value={activeLetter.bodyParagraph1}
                 onChange={(e) => updateActiveLetter((l) => ({ ...l, bodyParagraph1: e.target.value }))}
                 placeholder="Highlight your key coursework, relevant engineering projects, and technical proficiencies..."
-                className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                className="w-full text-xs border border-slate-300 rounded-xl p-2.5 focus:ring-1 focus:ring-blue-500"
               />
             </div>
 
@@ -653,7 +718,7 @@ export default function CoverLetterPage() {
                 value={activeLetter.bodyParagraph2 || ""}
                 onChange={(e) => updateActiveLetter((l) => ({ ...l, bodyParagraph2: e.target.value }))}
                 placeholder="Explain why you are enthusiastic about this specific team, problem space, or mission..."
-                className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                className="w-full text-xs border border-slate-300 rounded-xl p-2.5 focus:ring-1 focus:ring-blue-500"
               />
             </div>
 
@@ -664,7 +729,7 @@ export default function CoverLetterPage() {
                 value={activeLetter.skillsHighlight || ""}
                 onChange={(e) => updateActiveLetter((l) => ({ ...l, skillsHighlight: e.target.value }))}
                 placeholder="e.g. TypeScript, React, PostgreSQL, REST APIs, Git"
-                className="w-full text-xs border border-slate-300 rounded p-2"
+                className="w-full text-xs border border-slate-300 rounded-xl p-2.5"
               />
             </div>
 
@@ -674,13 +739,13 @@ export default function CoverLetterPage() {
                 rows={2}
                 value={activeLetter.closing}
                 onChange={(e) => updateActiveLetter((l) => ({ ...l, closing: e.target.value }))}
-                className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                className="w-full text-xs border border-slate-300 rounded-xl p-2.5 focus:ring-1 focus:ring-blue-500"
               />
             </div>
           </div>
 
           {/* Right Live Preview Panel */}
-          <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col">
+          <div className="lg:col-span-5 bg-white rounded-3xl border border-slate-200 p-6 shadow-2xs flex flex-col">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-3">
               Live Preview ({activeLetter.template} template)
             </span>
@@ -741,6 +806,48 @@ export default function CoverLetterPage() {
           </div>
         </div>
       </main>
+
+      {/* Pre-Export Sample Safety Confirmation Modal */}
+      {safetyModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+        >
+          <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Sample Data Detected</h3>
+                <span className="text-[11px] text-slate-500">Pre-Export Verification</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Your cover letter appears to contain sample demonstration data (such as &quot;Alex Johnson&quot; or &quot;Acme Cloud Technologies&quot;). Would you like to edit your details or export the sample preview anyway?
+            </p>
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSafetyModalOpen(false)}
+                className="w-full sm:w-auto px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer"
+              >
+                Edit My Details
+              </button>
+              <button
+                type="button"
+                onClick={executeExportPDF}
+                className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition shadow-xs cursor-pointer"
+              >
+                Export Sample Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>
