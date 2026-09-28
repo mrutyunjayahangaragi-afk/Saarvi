@@ -14,7 +14,7 @@ import { SerpApiJobProvider } from "./providers/serpapi.ts";
 import { deduplicateJobs } from "./dedupe.ts";
 import { sortJobs } from "./ranking.ts";
 import { sanitizeSearchQuery, sanitizePagination } from "./security.ts";
-import { opportunityStore } from "../opportunities/opportunity-store.ts";
+import { opportunityStore, registerJobsCacheInvalidator } from "../opportunities/opportunity-store.ts";
 
 interface CacheEntry {
   items: JobItem[];
@@ -25,6 +25,10 @@ class JobSearchService {
   private cache = new Map<string, CacheEntry>();
   private defaultTtlMs = 15 * 60 * 1000; // 15 minutes
   private primaryProvider = new SerpApiJobProvider();
+
+  public clearCache(): void {
+    this.cache.clear();
+  }
 
   private getCacheKey(params: JobSearchParams): string {
     const q = (params.q || "").toLowerCase().trim();
@@ -97,7 +101,7 @@ class JobSearchService {
       });
 
       rawItems = approvedOpps.map((opp) => ({
-        id: `opp_${opp.id}`,
+        id: opp.id,
         title: opp.title,
         companyName: opp.companyName,
         companyLogo: opp.companyLogo,
@@ -110,14 +114,14 @@ class JobSearchService {
         skills: opp.skills,
         datePosted: opp.postedAt,
         applicationDeadline: opp.applicationDeadline || "Deadline not provided",
-        sourceName: "Verified by Saarvi",
+        sourceName: opp.verifiedByAdmin ? "Verified by Saarvi" : opp.source,
         sourceUrl: opp.sourceUrl,
         applyUrl: opp.applyUrl,
-        sourceJobId: opp.id,
-        fetchedAt: opp.discoveredAt,
-        verifiedStatus: "verified",
+        sourceJobId: opp.sourceId || opp.id,
+        fetchedAt: opp.fetchedAt || opp.discoveredAt,
+        verifiedStatus: opp.verifiedByAdmin ? "verified" : "source_checked",
         isInternship: opp.isInternship,
-        confidenceScore: 98,
+        confidenceScore: opp.confidenceScore || 98,
       }));
     } catch (err) {
       console.error("[JobSearchService] Error querying approved catalog:", err);
@@ -158,22 +162,23 @@ class JobSearchService {
   }
 
   /**
-   * Fetches single job by ID.
+   * Fetches single job by canonical ID or legacy provider ID.
+   * Never produces a false 404 for valid opportunities.
    */
   public async getJobById(id: string): Promise<JobItem | null> {
-    // Search in cache entries
-    for (const entry of this.cache.values()) {
-      const match = entry.items.find((j) => j.id === id);
-      if (match) return match;
-    }
+    if (!id) return null;
 
-    // If ID references a verified Saarvi opportunity
-    if (id.startsWith("opp_")) {
-      const cleanId = id.replace("opp_", "");
-      const opp = opportunityStore.getOpportunityById(cleanId);
-      if (opp && opp.status === "APPROVED") {
+    // 1. Direct query from canonical store
+    const opp = opportunityStore.getOpportunityById(id);
+    if (opp) {
+      const isPubliclyAvailable =
+        opp.status === "APPROVED" ||
+        opp.status === "PUBLISHED" ||
+        opp.status === "ACTIVE";
+
+      if (isPubliclyAvailable) {
         return {
-          id,
+          id: opp.id,
           title: opp.title,
           companyName: opp.companyName,
           companyLogo: opp.companyLogo,
@@ -186,16 +191,22 @@ class JobSearchService {
           skills: opp.skills,
           datePosted: opp.postedAt,
           applicationDeadline: opp.applicationDeadline || "Deadline not provided",
-          sourceName: "Verified by Saarvi",
+          sourceName: opp.verifiedByAdmin ? "Verified by Saarvi" : opp.source,
           sourceUrl: opp.sourceUrl,
           applyUrl: opp.applyUrl,
-          sourceJobId: opp.id,
-          fetchedAt: opp.discoveredAt,
-          verifiedStatus: "verified",
+          sourceJobId: opp.sourceId || opp.id,
+          fetchedAt: opp.fetchedAt || opp.discoveredAt,
+          verifiedStatus: opp.verifiedByAdmin ? "verified" : "source_checked",
           isInternship: opp.isInternship,
-          confidenceScore: 98,
+          confidenceScore: opp.confidenceScore || 98,
         };
       }
+    }
+
+    // 2. Search in cache entries
+    for (const entry of this.cache.values()) {
+      const match = entry.items.find((j) => j.id === id || j.sourceJobId === id);
+      if (match) return match;
     }
 
     return null;
@@ -203,3 +214,6 @@ class JobSearchService {
 }
 
 export const jobSearchService = new JobSearchService();
+
+// Register with cache invalidation system so bulk publish/archive immediately clears search cache
+registerJobsCacheInvalidator(() => jobSearchService.clearCache());

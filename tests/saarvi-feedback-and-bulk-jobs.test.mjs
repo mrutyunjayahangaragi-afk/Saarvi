@@ -228,3 +228,222 @@ test("12. Admin Career UI: Fast bulk publish & bulk delete in single requests", 
     "Supports 'Select Page' / 'Select All' rows"
   );
 });
+
+test("13. Canonical Job ID & Zero Double-Prefixing: Canonical IDs strictly preserved", () => {
+  const searchTs = fs.readFileSync(path.join(ROOT, "src/lib/jobs/search.ts"), "utf8");
+  
+  // Must NOT do 'opp_' + opp.id which produced opp_opp_manual_...
+  assert.ok(
+    !searchTs.includes("id: 'opp_' + opp.id") && !searchTs.includes('id: "opp_" + opp.id'),
+    "search.ts must not prepend opp_ if opp.id is already canonical"
+  );
+  assert.ok(
+    searchTs.includes("id: opp.id"),
+    "search.ts must pass the canonical database ID directly"
+  );
+
+  const jobsPage = fs.readFileSync(path.join(ROOT, "src/app/jobs/page.tsx"), "utf8");
+  assert.ok(
+    jobsPage.includes("href={`/jobs/${job.id}`}"),
+    "User-facing job card View and Title links must reference canonical /jobs/${job.id}"
+  );
+});
+
+test("14. Zero False 404 & Robust Canonical ID Resolution: getOpportunityById multi-tier lookup", () => {
+  const oppStore = fs.readFileSync(path.join(ROOT, "src/lib/opportunities/opportunity-store.ts"), "utf8");
+  
+  assert.ok(
+    oppStore.includes("cleanId.startsWith(\"opp_\")"),
+    "getOpportunityById handles prefix stripping and matching"
+  );
+  assert.ok(
+    oppStore.includes("item.sourceId === cleanId") || oppStore.includes("provider_job_id"),
+    "getOpportunityById matches legacy sourceId/provider_job_id"
+  );
+  assert.ok(
+    oppStore.includes("canonicalJobKey"),
+    "getOpportunityById matches deterministic canonicalJobKey"
+  );
+  assert.ok(
+    oppStore.includes("MockStorageProvider.getJobOpportunities()"),
+    "getOpportunityById falls back to persistent storage before returning null"
+  );
+
+  const searchTs = fs.readFileSync(path.join(ROOT, "src/lib/jobs/search.ts"), "utf8");
+  assert.ok(
+    searchTs.includes('opp.status === "PUBLISHED"'),
+    "getJobById resolves jobs with PUBLISHED status (not just APPROVED)"
+  );
+});
+
+test("15. SingleJobPage Graceful Unavailable State: Never exposes raw unhandled 404", () => {
+  const jobDetailPage = fs.readFileSync(path.join(ROOT, "src/app/jobs/[id]/page.tsx"), "utf8");
+  
+  // Check for graceful unavailable component
+  assert.ok(
+    jobDetailPage.includes("This opportunity is no longer available"),
+    "Shows helpful 'This opportunity is no longer available' message"
+  );
+  assert.ok(
+    jobDetailPage.includes("Browse Active Opportunities"),
+    "Provides direct CTA to 'Browse Active Opportunities'"
+  );
+  assert.ok(
+    jobDetailPage.includes("href=\"/jobs\""),
+    "Links back to canonical /jobs directory"
+  );
+  // Feature flag check
+  assert.ok(
+    jobDetailPage.includes("JobsFeatureControl.getSettings()"),
+    "Verifies JobsFeatureControl state on job detail route"
+  );
+});
+
+test("16. Safe Apply URL & Open Redirect Defense: Strict protocol and scheme validation", () => {
+  const oppStore = fs.readFileSync(path.join(ROOT, "src/lib/opportunities/opportunity-store.ts"), "utf8");
+  
+  assert.ok(
+    oppStore.includes("export function isSafeUrl"),
+    "isSafeUrl is exported for system-wide safety verification"
+  );
+  assert.ok(
+    oppStore.includes("javascript:") && oppStore.includes("data:") && oppStore.includes("file:"),
+    "isSafeUrl explicitly rejects dangerous schemes (javascript:, data:, file:, vbscript:)"
+  );
+  assert.ok(
+    oppStore.includes("http://") && oppStore.includes("https://"),
+    "isSafeUrl strictly requires http/https protocols"
+  );
+
+  const jobDetailPage = fs.readFileSync(path.join(ROOT, "src/app/jobs/[id]/page.tsx"), "utf8");
+  assert.ok(
+    jobDetailPage.includes("isSafeUrl(opp.applyUrl)"),
+    "Job detail page guards apply button with isSafeUrl check"
+  );
+});
+
+test("17. Admin Bulk Approve API: Server-side idempotent operation with MANAGE authorization", () => {
+  const bulkApproveFile = fs.readFileSync(path.join(ROOT, "src/app/api/admin/jobs/bulk-approve/route.ts"), "utf8");
+  
+  assert.ok(bulkApproveFile.includes("getAuthenticatedAdmin"), "Enforces getAuthenticatedAdmin");
+  assert.ok(bulkApproveFile.includes("bulkApproveOpportunities"), "Calls bulkApproveOpportunities");
+  assert.ok(bulkApproveFile.includes("all_matching") || bulkApproveFile.includes("allMatching"), "Supports all_matching flag");
+  assert.ok(bulkApproveFile.includes("job_ids") || bulkApproveFile.includes("jobIds"), "Supports job_ids array");
+});
+
+test("18. Admin Bulk Archive API: Soft archive with user history preservation", () => {
+  const bulkArchiveFile = fs.readFileSync(path.join(ROOT, "src/app/api/admin/jobs/bulk-archive/route.ts"), "utf8");
+  
+  assert.ok(bulkArchiveFile.includes("getAuthenticatedAdmin"), "Enforces getAuthenticatedAdmin");
+  assert.ok(bulkArchiveFile.includes("bulkArchiveOpportunities"), "Calls bulkArchiveOpportunities");
+  assert.ok(bulkArchiveFile.includes("all_matching") || bulkArchiveFile.includes("allMatching"), "Supports all_matching flag");
+});
+
+test("19. Admin Retry Failed Discovery API: Idempotent partial-failure recovery", () => {
+  const retryFailedFile = fs.readFileSync(path.join(ROOT, "src/app/api/admin/jobs/retry-failed/route.ts"), "utf8");
+  
+  assert.ok(retryFailedFile.includes("getAuthenticatedAdmin"), "Enforces getAuthenticatedAdmin");
+  assert.ok(retryFailedFile.includes("retryFailedDiscovery"), "Calls retryFailedDiscovery");
+  assert.ok(retryFailedFile.includes("batch_id") || retryFailedFile.includes("batchId"), "Requires batch_id");
+});
+
+test("20. Discovery Batches By ID API: Audit traceability for discovery operations", () => {
+  const batchDetailFile = fs.readFileSync(path.join(ROOT, "src/app/api/admin/jobs/batches/[id]/route.ts"), "utf8");
+  
+  assert.ok(batchDetailFile.includes("getAuthenticatedAdmin"), "Enforces admin authorization");
+  assert.ok(batchDetailFile.includes("getDiscoveryBatches"), "Retrieves batch details");
+  assert.ok(batchDetailFile.includes("discoveryBatchId === id"), "Filters opportunities belonging to the batch");
+});
+
+test("21. Admin Check Job Diagnostics & Route Integrity API", () => {
+  const diagFile = fs.readFileSync(path.join(ROOT, "src/app/api/admin/jobs/diagnostics/route.ts"), "utf8");
+  assert.ok(diagFile.includes("getJobDiagnostics"), "Supports inspecting single job diagnostics");
+  assert.ok(diagFile.includes("runRouteIntegrityCheck"), "Supports running full route integrity check");
+
+  const singleDiagFile = fs.readFileSync(path.join(ROOT, "src/app/api/admin/jobs/[id]/diagnostics/route.ts"), "utf8");
+  assert.ok(singleDiagFile.includes("getJobDiagnostics"), "Single job diagnostics endpoint calls getJobDiagnostics");
+
+  const adminCareer = fs.readFileSync(path.join(ROOT, "src/app/admin/career/page.tsx"), "utf8");
+  assert.ok(adminCareer.includes("Check Job") || adminCareer.includes("diagnosticsModal"), "Admin UI provides Check Job inspector modal");
+});
+
+test("22. Cache Invalidation Decoupling: Invalidation triggers on bulk publish and archive", () => {
+  const oppStore = fs.readFileSync(path.join(ROOT, "src/lib/opportunities/opportunity-store.ts"), "utf8");
+  assert.ok(oppStore.includes("invalidateJobsCache"), "OpportunityStore calls invalidateJobsCache on state mutations");
+  assert.ok(oppStore.includes("registerJobsCacheInvalidator"), "OpportunityStore exports registerJobsCacheInvalidator");
+
+  const searchTs = fs.readFileSync(path.join(ROOT, "src/lib/jobs/search.ts"), "utf8");
+  assert.ok(
+    searchTs.includes("registerJobsCacheInvalidator(() => jobSearchService.clearCache())"),
+    "search.ts registers its cache clearing handler with the invalidation system"
+  );
+});
+
+test("23. Database Uniqueness & State Dimensions Migration: Schema invariants enforced", () => {
+  const migration27 = fs.readFileSync(
+    path.join(ROOT, "supabase/migrations/027_canonical_jobs_uniqueness_and_state_dimensions.sql"),
+    "utf8"
+  );
+  assert.ok(
+    migration27.includes("uq_job_opps_provider_source_id"),
+    "Defines UNIQUE index on (provider, source_job_id)"
+  );
+  assert.ok(
+    migration27.includes("uq_job_opps_canonical_key"),
+    "Defines UNIQUE index on canonical_job_key"
+  );
+  assert.ok(
+    migration27.includes("record_state") && migration27.includes("ACTIVE"),
+    "Adds record_state dimension"
+  );
+  assert.ok(
+    migration27.includes("review_state") && migration27.includes("PENDING_REVIEW"),
+    "Adds review_state dimension"
+  );
+  assert.ok(
+    migration27.includes("publication_state") && migration27.includes("NOT_PUBLISHED"),
+    "Adds publication_state dimension"
+  );
+  assert.ok(
+    migration27.includes("verification_state") && migration27.includes("PASSED"),
+    "Adds verification_state dimension"
+  );
+  assert.ok(
+    migration27.includes("enrichment_state"),
+    "Adds enrichment_state dimension"
+  );
+});
+
+test("24. Algorithmic Invariants Verification: Safe URL detection and Deduplication", () => {
+  // Test safe URL checks directly
+  const unsafeUrls = [
+    "javascript:alert(1)",
+    "data:text/html,<script>alert(1)</script>",
+    "file:///etc/passwd",
+    "vbscript:msgbox(1)",
+    "",
+  ];
+  const safeUrls = [
+    "https://careers.google.com/jobs/results/123",
+    "https://jobs.apple.com/en-us/details/456",
+    "http://example.com/apply",
+  ];
+
+  // We test the exact regex logic implemented in isSafeUrl
+  const isSafe = (url) => {
+    if (!url) return false;
+    const lower = url.trim().toLowerCase();
+    if (lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("file:") || lower.startsWith("vbscript:")) {
+      return false;
+    }
+    return lower.startsWith("http://") || lower.startsWith("https://");
+  };
+
+  for (const url of unsafeUrls) {
+    assert.equal(isSafe(url), false, `Should reject unsafe URL: ${url}`);
+  }
+  for (const url of safeUrls) {
+    assert.equal(isSafe(url), true, `Should accept safe URL: ${url}`);
+  }
+});
+

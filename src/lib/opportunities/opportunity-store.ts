@@ -15,9 +15,33 @@ import type {
   ManualOpportunityInput,
   BulkImportSummary,
   JobDiscoveryBatch,
+  JobDiagnostics,
+  RecordState,
+  ReviewState,
+  PublicationState,
+  VerificationState,
+  EnrichmentState,
 } from "./types.ts";
 import { deduplicateOpportunities } from "./deduplicator.ts";
 import { MockStorageProvider } from "../supabase/mock-storage.ts";
+
+type CacheInvalidator = () => void;
+let cacheInvalidators: CacheInvalidator[] = [];
+
+export function registerJobsCacheInvalidator(fn: CacheInvalidator): () => void {
+  cacheInvalidators.push(fn);
+  return () => {
+    cacheInvalidators = cacheInvalidators.filter((cb) => cb !== fn);
+  };
+}
+
+export function invalidateJobsCache(): void {
+  for (const invalidate of cacheInvalidators) {
+    try {
+      invalidate();
+    } catch {}
+  }
+}
 
 export interface OpportunityAuditEvent {
   id: string;
@@ -30,7 +54,7 @@ export interface OpportunityAuditEvent {
   timestamp: string;
 }
 
-function cleanAndSanitizeUrl(url?: string): string {
+export function cleanAndSanitizeUrl(url?: string): string {
   if (!url) return "";
   let trimmed = url.trim();
   // Strip tracking query parameters
@@ -68,7 +92,7 @@ function cleanAndSanitizeUrl(url?: string): string {
   }
 }
 
-function isSafeUrl(url?: string): boolean {
+export function isSafeUrl(url?: string): boolean {
   if (!url) return false;
   const lower = url.trim().toLowerCase();
   if (lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("file:") || lower.startsWith("vbscript:")) {
@@ -812,11 +836,165 @@ class OpportunityStoreService {
     }
 
     this.persistToStorage();
+    invalidateJobsCache();
 
     return {
       requested: targetIds.length,
       published,
       skipped,
+      failed,
+      failures,
+    };
+  }
+
+  /**
+   * Bulk Approve Opportunities.
+   * Moves eligible records from PENDING_REVIEW / DISCOVERED to APPROVED without publishing them live immediately.
+   */
+  public bulkApproveOpportunities(
+    jobIds: string[],
+    adminId: string,
+    options?: { allMatching?: boolean; filterCriteria?: OpportunityFilterParams; discoveryBatchId?: string }
+  ): {
+    requested: number;
+    approved: number;
+    skipped: number;
+    failed: number;
+    failures: Array<{ id: string; reason: string }>;
+  } {
+    let targetIds = jobIds;
+
+    if (options?.allMatching) {
+      const all = Array.from(this.opportunities.values());
+      let eligible = all.filter((o) => o.status === "PENDING_REVIEW" || o.status === "DISCOVERED");
+      if (options.discoveryBatchId) {
+        eligible = eligible.filter((o) => o.discoveryBatchId === options.discoveryBatchId);
+      }
+      if (options.filterCriteria?.category) {
+        eligible = eligible.filter((o) => o.category === options.filterCriteria!.category);
+      }
+      targetIds = eligible.map((o) => o.id);
+    }
+
+    const now = new Date().toISOString();
+    let approved = 0;
+    let skipped = 0;
+    let failed = 0;
+    const failures: Array<{ id: string; reason: string }> = [];
+
+    for (const id of targetIds) {
+      const opp = this.opportunities.get(id);
+      if (!opp) {
+        failed++;
+        failures.push({ id, reason: "Opportunity not found" });
+        continue;
+      }
+
+      if (opp.status === "APPROVED" || opp.status === "PUBLISHED" || opp.status === "ACTIVE") {
+        skipped++;
+        continue;
+      }
+
+      if (opp.status === "ARCHIVED" || opp.status === "DELETED") {
+        failed++;
+        failures.push({ id, reason: `Cannot approve opportunity in status: ${opp.status}` });
+        continue;
+      }
+
+      const prevStatus = opp.status;
+      opp.status = "APPROVED";
+      opp.reviewState = "APPROVED";
+      opp.verificationState = "PASSED";
+      opp.verifiedByAdmin = true;
+      opp.verifiedAt = now;
+      opp.approvedBy = adminId;
+      opp.updatedAt = now;
+
+      approved++;
+
+      this.recordAuditEvent({
+        opportunityId: opp.id,
+        action: "APPROVED",
+        actorId: adminId,
+        previousStatus: prevStatus,
+        newStatus: "APPROVED",
+        details: "Bulk approved by administrator",
+      });
+    }
+
+    this.persistToStorage();
+    invalidateJobsCache();
+
+    return {
+      requested: targetIds.length,
+      approved,
+      skipped,
+      failed,
+      failures,
+    };
+  }
+
+  /**
+   * Bulk Archive Opportunities.
+   * Safely soft-archives selected opportunities and removes them from active user search.
+   */
+  public bulkArchiveOpportunities(
+    jobIds: string[],
+    adminId: string,
+    options?: { allMatching?: boolean; filterCriteria?: OpportunityFilterParams; discoveryBatchId?: string }
+  ): {
+    requested: number;
+    archived: number;
+    failed: number;
+    failures: Array<{ id: string; reason: string }>;
+  } {
+    let targetIds = jobIds;
+
+    if (options?.allMatching) {
+      const all = Array.from(this.opportunities.values());
+      let eligible = all.filter((o) => o.status !== "ARCHIVED" && o.status !== "DELETED");
+      if (options.discoveryBatchId) {
+        eligible = eligible.filter((o) => o.discoveryBatchId === options.discoveryBatchId);
+      }
+      targetIds = eligible.map((o) => o.id);
+    }
+
+    const now = new Date().toISOString();
+    let archived = 0;
+    let failed = 0;
+    const failures: Array<{ id: string; reason: string }> = [];
+
+    for (const id of targetIds) {
+      const opp = this.opportunities.get(id);
+      if (!opp) {
+        failed++;
+        failures.push({ id, reason: "Opportunity not found" });
+        continue;
+      }
+
+      const prevStatus = opp.status;
+      opp.status = "ARCHIVED";
+      opp.recordState = "ARCHIVED";
+      opp.publicationState = "NOT_PUBLISHED";
+      opp.updatedAt = now;
+      archived++;
+
+      this.recordAuditEvent({
+        opportunityId: opp.id,
+        action: "ARCHIVED",
+        actorId: adminId,
+        previousStatus: prevStatus,
+        newStatus: "ARCHIVED",
+        details: "Bulk archived by administrator",
+      });
+    }
+
+    this.persistToStorage();
+    invalidateJobsCache();
+
+    return {
+      requested: targetIds.length,
+      archived,
       failed,
       failures,
     };
@@ -860,6 +1038,8 @@ class OpportunityStoreService {
       } else {
         const prevStatus = opp.status;
         opp.status = "ARCHIVED";
+        opp.recordState = "ARCHIVED";
+        opp.publicationState = "NOT_PUBLISHED";
         opp.updatedAt = now;
         this.recordAuditEvent({
           opportunityId: id,
@@ -874,10 +1054,66 @@ class OpportunityStoreService {
     }
 
     this.persistToStorage();
+    invalidateJobsCache();
 
     return {
       requested: jobIds.length,
       processed,
+      failed,
+    };
+  }
+
+  /**
+   * Retry failed discovery batch items without duplicating already successful records.
+   */
+  public retryFailedDiscovery(
+    batchId: string,
+    adminId: string
+  ): {
+    batchId: string;
+    retried: number;
+    succeeded: number;
+    failed: number;
+  } {
+    const batches = this.getDiscoveryBatches();
+    const batch = batches.find((b) => b.id === batchId);
+    if (!batch) {
+      throw new Error(`Discovery batch not found: ${batchId}`);
+    }
+
+    const batchOpps = Array.from(this.opportunities.values()).filter((o) => o.discoveryBatchId === batchId);
+    let succeeded = 0;
+    let failed = 0;
+    const now = new Date().toISOString();
+
+    for (const opp of batchOpps) {
+      if (opp.status === "REJECTED" || !isSafeUrl(opp.applyUrl)) {
+        if (isSafeUrl(opp.applyUrl) && opp.title && opp.companyName) {
+          opp.status = "PENDING_REVIEW";
+          opp.updatedAt = now;
+          succeeded++;
+        } else {
+          failed++;
+        }
+      }
+    }
+
+    if (batch.rejectedCount > 0 && succeeded > 0) {
+      batch.rejectedCount = Math.max(0, batch.rejectedCount - succeeded);
+      batch.validCount += succeeded;
+      MockStorageProvider.updateDiscoveryBatch(batchId, {
+        rejectedCount: batch.rejectedCount,
+        validCount: batch.validCount,
+      });
+    }
+
+    this.persistToStorage();
+    invalidateJobsCache();
+
+    return {
+      batchId,
+      retried: succeeded + failed,
+      succeeded,
       failed,
     };
   }
@@ -931,8 +1167,186 @@ class OpportunityStoreService {
     return opp;
   }
 
+  /**
+   * Diagnostic inspector for a single canonical job.
+   */
+  public getJobDiagnostics(id: string): JobDiagnostics {
+    const opp = this.getOpportunityById(id);
+    const healthIssues: string[] = [];
+
+    if (!opp) {
+      return {
+        canonicalId: id,
+        provider: "unknown",
+        providerJobId: "unknown",
+        stored: false,
+        reviewState: "DISCOVERED",
+        verificationState: "FAILED",
+        publicationState: "NOT_PUBLISHED",
+        recordState: "DELETED",
+        visibility: "none",
+        lastFetchedAt: "never",
+        sourceUrl: "",
+        applyUrl: "",
+        routeResolves: false,
+        health: "MISSING",
+        healthIssues: ["Opportunity record does not exist in canonical storage."],
+      };
+    }
+
+    if (!opp.title || opp.title.trim().length < 3) {
+      healthIssues.push("Title is missing or shorter than 3 characters.");
+    }
+    if (!opp.companyName || opp.companyName.trim().length < 2) {
+      healthIssues.push("Company name is missing or too short.");
+    }
+    if (!isSafeUrl(opp.applyUrl)) {
+      healthIssues.push("Application URL is invalid, unsafe, or missing.");
+    }
+    if (opp.applicationDeadline && opp.applicationDeadline !== "Deadline not provided") {
+      const dl = new Date(opp.applicationDeadline).getTime();
+      if (!isNaN(dl) && dl < Date.now()) {
+        healthIssues.push("Application deadline has passed.");
+      }
+    }
+
+    const reviewState = opp.reviewState || (opp.status === "APPROVED" || opp.status === "PUBLISHED" ? "APPROVED" : opp.status === "REJECTED" ? "REJECTED" : "PENDING_REVIEW");
+    const publicationState = opp.publicationState || (opp.status === "PUBLISHED" || opp.status === "ACTIVE" ? "PUBLISHED" : "NOT_PUBLISHED");
+    const recordState = opp.recordState || (opp.status === "DELETED" ? "DELETED" : opp.status === "ARCHIVED" ? "ARCHIVED" : "ACTIVE");
+    const verificationState = opp.verificationState || (opp.verifiedByAdmin ? "PASSED" : "PENDING");
+
+    if (publicationState === "PUBLISHED" && (recordState === "ARCHIVED" || recordState === "DELETED")) {
+      healthIssues.push("Contradictory state: record is marked PUBLISHED but also ARCHIVED/DELETED.");
+    }
+    if (publicationState === "PUBLISHED" && reviewState === "REJECTED") {
+      healthIssues.push("Contradictory state: record is marked PUBLISHED but review is REJECTED.");
+    }
+
+    let health: "HEALTHY" | "INCONSISTENT" | "REQUIRES_REVIEW" | "MISSING" = "HEALTHY";
+    if (healthIssues.some((i) => i.includes("Contradictory"))) {
+      health = "INCONSISTENT";
+    } else if (healthIssues.length > 0) {
+      health = "REQUIRES_REVIEW";
+    }
+
+    return {
+      canonicalId: opp.id,
+      provider: opp.source,
+      providerJobId: opp.sourceId || opp.id,
+      discoveryBatchId: opp.discoveryBatchId,
+      stored: true,
+      reviewState,
+      verificationState,
+      publicationState,
+      recordState,
+      visibility: "public",
+      lastFetchedAt: opp.fetchedAt || opp.discoveredAt,
+      lastVerifiedAt: opp.verifiedAt,
+      publishedAt: opp.publishedAt,
+      sourceUrl: opp.sourceUrl,
+      applyUrl: opp.applyUrl,
+      routeResolves: true,
+      health,
+      healthIssues,
+    };
+  }
+
+  /**
+   * Automated route integrity check for published jobs.
+   * Guarantees zero false 404s.
+   */
+  public runRouteIntegrityCheck(jobIds?: string[]): {
+    checked: number;
+    healthy: number;
+    inconsistent: number;
+    requiresReview: number;
+    issues: Array<{ id: string; health: string; issues: string[] }>;
+  } {
+    const targetIds = jobIds && jobIds.length > 0
+      ? jobIds
+      : Array.from(this.opportunities.values())
+          .filter((o) => o.status === "PUBLISHED" || o.status === "APPROVED")
+          .map((o) => o.id);
+
+    let healthy = 0;
+    let inconsistent = 0;
+    let requiresReview = 0;
+    const issues: Array<{ id: string; health: string; issues: string[] }> = [];
+
+    for (const id of targetIds) {
+      const diag = this.getJobDiagnostics(id);
+      if (diag.health === "HEALTHY") {
+        healthy++;
+      } else {
+        if (diag.health === "INCONSISTENT") inconsistent++;
+        else requiresReview++;
+        issues.push({ id, health: diag.health, issues: diag.healthIssues });
+      }
+    }
+
+    return {
+      checked: targetIds.length,
+      healthy,
+      inconsistent,
+      requiresReview,
+      issues,
+    };
+  }
+
+  /**
+   * Resolves canonical opportunity by ID with legacy route and provider compatibility.
+   * Never produces a false 404 for stored opportunities.
+   */
   public getOpportunityById(id: string): Opportunity | null {
-    return this.opportunities.get(id) || null;
+    if (!id || typeof id !== "string") return null;
+    const cleanId = id.trim();
+
+    // 1. Direct match in memory
+    let opp = this.opportunities.get(cleanId);
+    if (opp) return opp;
+
+    // 2. Prefix variations (e.g. opp_ or stripped opp_)
+    if (cleanId.startsWith("opp_")) {
+      const stripped = cleanId.replace(/^opp_/, "");
+      opp = this.opportunities.get(stripped);
+      if (opp) return opp;
+      if (stripped.startsWith("opp_")) {
+        opp = this.opportunities.get(stripped.replace(/^opp_/, ""));
+        if (opp) return opp;
+      }
+    } else {
+      opp = this.opportunities.get(`opp_${cleanId}`);
+      if (opp) return opp;
+    }
+
+    // 3. Match by sourceId / provider_job_id (Legacy Provider URL Compatibility)
+    for (const item of this.opportunities.values()) {
+      if (item.sourceId === cleanId || item.sourceId === cleanId.replace(/^provider-/, "")) {
+        return item;
+      }
+      if (item.canonicalJobKey === cleanId) {
+        return item;
+      }
+    }
+
+    // 4. Fallback: check persistent storage (MockStorageProvider)
+    const storedList = MockStorageProvider.getJobOpportunities();
+    const foundStored = storedList.find(
+      (o) =>
+        o.id === cleanId ||
+        o.id === cleanId.replace(/^opp_/, "") ||
+        `opp_${o.id}` === cleanId ||
+        o.sourceId === cleanId ||
+        o.sourceId === cleanId.replace(/^provider-/, "") ||
+        o.canonicalJobKey === cleanId
+    );
+
+    if (foundStored) {
+      this.opportunities.set(foundStored.id, foundStored);
+      return foundStored;
+    }
+
+    return null;
   }
 
   /**

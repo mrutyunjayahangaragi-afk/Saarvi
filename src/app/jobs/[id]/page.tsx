@@ -4,7 +4,8 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import { opportunityStore } from "@/lib/opportunities/opportunity-store";
+import { opportunityStore, isSafeUrl } from "@/lib/opportunities/opportunity-store";
+import { JobsFeatureControl } from "@/lib/jobs/feature-control";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { SaarviMark } from "@/components/brand/SaarviLogo";
@@ -22,6 +23,7 @@ import {
   Lock,
   ArrowRight,
   Sparkles,
+  AlertCircle,
 } from "lucide-react";
 
 interface JobPageProps {
@@ -49,15 +51,42 @@ export async function generateMetadata({ params }: JobPageProps): Promise<Metada
 
 export default async function SingleJobPage({ params }: JobPageProps) {
   const { id } = await params;
+
+  // 1. Verify Jobs feature state
+  const featureSettings = JobsFeatureControl.getSettings();
+  if (!featureSettings.enabled || featureSettings.mode === "DISABLED" || !featureSettings.visible) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] flex flex-col text-slate-800">
+        <Navbar />
+        <main className="flex-1 max-w-xl mx-auto w-full px-4 sm:px-6 py-16 flex flex-col justify-center text-center space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
+            <Lock className="w-6 h-6" />
+          </div>
+          <h1 className="text-xl font-extrabold text-slate-900">
+            Jobs &amp; Internships Unavailable
+          </h1>
+          <p className="text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
+            {featureSettings.maintenance_message || "The Jobs & Internships service is currently undergoing scheduled maintenance. Please check back soon."}
+          </p>
+          <div className="pt-2">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white font-semibold text-xs hover:bg-slate-800 transition-colors shadow-xs"
+            >
+              <span>Return to Home</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // 2. Fetch canonical job by ID
   const opp = opportunityStore.getOpportunityById(id);
 
   if (!opp) {
-    notFound();
-  }
-
-  const isAvailable = opp.status === "APPROVED" || opp.status === "PUBLISHED" || opp.status === "ACTIVE";
-
-  if (!isAvailable) {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex flex-col text-slate-800">
         <Navbar />
@@ -69,7 +98,46 @@ export default async function SingleJobPage({ params }: JobPageProps) {
             This opportunity is no longer available
           </h1>
           <p className="text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
-            The listing for <span className="font-semibold text-slate-800">{opp.title}</span> at <span className="font-semibold text-slate-800">{opp.companyName}</span> has expired or been closed by administrators.
+            This opportunity listing has expired, been archived, or is no longer accepting applications.
+          </p>
+          <div className="pt-2 flex items-center justify-center gap-3">
+            <Link
+              href="/jobs"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white font-semibold text-xs hover:bg-blue-500 transition-colors shadow-xs"
+            >
+              <span>Browse Active Opportunities</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // 3. Verify record lifecycle & publication state
+  const isArchivedOrDeleted = opp.status === "ARCHIVED" || opp.status === "DELETED" || opp.recordState === "ARCHIVED" || opp.recordState === "DELETED";
+  const isExpired = opp.status === "EXPIRED" || (opp.applicationDeadline && opp.applicationDeadline !== "Deadline not provided" && new Date(opp.applicationDeadline).getTime() < Date.now());
+  const isAvailable = (opp.status === "APPROVED" || opp.status === "PUBLISHED" || opp.status === "ACTIVE") && !isArchivedOrDeleted && !isExpired;
+
+  if (!isAvailable) {
+    const heading = isExpired ? "This opportunity is no longer active" : "This opportunity is no longer available";
+    const subtext = isExpired
+      ? `The application deadline for ${opp.title} at ${opp.companyName} has passed.`
+      : `The listing for ${opp.title} at ${opp.companyName} has expired or been closed by administrators.`;
+
+    return (
+      <div className="min-h-screen bg-[#f8fafc] flex flex-col text-slate-800">
+        <Navbar />
+        <main className="flex-1 max-w-xl mx-auto w-full px-4 sm:px-6 py-16 flex flex-col justify-center text-center space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
+            <Clock className="w-6 h-6" />
+          </div>
+          <h1 className="text-xl font-extrabold text-slate-900">
+            {heading}
+          </h1>
+          <p className="text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
+            {subtext}
           </p>
           <div className="pt-2">
             <Link
@@ -166,11 +234,11 @@ export default async function SingleJobPage({ params }: JobPageProps) {
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-8 space-y-6">
         {/* Back Link */}
         <Link
-          href="/career/opportunities"
+          href="/jobs"
           className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-blue-600 transition"
         >
           <ChevronLeft className="w-4 h-4" />
-          Back to Verified Opportunities
+          Back to Opportunities
         </Link>
 
         {/* Opportunity Header Card */}
@@ -215,15 +283,21 @@ export default async function SingleJobPage({ params }: JobPageProps) {
             </div>
 
             <div className="flex items-center gap-2 sm:flex-shrink-0">
-              <a
-                href={opp.applyUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="px-6 py-3 font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-2xl shadow-sm transition flex items-center gap-2"
-              >
-                <span>Apply on Official Site</span>
-                <ExternalLink className="w-4 h-4" />
-              </a>
+              {isSafeUrl(opp.applyUrl) ? (
+                <a
+                  href={opp.applyUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="px-6 py-3 font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-2xl shadow-sm transition flex items-center gap-2"
+                >
+                  <span>Apply on Official Site</span>
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              ) : (
+                <div className="px-4 py-2.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-semibold">
+                  Application link under review
+                </div>
+              )}
             </div>
           </div>
 

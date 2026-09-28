@@ -138,6 +138,29 @@ export default function AdminCareerPage() {
   });
   const [previewResults, setPreviewResults] = useState<PreviewOpportunity[]>([]);
   const [selectedPreviewIds, setSelectedPreviewIds] = useState<Set<string>>(new Set());
+
+  // Job Diagnostics Inspector State
+  const [diagnosticsModalOpen, setDiagnosticsModalOpen] = useState(false);
+  const [diagnosticsData, setDiagnosticsData] = useState<any | null>(null);
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
+
+  const openDiagnostics = async (id: string) => {
+    setDiagnosticsModalOpen(true);
+    setDiagnosticsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/jobs/${id}/diagnostics`);
+      if (res.ok) {
+        const data = await res.json();
+        setDiagnosticsData(data.diagnostic);
+      } else {
+        setNotice("Failed to load job diagnostics.");
+      }
+    } catch (err: any) {
+      setNotice(`Diagnostics error: ${err.message}`);
+    } finally {
+      setDiagnosticsLoading(false);
+    }
+  };
   const [discoverySummary, setDiscoverySummary] = useState<{
     found: number;
     valid: number;
@@ -1420,6 +1443,16 @@ export default function AdminCareerPage() {
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
 
+                      <button
+                        type="button"
+                        onClick={() => openDiagnostics(opp.id)}
+                        className="px-2.5 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl border border-indigo-200 transition flex items-center gap-1 cursor-pointer"
+                        title="Inspect canonical job diagnostics"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Check Job</span>
+                      </button>
+
                       <a
                         href={opp.applyUrl}
                         target="_blank"
@@ -2578,6 +2611,108 @@ export default function AdminCareerPage() {
                 {isPermanentDelete ? "Permanently Delete" : "Confirm Delete"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* JOB DIAGNOSTICS INSPECTOR MODAL */}
+      {diagnosticsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-4 text-xs animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-indigo-600" />
+                <h3 className="text-sm font-bold text-slate-900">Canonical Job Diagnostics</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDiagnosticsModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {diagnosticsLoading ? (
+              <div className="py-12 text-center text-slate-400">
+                <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-600" />
+                Running canonical route &amp; database integrity check...
+              </div>
+            ) : diagnosticsData ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <span className="font-bold text-slate-700">Integrity Health:</span>
+                  <span
+                    className={`px-2.5 py-1 rounded-full font-bold text-[11px] ${
+                      diagnosticsData.health === "HEALTHY"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : diagnosticsData.health === "REQUIRES_REVIEW"
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-rose-100 text-rose-800"
+                    }`}
+                  >
+                    {diagnosticsData.health}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-slate-600">
+                  <div className="p-2.5 bg-slate-50 rounded-xl">
+                    <span className="block text-[10px] text-slate-400 uppercase font-bold">Canonical ID</span>
+                    <span className="font-mono text-slate-900 break-all">{diagnosticsData.canonicalId}</span>
+                  </div>
+                  <div className="p-2.5 bg-slate-50 rounded-xl">
+                    <span className="block text-[10px] text-slate-400 uppercase font-bold">Provider &amp; Source ID</span>
+                    <span className="font-mono text-slate-900 break-all">{diagnosticsData.provider}: {diagnosticsData.providerJobId}</span>
+                  </div>
+                  <div className="p-2.5 bg-slate-50 rounded-xl">
+                    <span className="block text-[10px] text-slate-400 uppercase font-bold">Review State</span>
+                    <span className="font-bold text-slate-800">{diagnosticsData.reviewState}</span>
+                  </div>
+                  <div className="p-2.5 bg-slate-50 rounded-xl">
+                    <span className="block text-[10px] text-slate-400 uppercase font-bold">Publication State</span>
+                    <span className="font-bold text-slate-800">{diagnosticsData.publicationState}</span>
+                  </div>
+                  <div className="p-2.5 bg-slate-50 rounded-xl">
+                    <span className="block text-[10px] text-slate-400 uppercase font-bold">Record State</span>
+                    <span className="font-bold text-slate-800">{diagnosticsData.recordState}</span>
+                  </div>
+                  <div className="p-2.5 bg-slate-50 rounded-xl">
+                    <span className="block text-[10px] text-slate-400 uppercase font-bold">Verification State</span>
+                    <span className="font-bold text-slate-800">{diagnosticsData.verificationState}</span>
+                  </div>
+                </div>
+
+                {diagnosticsData.healthIssues && diagnosticsData.healthIssues.length > 0 && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 space-y-1">
+                    <span className="font-bold block">Integrity Notices:</span>
+                    <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
+                      {diagnosticsData.healthIssues.map((issue: string, idx: number) => (
+                        <li key={idx}>{issue}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="pt-2 flex items-center justify-between">
+                  <a
+                    href={`/jobs/${diagnosticsData.canonicalId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition"
+                  >
+                    <span>Test Route (/jobs/{diagnosticsData.canonicalId})</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setDiagnosticsModalOpen(false)}
+                    className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       )}

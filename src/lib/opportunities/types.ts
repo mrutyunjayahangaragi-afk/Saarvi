@@ -12,6 +12,12 @@
 
 export type OpportunityCategory = "job" | "internship" | "scholarship" | "hackathon";
 
+export type RecordState = "ACTIVE" | "ARCHIVED" | "DELETED";
+export type ReviewState = "DISCOVERED" | "PENDING_REVIEW" | "APPROVED" | "REJECTED";
+export type PublicationState = "NOT_PUBLISHED" | "PUBLISHED" | "PAUSED";
+export type VerificationState = "PENDING" | "PASSED" | "FAILED" | "REQUIRES_REVIEW";
+export type EnrichmentState = "NOT_REQUIRED" | "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+
 export type OpportunityStatus =
   | "DISCOVERED"
   | "PENDING_REVIEW"
@@ -85,8 +91,34 @@ export interface Opportunity {
   fetchedAt?: string;
   viewsCount?: number;
   savesCount?: number;
+  recordState?: RecordState;
+  reviewState?: ReviewState;
+  publicationState?: PublicationState;
+  verificationState?: VerificationState;
+  enrichmentState?: EnrichmentState;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface JobDiagnostics {
+  canonicalId: string;
+  provider: string;
+  providerJobId: string;
+  discoveryBatchId?: string;
+  stored: boolean;
+  reviewState: ReviewState;
+  verificationState: VerificationState;
+  publicationState: PublicationState;
+  recordState: RecordState;
+  visibility: string;
+  lastFetchedAt: string;
+  lastVerifiedAt?: string | null;
+  publishedAt?: string | null;
+  sourceUrl: string;
+  applyUrl: string;
+  routeResolves: boolean;
+  health: "HEALTHY" | "INCONSISTENT" | "REQUIRES_REVIEW" | "MISSING";
+  healthIssues: string[];
 }
 
 export interface JobDiscoveryBatch {
