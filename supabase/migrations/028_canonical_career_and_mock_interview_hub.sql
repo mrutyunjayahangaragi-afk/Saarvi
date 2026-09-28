@@ -25,13 +25,52 @@ END $$;
 
 -- 3. ENFORCE USER SEARCH STRICT SECURITY INDEX
 -- Normal users may only see ACTIVE, PUBLISHED, APPROVED, and non-seed records
-CREATE INDEX IF NOT EXISTS idx_job_opps_user_security_origin 
-    ON public.job_opportunities (publication_state, record_state, review_state, data_origin, visibility, posted_at DESC) 
-    WHERE publication_state = 'PUBLISHED' 
-      AND record_state = 'ACTIVE' 
-      AND review_state = 'APPROVED'
-      AND data_origin IN ('PROVIDER', 'ADMIN')
-      AND visibility = 'public';
+-- Wrapped in DO block to safely check that all referenced columns exist before creating
+DO $$
+DECLARE
+    col_pub   BOOLEAN := EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'job_opportunities' AND column_name = 'publication_state');
+    col_rec   BOOLEAN := EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'job_opportunities' AND column_name = 'record_state');
+    col_rev   BOOLEAN := EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'job_opportunities' AND column_name = 'review_state');
+    col_orig  BOOLEAN := EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'job_opportunities' AND column_name = 'data_origin');
+    col_vis   BOOLEAN := EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'job_opportunities' AND column_name = 'visibility');
+BEGIN
+    IF col_pub AND col_rec AND col_rev AND col_orig AND col_vis THEN
+        -- Full partial index with all dimensions
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_job_opps_user_security_origin') THEN
+            EXECUTE $sql$
+                CREATE INDEX idx_job_opps_user_security_origin
+                    ON public.job_opportunities (publication_state, record_state, review_state, data_origin, posted_at DESC)
+                    WHERE publication_state = 'PUBLISHED'
+                      AND record_state = 'ACTIVE'
+                      AND review_state = 'APPROVED'
+                      AND data_origin IN ('PROVIDER', 'ADMIN')
+                      AND visibility = 'public'
+            $sql$;
+        END IF;
+    ELSIF col_pub AND col_rec AND col_rev AND col_orig THEN
+        -- Fallback: index without visibility column
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_job_opps_user_security_origin') THEN
+            EXECUTE $sql$
+                CREATE INDEX idx_job_opps_user_security_origin
+                    ON public.job_opportunities (publication_state, record_state, review_state, data_origin, posted_at DESC)
+                    WHERE publication_state = 'PUBLISHED'
+                      AND record_state = 'ACTIVE'
+                      AND review_state = 'APPROVED'
+                      AND data_origin IN ('PROVIDER', 'ADMIN')
+            $sql$;
+        END IF;
+    ELSIF col_pub AND col_rec THEN
+        -- Minimal fallback: basic published + active index
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_job_opps_user_security_origin') THEN
+            EXECUTE $sql$
+                CREATE INDEX idx_job_opps_user_security_origin
+                    ON public.job_opportunities (publication_state, record_state, posted_at DESC)
+                    WHERE publication_state = 'PUBLISHED'
+                      AND record_state = 'ACTIVE'
+            $sql$;
+        END IF;
+    END IF;
+END $$;
 
 -- 4. CREATE MOCK INTERVIEW REVIEWS TABLE IF NOT EXISTS
 CREATE TABLE IF NOT EXISTS public.mock_interview_reviews (
