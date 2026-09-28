@@ -91,12 +91,27 @@ class JobSearchService {
         normalizedParams.employmentType === "internship" ||
         (safeQ && safeQ.toLowerCase().includes("internship"));
 
+      const isJobOnlyQuery =
+        normalizedParams.employmentType === "full-time" ||
+        normalizedParams.employmentType === "job";
+
+      const categoryFilter = isInternshipQuery
+        ? "internship"
+        : isJobOnlyQuery
+        ? "job"
+        : undefined;
+
+      const experienceFilter =
+        normalizedParams.experience && normalizedParams.experience !== "all"
+          ? (normalizedParams.experience as any)
+          : undefined;
+
       const { items: approvedOpps } = opportunityStore.getApprovedOpportunities({
         search: safeQ,
         location: safeLoc,
-        category: isInternshipQuery ? "internship" : undefined,
+        category: categoryFilter,
         remoteOnly: normalizedParams.remote === "remote",
-        experienceLevel: (normalizedParams.experience as any) || undefined,
+        experienceLevel: experienceFilter,
         skills: normalizedParams.skills,
       });
 

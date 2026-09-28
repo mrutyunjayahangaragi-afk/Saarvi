@@ -49,6 +49,7 @@ import type {
 } from '@/types/notifications-v2';
 
 import type { ToolControlConfig, ToolAccessAuditLog, UserToolUsageSummary } from '@/types/tool-control';
+import { CANONICAL_SEED_OPPORTUNITIES } from '../opportunities/seed-opportunities.ts';
 
 export interface RoleAuditLogRecord {
   id: string;
@@ -2631,7 +2632,11 @@ export const MockStorageProvider = {
   // =========================================================================
 
   getJobOpportunities(): any[] {
-    return getStored<any[]>(STORAGE_KEYS.JOB_OPPORTUNITIES, []);
+    const stored = getStored<any[]>(STORAGE_KEYS.JOB_OPPORTUNITIES, []);
+    if (!Array.isArray(stored) || stored.length === 0) {
+      return [...CANONICAL_SEED_OPPORTUNITIES];
+    }
+    return stored;
   },
 
   saveJobOpportunitiesBatch(items: any[]): void {

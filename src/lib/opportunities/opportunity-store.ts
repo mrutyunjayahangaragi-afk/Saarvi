@@ -24,6 +24,113 @@ import type {
 } from "./types.ts";
 import { deduplicateOpportunities } from "./deduplicator.ts";
 import { MockStorageProvider } from "../supabase/mock-storage.ts";
+import { CANONICAL_SEED_OPPORTUNITIES } from "./seed-opportunities.ts";
+import { isSupabaseConfigured } from "../supabase/config.ts";
+
+export function opportunityToRow(opp: Opportunity): Record<string, unknown> {
+  const isInternship = opp.isInternship || opp.category === "internship" || opp.employmentType === "internship";
+  return {
+    id: opp.id,
+    type: isInternship ? "INTERNSHIP" : "JOB",
+    title: opp.title,
+    company_name: opp.companyName,
+    company_logo_url: opp.companyLogo || null,
+    location: opp.location || "India",
+    country: "India",
+    remote_type: opp.remoteType || "onsite",
+    employment_type: opp.employmentType || (isInternship ? "internship" : "full-time"),
+    experience_level: opp.experienceLevel || "fresher",
+    description: opp.description || "",
+    skills: opp.skills || [],
+    responsibilities: [],
+    qualifications: [],
+    benefits: [],
+    salary_min: opp.salary?.min ?? null,
+    salary_max: opp.salary?.max ?? null,
+    salary_currency: opp.salary?.currency || "INR",
+    salary_period: opp.salary?.period || "monthly",
+    salary_text: opp.salary ? `${opp.salary.currency || "₹"} ${opp.salary.min} - ${opp.salary.max}` : "Salary not disclosed",
+    posted_at: opp.postedAt || new Date().toISOString(),
+    deadline: opp.applicationDeadline || null,
+    source_name: opp.verifiedByAdmin ? "Verified by Saarvi" : opp.source,
+    source_url: opp.sourceUrl || null,
+    source_job_id: opp.sourceId || opp.id,
+    apply_url: opp.applyUrl || opp.sourceUrl || "https://saarvi.app/jobs",
+    apply_options: [],
+    provider: opp.source || "curated",
+    source_verified: opp.verifiedByAdmin ?? true,
+    verification_status: opp.verificationState === "PASSED" || opp.verifiedByAdmin ? "verified" : "source_checked",
+    status: opp.status || "PUBLISHED",
+    visibility: "public",
+    featured: false,
+    canonical_job_key: opp.canonicalJobKey || `${opp.companyName.toLowerCase()}|${opp.title.toLowerCase()}|${opp.location.toLowerCase()}`,
+    content_hash: opp.contentHash || "",
+    discovered_at: opp.discoveredAt || opp.createdAt || new Date().toISOString(),
+    fetched_at: opp.fetchedAt || opp.discoveredAt || new Date().toISOString(),
+    approved_at: opp.verifiedAt || opp.publishedAt || new Date().toISOString(),
+    published_at: opp.publishedAt || new Date().toISOString(),
+    expires_at: opp.expiresAt || null,
+    created_at: opp.createdAt || new Date().toISOString(),
+    updated_at: opp.updatedAt || new Date().toISOString(),
+    record_state: opp.recordState || (opp.status === "DELETED" ? "DELETED" : opp.status === "ARCHIVED" ? "ARCHIVED" : "ACTIVE"),
+    review_state: opp.reviewState || (opp.status === "APPROVED" || opp.status === "PUBLISHED" ? "APPROVED" : "PENDING_REVIEW"),
+    publication_state: opp.publicationState || (opp.status === "PUBLISHED" || opp.status === "ACTIVE" ? "PUBLISHED" : "NOT_PUBLISHED"),
+    verification_state: opp.verificationState || (opp.verifiedByAdmin ? "PASSED" : "PENDING"),
+    enrichment_state: opp.enrichmentState || "COMPLETED",
+  };
+}
+
+export function rowToOpportunity(row: any): Opportunity {
+  const isInternship = row.type === "INTERNSHIP" || row.employment_type === "internship";
+  return {
+    id: row.id,
+    source: (row.provider as any) || "curated",
+    sourceId: row.source_job_id || row.id,
+    sourceUrl: row.source_url || "",
+    applyUrl: row.apply_url || row.source_url || "",
+    originalSourceUrl: row.source_url || "",
+    directApplyUrl: row.apply_url || "",
+    title: row.title,
+    companyName: row.company_name,
+    companyLogo: row.company_logo_url || undefined,
+    description: row.description,
+    location: row.location,
+    remoteType: row.remote_type || "onsite",
+    employmentType: row.employment_type || (isInternship ? "internship" : "full-time"),
+    experienceLevel: row.experience_level || "fresher",
+    skills: Array.isArray(row.skills) ? row.skills : [],
+    salary: (row.salary_min != null || row.salary_max != null) ? {
+      min: Number(row.salary_min) || undefined,
+      max: Number(row.salary_max) || undefined,
+      currency: row.salary_currency || "INR",
+      period: row.salary_period || "monthly",
+    } : null,
+    postedAt: row.posted_at || row.created_at || new Date().toISOString(),
+    applicationDeadline: row.deadline || undefined,
+    sourceLastUpdatedAt: row.updated_at || new Date().toISOString(),
+    discoveredAt: row.discovered_at || row.created_at || new Date().toISOString(),
+    verifiedAt: row.approved_at || undefined,
+    verifiedByAdmin: row.source_verified ?? true,
+    approvedBy: row.updated_by || "saarvi_admin",
+    status: (row.status as OpportunityStatus) || "PUBLISHED",
+    category: isInternship ? "internship" : "job",
+    isInternship,
+    isJob: !isInternship,
+    isScholarship: false,
+    isHackathon: false,
+    contentHash: row.content_hash || "",
+    confidenceScore: 100,
+    publishedAt: row.published_at || row.created_at,
+    canonicalJobKey: row.canonical_job_key || undefined,
+    recordState: (row.record_state as RecordState) || "ACTIVE",
+    reviewState: (row.review_state as ReviewState) || "APPROVED",
+    publicationState: (row.publication_state as PublicationState) || "PUBLISHED",
+    verificationState: (row.verification_state as VerificationState) || "PASSED",
+    enrichmentState: (row.enrichment_state as EnrichmentState) || "COMPLETED",
+    createdAt: row.created_at || new Date().toISOString(),
+    updatedAt: row.updated_at || new Date().toISOString(),
+  };
+}
 
 type CacheInvalidator = () => void;
 let cacheInvalidators: CacheInvalidator[] = [];
@@ -128,6 +235,9 @@ class OpportunityStoreService {
     lastRunTimestamp: undefined,
   };
 
+  private isSupabaseSyncing = false;
+  private lastSupabaseSync = 0;
+
   constructor() {
     this.initDefaultSources();
     this.loadFromStorage();
@@ -146,12 +256,95 @@ class OpportunityStoreService {
     } catch (e) {
       console.warn("[OpportunityStore] Error loading from storage:", e);
     }
+
+    // Always seed canonical opportunities if store is empty or missing verified seeds
+    if (this.opportunities.size === 0) {
+      this.seedCanonicalOpportunities();
+    }
+
+    // Trigger asynchronous Supabase synchronization in server environments
+    if (typeof window === "undefined" && isSupabaseConfigured()) {
+      this.syncWithSupabase().catch((err) => {
+        console.warn("[OpportunityStore] Background Supabase sync notice:", err);
+      });
+    }
+  }
+
+  public seedCanonicalOpportunities(): void {
+    for (const item of CANONICAL_SEED_OPPORTUNITIES) {
+      if (!this.opportunities.has(item.id)) {
+        this.opportunities.set(item.id, item);
+      }
+    }
+    try {
+      MockStorageProvider.saveJobOpportunitiesBatch(Array.from(this.opportunities.values()));
+    } catch {}
+  }
+
+  public async syncWithSupabase(): Promise<void> {
+    if (typeof window !== "undefined" || !isSupabaseConfigured()) return;
+    const now = Date.now();
+    if (this.isSupabaseSyncing || now - this.lastSupabaseSync < 30000) return;
+    this.isSupabaseSyncing = true;
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { getSupabaseAdminClient } = require("../supabase/admin");
+      const supabase = getSupabaseAdminClient();
+      if (!supabase) return;
+
+      const { data, error } = await supabase
+        .from("job_opportunities")
+        .select("*")
+        .neq("record_state", "DELETED")
+        .order("posted_at", { ascending: false })
+        .limit(200);
+
+      if (error) {
+        console.warn("[OpportunityStore] Supabase fetch notice:", error.message);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        for (const row of data) {
+          const opp = rowToOpportunity(row);
+          this.opportunities.set(opp.id, opp);
+        }
+        MockStorageProvider.saveJobOpportunitiesBatch(Array.from(this.opportunities.values()));
+      } else {
+        // Table in Supabase is empty: seed with canonical verified opportunities
+        const rows = CANONICAL_SEED_OPPORTUNITIES.map(opportunityToRow);
+        await supabase.from("job_opportunities").upsert(rows, { onConflict: "id" });
+        for (const seed of CANONICAL_SEED_OPPORTUNITIES) {
+          this.opportunities.set(seed.id, seed);
+        }
+      }
+      this.lastSupabaseSync = Date.now();
+    } catch (err) {
+      console.warn("[OpportunityStore] Supabase sync error:", err);
+    } finally {
+      this.isSupabaseSyncing = false;
+    }
   }
 
   public persistToStorage(): void {
     try {
       const items = Array.from(this.opportunities.values());
       MockStorageProvider.saveJobOpportunitiesBatch(items);
+
+      if (typeof window === "undefined" && isSupabaseConfigured()) {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { getSupabaseAdminClient } = require("../supabase/admin");
+        const supabase = getSupabaseAdminClient();
+        if (supabase) {
+          const rows = items.map(opportunityToRow);
+          // Non-blocking upsert
+          supabase
+            .from("job_opportunities")
+            .upsert(rows, { onConflict: "id" })
+            .catch((err: any) => console.warn("[OpportunityStore] Supabase persist notice:", err));
+        }
+      }
     } catch (e) {
       console.warn("[OpportunityStore] Error saving to storage:", e);
     }
@@ -1299,6 +1492,9 @@ class OpportunityStoreService {
    */
   public getOpportunityById(id: string): Opportunity | null {
     if (!id || typeof id !== "string") return null;
+    if (this.opportunities.size === 0) {
+      this.seedCanonicalOpportunities();
+    }
     const cleanId = id.trim();
 
     // 1. Direct match in memory
@@ -1359,22 +1555,43 @@ class OpportunityStoreService {
     page: number;
     pageSize: number;
   } {
-    const all = Array.from(this.opportunities.values());
-    let filtered = all.filter((o) => o.status === "APPROVED" || o.status === "PUBLISHED");
+    // Fail-safe: if store is empty, seed canonical opportunities immediately
+    if (this.opportunities.size === 0) {
+      this.seedCanonicalOpportunities();
+    }
 
-    if (params.category) {
-      filtered = filtered.filter((o) => o.category === params.category);
+    const all = Array.from(this.opportunities.values());
+    let filtered = all.filter((o) => {
+      // Must not be deleted or archived from public view
+      if (o.recordState === "DELETED" || o.status === "DELETED") return false;
+      if (o.recordState && o.recordState !== "ACTIVE") return false;
+      // Must be approved and published
+      return (
+        o.status === "APPROVED" ||
+        o.status === "PUBLISHED" ||
+        o.publicationState === "PUBLISHED" ||
+        o.reviewState === "APPROVED"
+      );
+    });
+
+    if (params.category && (params.category as string) !== "all") {
+      filtered = filtered.filter(
+        (o) =>
+          o.category === params.category ||
+          (params.category === "internship" && (o.isInternship || o.employmentType === "internship")) ||
+          (params.category === "job" && (o.isJob || o.employmentType === "full-time"))
+      );
     }
 
     if (params.remoteOnly) {
       filtered = filtered.filter((o) => o.remoteType === "remote");
     }
 
-    if (params.experienceLevel) {
+    if (params.experienceLevel && (params.experienceLevel as any) !== "all") {
       filtered = filtered.filter((o) => o.experienceLevel === params.experienceLevel);
     }
 
-    if (params.location && params.location.trim()) {
+    if (params.location && params.location.trim() && params.location.toLowerCase() !== "all") {
       const locQ = params.location.toLowerCase();
       filtered = filtered.filter((o) => o.location.toLowerCase().includes(locQ));
     }
@@ -1392,7 +1609,8 @@ class OpportunityStoreService {
         (o) =>
           o.title.toLowerCase().includes(q) ||
           o.companyName.toLowerCase().includes(q) ||
-          o.description.toLowerCase().includes(q)
+          o.description.toLowerCase().includes(q) ||
+          (o.skills && o.skills.some((sk) => sk.toLowerCase().includes(q)))
       );
     }
 

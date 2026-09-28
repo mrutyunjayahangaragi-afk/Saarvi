@@ -58,7 +58,14 @@ function JobsContent() {
   // Search Query & Filters
   const [q, setQ] = useState(searchParams.get("q") || "");
   const [location, setLocation] = useState(searchParams.get("location") || "");
-  const [employmentType, setEmploymentType] = useState(searchParams.get("employmentType") || "all");
+  const initialEmploymentType =
+    searchParams.get("employmentType") ||
+    (searchParams.get("category") === "internship"
+      ? "internship"
+      : searchParams.get("category") === "job"
+      ? "full-time"
+      : "all");
+  const [employmentType, setEmploymentType] = useState(initialEmploymentType);
   const [remote, setRemote] = useState(searchParams.get("remote") || "all");
   const [experience, setExperience] = useState(searchParams.get("experience") || "all");
   const [sortBy, setSortBy] = useState<JobSortOption>((searchParams.get("sortBy") as JobSortOption) || "relevant");
@@ -163,92 +170,112 @@ function JobsContent() {
   }, []);
 
   // Fetch Jobs from Server API (Strictly Authenticated)
-  const fetchJobs = useCallback(async (isRefresh = false) => {
-    if (!user) {
-      setLoading(false);
-      setSearchState("idle");
-      return;
-    }
+  const fetchJobs = useCallback(
+    async (
+      isRefresh = false,
+      overrides: Partial<{
+        q: string;
+        location: string;
+        employmentType: string;
+        remote: string;
+        experience: string;
+        sortBy: JobSortOption;
+      }> = {}
+    ) => {
+      if (!user) {
+        setLoading(false);
+        setSearchState("idle");
+        return;
+      }
 
-    setLoading(true);
-    setSearchState("searching");
-    setError(null);
+      setLoading(true);
+      setSearchState("searching");
+      setError(null);
 
-    try {
-      analytics.trackEvent({
-        name: "jobs_search_started" as any,
-        category: "public",
-      });
-    } catch {}
+      const activeQ = overrides.q !== undefined ? overrides.q : q;
+      const activeLoc = overrides.location !== undefined ? overrides.location : location;
+      const activeEmp = overrides.employmentType !== undefined ? overrides.employmentType : employmentType;
+      const activeRem = overrides.remote !== undefined ? overrides.remote : remote;
+      const activeExp = overrides.experience !== undefined ? overrides.experience : experience;
+      const activeSort = overrides.sortBy !== undefined ? overrides.sortBy : sortBy;
 
-    const params = new URLSearchParams();
-    if (q.trim()) params.set("q", q.trim());
-    if (location.trim()) params.set("location", location.trim());
-    if (employmentType !== "all") params.set("employmentType", employmentType);
-    if (remote !== "all") params.set("remote", remote);
-    if (experience !== "all") params.set("experience", experience);
-    if (sortBy !== "relevant") params.set("sortBy", sortBy);
-    if (isRefresh) params.set("t", String(Date.now()));
+      try {
+        analytics.trackEvent({
+          name: "jobs_search_started" as any,
+          category: "public",
+        });
+      } catch {}
 
-    try {
-      const res = await fetch(`/api/jobs/search?${params.toString()}`);
-      if (!res.ok) {
-        if (res.status === 401) {
-          setSearchState("auth_required");
-          setAuthGateOpen(true);
-          setJobs([]);
-          return;
+      const params = new URLSearchParams();
+      if (activeQ.trim()) params.set("q", activeQ.trim());
+      if (activeLoc.trim()) params.set("location", activeLoc.trim());
+      if (activeEmp !== "all") params.set("employmentType", activeEmp);
+      if (activeRem !== "all") params.set("remote", activeRem);
+      if (activeExp !== "all") params.set("experience", activeExp);
+      if (activeSort !== "relevant") params.set("sortBy", activeSort);
+      if (isRefresh) params.set("t", String(Date.now()));
+
+      try {
+        const res = await fetch(`/api/jobs/search?${params.toString()}`);
+        if (!res.ok) {
+          if (res.status === 401) {
+            setSearchState("auth_required");
+            setAuthGateOpen(true);
+            setJobs([]);
+            return;
+          }
+          if (res.status === 403) {
+            const errData = await res.json().catch(() => ({}));
+            setFeatureGated({
+              status: errData.status || (errData.error?.includes('beta') ? 'BETA' : errData.error?.includes('Pro') ? 'PRO_REQUIRED' : 'DISABLED'),
+              reason: errData.error || 'Jobs & Internships is currently unavailable.',
+              maintenanceMessage: errData.maintenanceMessage,
+            });
+            setJobs([]);
+            setSearchState("error");
+            return;
+          }
+          throw new Error(`HTTP ${res.status}`);
         }
-        if (res.status === 403) {
-          const errData = await res.json().catch(() => ({}));
-          setFeatureGated({
-            status: errData.status || (errData.error?.includes('beta') ? 'BETA' : errData.error?.includes('Pro') ? 'PRO_REQUIRED' : 'DISABLED'),
-            reason: errData.error || 'Jobs & Internships is currently unavailable.',
-            maintenanceMessage: errData.maintenanceMessage,
+        const data = await res.json();
+        const items: JobItem[] = data.items || [];
+        setJobs(items);
+        setIsCached(Boolean(data.cached));
+        setStaleFallback(Boolean(data.staleFallback));
+        setSearchState(items.length > 0 ? "ready" : "empty");
+
+        try {
+          analytics.trackEvent({
+            name: "jobs_search_completed" as any,
+            category: "public",
           });
-          setJobs([]);
-          setSearchState("error");
-          return;
+        } catch {}
+
+        // Record recent search
+        if (activeQ.trim()) {
+          setRecentSearches((prev) => {
+            const updated = Array.from(new Set([activeQ.trim(), ...prev])).slice(0, 5);
+            try {
+              localStorage.setItem("saarvi_recent_job_searches", JSON.stringify(updated));
+            } catch {}
+            return updated;
+          });
         }
-        throw new Error(`HTTP ${res.status}`);
+      } catch {
+        setError("Unable to load opportunities right now. Please retry or adjust your search.");
+        setSearchState("error");
+        try {
+          analytics.trackEvent({
+            name: "jobs_search_failed" as any,
+            category: "public",
+          });
+        } catch {}
+      } finally {
+        setLoading(false);
       }
-      const data = await res.json();
-      const items: JobItem[] = data.items || [];
-      setJobs(items);
-      setIsCached(Boolean(data.cached));
-      setStaleFallback(Boolean(data.staleFallback));
-      setSearchState(items.length > 0 ? "ready" : "empty");
-
-      try {
-        analytics.trackEvent({
-          name: "jobs_search_completed" as any,
-          category: "public",
-        });
-      } catch {}
-
-      // Record recent search
-      if (q.trim()) {
-        setRecentSearches((prev) => {
-          const updated = Array.from(new Set([q.trim(), ...prev])).slice(0, 5);
-          try {
-            localStorage.setItem("saarvi_recent_job_searches", JSON.stringify(updated));
-          } catch {}
-          return updated;
-        });
-      }
-    } catch {
-      setError("Unable to load opportunities right now. Please retry or adjust your search.");
-      setSearchState("error");
-      try {
-        analytics.trackEvent({
-          name: "jobs_search_failed" as any,
-          category: "public",
-        });
-      } catch {}
-    } finally {
-      setLoading(false);
-    }
-  }, [user, q, location, employmentType, remote, experience, sortBy]);
+    },
+    [user, q, location, employmentType, remote, experience, sortBy]
+  );
 
   // Restore search criteria on mount (e.g. returning after auth or via autoSearch)
   useEffect(() => {
@@ -273,12 +300,19 @@ function JobsContent() {
       if (savedIntent.sortBy !== undefined) setSortBy(savedIntent.sortBy as JobSortOption);
 
       clearSearchIntent();
-      fetchJobs(true);
-    } else if (autoSearch || q || location || employmentType !== "all" || remote !== "all") {
-      fetchJobs();
+      fetchJobs(true, {
+        q: savedIntent.q,
+        location: savedIntent.location,
+        experience: savedIntent.experience,
+        remote: savedIntent.remote,
+        employmentType: savedIntent.employmentType,
+        sortBy: savedIntent.sortBy as JobSortOption,
+      });
+    } else if (autoSearch || q || location || initialEmploymentType !== "all" || remote !== "all") {
+      fetchJobs(false, { employmentType: initialEmploymentType });
     } else {
-      // Authenticated initial view
-      fetchJobs();
+      // Authenticated initial view - immediately fetch all published verified opportunities
+      fetchJobs(false, { employmentType: initialEmploymentType });
     }
   }, [user, authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -308,6 +342,14 @@ function JobsContent() {
     setRemote("all");
     setExperience("all");
     setSortBy("relevant");
+    fetchJobs(true, {
+      q: "",
+      location: "",
+      employmentType: "all",
+      remote: "all",
+      experience: "all",
+      sortBy: "relevant",
+    });
   };
 
   // Compute matches
@@ -830,7 +872,7 @@ function JobsContent() {
                     type="button"
                     onClick={() => {
                       setEmploymentType("all");
-                      setTimeout(() => fetchJobs(), 30);
+                      fetchJobs(false, { employmentType: "all" });
                     }}
                     className={`px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
                       employmentType === "all"
@@ -844,7 +886,7 @@ function JobsContent() {
                     type="button"
                     onClick={() => {
                       setEmploymentType("full-time");
-                      setTimeout(() => fetchJobs(), 30);
+                      fetchJobs(false, { employmentType: "full-time" });
                     }}
                     className={`px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
                       employmentType === "full-time"
@@ -858,7 +900,7 @@ function JobsContent() {
                     type="button"
                     onClick={() => {
                       setEmploymentType("internship");
-                      setTimeout(() => fetchJobs(), 30);
+                      fetchJobs(false, { employmentType: "internship" });
                     }}
                     className={`px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
                       employmentType === "internship"
@@ -898,8 +940,9 @@ function JobsContent() {
                   <select
                     value={remote}
                     onChange={(e) => {
-                      setRemote(e.target.value);
-                      setTimeout(() => fetchJobs(), 30);
+                      const val = e.target.value;
+                      setRemote(val);
+                      fetchJobs(false, { remote: val });
                     }}
                     className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 focus:outline-hidden cursor-pointer"
                   >
@@ -913,8 +956,9 @@ function JobsContent() {
                   <select
                     value={experience}
                     onChange={(e) => {
-                      setExperience(e.target.value);
-                      setTimeout(() => fetchJobs(), 30);
+                      const val = e.target.value;
+                      setExperience(val);
+                      fetchJobs(false, { experience: val });
                     }}
                     className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 focus:outline-hidden cursor-pointer"
                   >
@@ -931,8 +975,9 @@ function JobsContent() {
                   <select
                     value={sortBy}
                     onChange={(e) => {
-                      setSortBy(e.target.value as JobSortOption);
-                      setTimeout(() => fetchJobs(), 30);
+                      const val = e.target.value as JobSortOption;
+                      setSortBy(val);
+                      fetchJobs(false, { sortBy: val });
                     }}
                     className="text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-hidden cursor-pointer"
                   >
