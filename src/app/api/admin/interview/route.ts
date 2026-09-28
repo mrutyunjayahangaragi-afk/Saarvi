@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
     const questionAnalytics = await interviewService.getQuestionAnalytics();
     const centers = interviewService.getCenters();
     const dashboardMetrics = await interviewService.getDashboardMetrics();
+    const needsAttention = await interviewService.getNeedsAttentionSessions();
 
     // Query admin sessions with filters
     const status = searchParams.get("status") || undefined;
@@ -41,6 +42,7 @@ export async function GET(req: NextRequest) {
       questionAnalytics,
       centers,
       dashboardMetrics,
+      needsAttention,
       sessions: sessionsResult.sessions,
       totalSessions: sessionsResult.total,
       page: sessionsResult.page,
@@ -144,16 +146,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, session: deleted });
     }
 
-    if (action === "cancel_session") {
-      const { sessionId, reason } = body;
+    if (action === "submit_review") {
+      const { sessionId, review } = body;
+      if (!sessionId || !review || !review.status) {
+        return NextResponse.json(
+          { success: false, error: "Session ID and review object are required." },
+          { status: 400 }
+        );
+      }
+      const reviewed = await interviewService.submitReview(sessionId, authUser?.id || "admin", review);
+      return NextResponse.json({ success: true, session: reviewed });
+    }
+
+    if (action === "get_events") {
+      const { sessionId } = body;
       if (!sessionId) {
         return NextResponse.json(
           { success: false, error: "Session ID is required." },
           { status: 400 }
         );
       }
-      const cancelled = await interviewService.cancelSession(sessionId, reason);
-      return NextResponse.json({ success: true, session: cancelled });
+      const events = await interviewService.getSessionEvents(sessionId);
+      return NextResponse.json({ success: true, events });
     }
 
     return NextResponse.json(

@@ -262,6 +262,11 @@ export interface InterviewSession {
   questionCount?: number;
   answeredCount?: number;
   completionPercent?: number;
+  reviewStatus?: "PENDING" | "APPROVED" | "FLAGGED" | "RETAKE_REQUESTED";
+  reviewNotes?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  technicalHealth?: "HEALTHY" | "WARNING" | "FAILED";
 }
 
 export interface InterviewSettings {

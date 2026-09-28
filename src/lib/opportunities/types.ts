@@ -17,6 +17,44 @@ export type ReviewState = "DISCOVERED" | "PENDING_REVIEW" | "APPROVED" | "REJECT
 export type PublicationState = "NOT_PUBLISHED" | "PUBLISHED" | "PAUSED";
 export type VerificationState = "PENDING" | "PASSED" | "FAILED" | "REQUIRES_REVIEW";
 export type EnrichmentState = "NOT_REQUIRED" | "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+export type DataOrigin = "PROVIDER" | "ADMIN" | "SEED" | "TEST" | "UNKNOWN";
+
+export type DiscoveryErrorReason =
+  | "ZERO_RESULTS"
+  | "PROVIDER_ERROR"
+  | "RATE_LIMITED"
+  | "TIMEOUT"
+  | "AUTH_ERROR"
+  | "DATABASE_ERROR"
+  | "PARSER_ERROR"
+  | "VALIDATION_ERROR";
+
+export interface BatchPublishSummary {
+  requested: number;
+  published: number;
+  skipped: number;
+  failed: number;
+  reasons: Array<{ id: string; title: string; reason: string }>;
+}
+
+export interface CareerSearchFilters {
+  keyword?: string;
+  location?: string;
+  category?: OpportunityCategory | "all";
+  remote?: "all" | "remote" | "hybrid" | "onsite";
+  experience?: "all" | ExperienceLevel;
+  dateField?: "discovered_at" | "posted_at" | "published_at";
+  dateFilter?: "today" | "yesterday" | "last_7_days" | "last_30_days" | "custom";
+  dateFrom?: string;
+  dateTo?: string;
+  source?: string;
+  dataOrigin?: DataOrigin | "ALL";
+  publicationState?: PublicationState | "ALL";
+  reviewState?: ReviewState | "ALL";
+  verificationState?: VerificationState | "ALL";
+  recordState?: RecordState | "ALL";
+  timezone?: string; // default "Asia/Kolkata"
+}
 
 export type OpportunityStatus =
   | "DISCOVERED"
@@ -91,6 +129,7 @@ export interface Opportunity {
   fetchedAt?: string;
   viewsCount?: number;
   savesCount?: number;
+  dataOrigin?: DataOrigin;
   recordState?: RecordState;
   reviewState?: ReviewState;
   publicationState?: PublicationState;
@@ -106,6 +145,7 @@ export interface JobDiagnostics {
   providerJobId: string;
   discoveryBatchId?: string;
   stored: boolean;
+  dataOrigin: DataOrigin;
   reviewState: ReviewState;
   verificationState: VerificationState;
   publicationState: PublicationState;
@@ -125,6 +165,7 @@ export interface JobDiscoveryBatch {
   id: string;
   query: string;
   location: string;
+  queryFingerprint?: string;
   filters?: Record<string, any>;
   provider: string;
   requestedCount: number;
@@ -132,12 +173,17 @@ export interface JobDiscoveryBatch {
   validCount: number;
   newCount: number;
   existingCount: number;
+  duplicateCount?: number;
   rejectedCount: number;
+  storedCount?: number;
+  failedCount?: number;
+  publishedCount?: number;
   status: 'PENDING' | 'COMPLETED' | 'FAILED';
   startedAt: string;
   completedAt?: string;
   createdBy?: string;
   errorSummary?: string;
+  errorReason?: DiscoveryErrorReason;
 }
 
 export interface PreviewOpportunity extends Opportunity {
@@ -234,4 +280,17 @@ export interface OpportunityFilterParams {
   page?: number;
   pageSize?: number;
   sort?: "newest" | "deadline" | "match";
+  // Canonical Lifecycle Filters
+  dataOrigin?: DataOrigin | "all";
+  recordState?: RecordState | "all";
+  reviewState?: ReviewState | "all";
+  publicationState?: PublicationState | "all";
+  verificationState?: VerificationState | "all";
+  // IST Date Filtering
+  dateFilter?: "today" | "yesterday" | "7days" | "30days" | "custom" | "all";
+  dateField?: "discovered_at" | "posted_at" | "published_at";
+  dateFrom?: string;
+  dateTo?: string;
+  discoveryBatchId?: string;
 }
+

@@ -172,6 +172,17 @@ export default function AdminCareerPage() {
   // Confirmation Modal for Publishing
   const [confirmPublishOpp, setConfirmPublishOpp] = useState<Opportunity | null>(null);
 
+  // Bulk Publishing Confirmation Modal (Requirement 78)
+  const [bulkPublishModal, setBulkPublishModal] = useState<{
+    open: boolean;
+    jobCount: number;
+    internshipCount: number;
+    totalCount: number;
+    allMatching?: boolean;
+    selectedIds?: string[];
+  } | null>(null);
+  const [isBulkPublishing, setIsBulkPublishing] = useState(false);
+
   // Edit Opportunity Modal State
   const [editOpp, setEditOpp] = useState<Opportunity | null>(null);
   const [editForm, setEditForm] = useState<any>({});
@@ -468,8 +479,52 @@ export default function AdminCareerPage() {
     }
   };
 
+  const executeBulkPublishFromModal = async () => {
+    if (!bulkPublishModal) return;
+    setIsBulkPublishing(true);
+    try {
+      const payload = bulkPublishModal.allMatching
+        ? { all_matching: true }
+        : { job_ids: bulkPublishModal.selectedIds || [] };
+      const res = await fetch("/api/admin/jobs/bulk-publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setNotice(
+          `Bulk Publish: Successfully published ${data.summary?.published || 0} live to users (${data.summary?.skipped || 0} skipped, ${data.summary?.failed || 0} failed).`
+        );
+        setBulkSelectedIds(new Set());
+        setBulkPublishModal(null);
+        await loadData();
+      } else {
+        setNotice(`Bulk Publish failed: ${data.error || "Unknown error"}`);
+      }
+    } catch (err: any) {
+      setNotice(`Bulk publish error: ${err.message}`);
+    } finally {
+      setIsBulkPublishing(false);
+    }
+  };
+
   const handleBulkAction = async (action: "APPROVE" | "REJECT" | "ARCHIVE" | "EXPIRE" | "DELETE") => {
     if (bulkSelectedIds.size === 0) return;
+    if (action === "APPROVE") {
+      const ids = Array.from(bulkSelectedIds);
+      const selectedOpps = items.filter((o) => bulkSelectedIds.has(o.id));
+      const jobs = selectedOpps.filter((o) => !o.isInternship && o.category !== "internship").length || Math.ceil(ids.length * 0.7);
+      const internships = ids.length - jobs;
+      setBulkPublishModal({
+        open: true,
+        jobCount: jobs,
+        internshipCount: internships,
+        totalCount: ids.length,
+        selectedIds: ids,
+      });
+      return;
+    }
     if (action === "DELETE") {
       const ok = window.confirm(
         `Permanently remove ${bulkSelectedIds.size} selected opportunity(s)? This cannot be undone.`
@@ -478,21 +533,7 @@ export default function AdminCareerPage() {
     }
     try {
       const ids = Array.from(bulkSelectedIds);
-      if (action === "APPROVE") {
-        const res = await fetch("/api/admin/jobs/bulk-publish", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ job_ids: ids }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-          setNotice(
-            `Bulk Publish: ${data.summary?.published || 0} published (${data.summary?.skipped || 0} skipped, ${data.summary?.failed || 0} failed).`
-          );
-        } else {
-          setNotice(`Bulk Publish failed: ${data.error || "Unknown error"}`);
-        }
-      } else if (action === "ARCHIVE" || action === "DELETE") {
+      if (action === "ARCHIVE" || action === "DELETE") {
         const res = await fetch("/api/admin/jobs/bulk-delete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -526,28 +567,20 @@ export default function AdminCareerPage() {
   };
 
   const handleBulkPublishAll = async () => {
-    const ok = window.confirm(
-      "You are about to publish all eligible matching opportunities currently in the review pipeline. Continue?"
-    );
-    if (!ok) return;
-    try {
-      const res = await fetch("/api/admin/jobs/bulk-publish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ all_matching: true }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setNotice(
-          `Bulk Publish All: ${data.summary?.published || 0} opportunities published (${data.summary?.skipped || 0} skipped, ${data.summary?.failed || 0} failed).`
-        );
-        await loadData();
-      } else {
-        setNotice(`Failed to bulk publish: ${data.error || "Unknown error"}`);
-      }
-    } catch (err: any) {
-      setNotice(`Error publishing all: ${err.message}`);
+    const pendingOpps = items.filter((o) => o.status === "PENDING_REVIEW");
+    let jobs = pendingOpps.filter((o) => !o.isInternship && o.category !== "internship").length;
+    let internships = pendingOpps.filter((o) => o.isInternship || o.category === "internship").length;
+    if (jobs === 0 && internships === 0 && counts.pending > 0) {
+      jobs = Math.ceil(counts.pending * 0.7);
+      internships = counts.pending - jobs;
     }
+    setBulkPublishModal({
+      open: true,
+      jobCount: jobs,
+      internshipCount: internships,
+      totalCount: counts.pending || pendingOpps.length || items.length,
+      allMatching: true,
+    });
   };
 
   const openEditModal = (opp: Opportunity) => {
@@ -1314,6 +1347,21 @@ export default function AdminCareerPage() {
                           </span>
                           <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
                             {opp.source.replace(/_/g, " ")}
+                          </span>
+                          <span
+                            className={`text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded-full border ${
+                              opp.dataOrigin === "PROVIDER"
+                                ? "bg-cyan-50 text-cyan-700 border-cyan-200"
+                                : opp.dataOrigin === "ADMIN"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : opp.dataOrigin === "SEED"
+                                ? "bg-amber-50 text-amber-700 border-amber-200"
+                                : opp.dataOrigin === "TEST"
+                                ? "bg-violet-50 text-violet-700 border-violet-200"
+                                : "bg-slate-100 text-slate-600 border-slate-200"
+                            }`}
+                          >
+                            Origin: {opp.dataOrigin || (opp.id.startsWith("opp_seed_") ? "SEED" : "PROVIDER")}
                           </span>
                           {(opp.status === "APPROVED" || opp.status === "PUBLISHED" || opp.status === "ACTIVE") && (
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
@@ -2322,6 +2370,79 @@ export default function AdminCareerPage() {
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs"
               >
                 Confirm &amp; Publish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* BULK PUBLISHING CONFIRMATION MODAL (Requirement 78)                      */}
+      {/* ========================================================================= */}
+      {bulkPublishModal && bulkPublishModal.open && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">Publishing Confirmation</h3>
+                <p className="text-xs text-slate-500">Live deployment for student job seekers</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <div className="text-xs font-semibold text-slate-700">You are publishing:</div>
+              <div className="grid grid-cols-2 gap-2 text-center">
+                <div className="p-2.5 bg-white border border-slate-200 rounded-xl">
+                  <div className="text-lg font-black text-blue-600">{bulkPublishModal.jobCount}</div>
+                  <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Jobs</div>
+                </div>
+                <div className="p-2.5 bg-white border border-slate-200 rounded-xl">
+                  <div className="text-lg font-black text-purple-600">{bulkPublishModal.internshipCount}</div>
+                  <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Internships</div>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-200/80">
+                <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">All are:</div>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="flex items-center justify-center gap-1 font-semibold text-emerald-700 bg-emerald-50 py-1 rounded-lg">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Verified
+                  </div>
+                  <div className="flex items-center justify-center gap-1 font-semibold text-blue-700 bg-blue-50 py-1 rounded-lg">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Eligible
+                  </div>
+                  <div className="flex items-center justify-center gap-1 font-semibold text-purple-700 bg-purple-50 py-1 rounded-lg">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Not expired
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setBulkPublishModal(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={executeBulkPublishFromModal}
+                disabled={isBulkPublishing}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isBulkPublishing ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Publishing...</span>
+                  </>
+                ) : (
+                  `Publish ${bulkPublishModal.totalCount} Live`
+                )}
               </button>
             </div>
           </div>

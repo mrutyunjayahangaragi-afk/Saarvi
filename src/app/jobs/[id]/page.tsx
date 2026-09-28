@@ -116,9 +116,10 @@ export default async function SingleJobPage({ params }: JobPageProps) {
   }
 
   // 3. Verify record lifecycle & publication state
-  const isArchivedOrDeleted = opp.status === "ARCHIVED" || opp.status === "DELETED" || opp.recordState === "ARCHIVED" || opp.recordState === "DELETED";
+  const isSeedOrTest = opp.dataOrigin === "SEED" || opp.dataOrigin === "TEST" || opp.dataOrigin === "UNKNOWN" || opp.id.startsWith("opp_seed_");
+  const isArchivedOrDeleted = isSeedOrTest || opp.status === "ARCHIVED" || opp.status === "DELETED" || opp.recordState === "ARCHIVED" || opp.recordState === "DELETED";
   const isExpired = opp.status === "EXPIRED" || (opp.applicationDeadline && opp.applicationDeadline !== "Deadline not provided" && new Date(opp.applicationDeadline).getTime() < Date.now());
-  const isAvailable = (opp.status === "APPROVED" || opp.status === "PUBLISHED" || opp.status === "ACTIVE") && !isArchivedOrDeleted && !isExpired;
+  const isAvailable = (opp.status === "APPROVED" || opp.status === "PUBLISHED" || opp.status === "ACTIVE" || opp.publicationState === "PUBLISHED") && !isArchivedOrDeleted && !isExpired;
 
   if (!isAvailable) {
     const heading = isExpired ? "This opportunity is no longer active" : "This opportunity is no longer available";

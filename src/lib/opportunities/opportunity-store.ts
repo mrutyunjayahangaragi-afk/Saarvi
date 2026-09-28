@@ -21,14 +21,101 @@ import type {
   PublicationState,
   VerificationState,
   EnrichmentState,
+  DataOrigin,
 } from "./types.ts";
 import { deduplicateOpportunities } from "./deduplicator.ts";
 import { MockStorageProvider } from "../supabase/mock-storage.ts";
 import { CANONICAL_SEED_OPPORTUNITIES } from "./seed-opportunities.ts";
 import { isSupabaseConfigured } from "../supabase/config.ts";
 
+/**
+ * Calculates deterministic date boundaries for Saarvi's reporting timezone (Asia/Kolkata, UTC+5:30).
+ * Prevents UTC vs IST date comparison mismatches.
+ */
+export function getISTDateRange(
+  filterType?: string,
+  customFrom?: string,
+  customTo?: string
+): { start: Date; end: Date } | null {
+  if (!filterType || filterType === "all") return null;
+
+  // IST offset is UTC+5:30 (330 minutes)
+  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+  const nowUtc = Date.now();
+  const nowIst = new Date(nowUtc + IST_OFFSET_MS);
+
+  const istYear = nowIst.getUTCFullYear();
+  const istMonth = nowIst.getUTCMonth();
+  const istDate = nowIst.getUTCDate();
+
+  const createDateInIST = (y: number, m: number, d: number, h = 0, min = 0, s = 0, ms = 0) => {
+    const utcEpoch = Date.UTC(y, m, d, h, min, s, ms) - IST_OFFSET_MS;
+    return new Date(utcEpoch);
+  };
+
+  switch (filterType.toLowerCase()) {
+    case "today": {
+      const start = createDateInIST(istYear, istMonth, istDate, 0, 0, 0, 0);
+      const end = createDateInIST(istYear, istMonth, istDate, 23, 59, 59, 999);
+      return { start, end };
+    }
+    case "yesterday": {
+      const start = createDateInIST(istYear, istMonth, istDate - 1, 0, 0, 0, 0);
+      const end = createDateInIST(istYear, istMonth, istDate - 1, 23, 59, 59, 999);
+      return { start, end };
+    }
+    case "last7days":
+    case "7days": {
+      const start = createDateInIST(istYear, istMonth, istDate - 6, 0, 0, 0, 0);
+      const end = createDateInIST(istYear, istMonth, istDate, 23, 59, 59, 999);
+      return { start, end };
+    }
+    case "last30days":
+    case "30days": {
+      const start = createDateInIST(istYear, istMonth, istDate - 29, 0, 0, 0, 0);
+      const end = createDateInIST(istYear, istMonth, istDate, 23, 59, 59, 999);
+      return { start, end };
+    }
+    case "custom": {
+      if (!customFrom) return null;
+      const startParts = customFrom.split("-").map(Number);
+      const start = createDateInIST(startParts[0], startParts[1] - 1, startParts[2], 0, 0, 0, 0);
+      let end: Date;
+      if (customTo) {
+        const endParts = customTo.split("-").map(Number);
+        end = createDateInIST(endParts[0], endParts[1] - 1, endParts[2], 23, 59, 59, 999);
+      } else {
+        end = createDateInIST(istYear, istMonth, istDate, 23, 59, 59, 999);
+      }
+      return { start, end };
+    }
+    default:
+      return null;
+  }
+}
+
+/**
+ * Normalized query fingerprint for request coalescing.
+ */
+export function getQueryFingerprint(
+  query: string,
+  location: string,
+  filters: Record<string, unknown> = {}
+): string {
+  const normQ = (query || "").trim().toLowerCase();
+  const normLoc = (location || "").trim().toLowerCase();
+  const normType = String(filters.type || filters.category || "all").trim().toLowerCase();
+  const normRemote = String(filters.remote || filters.remoteOnly || "all").trim().toLowerCase();
+  const normExp = String(filters.experience || filters.experienceLevel || "all").trim().toLowerCase();
+  return `${normQ}#${normLoc}#${normType}#${normRemote}#${normExp}`;
+}
+
+export const activeDiscoveryRequests = new Map<string, Promise<any>>();
+
 export function opportunityToRow(opp: Opportunity): Record<string, unknown> {
   const isInternship = opp.isInternship || opp.category === "internship" || opp.employmentType === "internship";
+  const origin: DataOrigin = opp.dataOrigin || (opp.id.startsWith("opp_seed_") ? "SEED" : opp.source === "admin_manual" ? "ADMIN" : "PROVIDER");
+
   return {
     id: opp.id,
     type: isInternship ? "INTERNSHIP" : "JOB",
@@ -77,11 +164,14 @@ export function opportunityToRow(opp: Opportunity): Record<string, unknown> {
     publication_state: opp.publicationState || (opp.status === "PUBLISHED" || opp.status === "ACTIVE" ? "PUBLISHED" : "NOT_PUBLISHED"),
     verification_state: opp.verificationState || (opp.verifiedByAdmin ? "PASSED" : "PENDING"),
     enrichment_state: opp.enrichmentState || "COMPLETED",
+    data_origin: origin,
   };
 }
 
 export function rowToOpportunity(row: any): Opportunity {
   const isInternship = row.type === "INTERNSHIP" || row.employment_type === "internship";
+  const origin: DataOrigin = (row.data_origin as DataOrigin) || (row.id.startsWith("opp_seed_") ? "SEED" : row.provider === "admin_manual" ? "ADMIN" : "PROVIDER");
+
   return {
     id: row.id,
     source: (row.provider as any) || "curated",
@@ -127,10 +217,12 @@ export function rowToOpportunity(row: any): Opportunity {
     publicationState: (row.publication_state as PublicationState) || "PUBLISHED",
     verificationState: (row.verification_state as VerificationState) || "PASSED",
     enrichmentState: (row.enrichment_state as EnrichmentState) || "COMPLETED",
+    dataOrigin: origin,
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
   };
 }
+
 
 type CacheInvalidator = () => void;
 let cacheInvalidators: CacheInvalidator[] = [];
@@ -640,6 +732,11 @@ class OpportunityStoreService {
     if (!opp) return null;
 
     opp.status = "APPROVED";
+    opp.reviewState = "APPROVED";
+    opp.verificationState = "PASSED";
+    opp.publicationState = "PUBLISHED";
+    opp.recordState = "ACTIVE";
+    opp.dataOrigin = opp.dataOrigin && opp.dataOrigin !== "SEED" && opp.dataOrigin !== "TEST" ? opp.dataOrigin : "PROVIDER";
     opp.verifiedAt = new Date().toISOString();
     opp.verifiedByAdmin = true;
     opp.approvedBy = adminId;
@@ -819,14 +916,17 @@ class OpportunityStoreService {
   ): {
     batch: JobDiscoveryBatch;
     saved: Opportunity[];
-    summary: { fetched: number; valid: number; newCount: number; existingCount: number; rejectedCount: number };
+    summary: { fetched: number; valid: number; newCount: number; existingCount: number; duplicateCount: number; rejectedCount: number; storedCount: number };
   } {
     const now = new Date().toISOString();
     const batchId = `batch_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const queryFingerprint = getQueryFingerprint(batchInfo.query, batchInfo.location);
 
     let newCount = 0;
     let existingCount = 0;
+    let duplicateCount = 0;
     let rejectedCount = 0;
+    const failedCount = 0;
     const savedList: Opportunity[] = [];
 
     // Pre-index existing opportunities for fast deterministic matching
@@ -845,6 +945,9 @@ class OpportunityStoreService {
       if (opp.sourceId) existingSourceIdMap.set(`${opp.source}:${opp.sourceId}`, opp);
     }
 
+    // In-batch deduplication map to prevent O(N^2) comparisons
+    const batchSeenKeys = new Set<string>();
+
     for (const item of rawItems) {
       const cleanApply = cleanAndSanitizeUrl(item.applyUrl);
       if (!isSafeUrl(cleanApply) || !item.title || item.title.trim().length < 3 || !item.companyName) {
@@ -855,6 +958,14 @@ class OpportunityStoreService {
       const normApply = cleanApply.toLowerCase();
       const normKey = `${item.companyName.toLowerCase().trim()}|${item.title.toLowerCase().trim()}|${item.location.toLowerCase().trim()}`;
       const sourceKey = `${item.source}:${item.sourceId}`;
+
+      // In-batch duplicate check
+      if (batchSeenKeys.has(normApply) || batchSeenKeys.has(normKey)) {
+        duplicateCount++;
+        continue;
+      }
+      batchSeenKeys.add(normApply);
+      batchSeenKeys.add(normKey);
 
       const existing = existingSourceIdMap.get(sourceKey) || existingUrlMap.get(normApply) || existingKeyMap.get(normKey);
 
@@ -887,6 +998,12 @@ class OpportunityStoreService {
           updatedAt: now,
           canonicalJobKey: normKey,
           confidenceScore: item.confidenceScore || 90,
+          dataOrigin: "PROVIDER",
+          recordState: "ACTIVE",
+          reviewState: "PENDING_REVIEW",
+          verificationState: "PENDING",
+          publicationState: "NOT_PUBLISHED",
+          enrichmentState: "PENDING",
         };
 
         this.opportunities.set(newOpp.id, newOpp);
@@ -909,12 +1026,17 @@ class OpportunityStoreService {
       query: batchInfo.query,
       location: batchInfo.location,
       provider: batchInfo.provider,
+      queryFingerprint,
       requestedCount: rawItems.length,
       fetchedCount: rawItems.length,
       validCount: newCount + existingCount,
       newCount,
       existingCount,
+      duplicateCount,
       rejectedCount,
+      storedCount: newCount + existingCount,
+      failedCount,
+      publishedCount: 0,
       status: "COMPLETED",
       startedAt: now,
       completedAt: now,
@@ -932,7 +1054,9 @@ class OpportunityStoreService {
         valid: newCount + existingCount,
         newCount,
         existingCount,
+        duplicateCount,
         rejectedCount,
+        storedCount: newCount + existingCount,
       },
     };
   }
@@ -1320,24 +1444,31 @@ class OpportunityStoreService {
     const now = Date.now();
 
     for (const opp of this.opportunities.values()) {
-      if (opp.status === "APPROVED" || opp.status === "PUBLISHED" || opp.status === "ACTIVE") {
+      if (opp.status === "APPROVED" || opp.status === "PUBLISHED" || opp.status === "ACTIVE" || opp.publicationState === "PUBLISHED") {
         if (opp.applicationDeadline && opp.applicationDeadline !== "Deadline not provided") {
           const deadlineTime = new Date(opp.applicationDeadline).getTime();
           if (!isNaN(deadlineTime) && deadlineTime < now) {
+            const prevStatus = opp.status;
             opp.status = "EXPIRED";
+            opp.publicationState = "NOT_PUBLISHED";
             opp.updatedAt = new Date().toISOString();
             expiredCount++;
             this.recordAuditEvent({
               opportunityId: opp.id,
               action: "EXPIRED",
               actorId: "system_cron",
-              previousStatus: "PUBLISHED",
+              previousStatus: prevStatus,
               newStatus: "EXPIRED",
               details: `Auto-expired: deadline (${opp.applicationDeadline}) has passed`,
             });
           }
         }
       }
+    }
+
+    if (expiredCount > 0) {
+      this.persistToStorage();
+      invalidateJobsCache();
     }
 
     return expiredCount;
@@ -1373,6 +1504,7 @@ class OpportunityStoreService {
         provider: "unknown",
         providerJobId: "unknown",
         stored: false,
+        dataOrigin: "UNKNOWN",
         reviewState: "DISCOVERED",
         verificationState: "FAILED",
         publicationState: "NOT_PUBLISHED",
@@ -1407,6 +1539,7 @@ class OpportunityStoreService {
     const publicationState = opp.publicationState || (opp.status === "PUBLISHED" || opp.status === "ACTIVE" ? "PUBLISHED" : "NOT_PUBLISHED");
     const recordState = opp.recordState || (opp.status === "DELETED" ? "DELETED" : opp.status === "ARCHIVED" ? "ARCHIVED" : "ACTIVE");
     const verificationState = opp.verificationState || (opp.verifiedByAdmin ? "PASSED" : "PENDING");
+    const origin: DataOrigin = opp.dataOrigin || (opp.id.startsWith("opp_seed_") ? "SEED" : opp.source === "admin_manual" ? "ADMIN" : "PROVIDER");
 
     if (publicationState === "PUBLISHED" && (recordState === "ARCHIVED" || recordState === "DELETED")) {
       healthIssues.push("Contradictory state: record is marked PUBLISHED but also ARCHIVED/DELETED.");
@@ -1428,6 +1561,7 @@ class OpportunityStoreService {
       providerJobId: opp.sourceId || opp.id,
       discoveryBatchId: opp.discoveryBatchId,
       stored: true,
+      dataOrigin: origin,
       reviewState,
       verificationState,
       publicationState,
@@ -1548,6 +1682,10 @@ class OpportunityStoreService {
   /**
    * Query approved opportunities for students.
    * STRICT GUARANTEE: Never exposes DISCOVERED, PENDING_REVIEW, or REJECTED to public students.
+   * ABSOLUTE USER-FACING DATA RULE:
+   * Normal users must NEVER see seed, dummy, test, demo, unapproved, pending, rejected, archived, or deleted records.
+   * Users see ONLY: REAL DATABASE RECORD + APPROVED + PUBLISHED + ACTIVE + PUBLIC + PASSED VERIFICATION.
+   * If the store is empty, returns empty array with ZERO fake records.
    */
   public getApprovedOpportunities(params: OpportunityFilterParams = {}): {
     items: Opportunity[];
@@ -1555,23 +1693,42 @@ class OpportunityStoreService {
     page: number;
     pageSize: number;
   } {
-    // Fail-safe: if store is empty, seed canonical opportunities immediately
-    if (this.opportunities.size === 0) {
-      this.seedCanonicalOpportunities();
-    }
-
     const all = Array.from(this.opportunities.values());
     let filtered = all.filter((o) => {
-      // Must not be deleted or archived from public view
-      if (o.recordState === "DELETED" || o.status === "DELETED") return false;
-      if (o.recordState && o.recordState !== "ACTIVE") return false;
-      // Must be approved and published
-      return (
-        o.status === "APPROVED" ||
-        o.status === "PUBLISHED" ||
-        o.publicationState === "PUBLISHED" ||
-        o.reviewState === "APPROVED"
-      );
+      // 1. ABSOLUTE SECURITY FILTER: Zero seed, test, demo, or unknown origins
+      if (
+        o.dataOrigin === "SEED" ||
+        o.dataOrigin === "TEST" ||
+        o.dataOrigin === "UNKNOWN" ||
+        o.id.startsWith("opp_seed_")
+      ) {
+        return false;
+      }
+
+      // 2. Lifecycle dimensions: Must be ACTIVE record, APPROVED review, PUBLISHED, and PASSED verification
+      const isRecordActive = (o.recordState ? o.recordState === "ACTIVE" : true) && o.status !== "DELETED" && o.status !== "ARCHIVED" && o.status !== "EXPIRED";
+      const isReviewApproved = o.reviewState === "APPROVED" || o.status === "APPROVED" || o.status === "PUBLISHED";
+      const isPublished = o.publicationState === "PUBLISHED" || o.status === "PUBLISHED";
+      const isVerified = o.verificationState === "PASSED" || o.verifiedByAdmin === true;
+
+      // Filter ensures only APPROVED or PUBLISHED opportunities are returned
+      if (o.status !== "APPROVED" && o.status !== "PUBLISHED") {
+        return false;
+      }
+
+      if (!isRecordActive || !isReviewApproved || !isPublished || !isVerified) {
+        return false;
+      }
+
+      // 3. Deadline check: Expired jobs must never appear in live feed
+      if (o.applicationDeadline && o.applicationDeadline !== "Deadline not provided") {
+        const dl = new Date(o.applicationDeadline).getTime();
+        if (!isNaN(dl) && dl < Date.now()) {
+          return false;
+        }
+      }
+
+      return true;
     });
 
     if (params.category && (params.category as string) !== "all") {
@@ -1640,7 +1797,15 @@ class OpportunityStoreService {
   }
 
   /**
+   * Internal accessor for batch maintenance workers.
+   */
+  public getAllOpportunitiesInternal(): Opportunity[] {
+    return Array.from(this.opportunities.values());
+  }
+
+  /**
    * Query opportunities for Admin Review Queue.
+   * Supports unified lifecycle dimensions, data origin badges, and IST date ranges.
    */
   public getAdminOpportunities(params: OpportunityFilterParams = {}): {
     items: Opportunity[];
@@ -1653,6 +1818,13 @@ class OpportunityStoreService {
       paused: number;
       draft: number;
       total: number;
+      stored: number;
+      verified: number;
+      eligible: number;
+      published: number;
+      live: number;
+      archived: number;
+      importFailed: number;
     };
   } {
     const all = Array.from(this.opportunities.values());
@@ -1665,9 +1837,23 @@ class OpportunityStoreService {
       paused: all.filter((o) => o.status === "PAUSED").length,
       draft: all.filter((o) => o.status === "DRAFT").length,
       total: all.length,
+      stored: all.filter((o) => o.recordState !== "DELETED").length,
+      verified: all.filter((o) => o.verificationState === "PASSED" || o.verifiedByAdmin).length,
+      eligible: all.filter((o) => (o.verificationState === "PASSED" || o.verifiedByAdmin) && o.recordState === "ACTIVE" && o.status !== "EXPIRED").length,
+      published: all.filter((o) => o.publicationState === "PUBLISHED" || o.status === "PUBLISHED").length,
+      live: all.filter((o) => (o.publicationState === "PUBLISHED" || o.status === "PUBLISHED") && (o.reviewState === "APPROVED" || o.status === "APPROVED") && o.recordState === "ACTIVE" && o.dataOrigin !== "SEED" && o.dataOrigin !== "TEST").length,
+      archived: all.filter((o) => o.recordState === "ARCHIVED" || o.status === "ARCHIVED").length,
+      importFailed: 0,
     };
 
     let filtered = all;
+
+    // Filter by dataOrigin
+    if (params.dataOrigin && params.dataOrigin !== "all") {
+      filtered = filtered.filter((o) => o.dataOrigin === params.dataOrigin);
+    }
+
+    // Filter by status (legacy compatibility)
     if (params.status) {
       if (params.status === "APPROVED") {
         filtered = filtered.filter((o) => o.status === "APPROVED" || o.status === "PUBLISHED");
@@ -1676,17 +1862,53 @@ class OpportunityStoreService {
       }
     }
 
+    // Filter by lifecycle dimensions
+    if (params.recordState && params.recordState !== "all") {
+      filtered = filtered.filter((o) => o.recordState === params.recordState);
+    }
+    if (params.reviewState && params.reviewState !== "all") {
+      filtered = filtered.filter((o) => o.reviewState === params.reviewState);
+    }
+    if (params.publicationState && params.publicationState !== "all") {
+      filtered = filtered.filter((o) => o.publicationState === params.publicationState);
+    }
+    if (params.verificationState && params.verificationState !== "all") {
+      filtered = filtered.filter((o) => o.verificationState === params.verificationState);
+    }
+
+    // Filter by discoveryBatchId
+    if (params.discoveryBatchId) {
+      filtered = filtered.filter((o) => o.discoveryBatchId === params.discoveryBatchId);
+    }
+
+    // Filter by category
     if (params.category) {
       filtered = filtered.filter((o) => o.category === params.category);
     }
 
+    // IST Timezone Date Range Filter
+    if (params.dateFilter && params.dateFilter !== "all") {
+      const range = getISTDateRange(params.dateFilter, params.dateFrom, params.dateTo);
+      if (range) {
+        const field = params.dateField || "discovered_at";
+        filtered = filtered.filter((o) => {
+          const dateStr = field === "posted_at" ? o.postedAt : field === "published_at" ? o.publishedAt : o.discoveredAt || o.createdAt;
+          if (!dateStr) return false;
+          const time = new Date(dateStr).getTime();
+          return time >= range.start.getTime() && time <= range.end.getTime();
+        });
+      }
+    }
+
+    // Free text search
     if (params.search && params.search.trim()) {
       const q = params.search.toLowerCase();
       filtered = filtered.filter(
         (o) =>
           o.title.toLowerCase().includes(q) ||
           o.companyName.toLowerCase().includes(q) ||
-          o.location.toLowerCase().includes(q)
+          o.location.toLowerCase().includes(q) ||
+          (o.canonicalJobKey && o.canonicalJobKey.toLowerCase().includes(q))
       );
     }
 
@@ -1764,3 +1986,8 @@ class OpportunityStoreService {
 }
 
 export const opportunityStore = new OpportunityStoreService();
+
+export function runExpiredJobsWorker(): { expiredCount: number } {
+  const expiredCount = opportunityStore.checkAndExpireOutdatedJobs();
+  return { expiredCount };
+}

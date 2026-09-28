@@ -1036,17 +1036,25 @@ function JobsContent() {
             ) : jobs.length === 0 ? (
               <div className="text-center p-12 bg-white border border-slate-200 rounded-3xl space-y-3">
                 <Briefcase className="w-10 h-10 text-slate-400 mx-auto" />
-                <h3 className="text-base font-bold text-slate-900">No opportunities available for this search</h3>
+                <h3 className="text-base font-bold text-slate-900">
+                  {q || location || employmentType !== "all" || remote !== "all" || experience !== "all"
+                    ? "No opportunities available for this search"
+                    : "No live opportunities yet"}
+                </h3>
                 <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  Try a broader search query, remove some filters, or search for fresher roles in another location.
+                  {q || location || employmentType !== "all" || remote !== "all" || experience !== "all"
+                    ? "Try a broader search query, remove some filters, or search for fresher roles in another location."
+                    : "Our team actively discovers, verifies, and publishes campus and fresher opportunities continuously. Check back soon!"}
                 </p>
-                <button
-                  type="button"
-                  onClick={handleClearFilters}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 transition cursor-pointer"
-                >
-                  Reset Filters
-                </button>
+                {(q || location || employmentType !== "all" || remote !== "all" || experience !== "all") && (
+                  <button
+                    type="button"
+                    onClick={handleClearFilters}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 transition cursor-pointer"
+                  >
+                    Reset Filters
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

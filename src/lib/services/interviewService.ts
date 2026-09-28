@@ -1627,29 +1627,43 @@ class InterviewService {
   }
 
   /**
-   * Computes authoritative dashboard metrics for Admin Mock Interview Control Center.
+   * Computes authoritative dashboard metrics for Admin Mock Interview Moderation Hub.
+   * STRICT REAL DATA GUARANTEE: Zero placeholder metrics. All values computed from actual sessions.
    */
   public async getDashboardMetrics(): Promise<{
+    liveNow: number;
+    waitingPreflight: number;
+    completedToday: number;
+    awaitingReview: number;
+    recordingsReady: number;
+    technicalFailures: number;
+    avgDurationSeconds: number;
+    completionRatePercent: number;
+    // Legacy compatibility fields
     activeInterviews: number;
     todaysSessions: number;
     completedCount: number;
     pendingReviewCount: number;
     failedCount: number;
     totalRecordings: number;
-    completionRatePercent: number;
-    avgDurationSeconds: number;
   }> {
     const list = Array.from(this.localSessions.values());
 
     const now = Date.now();
-    const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+    // Calculate IST Today start and end (Asia/Kolkata, UTC+5:30)
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+    const nowIst = new Date(now + IST_OFFSET_MS);
+    const istStartOfToday = Date.UTC(nowIst.getUTCFullYear(), nowIst.getUTCMonth(), nowIst.getUTCDate(), 0, 0, 0, 0) - IST_OFFSET_MS;
+    const istEndOfToday = Date.UTC(nowIst.getUTCFullYear(), nowIst.getUTCMonth(), nowIst.getUTCDate(), 23, 59, 59, 999) - IST_OFFSET_MS;
     const staleThresholdMs = 2 * 60 * 1000; // 2 minutes heartbeat threshold
 
-    let activeCount = 0;
-    let todaysCount = 0;
+    let liveNow = 0;
+    let waitingPreflight = 0;
+    let completedToday = 0;
+    let awaitingReview = 0;
+    let recordingsReady = 0;
+    let technicalFailures = 0;
     let completedCount = 0;
-    let failedCount = 0;
-    let recordingsCount = 0;
     let totalDuration = 0;
     let completedWithDuration = 0;
 
@@ -1657,25 +1671,54 @@ class InterviewService {
       const startTime = new Date(s.startedAt).getTime();
       const lastHeartbeat = s.lastHeartbeatAt ? new Date(s.lastHeartbeatAt).getTime() : startTime;
 
-      if (startTime >= twentyFourHoursAgo) {
-        todaysCount++;
+      // Completed Today (IST)
+      const isCompleted = s.status === "completed" || s.sessionState === "COMPLETED";
+      const completedTime = s.completedAt ? new Date(s.completedAt).getTime() : startTime;
+      if (isCompleted && completedTime >= istStartOfToday && completedTime <= istEndOfToday) {
+        completedToday++;
       }
 
-      if (s.status === "in_progress" && (now - lastHeartbeat <= staleThresholdMs)) {
-        activeCount++;
-      } else if (s.status === "completed") {
+      // Live Now: in progress and has recent heartbeat
+      const isLive = (s.status === "in_progress" || s.sessionState === "ACTIVE") && (now - lastHeartbeat <= staleThresholdMs);
+      if (isLive) {
+        liveNow++;
+      }
+
+      // Waiting / Preflight
+      if (s.sessionState === "PREFLIGHT" || s.sessionState === "READY" || s.sessionState === "PERMISSION_CHECK") {
+        waitingPreflight++;
+      }
+
+      // Completed & Awaiting Review
+      if (isCompleted) {
         completedCount++;
         const duration = s.durationSeconds || s.recordingDurationSeconds || 0;
         if (duration > 0) {
           totalDuration += duration;
           completedWithDuration++;
         }
-      } else if (s.status === "failed" || s.status === "terminated_proctoring") {
-        failedCount++;
+        if (s.reviewStatus !== "APPROVED") {
+          awaitingReview++;
+        }
       }
 
+      // Recordings Ready
       if (s.recordingStatus === "READY" && s.recordingPath) {
-        recordingsCount++;
+        recordingsReady++;
+      }
+
+      // Technical Failures
+      const hasTechFail =
+        s.status === "failed" ||
+        s.sessionState === "FAILED" ||
+        s.status === "terminated_proctoring" ||
+        s.recordingStatus === "FAILED" ||
+        s.cameraPermission === "denied" ||
+        s.microphonePermission === "denied" ||
+        Boolean(s.errorCode);
+
+      if (hasTechFail) {
+        technicalFailures++;
       }
     }
 
@@ -1684,15 +1727,243 @@ class InterviewService {
     const avgDurationSeconds = completedWithDuration > 0 ? Math.round(totalDuration / completedWithDuration) : 0;
 
     return {
-      activeInterviews: activeCount,
-      todaysSessions: todaysCount,
-      completedCount,
-      pendingReviewCount: recordingsCount,
-      failedCount,
-      totalRecordings: recordingsCount,
-      completionRatePercent,
+      liveNow,
+      waitingPreflight,
+      completedToday,
+      awaitingReview,
+      recordingsReady,
+      technicalFailures,
       avgDurationSeconds,
+      completionRatePercent,
+      // Legacy compatibility
+      activeInterviews: liveNow,
+      todaysSessions: completedToday,
+      completedCount,
+      pendingReviewCount: awaitingReview,
+      failedCount: technicalFailures,
+      totalRecordings: recordingsReady,
     };
+  }
+
+  /**
+   * Needs Attention Queue: Priority-ordered session list requiring moderation or technical intervention.
+   */
+  public async getNeedsAttentionSessions(): Promise<Array<{
+    session: InterviewSession;
+    reason: "UPLOAD_FAILED" | "CAMERA_ERROR" | "MIC_ERROR" | "INTERRUPTED" | "PROCTORING_ALERT" | "FLAGGED_REVIEW";
+    severity: "CRITICAL" | "HIGH" | "MEDIUM";
+    description: string;
+  }>> {
+    const list = Array.from(this.localSessions.values());
+    const attentionList: Array<{
+      session: InterviewSession;
+      reason: "UPLOAD_FAILED" | "CAMERA_ERROR" | "MIC_ERROR" | "INTERRUPTED" | "PROCTORING_ALERT" | "FLAGGED_REVIEW";
+      severity: "CRITICAL" | "HIGH" | "MEDIUM";
+      description: string;
+    }> = [];
+
+    for (const s of list) {
+      if (s.recordingStatus === "FAILED") {
+        attentionList.push({
+          session: s,
+          reason: "UPLOAD_FAILED",
+          severity: "CRITICAL",
+          description: s.errorMessage || "Recording upload failed after session completion.",
+        });
+      } else if (s.cameraPermission === "denied" || s.cameraPermission === "unavailable") {
+        attentionList.push({
+          session: s,
+          reason: "CAMERA_ERROR",
+          severity: "HIGH",
+          description: "Candidate device camera was denied or disconnected.",
+        });
+      } else if (s.microphonePermission === "denied" || s.microphonePermission === "unavailable") {
+        attentionList.push({
+          session: s,
+          reason: "MIC_ERROR",
+          severity: "HIGH",
+          description: "Candidate microphone permission denied or failed preflight.",
+        });
+      } else if (s.sessionState === "FAILED" || s.status === "failed" || s.status === "terminated_proctoring") {
+        attentionList.push({
+          session: s,
+          reason: "INTERRUPTED",
+          severity: "HIGH",
+          description: s.errorMessage || "Interview terminated abruptly or due to policy violation.",
+        });
+      } else if (s.warningCount && s.warningCount >= 3) {
+        attentionList.push({
+          session: s,
+          reason: "PROCTORING_ALERT",
+          severity: "MEDIUM",
+          description: `${s.warningCount} proctoring violations recorded during session.`,
+        });
+      } else if (s.reviewStatus === "FLAGGED") {
+        attentionList.push({
+          session: s,
+          reason: "FLAGGED_REVIEW",
+          severity: "MEDIUM",
+          description: s.reviewNotes || "Session was flagged by evaluator for follow-up.",
+        });
+      }
+    }
+
+    return attentionList.sort((a, b) => {
+      const p = { CRITICAL: 3, HIGH: 2, MEDIUM: 1 };
+      return p[b.severity] - p[a.severity];
+    });
+  }
+
+  /**
+   * Submit evaluator moderation review for a session.
+   */
+  public async submitReview(
+    sessionId: string,
+    adminId: string,
+    review: {
+      status: "APPROVED" | "FLAGGED" | "RETAKE_REQUESTED";
+      notes: string;
+      score?: number;
+    }
+  ): Promise<InterviewSession | null> {
+    const session = await this.getSession(sessionId);
+    if (!session) return null;
+
+    session.reviewStatus = review.status;
+    session.reviewNotes = review.notes;
+    session.reviewedBy = adminId;
+    session.reviewedAt = new Date().toISOString();
+    if (typeof review.score === "number") {
+      session.overallScore = review.score;
+    }
+
+    this.localSessions.set(session.id, session);
+    await this.syncSession(session);
+    return session;
+  }
+
+  /**
+   * Constructs chronological event timeline for single-session moderation.
+   */
+  public async getSessionEvents(sessionId: string): Promise<Array<{
+    id: string;
+    eventType: string;
+    label: string;
+    timestamp: string;
+    status: "success" | "warning" | "error" | "info";
+    details?: string;
+  }>> {
+    const session = await this.getSession(sessionId);
+    if (!session) return [];
+
+    const events: Array<{
+      id: string;
+      eventType: string;
+      label: string;
+      timestamp: string;
+      status: "success" | "warning" | "error" | "info";
+      details?: string;
+    }> = [];
+
+    // Session Created
+    events.push({
+      id: "ev_created",
+      eventType: "SESSION_CREATED",
+      label: "Interview Session Initialized",
+      timestamp: session.startedAt,
+      status: "info",
+      details: `Role: ${session.role} • Target: ${session.targetCompany || "General"}`,
+    });
+
+    // Camera Permission
+    if (session.cameraPermission) {
+      events.push({
+        id: "ev_cam",
+        eventType: "CAMERA_PERMISSION",
+        label: session.cameraPermission === "granted" ? "Camera Granted & Verified" : "Camera Permission Denied",
+        timestamp: session.startedAt,
+        status: session.cameraPermission === "granted" ? "success" : "error",
+      });
+    }
+
+    // Microphone Permission
+    if (session.microphonePermission) {
+      events.push({
+        id: "ev_mic",
+        eventType: "MIC_PERMISSION",
+        label: session.microphonePermission === "granted" ? "Microphone Granted & Calibrated" : "Microphone Permission Denied",
+        timestamp: session.startedAt,
+        status: session.microphonePermission === "granted" ? "success" : "error",
+      });
+    }
+
+    // Question / Answer Turns
+    (session.responses || []).forEach((resp, idx) => {
+      events.push({
+        id: `ev_turn_${idx}`,
+        eventType: "ANSWER_SUBMITTED",
+        label: `Question ${idx + 1} Answered`,
+        timestamp: resp.submittedAt || session.startedAt,
+        status: resp.isCorrect !== false ? "success" : "warning",
+        details: `Duration: ${resp.timeSpentSeconds || 0}s • Score: ${resp.score ?? "Evaluated"}`,
+      });
+    });
+
+    // Proctoring Violations
+    (session.proctoringViolations || []).forEach((pv, idx) => {
+      events.push({
+        id: `ev_proc_${idx}`,
+        eventType: "PROCTORING_WARNING",
+        label: `Proctoring Warning: ${pv.type.replace(/_/g, " ")}`,
+        timestamp: pv.timestamp,
+        status: "warning",
+        details: `Warning #${pv.warningNumber}`,
+      });
+    });
+
+    // Recording status
+    if (session.recordingStatus === "READY") {
+      events.push({
+        id: "ev_rec_ready",
+        eventType: "RECORDING_UPLOADED",
+        label: "Private Recording Uploaded & Ready",
+        timestamp: session.completedAt || session.endedAt || session.startedAt,
+        status: "success",
+        details: session.recordingFileSizeBytes ? `${Math.round(session.recordingFileSizeBytes / (1024 * 1024))} MB` : undefined,
+      });
+    } else if (session.recordingStatus === "FAILED") {
+      events.push({
+        id: "ev_rec_fail",
+        eventType: "RECORDING_FAILED",
+        label: "Recording Upload Failed",
+        timestamp: session.endedAt || session.startedAt,
+        status: "error",
+        details: session.errorMessage || "Institutional private storage upload error.",
+      });
+    }
+
+    // Completion or Failure
+    if (session.completedAt || session.sessionState === "COMPLETED" || session.status === "completed") {
+      events.push({
+        id: "ev_comp",
+        eventType: "SESSION_COMPLETED",
+        label: "Interview Session Completed",
+        timestamp: session.completedAt || session.endedAt || session.startedAt,
+        status: "success",
+        details: `Overall Assessment Score: ${session.overallScore || 0}/100`,
+      });
+    } else if (session.status === "failed" || session.sessionState === "FAILED") {
+      events.push({
+        id: "ev_failed",
+        eventType: "SESSION_FAILED",
+        label: "Session Interrupted / Terminated",
+        timestamp: session.endedAt || session.startedAt,
+        status: "error",
+        details: session.errorMessage,
+      });
+    }
+
+    return events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }
 
   /**
