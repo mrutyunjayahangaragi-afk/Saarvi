@@ -25,7 +25,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Save,
+  Calculator,
 } from "lucide-react";
+import { revealDestination } from "@/lib/ux/action-destination";
+
 
 export default function MarksCalculatorPage() {
   const [activeTab, setActiveTab] = useState<"composite" | "required">("composite");
@@ -125,6 +128,9 @@ export default function MarksCalculatorPage() {
   const handlePresetSelect = (preset: { internal: number; external: number }) => {
     setInternalWeight(preset.internal);
     setExternalWeight(preset.external);
+    setTimeout(() => {
+      revealDestination("#marks-composite-result", { alignment: "center" });
+    }, 50);
   };
 
   const handleCopy = async () => {
@@ -201,7 +207,10 @@ export default function MarksCalculatorPage() {
           <div className="p-1 bg-slate-100 rounded-2xl inline-flex gap-1 border border-slate-200/80 text-xs font-semibold">
             <button
               type="button"
-              onClick={() => setActiveTab("composite")}
+              onClick={() => {
+                setActiveTab("composite");
+                setTimeout(() => revealDestination("#marks-composite-result", { alignment: "center" }), 50);
+              }}
               className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
                 activeTab === "composite"
                   ? "bg-white text-blue-600 shadow-xs"
@@ -212,7 +221,10 @@ export default function MarksCalculatorPage() {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab("required")}
+              onClick={() => {
+                setActiveTab("required");
+                setTimeout(() => revealDestination("#marks-required-result", { alignment: "center" }), 50);
+              }}
               className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
                 activeTab === "required"
                   ? "bg-white text-blue-600 shadow-xs"
@@ -229,7 +241,10 @@ export default function MarksCalculatorPage() {
           <div className="space-y-8">
             {/* Results Banner */}
             <div
-              className={`p-6 sm:p-8 rounded-3xl shadow-md space-y-4 text-white transition-colors ${
+              id="marks-required-result"
+              data-saarvi-target="calculation-result"
+              tabIndex={-1}
+              className={`p-6 sm:p-8 rounded-3xl shadow-md space-y-4 text-white transition-colors saarvi-destination-target outline-hidden ${
                 !requiredResult.isAchievable
                   ? "bg-gradient-to-br from-rose-600 to-pink-700"
                   : requiredResult.isAlreadyAchieved
@@ -493,7 +508,12 @@ export default function MarksCalculatorPage() {
         </div>
 
         {/* Results Banner */}
-        <div className="p-6 sm:p-8 bg-gradient-to-br from-indigo-600 to-blue-700 text-white rounded-3xl shadow-md space-y-4">
+        <div
+          id="marks-composite-result"
+          data-saarvi-target="calculation-result"
+          tabIndex={-1}
+          className="p-6 sm:p-8 bg-gradient-to-br from-indigo-600 to-blue-700 text-white rounded-3xl shadow-md space-y-4 saarvi-destination-target outline-hidden"
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="text-xs font-bold uppercase tracking-wider text-indigo-200 flex items-center gap-1.5">
               <Award className="w-4 h-4" /> Composite Aggregate

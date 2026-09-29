@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useFeedback } from '@/context/FeedbackContext';
 import { useAuth } from '@/context/AuthContext';
 import { CANONICAL_TOOL_REGISTRY } from '@/lib/tools/tool-registry';
@@ -48,9 +48,15 @@ export default function FeedbackModal() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
+  const previousActiveElementRef = useRef<HTMLElement | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+  const successCloseBtnRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (isOpen) {
+      previousActiveElementRef.current = (document.activeElement as HTMLElement) || null;
+      document.body.style.overflow = 'hidden';
+
       setIsSuccess(false);
       setError(null);
       setMessage('');
@@ -70,8 +76,29 @@ export default function FeedbackModal() {
       } else {
         setEmail('');
       }
+
+      setTimeout(() => {
+        closeBtnRef.current?.focus();
+      }, 50);
+    } else {
+      document.body.style.overflow = '';
+      if (previousActiveElementRef.current) {
+        previousActiveElementRef.current.focus();
+      }
     }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [isOpen, options, user]);
+
+  useEffect(() => {
+    if (isSuccess) {
+      setTimeout(() => {
+        successCloseBtnRef.current?.focus();
+      }, 100);
+    }
+  }, [isSuccess]);
 
   if (!isOpen) return null;
 
@@ -82,6 +109,8 @@ export default function FeedbackModal() {
     const trimmed = message.trim();
     if (trimmed.length < 10) {
       setError('Please provide at least 10 characters describing your feedback.');
+      const msgInput = document.getElementById('feedback-message');
+      msgInput?.focus();
       return;
     }
     if (trimmed.length > 2000) {
@@ -151,6 +180,7 @@ export default function FeedbackModal() {
             </div>
           </div>
           <button
+            ref={closeBtnRef}
             onClick={closeFeedback}
             className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
             aria-label="Close feedback modal"
@@ -161,19 +191,27 @@ export default function FeedbackModal() {
 
         {/* Success State */}
         {isSuccess ? (
-          <div className="p-8 text-center space-y-4 my-auto">
+          <div
+            id="feedback-status"
+            data-saarvi-target="feedback-success"
+            tabIndex={-1}
+            className="p-8 text-center space-y-4 my-auto saarvi-destination-target outline-hidden"
+          >
             <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto animate-in zoom-in-50 duration-300">
               <CheckCircle2 className="w-7 h-7" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-lg font-bold text-slate-900">Thank You!</h3>
+              <h3 tabIndex={-1} className="text-lg font-bold text-slate-900 outline-hidden">
+                Thank You!
+              </h3>
               <p className="text-xs text-slate-600 max-w-sm mx-auto">
                 Your feedback has been recorded and delivered directly to the Saarvi engineering team.
               </p>
             </div>
             <button
+              ref={successCloseBtnRef}
               onClick={closeFeedback}
-              className="px-5 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition"
+              className="px-5 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition cursor-pointer"
             >
               Close
             </button>

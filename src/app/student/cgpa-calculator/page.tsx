@@ -23,7 +23,9 @@ import {
   ExternalLink,
   Award,
   AlertCircle,
+  Calculator,
 } from "lucide-react";
+import { revealDestination } from "@/lib/ux/action-destination";
 
 interface SemesterEntryState {
   semester: number;
@@ -288,7 +290,12 @@ export default function CGPACalculatorPage() {
         </div>
 
         {/* 2. CUMULATIVE SCORE HERO CARD */}
-        <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+        <div
+          id="cgpa-result"
+          data-saarvi-target="calculation-result"
+          tabIndex={-1}
+          className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6 saarvi-destination-target outline-hidden"
+        >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 border-b border-slate-100 pb-6">
             <div className="space-y-1">
               <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">
@@ -468,8 +475,34 @@ export default function CGPACalculatorPage() {
                 />
               </div>
             </div>
+
+
+            {/* Calculate & Reveal Action Footer */}
+            <div className="pt-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <span className="text-xs text-slate-500">
+                Completed semesters: {cgpaResult.completedSemestersCount} of 8 ({cgpaResult.totalCredits} credits)
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  revealDestination({
+                    target: "#cgpa-result",
+                    fallbackTarget: "[data-saarvi-target='calculation-result']",
+                    mode: "result",
+                    focus: true,
+                    reason: "cgpa_calculate_click",
+                    force: true,
+                  });
+                }}
+                className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Calculator className="w-4 h-4" />
+                <span>Calculate & View Cumulative Score</span>
+              </button>
+            </div>
           </div>
         </div>
+
 
         {/* 4. PROGRESSION CHART (Requirement 27) */}
         {timelineData.length >= 2 && (

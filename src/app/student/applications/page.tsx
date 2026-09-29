@@ -43,6 +43,7 @@ import {
   Eye,
   Check,
 } from "lucide-react";
+import { revealDestination } from "@/lib/ux/action-destination";
 
 const STATUS_CONFIG: Record<
   JobApplicationStatus,
@@ -285,6 +286,9 @@ export default function ApplicationsPage() {
     };
     await academicStorage.saveJobApplication(updated);
     await refreshData();
+    setTimeout(() => {
+      revealDestination(`#app-card-${app.id}, #app-row-${app.id}`, { alignment: "nearest" });
+    }, 50);
   };
 
   // Open Interview Modal
@@ -615,7 +619,9 @@ export default function ApplicationsPage() {
                       return (
                         <div
                           key={app.id}
-                          className="bg-white border border-slate-200 rounded-lg p-3.5 shadow-sm hover:shadow-md transition-shadow relative group"
+                          id={`app-card-${app.id}`}
+                          data-saarvi-target="tracker-status"
+                          className="bg-white border border-slate-200 rounded-lg p-3.5 shadow-sm hover:shadow-md transition-shadow relative group scroll-mt-24"
                         >
                           <div className="flex items-start justify-between gap-1 mb-1">
                             <strong className="text-sm text-slate-900 leading-snug line-clamp-1">
@@ -723,7 +729,12 @@ export default function ApplicationsPage() {
                 {processedApplications.map((app) => {
                   const conf = STATUS_CONFIG[app.status];
                   return (
-                    <tr key={app.id} className="hover:bg-slate-50/80 transition-colors">
+                    <tr
+                      key={app.id}
+                      id={`app-row-${app.id}`}
+                      data-saarvi-target="tracker-status"
+                      className="hover:bg-slate-50/80 transition-colors scroll-mt-24"
+                    >
                       <td className="py-3 px-4">
                         <strong className="text-slate-900 block text-sm">{app.role}</strong>
                         <span className="text-slate-500">{app.company}</span>

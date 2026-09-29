@@ -40,6 +40,9 @@ import { generateResumePdf, generateControlledLatex } from "@/lib/tools/resume/p
 import { AIResumeFeedbackModal } from "@/components/career/AIResumeFeedbackModal";
 import { ResumeLivePreview } from "@/components/career/ResumeLivePreview";
 import { ResumeIntelligencePanel } from "@/components/career/ResumeIntelligencePanel";
+import { ResumeCompletionWizard } from "@/components/career/ResumeCompletionWizard";
+import { resumeCompletionService, type WizardStepId } from "@/lib/services/resumeCompletionService";
+import { revealDestination } from "@/lib/ux/action-destination";
 import {
   FileText,
   Plus,
@@ -289,6 +292,18 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
   const handleLoadSampleResume = () => {
     setProfile(createSampleProfile());
     setNotice("Loaded realistic sample resume (Alex Johnson, Software Engineer).");
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setMobileWorkflow("preview");
+    }
+    setTimeout(() => {
+      revealDestination({
+        target: "#resume-preview-container",
+        fallbackTarget: "[data-saarvi-target='preview']",
+        mode: "result",
+        focus: true,
+        reason: "sample_resume_preview",
+      });
+    }, 150);
   };
 
   const activeVersion = useMemo(() => {
@@ -312,6 +327,59 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
       };
     return careerService.validateResume(profile, activeVersion || undefined);
   }, [profile, activeVersion]);
+
+  // Resume Completion Wizard 6.0 Computations
+  const skippedSet = useMemo(
+    () => new Set<string>(activeVersion?.wizardSkippedSections || []),
+    [activeVersion?.wizardSkippedSections]
+  );
+  const notApplicableSet = useMemo(
+    () => new Set<string>(activeVersion?.wizardNotApplicableSections || []),
+    [activeVersion?.wizardNotApplicableSections]
+  );
+
+  const completionReport = useMemo(() => {
+    if (!profile) return null;
+    return resumeCompletionService.generateReport(
+      profile,
+      activeVersion || undefined,
+      activeTab as WizardStepId,
+      skippedSet,
+      notApplicableSet
+    );
+  }, [profile, activeVersion, activeTab, skippedSet, notApplicableSet]);
+
+  // Privacy-safe operational analytics (STRICTLY NO PII / resume content in metadata)
+  const trackResumeWizardEvent = useCallback(
+    (
+      eventName:
+        | "resume_step_opened"
+        | "resume_step_completed"
+        | "resume_step_skipped"
+        | "resume_template_selected"
+        | "resume_previewed"
+        | "resume_exported",
+      stepKey?: string
+    ) => {
+      try {
+        const payload = {
+          event: eventName,
+          userId: profile?.id || "anonymous_user",
+          resumeId: activeVersion?.id || "default",
+          stepKey: stepKey || undefined,
+          timestamp: new Date().toISOString(),
+        };
+        fetch("/api/analytics/track", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }).catch(() => {});
+      } catch {
+        // silent
+      }
+    },
+    [profile?.id, activeVersion?.id]
+  );
 
   // Save profile helper (Strictly local-first IndexedDB)
   const updateProfile = useCallback(
@@ -502,6 +570,32 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
   // Client-Side Vector PDF Export with single 3-second countdown
   const handleExportPDF = async () => {
     if (!profile || !activeVersion) return;
+
+    // Strict Core Export Validation (Section 32 & 62)
+    const exportValidation = resumeCompletionService.validateForExport(profile);
+    if (!exportValidation.isValid) {
+      setActiveTab("contact");
+      setMobileWorkflow("editor");
+      setNotice(exportValidation.message);
+      setTimeout(() => {
+        const inputId =
+          exportValidation.missingField === "email"
+            ? "contact-email-input"
+            : "contact-fullname-input";
+        revealDestination({
+          target: `#${inputId}`,
+          fallbackTarget: "#resume-editor",
+          mode: "result",
+          focus: true,
+          reason: "export_core_validation_fail",
+        });
+        const el = document.getElementById(inputId) as HTMLInputElement | null;
+        if (el) el.focus();
+      }, 100);
+      return;
+    }
+
+    trackResumeWizardEvent("resume_exported");
     setExporting(true);
     setDownloadUrl(null);
 
@@ -601,6 +695,155 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
       </div>
     );
   }
+
+  const renderSectionFooter = (sectionId: ResumeSectionId) => {
+    const isCore = sectionId === "contact";
+    const isExp = sectionId === "experience";
+    const isOptional = [
+      "certifications",
+      "achievements",
+      "hackathons",
+      "leadership",
+      "volunteering",
+      "languages",
+      "additional",
+    ].includes(sectionId);
+
+    const handleContinue = () => {
+      if (!profile) return;
+      trackResumeWizardEvent("resume_step_completed", sectionId);
+      const nextStep = resumeCompletionService.getNextStepAfter(
+        sectionId,
+        profile,
+        activeVersion || undefined,
+        skippedSet,
+        notApplicableSet
+      );
+
+      if (nextStep && nextStep !== "review") {
+        setActiveTab(nextStep as ResumeSectionId);
+        trackResumeWizardEvent("resume_step_opened", nextStep);
+        setTimeout(() => {
+          revealDestination({
+            target: "#resume-editor",
+            fallbackTarget: "[data-saarvi-target='resume-editor']",
+            mode: "result",
+            focus: true,
+            reason: `continue_from_${sectionId}`,
+          });
+        }, 50);
+      } else {
+        setTimeout(() => {
+          revealDestination({
+            target: "#resume-review",
+            fallbackTarget: "[data-saarvi-target='resume-review']",
+            mode: "result",
+            focus: true,
+            reason: "continue_to_review",
+          });
+        }, 50);
+      }
+    };
+
+    const handleSectionSkip = () => {
+      trackResumeWizardEvent("resume_step_skipped", sectionId);
+      updateActiveVersion((v) => {
+        const nextSkipped = new Set(v.wizardSkippedSections || []);
+        nextSkipped.add(sectionId);
+        return { ...v, wizardSkippedSections: Array.from(nextSkipped) };
+      });
+      handleContinue();
+    };
+
+    const handleSectionNotApplicable = () => {
+      trackResumeWizardEvent("resume_step_skipped", sectionId);
+      updateActiveVersion((v) => {
+        const nextNA = new Set(v.wizardNotApplicableSections || []);
+        nextNA.add(sectionId);
+        return { ...v, wizardNotApplicableSections: Array.from(nextNA) };
+      });
+      handleContinue();
+    };
+
+    return (
+      <div className="pt-6 mt-6 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+          <span>Saved locally</span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {isExp && (
+            <button
+              type="button"
+              onClick={() => {
+                trackResumeWizardEvent("resume_step_skipped", "experience");
+                updateActiveVersion((v) => {
+                  const s = new Set(v.wizardSkippedSections || []);
+                  s.add("experience");
+                  return { ...v, wizardSkippedSections: Array.from(s) };
+                });
+                setActiveTab("projects");
+                trackResumeWizardEvent("resume_step_opened", "projects");
+                setTimeout(() => {
+                  revealDestination({
+                    target: "#resume-editor",
+                    fallbackTarget: "[data-saarvi-target='resume-editor']",
+                    mode: "result",
+                    focus: true,
+                    reason: "fresher_skip_experience",
+                  });
+                }, 50);
+              }}
+              className="text-xs font-semibold text-slate-600 hover:text-blue-600 px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              No professional experience yet &rarr;
+            </button>
+          )}
+
+          {!isCore && !isExp && (
+            <button
+              type="button"
+              onClick={handleSectionSkip}
+              className="text-xs font-medium text-slate-500 hover:text-slate-800 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              Skip for now
+            </button>
+          )}
+
+          {isOptional && (
+            <button
+              type="button"
+              onClick={handleSectionNotApplicable}
+              className="text-xs font-medium text-slate-400 hover:text-slate-600 px-2.5 py-2 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              Not applicable
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setNotice("All changes saved locally to Saarvi.");
+              setTimeout(() => setNotice(null), 3000);
+            }}
+            className="text-xs font-medium text-slate-600 hover:text-slate-900 px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer"
+          >
+            Save & Exit
+          </button>
+
+          <button
+            type="button"
+            onClick={handleContinue}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <span>Save & Continue</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const renderNavigatorAndAtsChecks = () => (
     <div className="space-y-4">
@@ -950,6 +1193,64 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
           </div>
         </div>
 
+        {/* Compact Resume Completion Header Bar (Section 37 & 44) */}
+        {completionReport && (
+          <div className="mt-4 bg-white border border-slate-200/90 rounded-xl p-3.5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xs font-semibold text-slate-500">Resume Completion</span>
+                <span className="text-base font-black text-slate-900">{completionReport.percentage}%</span>
+              </div>
+              <div className="hidden sm:block w-28 bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/70">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    completionReport.percentage >= 80
+                      ? "bg-emerald-500"
+                      : completionReport.percentage >= 50
+                      ? "bg-blue-600"
+                      : "bg-amber-500"
+                  }`}
+                  style={{ width: `${completionReport.percentage}%` }}
+                />
+              </div>
+              <span className="text-xs text-slate-500">
+                Step {completionReport.steps.find((s) => s.id === activeTab)?.stepNumber || 1} of {completionReport.totalSteps}
+              </span>
+            </div>
+
+            {/* Continue where you left off (Section 44) */}
+            {completionReport.firstIncompleteMeaningfulStep && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 hidden sm:inline">
+                  Continue where you left off:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const sec = (completionReport.firstIncompleteMeaningfulStep?.sectionId || "contact") as ResumeSectionId;
+                    setActiveTab(sec);
+                    setMobileWorkflow("editor");
+                    trackResumeWizardEvent("resume_step_opened", sec);
+                    setTimeout(() => {
+                      revealDestination({
+                        target: "#resume-editor",
+                        fallbackTarget: "[data-saarvi-target='resume-editor']",
+                        mode: "result",
+                        focus: true,
+                        reason: "continue_where_left_off",
+                      });
+                    }, 50);
+                  }}
+                  className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-lg border border-blue-200 transition-colors cursor-pointer"
+                >
+                  <span>{completionReport.firstIncompleteMeaningfulStep.label}</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Main Workspace Mode Tabs */}
         <div className="flex flex-wrap items-center gap-2 my-6">
           <button
@@ -1268,6 +1569,15 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
                       onClick={() => {
                         updateActiveVersion((v) => ({ ...v, template: tmpl.id }));
                         setViewMode("preview");
+                        setTimeout(() => {
+                          revealDestination({
+                            target: "#resume-preview-container",
+                            fallbackTarget: "[data-saarvi-target='preview']",
+                            mode: "result",
+                            focus: true,
+                            reason: "template_preview_click",
+                          });
+                        }, 120);
                       }}
                       className="flex-1 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-center cursor-pointer transition-colors"
                       title="Preview this template"
@@ -1279,6 +1589,20 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
                       onClick={() => {
                         updateActiveVersion((v) => ({ ...v, template: tmpl.id }));
                         setProfile(createSampleProfile());
+                        if (typeof window !== "undefined" && window.innerWidth < 768) {
+                          setMobileWorkflow("preview");
+                        } else {
+                          setViewMode("split");
+                        }
+                        setTimeout(() => {
+                          revealDestination({
+                            target: "#resume-preview-container",
+                            fallbackTarget: "[data-saarvi-target='preview']",
+                            mode: "result",
+                            focus: true,
+                            reason: "template_try_sample",
+                          });
+                        }, 150);
                       }}
                       className="flex-1 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-center cursor-pointer transition-colors"
                       title="View filled sample data"
@@ -1289,9 +1613,25 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
                       type="button"
                       onClick={() => {
                         updateActiveVersion((v) => ({ ...v, template: tmpl.id }));
+                        trackResumeWizardEvent("resume_template_selected", tmpl.id);
                         if (isSampleProfile(profile)) {
                           handleReplaceWithMyInfo();
                         }
+                        setViewMode("edit");
+                        const nextSec = (completionReport?.firstIncompleteMeaningfulStep?.sectionId || "contact") as ResumeSectionId;
+                        setActiveTab(nextSec);
+                        if (typeof window !== "undefined" && window.innerWidth < 768) {
+                          setMobileWorkflow("editor");
+                        }
+                        setTimeout(() => {
+                          revealDestination({
+                            target: "[data-saarvi-target='resume-editor']",
+                            fallbackTarget: "[data-saarvi-target='editor']",
+                            mode: "result",
+                            focus: true,
+                            reason: "template_build_click",
+                          });
+                        }, 150);
                       }}
                       className="flex-1 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-center cursor-pointer transition-colors"
                       title="Build your resume with this template"
@@ -1540,7 +1880,12 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
 
         {/* MOBILE PREVIEW VIEW (< md screens) */}
         {mobileWorkflow === "preview" && (
-          <div className="md:hidden max-w-4xl mx-auto mb-8">
+          <div
+            id="resume-preview-mobile"
+            data-saarvi-target="preview"
+            tabIndex={-1}
+            className="md:hidden max-w-4xl mx-auto mb-8 saarvi-destination-target outline-hidden"
+          >
             <ResumeLivePreview
               profile={profile}
               version={activeVersion}
@@ -1595,7 +1940,12 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
 
         {/* DESKTOP FULL PREVIEW MODE (>= md screens) */}
         {viewMode === "preview" && (
-          <div className="hidden md:block max-w-4xl mx-auto mb-8">
+          <div
+            id="resume-preview-container"
+            data-saarvi-target="preview"
+            tabIndex={-1}
+            className="hidden md:block max-w-4xl mx-auto mb-8 saarvi-destination-target outline-hidden"
+          >
             <ResumeLivePreview
               profile={profile}
               version={activeVersion}
@@ -1660,7 +2010,12 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
                 </div>
               )}
 
-              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+              <div
+                id="resume-editor"
+                data-saarvi-target="resume-editor"
+                tabIndex={-1}
+                className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm saarvi-destination-target outline-none"
+              >
                 {/* Active Tab Title */}
                 <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-6">
                   <div>
@@ -1673,13 +2028,15 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
 
               {/* TAB 1: CONTACT */}
               {activeTab === "contact" && (
-                <div className="space-y-4">
+                <div id="resume-personal" data-saarvi-target="resume-personal" className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs font-semibold text-slate-700 block mb-1">
                         Full Name *
                       </label>
                       <input
+                        id="contact-fullname-input"
+                        data-saarvi-target="resume-personal-fullname"
                         type="text"
                         value={profile.fullName}
                         onChange={(e) => updateProfile((p) => ({ ...p, fullName: e.target.value }))}
@@ -1707,6 +2064,8 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
                         Email Address *
                       </label>
                       <input
+                        id="contact-email-input"
+                        data-saarvi-target="resume-personal-email"
                         type="email"
                         value={profile.email}
                         onChange={(e) => updateProfile((p) => ({ ...p, email: e.target.value }))}
@@ -1901,7 +2260,7 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
 
               {/* TAB 2: SUMMARY */}
               {activeTab === "summary" && (
-                <div className="space-y-4">
+                <div id="resume-summary" data-saarvi-target="resume-summary" className="space-y-4">
                   {/* Deterministic Summary Builder Tool */}
                   <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
                     <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5 mb-2">
@@ -1963,7 +2322,7 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
 
               {/* TAB 3: EDUCATION */}
               {activeTab === "education" && (
-                <div className="space-y-4">
+                <div id="resume-education" data-saarvi-target="resume-education" className="space-y-4">
                   {profile.education.map((edu, idx) => (
                     <div key={edu.id} className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
                       <div className="flex items-center justify-between">
@@ -2086,7 +2445,7 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
 
               {/* TAB 4: SKILLS */}
               {activeTab === "skills" && (
-                <div className="space-y-4">
+                <div id="resume-skills" data-saarvi-target="resume-skills" className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {ALL_SKILL_CATEGORIES.map((cat) => {
                       const categorySkills = profile.skills.filter((s) => s.category === cat);
@@ -2150,7 +2509,7 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
 
               {/* TAB 5: EXPERIENCE */}
               {activeTab === "experience" && (
-                <div className="space-y-4">
+                <div id="resume-experience" data-saarvi-target="resume-experience" className="space-y-4">
                   {profile.experience.map((exp, idx) => (
                     <div key={exp.id} className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
                       <div className="flex items-center justify-between">
@@ -2299,7 +2658,7 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
 
               {/* TAB 6: PROJECTS */}
               {activeTab === "projects" && (
-                <div className="space-y-4">
+                <div id="resume-projects" data-saarvi-target="resume-projects" className="space-y-4">
                   {profile.projects.map((proj, idx) => (
                     <div key={proj.id} className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
                       <div className="flex items-center justify-between">
@@ -2446,7 +2805,7 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
 
               {/* TAB 7: CERTIFICATIONS */}
               {activeTab === "certifications" && (
-                <div className="space-y-4">
+                <div id="resume-certifications" data-saarvi-target="resume-certifications" className="space-y-4">
                   {profile.certifications.map((cert) => (
                     <div key={cert.id} className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
                       <div>
@@ -2495,7 +2854,7 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
 
               {/* TAB 8: HACKATHONS */}
               {activeTab === "hackathons" && (
-                <div className="space-y-4">
+                <div id="resume-hackathons" data-saarvi-target="resume-hackathons" className="space-y-4">
                   {profile.hackathons.map((h) => (
                     <div key={h.id} className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
                       <div>
@@ -2549,7 +2908,7 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
 
               {/* TAB 9: ACHIEVEMENTS */}
               {activeTab === "achievements" && (
-                <div className="space-y-4">
+                <div id="resume-achievements" data-saarvi-target="resume-achievements" className="space-y-4">
                   {profile.achievements.map((ach) => (
                     <div key={ach.id} className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
                       <div>
@@ -2593,13 +2952,530 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
                 </div>
               )}
 
-              {/* Other Tabs fallback */}
-              {["leadership", "volunteering", "languages", "additional"].includes(activeTab) && (
-                <div className="p-8 text-center bg-slate-50 rounded-lg border border-slate-200 text-slate-500 text-sm">
-                  Configure additional optional sections or enable them directly in the section ordering navigator on the left.
+              {/* TAB 10: LEADERSHIP & ACTIVITIES */}
+              {activeTab === "leadership" && (
+                <div id="resume-leadership" data-saarvi-target="resume-leadership" className="space-y-4">
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 flex items-start gap-2">
+                    <Briefcase className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                    <span>Add student government, club leadership, academic committees, or extracurricular roles that demonstrate initiative and teamwork.</span>
+                  </div>
+
+                  {(profile.leadership || []).map((item, idx) => (
+                    <div key={item.id} className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700">Leadership Role #{idx + 1}</span>
+                        <button
+                          onClick={() => updateProfile((p) => ({ ...p, leadership: (p.leadership || []).filter((l) => l.id !== item.id) }))}
+                          className="text-xs text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-600 block mb-1">Title / Position *</label>
+                          <input
+                            type="text"
+                            value={item.title}
+                            onChange={(e) =>
+                              updateProfile((p) => ({
+                                ...p,
+                                leadership: (p.leadership || []).map((l) => l.id === item.id ? { ...l, title: e.target.value } : l),
+                              }))
+                            }
+                            placeholder="e.g. President, Vice-President, Secretary"
+                            className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-600 block mb-1">Organization / Club *</label>
+                          <input
+                            type="text"
+                            value={item.organization}
+                            onChange={(e) =>
+                              updateProfile((p) => ({
+                                ...p,
+                                leadership: (p.leadership || []).map((l) => l.id === item.id ? { ...l, organization: e.target.value } : l),
+                              }))
+                            }
+                            placeholder="e.g. IEEE Student Branch, Coding Club"
+                            className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-600 block mb-1">Start Date</label>
+                          <input
+                            type="text"
+                            value={item.startDate}
+                            onChange={(e) =>
+                              updateProfile((p) => ({
+                                ...p,
+                                leadership: (p.leadership || []).map((l) => l.id === item.id ? { ...l, startDate: e.target.value } : l),
+                              }))
+                            }
+                            placeholder="e.g. Aug 2023"
+                            className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-600 block mb-1">End Date</label>
+                          <input
+                            type="text"
+                            value={item.endDate || ""}
+                            onChange={(e) =>
+                              updateProfile((p) => ({
+                                ...p,
+                                leadership: (p.leadership || []).map((l) => l.id === item.id ? { ...l, endDate: e.target.value } : l),
+                              }))
+                            }
+                            placeholder="Present or May 2024"
+                            className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-600 block mb-1">Location</label>
+                          <input
+                            type="text"
+                            value={item.location || ""}
+                            onChange={(e) =>
+                              updateProfile((p) => ({
+                                ...p,
+                                leadership: (p.leadership || []).map((l) => l.id === item.id ? { ...l, location: e.target.value } : l),
+                              }))
+                            }
+                            placeholder="e.g. Bengaluru, India"
+                            className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-600 block mb-1">Description / Impact</label>
+                        <textarea
+                          rows={2}
+                          value={item.description || ""}
+                          onChange={(e) =>
+                            updateProfile((p) => ({
+                              ...p,
+                              leadership: (p.leadership || []).map((l) => l.id === item.id ? { ...l, description: e.target.value } : l),
+                            }))
+                          }
+                          placeholder="Describe your responsibilities, events organized, members led, or measurable outcomes..."
+                          className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none resize-none"
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                  <button
+                    onClick={() =>
+                      updateProfile((p) => ({
+                        ...p,
+                        leadership: [
+                          ...(p.leadership || []),
+                          {
+                            id: `lead_${Date.now()}`,
+                            title: "",
+                            organization: "",
+                            startDate: "",
+                            showOnResume: true,
+                          },
+                        ],
+                      }))
+                    }
+                    className="w-full py-2.5 border-2 border-dashed border-slate-300 text-slate-600 rounded-lg text-xs font-semibold hover:border-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-1"
+                  >
+                    <Plus className="w-4 h-4" /> Add Leadership Role
+                  </button>
                 </div>
               )}
+
+              {/* TAB 11: VOLUNTEERING */}
+              {activeTab === "volunteering" && (
+                <div id="resume-volunteering" data-saarvi-target="resume-volunteering" className="space-y-4">
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>Volunteering experience shows character, social awareness, and initiative — great for balancing a technical resume.</span>
+                  </div>
+
+                  {(profile.volunteering || []).map((item, idx) => (
+                    <div key={item.id} className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700">Volunteer Role #{idx + 1}</span>
+                        <button
+                          onClick={() => updateProfile((p) => ({ ...p, volunteering: (p.volunteering || []).filter((v) => v.id !== item.id) }))}
+                          className="text-xs text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-600 block mb-1">Role / Position *</label>
+                          <input
+                            type="text"
+                            value={item.role}
+                            onChange={(e) =>
+                              updateProfile((p) => ({
+                                ...p,
+                                volunteering: (p.volunteering || []).map((v) => v.id === item.id ? { ...v, role: e.target.value } : v),
+                              }))
+                            }
+                            placeholder="e.g. Teaching Assistant, Event Coordinator"
+                            className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-600 block mb-1">Organization *</label>
+                          <input
+                            type="text"
+                            value={item.organization}
+                            onChange={(e) =>
+                              updateProfile((p) => ({
+                                ...p,
+                                volunteering: (p.volunteering || []).map((v) => v.id === item.id ? { ...v, organization: e.target.value } : v),
+                              }))
+                            }
+                            placeholder="e.g. NGO Name, Community Foundation"
+                            className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-600 block mb-1">Start Date</label>
+                          <input
+                            type="text"
+                            value={item.startDate}
+                            onChange={(e) =>
+                              updateProfile((p) => ({
+                                ...p,
+                                volunteering: (p.volunteering || []).map((v) => v.id === item.id ? { ...v, startDate: e.target.value } : v),
+                              }))
+                            }
+                            placeholder="e.g. Jan 2023"
+                            className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-600 block mb-1">End Date</label>
+                          <input
+                            type="text"
+                            value={item.endDate || ""}
+                            onChange={(e) =>
+                              updateProfile((p) => ({
+                                ...p,
+                                volunteering: (p.volunteering || []).map((v) => v.id === item.id ? { ...v, endDate: e.target.value } : v),
+                              }))
+                            }
+                            placeholder="Present or Dec 2023"
+                            className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-600 block mb-1">Location</label>
+                          <input
+                            type="text"
+                            value={item.location || ""}
+                            onChange={(e) =>
+                              updateProfile((p) => ({
+                                ...p,
+                                volunteering: (p.volunteering || []).map((v) => v.id === item.id ? { ...v, location: e.target.value } : v),
+                              }))
+                            }
+                            placeholder="e.g. Remote / Bengaluru"
+                            className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-600 block mb-1">What you did / Impact</label>
+                        <textarea
+                          rows={2}
+                          value={item.description || ""}
+                          onChange={(e) =>
+                            updateProfile((p) => ({
+                              ...p,
+                              volunteering: (p.volunteering || []).map((v) => v.id === item.id ? { ...v, description: e.target.value } : v),
+                            }))
+                          }
+                          placeholder="Describe your work, people helped, skills applied, and measurable impact..."
+                          className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none resize-none"
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                  <button
+                    onClick={() =>
+                      updateProfile((p) => ({
+                        ...p,
+                        volunteering: [
+                          ...(p.volunteering || []),
+                          {
+                            id: `vol_${Date.now()}`,
+                            role: "",
+                            organization: "",
+                            startDate: "",
+                            showOnResume: true,
+                          },
+                        ],
+                      }))
+                    }
+                    className="w-full py-2.5 border-2 border-dashed border-slate-300 text-slate-600 rounded-lg text-xs font-semibold hover:border-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-1"
+                  >
+                    <Plus className="w-4 h-4" /> Add Volunteer Experience
+                  </button>
+                </div>
+              )}
+
+              {/* TAB 12: LANGUAGES */}
+              {activeTab === "languages" && (
+                <div id="resume-languages" data-saarvi-target="resume-languages" className="space-y-4">
+                  <div className="p-3 bg-violet-50 border border-violet-200 rounded-lg text-xs text-violet-800 flex items-start gap-2">
+                    <BookOpen className="w-4 h-4 text-violet-600 shrink-0 mt-0.5" />
+                    <span>List languages you speak or read. Native and Fluent proficiencies are most impactful for global roles and international companies.</span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {(profile.languages || []).map((lang, idx) => (
+                      <div key={lang.id} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[11px] font-semibold text-slate-600 block mb-1">Language *</label>
+                            <input
+                              type="text"
+                              value={lang.name}
+                              onChange={(e) =>
+                                updateProfile((p) => ({
+                                  ...p,
+                                  languages: (p.languages || []).map((l) => l.id === lang.id ? { ...l, name: e.target.value } : l),
+                                }))
+                              }
+                              placeholder="e.g. Kannada, Hindi, English"
+                              className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[11px] font-semibold text-slate-600 block mb-1">Proficiency</label>
+                            <select
+                              value={lang.proficiency || ""}
+                              onChange={(e) =>
+                                updateProfile((p) => ({
+                                  ...p,
+                                  languages: (p.languages || []).map((l) =>
+                                    l.id === lang.id ? { ...l, proficiency: e.target.value as "Native" | "Fluent" | "Professional" | "Intermediate" | "Basic" } : l
+                                  ),
+                                }))
+                              }
+                              className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none bg-white"
+                            >
+                              <option value="">Select proficiency</option>
+                              <option value="Native">Native</option>
+                              <option value="Fluent">Fluent</option>
+                              <option value="Professional">Professional Working Proficiency</option>
+                              <option value="Intermediate">Intermediate</option>
+                              <option value="Basic">Basic</option>
+                            </select>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => updateProfile((p) => ({ ...p, languages: (p.languages || []).filter((l) => l.id !== lang.id) }))}
+                          className="text-slate-400 hover:text-red-500 shrink-0 mt-4"
+                          title="Remove language"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      updateProfile((p) => ({
+                        ...p,
+                        languages: [
+                          ...(p.languages || []),
+                          { id: `lang_${Date.now()}`, name: "", proficiency: "Fluent" },
+                        ],
+                      }))
+                    }
+                    className="w-full py-2.5 border-2 border-dashed border-slate-300 text-slate-600 rounded-lg text-xs font-semibold hover:border-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-1"
+                  >
+                    <Plus className="w-4 h-4" /> Add Language
+                  </button>
+                </div>
+              )}
+
+              {/* TAB 13: ADDITIONAL INFORMATION */}
+              {activeTab === "additional" && (
+                <div id="resume-additional" data-saarvi-target="resume-additional" className="space-y-4">
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-start gap-2">
+                    <Layers className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <span>Add anything that doesn't fit other sections — interests, memberships, open-source contributions, publications, or notable links.</span>
+                  </div>
+
+                  {/* Free-form text area for quick additional info */}
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">Additional Information (free text)</label>
+                    <textarea
+                      rows={3}
+                      value={profile.additionalInfo || ""}
+                      onChange={(e) => updateProfile((p) => ({ ...p, additionalInfo: e.target.value }))}
+                      placeholder="e.g. Open-source contributor to Mozilla Firefox. Co-authored paper on ML-based routing..."
+                      className="w-full text-sm border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="border-t border-slate-200 pt-4">
+                    <span className="text-xs font-bold text-slate-700 block mb-3">Structured Entries</span>
+                    <div className="space-y-3">
+                      {(profile.additionalItems || []).map((item) => (
+                        <div key={item.id} className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-slate-600">Entry</span>
+                            <button
+                              onClick={() => updateProfile((p) => ({ ...p, additionalItems: (p.additionalItems || []).filter((a) => a.id !== item.id) }))}
+                              className="text-slate-400 hover:text-red-500"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                              <label className="text-[11px] font-semibold text-slate-600 block mb-1">Category</label>
+                              <select
+                                value={item.type}
+                                onChange={(e) =>
+                                  updateProfile((p) => ({
+                                    ...p,
+                                    additionalItems: (p.additionalItems || []).map((a) => a.id === item.id ? { ...a, type: e.target.value } : a),
+                                  }))
+                                }
+                                className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none bg-white"
+                              >
+                                <option value="Interests">Interests</option>
+                                <option value="Hobbies">Hobbies</option>
+                                <option value="Awards">Awards</option>
+                                <option value="Publications">Publications</option>
+                                <option value="Memberships">Memberships</option>
+                                <option value="Certifications">Certifications</option>
+                                <option value="Achievements">Achievements</option>
+                                <option value="Other">Other</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-[11px] font-semibold text-slate-600 block mb-1">Label / Title</label>
+                              <input
+                                type="text"
+                                value={item.title}
+                                onChange={(e) =>
+                                  updateProfile((p) => ({
+                                    ...p,
+                                    additionalItems: (p.additionalItems || []).map((a) => a.id === item.id ? { ...a, title: e.target.value } : a),
+                                  }))
+                                }
+                                placeholder="e.g. Open Source"
+                                className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[11px] font-semibold text-slate-600 block mb-1">Value / Detail</label>
+                              <input
+                                type="text"
+                                value={item.value}
+                                onChange={(e) =>
+                                  updateProfile((p) => ({
+                                    ...p,
+                                    additionalItems: (p.additionalItems || []).map((a) => a.id === item.id ? { ...a, value: e.target.value } : a),
+                                  }))
+                                }
+                                placeholder="e.g. Contributed to React.js, Mozilla"
+                                className="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={() =>
+                        updateProfile((p) => ({
+                          ...p,
+                          additionalItems: [
+                            ...(p.additionalItems || []),
+                            {
+                              id: `add_${Date.now()}`,
+                              type: "Interests",
+                              title: "",
+                              value: "",
+                              showOnResume: true,
+                            },
+                          ],
+                        }))
+                      }
+                      className="mt-3 w-full py-2.5 border-2 border-dashed border-slate-300 text-slate-600 rounded-lg text-xs font-semibold hover:border-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-1"
+                    >
+                      <Plus className="w-4 h-4" /> Add Structured Entry
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Standardized Step Action Bar (Section 35 & 5) */}
+              {renderSectionFooter(activeTab)}
             </div>
+
+            {/* SAARVI RESUME BUILDER 6.0: COMPLETE YOUR RESUME WIZARD (Section 1, 18, 38) */}
+            {profile && activeVersion && (
+              <div id="resume-wizard" data-saarvi-target="resume-wizard" className="pt-2">
+                <ResumeCompletionWizard
+                  profile={profile}
+                  version={activeVersion}
+                  activeTab={activeTab}
+                  onNavigateToSection={(sec) => {
+                    setActiveTab(sec);
+                    setMobileWorkflow("editor");
+                    trackResumeWizardEvent("resume_step_opened", sec);
+                    setTimeout(() => {
+                      revealDestination({
+                        target: "#resume-editor",
+                        fallbackTarget: "[data-saarvi-target='resume-editor']",
+                        mode: "result",
+                        focus: true,
+                        reason: `wizard_nav_${sec}`,
+                      });
+                    }, 50);
+                  }}
+                  onUpdateVersion={updateActiveVersion}
+                  onExportPdf={handleExportPDF}
+                  onPreview={() => {
+                    trackResumeWizardEvent("resume_previewed");
+                    if (typeof window !== "undefined" && window.innerWidth < 768) {
+                      setMobileWorkflow("preview");
+                    }
+                    setTimeout(() => {
+                      revealDestination({
+                        target: "#resume-preview-container",
+                        fallbackTarget: "[data-saarvi-target='preview']",
+                        mode: "result",
+                        focus: true,
+                        reason: "wizard_preview_click",
+                      });
+                    }, 100);
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           {/* Right Column in Split Mode: Sticky Live Preview */}

@@ -167,7 +167,12 @@ export default async function SingleJobPage({ params }: JobPageProps) {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col text-slate-800">
       <Navbar />
 
-      <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-8 space-y-6">
+      <main
+        id="job-detail-top"
+        data-saarvi-target="job-details"
+        tabIndex={-1}
+        className="scroll-mt-24 flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-8 space-y-6 outline-hidden"
+      >
         {/* Navigation Breadcrumb */}
         <div className="flex items-center justify-between">
           <Link

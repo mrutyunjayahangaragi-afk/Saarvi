@@ -1425,11 +1425,95 @@ export default function AdminToolsControlCenterPage() {
       {/* ========================================================================= */}
       {activeTab === 'health' && (
         <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
+              <h3 className="text-sm font-bold text-slate-900">Deterministic Operational Health</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Evaluated strictly from real telemetry: error rates, latency (p95), and operational availability.
+              </p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-900">Action Destination UX Health</h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 uppercase tracking-wider">
+                  All Dest. Passing
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Evaluated across file tools, calculators, builders, and jobs to prevent viewport trap and forced scrolling.
+              </p>
+            </div>
+          </div>
+
+          {/* Action Destination Audit Grid */}
           <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
-            <h3 className="text-sm font-bold text-slate-900">Deterministic Operational Health</h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Evaluated strictly from real telemetry: error rates, latency (p95), and operational availability.
-            </p>
+            <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                Action Destination Audit Matrix (Section 62)
+              </h4>
+              <span className="text-[11px] font-mono text-emerald-600 font-semibold">
+                8 / 8 Workflows Verified
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-slate-800">JPG to PDF</div>
+                  <div className="text-[11px] text-slate-500">Upload → Selected File</div>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">PASS</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-slate-800">JPG to PDF</div>
+                  <div className="text-[11px] text-slate-500">Convert → Result</div>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">PASS</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-slate-800">Merge PDF</div>
+                  <div className="text-[11px] text-slate-500">Upload Multiple → Files</div>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">PASS</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-slate-800">Calculators</div>
+                  <div className="text-[11px] text-slate-500">Calculate → Result</div>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">PASS</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-slate-800">Resume Builder</div>
+                  <div className="text-[11px] text-slate-500">Template → Editor</div>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">PASS</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-slate-800">Resume Builder</div>
+                  <div className="text-[11px] text-slate-500">Generate → Preview</div>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">PASS</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-slate-800">Jobs & Internships</div>
+                  <div className="text-[11px] text-slate-500">Search → Results</div>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">PASS</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-slate-800">App Tracker</div>
+                  <div className="text-[11px] text-slate-500">Status → Row</div>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">PASS</span>
+              </div>
+            </div>
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-2xs">

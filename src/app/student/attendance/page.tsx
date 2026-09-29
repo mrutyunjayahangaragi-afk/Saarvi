@@ -18,7 +18,10 @@ import {
   Save,
   Trash2,
   BookOpen,
+  Calculator,
 } from "lucide-react";
+
+import { revealDestination } from "@/lib/ux/action-destination";
 
 export default function AttendanceCalculatorPage() {
   const [subjectName, setSubjectName] = useState<string>("Core Course");
@@ -132,7 +135,10 @@ export default function AttendanceCalculatorPage() {
 
         {/* Results Banner */}
         <div
-          className={`p-6 sm:p-8 rounded-3xl shadow-md space-y-4 text-white transition-colors ${
+          id="attendance-result"
+          data-saarvi-target="calculation-result"
+          tabIndex={-1}
+          className={`p-6 sm:p-8 rounded-3xl shadow-md space-y-4 text-white transition-colors saarvi-destination-target outline-hidden ${
             result.error
               ? "bg-gradient-to-br from-amber-600 to-orange-700"
               : result.isSafe
@@ -307,7 +313,7 @@ export default function AttendanceCalculatorPage() {
               />
             </div>
 
-            <div className="w-full sm:w-auto flex items-center gap-3">
+            <div className="w-full sm:w-auto flex flex-wrap items-center gap-2.5">
               {savedNotice && (
                 <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200">
                   {savedNotice}
@@ -315,11 +321,28 @@ export default function AttendanceCalculatorPage() {
               )}
               <button
                 type="button"
+                onClick={() => {
+                  revealDestination({
+                    target: "#attendance-result",
+                    fallbackTarget: "[data-saarvi-target='calculation-result']",
+                    mode: "result",
+                    focus: true,
+                    reason: "attendance_calculate_click",
+                    force: true,
+                  });
+                }}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
+              >
+                <Calculator className="w-4 h-4" />
+                <span>Calculate Requirement</span>
+              </button>
+              <button
+                type="button"
                 onClick={handleSaveAttendance}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-xs transition-colors cursor-pointer"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer border border-slate-200"
               >
                 <Save className="w-4 h-4" />
-                <span>Save to Workspace</span>
+                <span>Save Record</span>
               </button>
             </div>
           </div>

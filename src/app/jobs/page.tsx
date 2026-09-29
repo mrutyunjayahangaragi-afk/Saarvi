@@ -18,6 +18,7 @@ import {
   buildReturnUrlWithSearch,
 } from "@/lib/jobs/search-intent";
 import JobsAuthGateModal from "@/components/career/JobsAuthGateModal";
+import { revealDestination } from "@/lib/ux/action-destination";
 import {
   Briefcase,
   Search,
@@ -351,7 +352,7 @@ function JobsContent() {
   }, [user, authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle Search Button Click
-  const handleSearchClick = () => {
+  const handleSearchClick = async () => {
     if (!user) {
       saveSearchIntent({ q, location, experience, remote, employmentType, sortBy });
       setSearchState("auth_required");
@@ -365,7 +366,14 @@ function JobsContent() {
       return;
     }
 
-    fetchJobs(true);
+    await fetchJobs(true);
+    revealDestination({
+      target: "#jobs-search-results",
+      fallbackTarget: "[data-saarvi-target='search-results']",
+      mode: "section",
+      focus: true,
+      reason: "jobs_search_submitted",
+    });
   };
 
   // Clear filters
@@ -1099,7 +1107,12 @@ function JobsContent() {
         {/* AUTHENTICATED USER EXPERIENCE                                             */}
         {/* ========================================================================= */}
         {user && (
-          <div className="space-y-6">
+          <div
+            id="jobs-search-results"
+            data-saarvi-target="search-results"
+            tabIndex={-1}
+            className="space-y-6 saarvi-destination-target outline-hidden"
+          >
             {/* Tabs & Filter Header */}
             <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">

@@ -773,10 +773,10 @@ export async function generateResumePdf(options: GeneratePdfOptions): Promise<Pd
 
       case "leadership": {
         if (!profile.leadership || profile.leadership.length === 0) break;
-        drawSectionHeader("Leadership & Extracurricular");
+        drawSectionHeader("Leadership & Activities");
         for (const lead of profile.leadership) {
           checkPageBreak(22);
-          const leadTitle = `${lead.title}  —  ${lead.organization}`;
+          const leadTitle = `${lead.title || lead.role || "Lead"}  —  ${lead.organization}${lead.location ? ` (${lead.location})` : ""}`;
           currentPage.drawText(leadTitle, {
             x: MARGIN_X,
             y: curY,
@@ -784,9 +784,20 @@ export async function generateResumePdf(options: GeneratePdfOptions): Promise<Pd
             font: fontBold,
             color: textDark,
           });
+          const dates = `${lead.startDate || ""}${lead.endDate ? ` – ${lead.endDate}` : lead.current ? " – Present" : ""}`;
+          if (dates.trim()) {
+            const dWidth = fontRegular.widthOfTextAtSize(dates, 8.5);
+            currentPage.drawText(dates, {
+              x: PAGE_WIDTH - MARGIN_X - dWidth,
+              y: curY,
+              size: 8.5,
+              font: fontRegular,
+              color: textMuted,
+            });
+          }
           curY -= 12;
           if (lead.description) {
-            const lLines = wrapText(lead.description, fontRegular, 8.5, CONTENT_WIDTH);
+            const lLines = wrapText(lead.description, fontRegular, 8.5, CONTENT_WIDTH - 8);
             for (const ll of lLines) {
               checkPageBreak(11);
               currentPage.drawText(ll, {
@@ -801,6 +812,114 @@ export async function generateResumePdf(options: GeneratePdfOptions): Promise<Pd
           }
           curY -= 4;
         }
+        break;
+      }
+
+      case "volunteering": {
+        if (!profile.volunteering || profile.volunteering.length === 0) break;
+        drawSectionHeader("Volunteering");
+        for (const vol of profile.volunteering) {
+          checkPageBreak(22);
+          const volTitle = `${vol.role}  —  ${vol.organization}${vol.location ? ` (${vol.location})` : ""}`;
+          currentPage.drawText(volTitle, {
+            x: MARGIN_X,
+            y: curY,
+            size: 9.5,
+            font: fontBold,
+            color: textDark,
+          });
+          const dates = `${vol.startDate || ""}${vol.endDate ? ` – ${vol.endDate}` : vol.current ? " – Present" : ""}`;
+          if (dates.trim()) {
+            const dWidth = fontRegular.widthOfTextAtSize(dates, 8.5);
+            currentPage.drawText(dates, {
+              x: PAGE_WIDTH - MARGIN_X - dWidth,
+              y: curY,
+              size: 8.5,
+              font: fontRegular,
+              color: textMuted,
+            });
+          }
+          curY -= 12;
+          if (vol.description) {
+            const vLines = wrapText(vol.description, fontRegular, 8.5, CONTENT_WIDTH - 8);
+            for (const vl of vLines) {
+              checkPageBreak(11);
+              currentPage.drawText(vl, {
+                x: MARGIN_X + 8,
+                y: curY,
+                size: 8.5,
+                font: fontRegular,
+                color: textDark,
+              });
+              curY -= 11;
+            }
+          }
+          curY -= 4;
+        }
+        break;
+      }
+
+      case "languages": {
+        if (!profile.languages || profile.languages.length === 0) break;
+        drawSectionHeader("Languages");
+        checkPageBreak(16);
+        const langItems = profile.languages.map(
+          (l) => `${l.name}${l.proficiency ? ` — ${l.proficiency}` : ""}`
+        );
+        const langText = langItems.join("   •   ");
+        const lines = wrapText(langText, fontRegular, 9, CONTENT_WIDTH);
+        for (const line of lines) {
+          checkPageBreak(12);
+          currentPage.drawText(line, {
+            x: MARGIN_X,
+            y: curY,
+            size: 9,
+            font: fontRegular,
+            color: textDark,
+          });
+          curY -= 12;
+        }
+        curY -= 4;
+        break;
+      }
+
+      case "additional": {
+        const items = profile.additionalItems || [];
+        const rawText = profile.additionalInfo;
+        if (items.length === 0 && !rawText) break;
+        drawSectionHeader("Additional Information");
+        if (items.length > 0) {
+          for (const item of items) {
+            checkPageBreak(14);
+            const line = `•  [${item.type}] ${item.title}: ${item.value}`;
+            const wrap = wrapText(line, fontRegular, 8.5, CONTENT_WIDTH);
+            for (const wl of wrap) {
+              checkPageBreak(11);
+              currentPage.drawText(wl, {
+                x: MARGIN_X,
+                y: curY,
+                size: 8.5,
+                font: fontRegular,
+                color: textDark,
+              });
+              curY -= 11;
+            }
+          }
+        } else if (rawText) {
+          const lines = wrapText(rawText, fontRegular, 8.5, CONTENT_WIDTH);
+          for (const line of lines) {
+            checkPageBreak(11);
+            currentPage.drawText(line, {
+              x: MARGIN_X,
+              y: curY,
+              size: 8.5,
+              font: fontRegular,
+              color: textDark,
+            });
+            curY -= 11;
+          }
+        }
+        curY -= 4;
         break;
       }
 
@@ -993,11 +1112,44 @@ export function generateControlledLatex(
   if (profile.leadership && profile.leadership.length > 0) {
     for (const lead of profile.leadership) {
       const dates = sanitizeLatexText(`${lead.startDate || ""} -- ${lead.endDate || (lead.current ? "Present" : "")}`);
-      leadLatex += `\\noindent \\textbf{${sanitizeLatexText(lead.title)}}${lead.organization ? ` -- \\textit{${sanitizeLatexText(lead.organization)}}` : ""} \\hfill {\\small ${dates}} \\\\\n`;
+      leadLatex += `\\noindent \\textbf{${sanitizeLatexText(lead.title || lead.role || "Lead")}}${lead.organization ? ` -- \\textit{${sanitizeLatexText(lead.organization)}}` : ""}${lead.location ? ` {\\small (${sanitizeLatexText(lead.location)})}` : ""} \\hfill {\\small ${dates}} \\\\\n`;
       if (lead.description) {
         leadLatex += `\\noindent {\\small ${sanitizeLatexText(lead.description)}} \\\\[3pt]\n`;
       }
     }
+  }
+
+  // Format Volunteering
+  let volLatex = "";
+  if (profile.volunteering && profile.volunteering.length > 0) {
+    for (const vol of profile.volunteering) {
+      const dates = sanitizeLatexText(`${vol.startDate || ""} -- ${vol.endDate || (vol.current ? "Present" : "")}`);
+      volLatex += `\\noindent \\textbf{${sanitizeLatexText(vol.role)}}${vol.organization ? ` -- \\textit{${sanitizeLatexText(vol.organization)}}` : ""}${vol.location ? ` {\\small (${sanitizeLatexText(vol.location)})}` : ""} \\hfill {\\small ${dates}} \\\\\n`;
+      if (vol.description) {
+        volLatex += `\\noindent {\\small ${sanitizeLatexText(vol.description)}} \\\\[3pt]\n`;
+      }
+    }
+  }
+
+  // Format Languages
+  let langLatex = "";
+  if (profile.languages && profile.languages.length > 0) {
+    const langStrings = profile.languages.map(
+      (l) => `\\textbf{${sanitizeLatexText(l.name)}}${l.proficiency ? ` (${sanitizeLatexText(l.proficiency)})` : ""}`
+    );
+    langLatex = `\\noindent ${langStrings.join(" $\\bullet$ ")}\n\\vspace{4pt}\n`;
+  }
+
+  // Format Additional Information
+  let addLatex = "";
+  if (profile.additionalItems && profile.additionalItems.length > 0) {
+    addLatex += `\\begin{itemize}[leftmargin=1.5em, itemsep=-2pt, topsep=2pt]\n`;
+    for (const item of profile.additionalItems) {
+      addLatex += `  \\item \\textbf{[${sanitizeLatexText(item.type)}]} ${sanitizeLatexText(item.title)}: ${sanitizeLatexText(item.value)}\n`;
+    }
+    addLatex += `\\end{itemize}\n\\vspace{4pt}\n`;
+  } else if (profile.additionalInfo) {
+    addLatex += `\\noindent {\\small ${sanitizeLatexText(profile.additionalInfo)}}\n\\vspace{4pt}\n`;
   }
 
   return `% =============================================================================
@@ -1072,6 +1224,24 @@ ${leadLatex ? `
 % --- LEADERSHIP & ACTIVITIES ---
 \\section{Leadership \\& Activities}
 ${leadLatex}
+` : ""}
+
+${volLatex ? `
+% --- VOLUNTEERING ---
+\\section{Volunteering}
+${volLatex}
+` : ""}
+
+${langLatex ? `
+% --- LANGUAGES ---
+\\section{Languages}
+${langLatex}
+` : ""}
+
+${addLatex ? `
+% --- ADDITIONAL INFORMATION ---
+\\section{Additional Information}
+${addLatex}
 ` : ""}
 
 ${expLatex ? `

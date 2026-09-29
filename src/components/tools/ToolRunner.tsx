@@ -38,6 +38,8 @@ import { planService } from "@/lib/services/planService";
 import UpgradePrompt from "@/components/plan/UpgradePrompt";
 import Link from "next/link";
 import { validateInputFile, sanitizeFilename as sanitizeSafeFilename } from "@/lib/security/file-security";
+import ToolResultPanel from "@/components/tools/ToolResultPanel";
+import { globalActionController, revealDestination } from "@/lib/ux/action-destination";
 
 interface SelectedFileItemProps {
   file: File;
@@ -293,6 +295,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isCancelledRef = useRef(false);
+  const currentOpIdRef = useRef<string | null>(null);
 
   // --- Tool-specific configuration states ---
   // Image to PDF / Multi-image
@@ -498,6 +501,9 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
       setErrorMessage(
         `Batch limit exceeded: You can select up to ${maxBatch} files on your ${userPlan.toUpperCase()} plan. Upgrade to Pro for higher batch limits.`
       );
+      setTimeout(() => {
+        globalActionController.revealError("#tool-error");
+      }, 50);
       return;
     }
 
@@ -517,6 +523,9 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
         );
         if (!matches) {
           setErrorMessage(ERROR_MESSAGES.UNSUPPORTED_FORMAT(file.name, tool.supportedFormats));
+          setTimeout(() => {
+            globalActionController.revealError("#tool-error");
+          }, 50);
           return;
         }
       }
@@ -525,6 +534,9 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
       const effectiveMaxMB = Math.min(runtimeMaxSizeMB || tool.maxSizeMB, planLimits.maxFileSizeMB || 50);
       if (file.size > effectiveMaxMB * 1024 * 1024) {
         setErrorMessage(ERROR_MESSAGES.FILE_TOO_LARGE(file.name, effectiveMaxMB));
+        setTimeout(() => {
+          globalActionController.revealError("#tool-error");
+        }, 50);
         return;
       }
 
@@ -536,6 +548,9 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
       );
       if (!validation.valid) {
         setErrorMessage(validation.error || "File security validation failed.");
+        setTimeout(() => {
+          globalActionController.revealError("#tool-error");
+        }, 50);
         return;
       }
 
@@ -545,6 +560,13 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
     const updated = allowsMultiple ? [...files, ...valid] : valid.slice(0, 1);
     setFiles(updated);
     setState(updated.length > 0 ? "FILE_SELECTED" : "IDLE");
+
+    if (updated.length > 0) {
+      // Auto-reveal selected file & conversion options without forcing manual scroll
+      setTimeout(() => {
+        globalActionController.revealUpload("#selected-file-section");
+      }, 50);
+    }
   };
 
   const removeFile = (idx: number) => {
@@ -751,6 +773,9 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
         ? crypto.randomUUID()
         : `op_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
+    currentOpIdRef.current = operationId;
+    globalActionController.startAction("tool.process.complete");
+
     // Atomic Beta Usage Reservation (PART 2.5 & 2.6)
     let currentReservationToken: string | null = null;
     if (serverAccess?.isBeta && !serverAccess?.isPro) {
@@ -840,6 +865,15 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
       setResult(res);
       setState("RESULT_READY");
 
+      // Reveal result destination deterministically (handles near viewport vs off-screen banner)
+      globalActionController.completeAction(operationId, {
+        target: "#tool-result",
+        fallbackTarget: "[data-saarvi-target='tool-result']",
+        mode: "result",
+        focus: true,
+        reason: "tool_conversion_completed",
+      });
+
       // Canonical tool usage commit / telemetry:
       // If beta token is present, commit beta usage (which records tool_completed).
       // Otherwise emit tool_completed directly to canonical telemetry API.
@@ -912,6 +946,8 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
       const durationMs = Math.round(performance.now() - startTime);
       const errorMsg = err instanceof Error ? err.message : 'Processing failed';
 
+      globalActionController.failAction(operationId, "#tool-error");
+
       // Release reserved slot on failure or emit error telemetry
       if (currentReservationToken) {
         fetch('/api/tools/beta-usage/release', {
@@ -945,6 +981,9 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
       const msg = err instanceof Error ? err.message : ERROR_MESSAGES.GENERIC_PROCESSING_ERROR;
       setErrorMessage(msg);
       setState("ERROR");
+      setTimeout(() => {
+        globalActionController.revealError("#tool-error");
+      }, 50);
     }
   };
 
@@ -1064,7 +1103,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
   if (state === "RESULT_READY" && result) {
     return (
-      <div className="space-y-6 animate-in fade-in duration-300">
+      <ToolResultPanel state={state} targetId="tool-result">
         {serverAccess?.isBeta && !serverAccess?.isPro && serverAccess.remainingUses === 0 && (
           <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-amber-900">
             <div className="flex items-center gap-2">
@@ -1083,7 +1122,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           </div>
         )}
         <ResultDownload result={result} onReset={resetAll} />
-      </div>
+      </ToolResultPanel>
     );
   }
 
@@ -1116,18 +1155,20 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
       )}
       {/* PROCESSING STATE OR DROPZONE (Transforms in-place) */}
       {state === "PROCESSING" || state === "VALIDATING" ? (
-        <ProcessingProgress
-          state={state}
-          percent={progress}
-          statusMessage={stageMessage}
-          errorMessage={errorMessage || undefined}
-          onCancel={() => {
-            isCancelledRef.current = true;
-            setState("IDLE");
-            setProgress(0);
-            setStageMessage(undefined);
-          }}
-        />
+        <div id="tool-progress" data-saarvi-target="tool-progress" tabIndex={-1} className="scroll-mt-24 outline-hidden">
+          <ProcessingProgress
+            state={state}
+            percent={progress}
+            statusMessage={stageMessage}
+            errorMessage={errorMessage || undefined}
+            onCancel={() => {
+              isCancelledRef.current = true;
+              setState("IDLE");
+              setProgress(0);
+              setStageMessage(undefined);
+            }}
+          />
+        </div>
       ) : (
         /* Dropzone & File Selection with 3D tactile depth */
         <div
@@ -1235,7 +1276,11 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
       {/* Error Banner */}
       {errorMessage && (
         <div
-          className={`p-5 rounded-3xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs animate-in fade-in ${
+          id="tool-error"
+          data-saarvi-target="tool-error"
+          tabIndex={-1}
+          role="alert"
+          className={`p-5 rounded-3xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs animate-in fade-in saarvi-destination-target outline-hidden ${
             errorMessage.includes("OCR is required")
               ? "bg-amber-50/90 border-amber-200/90 text-amber-900"
               : "bg-red-50 border-red-200 text-red-800"
@@ -1279,7 +1324,12 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
       {/* Selected File(s) Visual Card */}
       {files.length > 0 && state !== "PROCESSING" && state !== "VALIDATING" && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
+        <div
+          id="selected-file-section"
+          data-saarvi-target="selected-file"
+          tabIndex={-1}
+          className="scroll-mt-24 bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs outline-hidden"
+        >
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
@@ -1317,7 +1367,12 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
       {/* Tool-Specific Options Panel */}
       {files.length > 0 && (
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
+        <div
+          id="tool-options"
+          data-saarvi-target="tool-options"
+          tabIndex={-1}
+          className="scroll-mt-24 bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4 outline-hidden"
+        >
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 uppercase tracking-wider">
             <Settings className="w-4 h-4 text-blue-600" />
             Conversion Options
@@ -2483,8 +2538,10 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
       {files.length > 0 && state !== "PROCESSING" && state !== "VALIDATING" && (
         <button
           type="button"
+          id="primary-action-btn"
+          data-saarvi-target="primary-action"
           onClick={runOperation}
-          className="w-full py-4 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm sm:text-base shadow-md hover:shadow-lg transition-all duration-150 flex items-center justify-center gap-2.5 hover-3d-lift cursor-pointer"
+          className="w-full py-4 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm sm:text-base shadow-md hover:shadow-lg transition-all duration-150 flex items-center justify-center gap-2.5 hover-3d-lift cursor-pointer scroll-mt-24"
         >
           <Play className="w-4 h-4 fill-white" />
           {tool.slug.includes("to-pdf")

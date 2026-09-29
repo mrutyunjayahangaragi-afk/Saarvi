@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { revealDestination } from "@/lib/ux/action-destination";
 
 export interface FaqItem {
   question: string;
@@ -57,8 +58,25 @@ export default function FaqAccordion({
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   const toggle = (index: number) => {
-    setOpenIndex(openIndex === index ? null : index);
+    const nextState = openIndex === index ? null : index;
+    setOpenIndex(nextState);
+
+    if (nextState !== null) {
+      setTimeout(() => {
+        const itemEl = document.getElementById(`faq-item-${index}`);
+        if (itemEl) {
+          revealDestination({
+            target: itemEl,
+            mode: "minimal",
+            focus: false,
+            behavior: "smooth",
+            reason: "accordion_expand",
+          });
+        }
+      }, 60);
+    }
   };
+
 
   const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -101,8 +119,10 @@ export default function FaqAccordion({
           return (
             <div
               key={index}
-              className="border border-slate-200/80 rounded-2xl bg-white shadow-2xs transition-all overflow-hidden"
+              id={`faq-item-${index}`}
+              className="border border-slate-200/80 rounded-2xl bg-white shadow-2xs transition-all overflow-hidden saarvi-destination-target"
             >
+
               <button
                 id={buttonId}
                 type="button"

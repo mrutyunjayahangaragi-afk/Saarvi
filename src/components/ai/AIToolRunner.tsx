@@ -25,6 +25,7 @@ import ResultDownload from "@/components/common/ResultDownload";
 import { SingleFileResult } from "@/lib/tools/types";
 import { conversationService } from "@/lib/services/conversationService";
 import { createPdfFromExtractedText } from "@/lib/ocr/pdf-searchable";
+import { revealDestination } from "@/lib/ux/action-destination";
 
 interface AIToolRunnerProps {
   tool: ToolDefinition;
@@ -104,6 +105,16 @@ export function AIToolRunner({
       setCitedPages(pages);
       setState("RESULT_READY");
 
+      setTimeout(() => {
+        revealDestination({
+          target: "#ai-tool-result",
+          fallbackTarget: "[data-saarvi-target='tool-result']",
+          mode: "result",
+          focus: true,
+          reason: "ai_tool_completed",
+        });
+      }, 100);
+
       // Prepare text download blob
       const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
       setDownloadResult({
@@ -124,6 +135,15 @@ export function AIToolRunner({
             ? err.message
             : "An unexpected error occurred during processing."
         );
+        setTimeout(() => {
+          revealDestination({
+            target: "#tool-error",
+            fallbackTarget: "[data-saarvi-target='tool-error']",
+            mode: "error",
+            focus: true,
+            reason: "ai_tool_error",
+          });
+        }, 100);
       }
     } finally {
       abortControllerRef.current = null;
@@ -257,7 +277,12 @@ export function AIToolRunner({
 
         {/* Error / Cancelled Phase */}
         {(state === "ERROR" || state === "CANCELLED") && (
-          <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
+          <div
+            id="tool-error"
+            data-saarvi-target="tool-error"
+            tabIndex={-1}
+            className="flex flex-col items-center justify-center py-12 text-center space-y-4 saarvi-destination-target outline-hidden"
+          >
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 border border-rose-200 text-rose-600">
               <AlertTriangle className="h-6 w-6" />
             </div>
@@ -281,7 +306,12 @@ export function AIToolRunner({
 
         {/* Result Ready Phase */}
         {state === "RESULT_READY" && (
-          <div className="space-y-6 animate-in fade-in duration-300">
+          <div
+            id="ai-tool-result"
+            data-saarvi-target="tool-result"
+            tabIndex={-1}
+            className="space-y-6 animate-in fade-in duration-300 saarvi-destination-target outline-hidden"
+          >
             {/* Header & Disclaimer */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>

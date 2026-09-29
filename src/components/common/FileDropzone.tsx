@@ -3,6 +3,7 @@
 import { useState, useRef, DragEvent, ChangeEvent } from "react";
 import { Upload, File as FileIcon, X, AlertCircle, Info } from "lucide-react";
 import { formatBytes } from "@/lib/utils";
+import { globalActionController } from "@/lib/ux/action-destination";
 
 interface FileDropzoneProps {
   supportedFormats?: string[];
@@ -36,6 +37,7 @@ export default function FileDropzone({
       // Check max size
       if (file.size > maxSizeMB * 1024 * 1024) {
         setErrorMessage(`"${file.name}" exceeds the ${maxSizeMB}MB file limit.`);
+        setTimeout(() => globalActionController.revealError("#dropzone-error"), 50);
         return;
       }
 
@@ -47,6 +49,7 @@ export default function FileDropzone({
           setErrorMessage(
             `"${file.name}" is not a supported format. Please select: ${supportedFormats.join(", ")}`
           );
+          setTimeout(() => globalActionController.revealError("#dropzone-error"), 50);
           return;
         }
       }
@@ -57,6 +60,11 @@ export default function FileDropzone({
     const updated = multiple ? [...files, ...valid] : valid.slice(0, 1);
     setFiles(updated);
     if (onFilesChanged) onFilesChanged(updated);
+    if (updated.length > 0) {
+      setTimeout(() => {
+        globalActionController.revealUpload("#dropzone-selected-files");
+      }, 50);
+    }
   };
 
   const onDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -142,7 +150,12 @@ export default function FileDropzone({
 
       {/* Error Message */}
       {errorMessage && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
+        <div
+          id="dropzone-error"
+          data-saarvi-target="tool-error"
+          tabIndex={-1}
+          className="scroll-mt-24 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2 outline-hidden"
+        >
           <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
           <span>{errorMessage}</span>
         </div>
@@ -150,7 +163,12 @@ export default function FileDropzone({
 
       {/* Selected File Details */}
       {files.length > 0 && (
-        <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-4">
+        <div
+          id="dropzone-selected-files"
+          data-saarvi-target="selected-file"
+          tabIndex={-1}
+          className="scroll-mt-24 p-4 bg-white border border-slate-200 rounded-2xl space-y-4 outline-hidden"
+        >
           <div className="text-xs font-semibold text-slate-700">Selected File</div>
 
           <div className="space-y-2">

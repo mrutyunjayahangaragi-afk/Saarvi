@@ -210,27 +210,47 @@ export const AI_SUBCAT_DEFS = [
   { id: "ai", label: "AI Intelligence & OCR", color: "text-purple-600" },
 ];
 
+// ─── Deduplication Helper ─────────────────────────────────────────────────────
+export function dedupeToolsByKey<T extends { key?: string }>(tools: T[]): T[] {
+  if (!Array.isArray(tools)) return [];
+  const seen = new Set<string>();
+  const deduped: T[] = [];
+  for (const t of tools) {
+    if (!t || !t.key) continue;
+    if (!seen.has(t.key)) {
+      seen.add(t.key);
+      deduped.push(t);
+    }
+  }
+  return deduped;
+}
+
 // ─── Dynamic Subcategory Group Builder ────────────────────────────────────────
-function groupToolsBySubcategory(
+export function groupToolsBySubcategory(
   tools: SmartNavToolItem[],
   defs: Array<{ id: string; label: string; color: string }>
 ): Array<{ id: string; label: string; color: string; tools: SmartNavToolItem[] }> {
   const groups: Array<{ id: string; label: string; color: string; tools: SmartNavToolItem[] }> = [];
   const assigned = new Set<string>();
+  const cleanTools = dedupeToolsByKey(tools);
 
   for (const def of defs) {
-    const matching = tools.filter((t) => {
+    const matching: SmartNavToolItem[] = [];
+    for (const t of cleanTools) {
+      if (assigned.has(t.key)) continue;
       const sub = t.subcategory || deriveCanonicalSubcategory(t.key, t.category);
-      return sub === def.id;
-    });
+      if (sub === def.id) {
+        matching.push(t);
+        assigned.add(t.key);
+      }
+    }
     if (matching.length > 0) {
-      matching.forEach((t) => assigned.add(t.key));
       groups.push({ id: def.id, label: def.label, color: def.color, tools: matching });
     }
   }
 
-  // Leftover tools fallback
-  const remaining = tools.filter((t) => !assigned.has(t.key));
+  // Leftover tools fallback (only unassigned tools)
+  const remaining = cleanTools.filter((t) => !assigned.has(t.key));
   if (remaining.length > 0) {
     groups.push({ id: "other", label: "Other Tools", color: "text-slate-500", tools: remaining });
   }
@@ -287,8 +307,8 @@ export function SmartToolCard({ tool, onClick, compact = false }: SmartToolCardP
           toolSlug: tool.key,
           metadata: { source: "mega_menu", category: tool.category },
         }),
-      }).catch(() => {});
-    } catch {}
+      }).catch(() => { });
+    } catch { }
     if (onClick) onClick();
   };
 
@@ -297,24 +317,21 @@ export function SmartToolCard({ tool, onClick, compact = false }: SmartToolCardP
       href={tool.route}
       onClick={handleClick}
       id={`nav-tool-${tool.key}`}
-      className={`group flex items-start gap-2 rounded-lg transition-all duration-150 relative cursor-pointer ${
-        compact
-          ? "p-1.5 hover:bg-slate-50"
-          : "p-2 hover:bg-slate-100/80 rounded-xl"
-      }`}
+      className={`group flex items-start gap-2 rounded-lg transition-all duration-150 relative cursor-pointer ${compact
+        ? "p-1.5 hover:bg-slate-50"
+        : "p-2 hover:bg-slate-100/80 rounded-xl"
+        }`}
     >
       {/* 20px Icon container */}
       <div
-        className={`rounded-md flex items-center justify-center shrink-0 transition-colors shadow-xs mt-0.5 ${
-          compact
-            ? "w-5 h-5 bg-slate-100 group-hover:bg-blue-600 text-slate-600 group-hover:text-white"
-            : "w-7 h-7 bg-slate-100 group-hover:bg-blue-600 text-slate-500 group-hover:text-white rounded-lg"
-        }`}
+        className={`rounded-md flex items-center justify-center shrink-0 transition-colors shadow-xs mt-0.5 ${compact
+          ? "w-5 h-5 bg-slate-100 group-hover:bg-blue-600 text-slate-600 group-hover:text-white"
+          : "w-7 h-7 bg-slate-100 group-hover:bg-blue-600 text-slate-500 group-hover:text-white rounded-lg"
+          }`}
       >
         <IconComponent
-          className={`transition-transform group-hover:scale-105 ${
-            compact ? "w-3 h-3" : "w-3.5 h-3.5"
-          }`}
+          className={`transition-transform group-hover:scale-105 ${compact ? "w-3 h-3" : "w-3.5 h-3.5"
+            }`}
         />
       </div>
 
@@ -322,9 +339,8 @@ export function SmartToolCard({ tool, onClick, compact = false }: SmartToolCardP
       <div className="min-w-0 flex-1 space-y-0.5">
         <div className="flex items-center gap-1 flex-wrap">
           <span
-            className={`font-medium text-slate-800 group-hover:text-blue-600 transition-colors truncate ${
-              compact ? "text-[12.5px]" : "text-xs font-semibold"
-            }`}
+            className={`font-medium text-slate-800 group-hover:text-blue-600 transition-colors truncate ${compact ? "text-[12.5px]" : "text-xs font-semibold"
+              }`}
           >
             {tool.name}
           </span>
@@ -421,8 +437,8 @@ export function EssentialToolCard({
           toolSlug: tool.key,
           metadata: { source: "navbar_essential_menu", category: tool.category },
         }),
-      }).catch(() => {});
-    } catch {}
+      }).catch(() => { });
+    } catch { }
     if (onClick) onClick();
   };
 
@@ -447,7 +463,7 @@ export function EssentialToolCard({
 
             {isPinnedOrAdmin && (
               <span className="text-[8.5px] font-semibold tracking-tight px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200/70 shrink-0">
-                Admin Essential
+                Featured
               </span>
             )}
             {isGenuinelyMostUsed && (
@@ -490,7 +506,7 @@ function QuickAccessStrip({
 }) {
   if (!tools || tools.length === 0) return null;
 
-  const quickTools = tools
+  const quickTools = dedupeToolsByKey(tools)
     .filter((t) => ("isFeatured" in t && t.isFeatured) || ("isMostUsed" in t && t.isMostUsed))
     .slice(0, 6);
 
@@ -569,7 +585,7 @@ function CategorySearch({
 }
 
 // ─── Subgroup Section Component ───────────────────────────────────────────────
-function SubgroupSection({
+export function SubgroupSection({
   label,
   colorClass,
   tools,
@@ -582,13 +598,14 @@ function SubgroupSection({
   onClose: () => void;
   compact?: boolean;
 }) {
-  if (!tools || tools.length === 0) return null;
+  const uniqueTools = dedupeToolsByKey(tools || []);
+  if (uniqueTools.length === 0) return null;
   return (
     <div className="space-y-0.5 mb-3 last:mb-0">
       <p className={`text-[9px] font-bold uppercase tracking-wider mb-1 px-1 ${colorClass}`}>
         {label}
       </p>
-      {tools.map((tool) => (
+      {uniqueTools.map((tool) => (
         <SmartToolCard key={tool.key} tool={tool} onClick={onClose} compact={compact} />
       ))}
     </div>
@@ -670,17 +687,18 @@ export default function MegaMenu({
   };
 
   // ─── Categorized Tools (Memoized unconditionally) ──────────────────────────
-  const pdfAllTools = useMemo(() => resolveAllTools(["pdf"], ["pdf"]), [navData.categories]);
-  const imageAllTools = useMemo(() => resolveAllTools(["images", "image"], ["image"]), [navData.categories]);
-  const studentAcademicTools = useMemo(() => resolveAllTools(["student"], ["academic"]), [navData.categories]);
-  const studentPlanningTools = useMemo(() => resolveAllTools(["student"], ["student"]), [navData.categories]);
-  const studentAllTools = useMemo(() => [...studentAcademicTools, ...studentPlanningTools], [studentAcademicTools, studentPlanningTools]);
-  const careerAllTools = useMemo(() => resolveAllTools(["career"], ["career"]), [navData.categories]);
-  const aiAllTools = useMemo(() => resolveAllTools(["ai"], ["ai"]), [navData.categories]);
+  const pdfAllTools = useMemo(() => dedupeToolsByKey(resolveAllTools(["pdf"], ["pdf"])), [navData.categories]);
+  const imageAllTools = useMemo(() => dedupeToolsByKey(resolveAllTools(["images", "image"], ["image"])), [navData.categories]);
+  const studentAllTools = useMemo(
+    () => dedupeToolsByKey(resolveAllTools(["student"], ["student", "academic"])),
+    [navData.categories]
+  );
+  const careerAllTools = useMemo(() => dedupeToolsByKey(resolveAllTools(["career"], ["career"])), [navData.categories]);
+  const aiAllTools = useMemo(() => dedupeToolsByKey(resolveAllTools(["ai"], ["ai"])), [navData.categories]);
 
   // All combined tools across all categories
   const allSaarviTools = useMemo(
-    () => [...pdfAllTools, ...imageAllTools, ...studentAllTools, ...careerAllTools, ...aiAllTools],
+    () => dedupeToolsByKey([...pdfAllTools, ...imageAllTools, ...studentAllTools, ...careerAllTools, ...aiAllTools]),
     [pdfAllTools, imageAllTools, studentAllTools, careerAllTools, aiAllTools]
   );
 
@@ -695,53 +713,61 @@ export default function MegaMenu({
   const filteredAllTools = useMemo(() => {
     if (!searchFilter.trim()) return allSaarviTools;
     const q = searchFilter.toLowerCase().trim();
-    return allSaarviTools.filter(
-      (t) =>
-        t.name.toLowerCase().includes(q) ||
-        t.description.toLowerCase().includes(q) ||
-        t.category.toLowerCase().includes(q)
+    return dedupeToolsByKey(
+      allSaarviTools.filter(
+        (t) =>
+          t.name.toLowerCase().includes(q) ||
+          t.description.toLowerCase().includes(q) ||
+          t.category.toLowerCase().includes(q)
+      )
     );
   }, [allSaarviTools, searchFilter]);
 
   const filteredPdfTools = useMemo(() => {
     if (!searchFilter.trim()) return pdfAllTools;
     const q = searchFilter.toLowerCase().trim();
-    return pdfAllTools.filter(
-      (t) => t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)
+    return dedupeToolsByKey(
+      pdfAllTools.filter(
+        (t) => t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)
+      )
     );
   }, [pdfAllTools, searchFilter]);
 
   const filteredImageTools = useMemo(() => {
     if (!searchFilter.trim()) return imageAllTools;
     const q = searchFilter.toLowerCase().trim();
-    return imageAllTools.filter(
-      (t) => t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)
+    return dedupeToolsByKey(
+      imageAllTools.filter(
+        (t) => t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)
+      )
     );
   }, [imageAllTools, searchFilter]);
 
   const filteredStudentTools = useMemo(() => {
     if (!searchFilter.trim()) return studentAllTools;
     const q = searchFilter.toLowerCase().trim();
-    return studentAllTools.filter(
-      (t) => t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)
+    return dedupeToolsByKey(
+      studentAllTools.filter(
+        (t) => t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)
+      )
     );
   }, [studentAllTools, searchFilter]);
 
   const quickFeaturedTools = useMemo(
-    () => allSaarviTools.filter((t) => t.isFeatured || t.isMostUsed).slice(0, 6),
+    () => dedupeToolsByKey(allSaarviTools.filter((t) => t.isFeatured || t.isMostUsed)).slice(0, 6),
     [allSaarviTools]
   );
 
   // Section 3 & 8: Essential tools selection (Strict max 6 tools)
   const activeEssentialTools = useMemo(() => {
     if (essentialTools && essentialTools.length > 0) {
-      return essentialTools.slice(0, 6);
+      return dedupeToolsByKey(essentialTools).slice(0, 6);
     }
     const fromFeatured = allSaarviTools.filter(
       (t) => (t.isEssential || t.isFeatured || t.isMostUsed) && t.status !== "coming_soon" && t.status !== "disabled"
     );
     if (fromFeatured.length >= 6) {
-      return fromFeatured.slice(0, 6);
+      return dedupeToolsByKey(fromFeatured).slice(0, 6);
     }
     const fallbackKeys = [
       "merge-pdf",
@@ -754,7 +780,7 @@ export default function MegaMenu({
     const resolved = fallbackKeys
       .map((k) => allSaarviTools.find((t) => t.key === k))
       .filter(Boolean) as Array<SmartNavToolItem | CanonicalTool>;
-    return resolved.slice(0, 6);
+    return dedupeToolsByKey(resolved).slice(0, 6);
   }, [essentialTools, allSaarviTools]);
 
   const docEssentialTools = useMemo(() => {
@@ -769,14 +795,26 @@ export default function MegaMenu({
     );
   }, [activeEssentialTools]);
 
-  const col1Tools = docEssentialTools.length > 0
-    ? docEssentialTools
-    : activeEssentialTools.slice(0, Math.ceil(activeEssentialTools.length / 2));
-  const col2Tools = studentCareerEssentialTools.length > 0
-    ? studentCareerEssentialTools
-    : activeEssentialTools.slice(Math.ceil(activeEssentialTools.length / 2));
+  const col1Tools = useMemo(
+    () =>
+      dedupeToolsByKey(
+        docEssentialTools.length > 0
+          ? docEssentialTools
+          : activeEssentialTools.slice(0, Math.ceil(activeEssentialTools.length / 2))
+      ),
+    [docEssentialTools, activeEssentialTools]
+  );
+  const col2Tools = useMemo(
+    () =>
+      dedupeToolsByKey(
+        studentCareerEssentialTools.length > 0
+          ? studentCareerEssentialTools
+          : activeEssentialTools.slice(Math.ceil(activeEssentialTools.length / 2))
+      ),
+    [studentCareerEssentialTools, activeEssentialTools]
+  );
 
-    // Current tab config & active pool
+  // Current tab config & active pool
   const currentTabConfig = useMemo(() => {
     return CATEGORY_TABS.find((t) => t.id === activeTab) || CATEGORY_TABS[0];
   }, [activeTab]);
@@ -819,11 +857,13 @@ export default function MegaMenu({
     if (!searchFilter.trim()) return [];
     const q = searchFilter.toLowerCase().trim();
     const pool = activeTab === "essential" ? allSaarviTools : currentCategoryTools;
-    return pool.filter(
-      (t) =>
-        t.name.toLowerCase().includes(q) ||
-        t.description.toLowerCase().includes(q) ||
-        (t.subcategory && t.subcategory.toLowerCase().includes(q))
+    return dedupeToolsByKey(
+      pool.filter(
+        (t) =>
+          t.name.toLowerCase().includes(q) ||
+          t.description.toLowerCase().includes(q) ||
+          (t.subcategory && t.subcategory.toLowerCase().includes(q))
+      )
     );
   }, [searchFilter, activeTab, allSaarviTools, currentCategoryTools]);
 
@@ -943,14 +983,14 @@ export default function MegaMenu({
                     tab.id === "essential"
                       ? activeEssentialTools.length
                       : tab.id === "pdf"
-                      ? pdfAllTools.length
-                      : tab.id === "images"
-                      ? imageAllTools.length
-                      : tab.id === "student"
-                      ? studentAllTools.length
-                      : tab.id === "career"
-                      ? careerAllTools.length
-                      : aiAllTools.length;
+                        ? pdfAllTools.length
+                        : tab.id === "images"
+                          ? imageAllTools.length
+                          : tab.id === "student"
+                            ? studentAllTools.length
+                            : tab.id === "career"
+                              ? careerAllTools.length
+                              : aiAllTools.length;
 
                   return (
                     <button
@@ -961,19 +1001,17 @@ export default function MegaMenu({
                         setActiveTab(tab.id);
                         setSearchFilter("");
                       }}
-                      className={`px-3 py-1.5 rounded-xl font-semibold text-xs transition-all duration-150 shrink-0 flex items-center gap-1.5 cursor-pointer ${
-                        isActive
-                          ? "bg-blue-600 text-white shadow-xs font-bold"
-                          : "bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200/70"
-                      }`}
+                      className={`px-3 py-1.5 rounded-xl font-semibold text-xs transition-all duration-150 shrink-0 flex items-center gap-1.5 cursor-pointer ${isActive
+                        ? "bg-blue-600 text-white shadow-xs font-bold"
+                        : "bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200/70"
+                        }`}
                     >
                       <IconComp className={`w-3.5 h-3.5 ${isActive ? "text-white" : tab.colorClass}`} />
                       <span>{tab.label}</span>
                       {count > 0 && (
                         <span
-                          className={`text-[9.5px] px-1.5 py-0.2 rounded-full font-semibold ${
-                            isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
-                          }`}
+                          className={`text-[9.5px] px-1.5 py-0.2 rounded-full font-semibold ${isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                            }`}
                         >
                           {count}
                         </span>

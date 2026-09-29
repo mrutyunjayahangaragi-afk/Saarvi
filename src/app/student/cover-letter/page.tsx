@@ -32,7 +32,9 @@ import {
   AlertTriangle,
   X,
   Edit3,
+  Eye,
 } from "lucide-react";
+import { revealDestination } from "@/lib/ux/action-destination";
 
 const COVER_LETTER_TYPES: Array<{ type: CoverLetterType; label: string; desc: string }> = [
   { type: "general", label: "General", desc: "Adaptable overview for various technical opportunities" },
@@ -839,10 +841,36 @@ export default function CoverLetterPage() {
                 className="w-full text-xs border border-slate-300 rounded-xl p-2.5 focus:ring-1 focus:ring-blue-500"
               />
             </div>
+
+            {/* Quick Preview Trigger */}
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  revealDestination({
+                    target: "#cover-letter-preview",
+                    fallbackTarget: "[data-saarvi-target='preview']",
+                    mode: "result",
+                    focus: true,
+                    reason: "cover_letter_preview_click",
+                    force: true,
+                  });
+                }}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold border border-blue-200 transition-colors cursor-pointer"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>View Live Preview</span>
+              </button>
+            </div>
           </div>
 
           {/* Right Live Preview Panel */}
-          <div className="lg:col-span-5 bg-white rounded-3xl border border-slate-200 p-6 shadow-2xs flex flex-col">
+          <div
+            id="cover-letter-preview"
+            data-saarvi-target="preview"
+            tabIndex={-1}
+            className="lg:col-span-5 bg-white rounded-3xl border border-slate-200 p-6 shadow-2xs flex flex-col saarvi-destination-target outline-hidden"
+          >
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-3">
               Live Preview ({activeLetter.template} template)
             </span>

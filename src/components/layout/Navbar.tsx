@@ -34,7 +34,7 @@ import { SaarviNavbarLogo } from "@/components/brand/SaarviLogo";
 import { useAuth } from "@/context/AuthContext";
 import { usePlatform } from "@/context/PlatformContext";
 import { useFeedback } from "@/context/FeedbackContext";
-import MegaMenu, { ActiveMenuCategory } from "./MegaMenu";
+import MegaMenu, { ActiveMenuCategory, dedupeToolsByKey } from "./MegaMenu";
 import GlobalSearchModal from "@/components/tools/GlobalSearchModal";
 import AnnouncementBanner from "./AnnouncementBanner";
 
@@ -813,7 +813,7 @@ export default function Navbar() {
                   >
                     View All PDF Tools →
                   </Link>
-                  {(
+                  {dedupeToolsByKey(
                     navCategories.find((c) => c.id === "pdf")?.allTools?.length > 0
                       ? navCategories.find((c) => c.id === "pdf")!.allTools
                       : [
@@ -832,7 +832,6 @@ export default function Navbar() {
                           { key: "rotate-pdf", name: "Rotate PDF", route: "/tools/rotate-pdf" },
                           { key: "delete-pdf-pages", name: "Delete PDF Pages", route: "/tools/delete-pdf-pages" },
                           { key: "extract-pdf-pages", name: "Extract PDF Pages", route: "/tools/extract-pdf-pages" },
-                          { key: "compress-pdf", name: "Compress PDF", route: "/tools/compress-pdf" },
                           { key: "txt-to-pdf", name: "TXT to PDF", route: "/tools/txt-to-pdf" },
                           { key: "csv-to-pdf", name: "CSV to PDF", route: "/tools/csv-to-pdf" },
                           { key: "html-to-pdf", name: "HTML to PDF", route: "/tools/html-to-pdf" },
@@ -895,7 +894,7 @@ export default function Navbar() {
                   >
                     View All Image Tools →
                   </Link>
-                  {(
+                  {dedupeToolsByKey(
                     navCategories.find((c) => c.id === "images" || c.id === "image")?.allTools?.length > 0
                       ? navCategories.find((c) => c.id === "images" || c.id === "image")!.allTools
                       : [
@@ -959,7 +958,7 @@ export default function Navbar() {
                   <Link href="/student-tools" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50 mb-1">
                     View All Student Tools →
                   </Link>
-                  {(
+                  {dedupeToolsByKey(
                     navCategories.find((c) => c.id === "student")?.allTools?.length > 0
                       ? navCategories.find((c) => c.id === "student")!.allTools
                       : [
@@ -1023,7 +1022,7 @@ export default function Navbar() {
                   <Link href="/jobs" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50 mb-1">
                     Jobs &amp; Internships Platform →
                   </Link>
-                  {(
+                  {dedupeToolsByKey(
                     navCategories.find((c) => c.id === "career")?.allTools?.length > 0
                       ? navCategories.find((c) => c.id === "career")!.allTools
                       : [
@@ -1076,7 +1075,7 @@ export default function Navbar() {
                   <Link href="/tools?category=ai" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-purple-600 font-semibold hover:bg-purple-50 mb-1">
                     View All AI Tools →
                   </Link>
-                  {(
+                  {dedupeToolsByKey(
                     navCategories.find((c) => c.id === "ai")?.allTools?.length > 0
                       ? navCategories.find((c) => c.id === "ai")!.allTools
                       : [

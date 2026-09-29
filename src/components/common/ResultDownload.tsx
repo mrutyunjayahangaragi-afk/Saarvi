@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import {
   Download,
@@ -14,6 +14,7 @@ import { formatBytes } from "@/lib/utils";
 import { SingleFileResult, MultiFileResult } from "@/lib/tools/types";
 import { useAutoDownload } from "@/hooks/useAutoDownload";
 import { useAuth } from "@/context/AuthContext";
+import { revealDestination } from "@/lib/ux/action-destination";
 
 interface ResultDownloadProps {
   result: SingleFileResult | MultiFileResult;
@@ -30,6 +31,23 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
   const targetFilename = isSingle ? result.filename : result.zipFilename;
   const isZip = !isSingle;
   const resultId = `${targetFilename}_${targetBlob?.size || 0}_${isZip ? "zip" : "single"}`;
+
+  // Smart action destination reveal upon mount
+  const hasRevealedRef = useRef(false);
+  useEffect(() => {
+    if (!hasRevealedRef.current) {
+      hasRevealedRef.current = true;
+      revealDestination({
+        target: "#tool-result",
+        fallbackTarget: "[data-saarvi-target='tool-result']",
+        mode: "result",
+        focus: true,
+        operationId: `mount_${resultId}`,
+        reason: "tool_result_mount",
+      });
+    }
+  }, [resultId]);
+
 
   // Auto-download controller hook (real client blob)
   const {
@@ -154,7 +172,12 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
   }, [imagePreviewUrl]);
 
   return (
-    <div className="w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs transition-all">
+    <div
+      id="tool-result"
+      data-saarvi-target="tool-result"
+      tabIndex={-1}
+      className="w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs transition-all saarvi-destination-target outline-hidden"
+    >
       
       {/* SUCCESS HEADER: Checkmark drawing animation + headline */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
@@ -164,7 +187,10 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
           </div>
 
           <div>
-            <h3 className="text-xl font-bold text-slate-900 tracking-tight">
+            <h3
+              tabIndex={-1}
+              className="text-xl font-bold text-slate-900 tracking-tight outline-hidden"
+            >
               Your file is ready
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -172,6 +198,7 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
             </p>
           </div>
         </div>
+
 
         {/* Auto-download preference switch */}
         <div className="flex items-center gap-2 self-start sm:self-center">

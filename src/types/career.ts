@@ -153,6 +153,7 @@ export interface CareerVolunteering {
   id: string;
   organization: string;
   role: string;
+  location?: string;
   startDate: string;
   endDate?: string;
   current?: boolean;
@@ -163,7 +164,9 @@ export interface CareerVolunteering {
 export interface CareerLeadership {
   id: string;
   title: string;
+  role?: string;
   organization: string;
+  location?: string;
   startDate: string;
   endDate?: string;
   current?: boolean;
@@ -175,6 +178,14 @@ export interface CareerLanguage {
   id: string;
   name: string;
   proficiency?: "Native" | "Fluent" | "Professional" | "Intermediate" | "Basic";
+}
+
+export interface CareerAdditionalItem {
+  id: string;
+  type: "Certifications" | "Achievements" | "Interests" | "Hobbies" | "Awards" | "Publications" | "Memberships" | "Other" | string;
+  title: string;
+  value: string;
+  showOnResume?: boolean;
 }
 
 export interface CareerProfile {
@@ -202,6 +213,7 @@ export interface CareerProfile {
   leadership?: CareerLeadership[];
   languages?: CareerLanguage[];
   additionalInfo?: string;
+  additionalItems?: CareerAdditionalItem[];
   isSample?: boolean;
   websiteUrl?: string;
   linkedinUrl?: string;
@@ -239,6 +251,8 @@ export interface ResumeVersion {
   selectedAchievementIds: string[];
   selectedLeadershipIds: string[];
   selectedVolunteeringIds: string[];
+  selectedLanguageIds?: string[];
+  selectedAdditionalIds?: string[];
   preferOnePage: boolean;
   showProfilePhoto?: boolean;
   dismissedImageAtsWarning?: boolean;
@@ -249,6 +263,9 @@ export interface ResumeVersion {
     specialization?: string;
     careerFocus?: string;
   };
+  wizardSkippedSections?: string[];
+  wizardNotApplicableSections?: string[];
+  lastActiveWizardSection?: string;
   createdAt: string;
   updatedAt: string;
 }

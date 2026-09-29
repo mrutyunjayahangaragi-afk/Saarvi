@@ -63,6 +63,39 @@ export interface ResumeTheme {
   template: 'ats-classic' | 'ats-modern' | 'student-clean' | 'technical';
 }
 
+export interface ResumeLeadershipActivity {
+  id: string;
+  role: string;
+  organization: string;
+  location?: string;
+  startDate: string;
+  endDate: string;
+  description: string;
+}
+
+export interface ResumeVolunteering {
+  id: string;
+  organization: string;
+  role: string;
+  location?: string;
+  startDate: string;
+  endDate: string;
+  description: string;
+}
+
+export interface ResumeLanguage {
+  id: string;
+  language: string;
+  proficiency: "Native" | "Fluent" | "Professional" | "Intermediate" | "Basic";
+}
+
+export interface ResumeAdditionalItem {
+  id: string;
+  type: "Certifications" | "Achievements" | "Interests" | "Hobbies" | "Awards" | "Publications" | "Professional Memberships" | "Other" | string;
+  title: string;
+  value: string;
+}
+
 export interface ResumeData {
   personalInfo: ResumePersonalInfo;
   education: ResumeEducation[];
@@ -70,6 +103,11 @@ export interface ResumeData {
   projects: ResumeProject[];
   skills: ResumeSkillCategory[];
   certifications: ResumeCertification[];
+  leadershipActivities?: ResumeLeadershipActivity[];
+  volunteering?: ResumeVolunteering[];
+  languages?: ResumeLanguage[];
+  additionalInformation?: ResumeAdditionalItem[];
+  optionalSectionOrder?: string[];
   theme: ResumeTheme;
 }
 

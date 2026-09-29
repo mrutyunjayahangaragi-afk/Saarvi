@@ -280,6 +280,49 @@ body {
   }
 }
 
+/* SMART ACTION → DESTINATION UX SYSTEM (Sticky Navbar Clearances) */
+html {
+  scroll-behavior: smooth;
+}
+
+[data-saarvi-target],
+.saarvi-destination-target,
+#tool-result,
+#tool-error,
+#calculation-result,
+#sgpa-result,
+#cgpa-result,
+#marks-result,
+#percentage-result,
+#attendance-result,
+#jobs-search-results,
+#resume-preview-container,
+#cover-letter-preview,
+#feedback-status,
+#form-errors {
+  scroll-margin-top: 84px; /* Default desktop sticky navbar (64px) + breathing space (20px) */
+}
+
+@media (max-width: 640px) {
+  [data-saarvi-target],
+  .saarvi-destination-target,
+  #tool-result,
+  #tool-error,
+  #calculation-result,
+  #sgpa-result,
+  #cgpa-result,
+  #marks-result,
+  #percentage-result,
+  #attendance-result,
+  #jobs-search-results,
+  #resume-preview-container,
+  #cover-letter-preview,
+  #feedback-status,
+  #form-errors {
+    scroll-margin-top: 76px; /* Mobile sticky navbar offset */
+  }
+}
+
 /* Print CSS */
 @media print {
   body {
@@ -290,3 +333,4 @@ body {
     display: none !important;
   }
 }
+

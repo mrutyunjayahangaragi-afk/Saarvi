@@ -31,7 +31,9 @@ import {
   XCircle,
   SlidersHorizontal,
   FileCheck2,
+  Calculator,
 } from "lucide-react";
+import { revealDestination } from "@/lib/ux/action-destination";
 
 interface CourseRowState {
   courseCode: string;
@@ -535,6 +537,27 @@ export default function SGPACalculatorPage() {
         return { ...c, cie: 42, see: 38, total: "" };
       })
     );
+
+    setTimeout(() => {
+      revealDestination({
+        target: "#calculation-result",
+        fallbackTarget: "[data-saarvi-target='calculation-result']",
+        mode: "result",
+        focus: true,
+        reason: "sample_marks_loaded",
+      });
+    }, 120);
+  };
+
+  const handleCalculateAndReveal = () => {
+    revealDestination({
+      target: "#calculation-result",
+      fallbackTarget: "[data-saarvi-target='calculation-result']",
+      mode: "result",
+      focus: true,
+      reason: "sgpa_calculate_click",
+      force: true,
+    });
   };
 
   // Handle Elective Choice Selection
@@ -1434,6 +1457,23 @@ export default function SGPACalculatorPage() {
                     );
                   })}
                 </div>
+
+                {/* Calculate & Reveal Action Footer */}
+                <div className="pt-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <span className="text-xs text-slate-500">
+                    {sgpaResult.isComplete
+                      ? "All required semester courses evaluated."
+                      : "Course marks update dynamically. Click calculate to inspect full breakdown."}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCalculateAndReveal}
+                    className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Calculator className="w-4 h-4" />
+                    <span>Calculate SGPA & View Breakdown</span>
+                  </button>
+                </div>
               </div>
             )}
           </>
@@ -1514,11 +1554,28 @@ export default function SGPACalculatorPage() {
                 </div>
               ))}
             </div>
+
+            {/* Custom Mode Calculate Button */}
+            <div className="pt-4 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={handleCalculateAndReveal}
+                className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Calculator className="w-4 h-4" />
+                <span>Calculate Custom SGPA</span>
+              </button>
+            </div>
           </div>
         )}
 
         {/* 4. RESULT CARD & TRANSPARENCY SECTION */}
-        <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+        <div
+          id="calculation-result"
+          data-saarvi-target="calculation-result"
+          tabIndex={-1}
+          className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6 saarvi-destination-target outline-hidden"
+        >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
             <div className="space-y-1">
               <div className="flex items-center gap-2">

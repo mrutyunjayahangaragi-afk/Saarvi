@@ -622,7 +622,7 @@ export function ResumeLivePreview({
                       <section key={sectionId}>
                         <div className={dividerClass}>
                           <h2 className={`text-[11px] font-bold uppercase tracking-wider ${accentTextClass}`}>
-                            Leadership & Extracurricular
+                            Leadership & Activities
                           </h2>
                         </div>
                         <div className="space-y-2">
@@ -630,7 +630,8 @@ export function ResumeLivePreview({
                             <div key={lead.id}>
                               <div className="flex items-baseline justify-between gap-2">
                                 <span className="font-bold text-slate-900 text-[11.5px]">
-                                  {lead.title} — {lead.organization}
+                                  {lead.title || lead.role || "Lead"} — {lead.organization}
+                                  {lead.location && <span className="font-normal text-slate-600"> ({lead.location})</span>}
                                 </span>
                                 <span className="text-[11px] text-slate-500 whitespace-nowrap">
                                   {lead.startDate} – {lead.endDate || (lead.current ? "Present" : "")}
@@ -642,6 +643,86 @@ export function ResumeLivePreview({
                             </div>
                           ))}
                         </div>
+                      </section>
+                    );
+                  }
+
+                  case "volunteering": {
+                    if (!profile.volunteering || profile.volunteering.length === 0) return null;
+                    return (
+                      <section key={sectionId}>
+                        <div className={dividerClass}>
+                          <h2 className={`text-[11px] font-bold uppercase tracking-wider ${accentTextClass}`}>
+                            Volunteering
+                          </h2>
+                        </div>
+                        <div className="space-y-2">
+                          {profile.volunteering.map((vol) => (
+                            <div key={vol.id}>
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className="font-bold text-slate-900 text-[11.5px]">
+                                  {vol.role} — {vol.organization}
+                                  {vol.location && <span className="font-normal text-slate-600"> ({vol.location})</span>}
+                                </span>
+                                <span className="text-[11px] text-slate-500 whitespace-nowrap">
+                                  {vol.startDate} – {vol.endDate || (vol.current ? "Present" : "")}
+                                </span>
+                              </div>
+                              {vol.description && (
+                                <p className="text-[11px] text-slate-700 pl-2 mt-0.5">{vol.description}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    );
+                  }
+
+                  case "languages": {
+                    if (!profile.languages || profile.languages.length === 0) return null;
+                    return (
+                      <section key={sectionId}>
+                        <div className={dividerClass}>
+                          <h2 className={`text-[11px] font-bold uppercase tracking-wider ${accentTextClass}`}>
+                            Languages
+                          </h2>
+                        </div>
+                        <div className="text-[11.5px] text-slate-800 flex flex-wrap items-center gap-x-3 gap-y-1">
+                          {profile.languages.map((l, i) => (
+                            <span key={l.id || i} className="inline-flex items-center gap-1.5">
+                              {i > 0 && <span className="text-slate-400 select-none">•</span>}
+                              <strong className="font-semibold text-slate-900">{l.name}</strong>
+                              {l.proficiency && <span className="text-slate-600 text-[11px]">({l.proficiency})</span>}
+                            </span>
+                          ))}
+                        </div>
+                      </section>
+                    );
+                  }
+
+                  case "additional": {
+                    const items = profile.additionalItems || [];
+                    const rawText = profile.additionalInfo;
+                    if (items.length === 0 && !rawText) return null;
+                    return (
+                      <section key={sectionId}>
+                        <div className={dividerClass}>
+                          <h2 className={`text-[11px] font-bold uppercase tracking-wider ${accentTextClass}`}>
+                            Additional Information
+                          </h2>
+                        </div>
+                        {items.length > 0 ? (
+                          <div className="space-y-1.5 text-[11.5px]">
+                            {items.map((item) => (
+                              <div key={item.id} className="text-slate-800">
+                                • <strong className="font-semibold text-slate-900">[{item.type}] {item.title}:</strong>{" "}
+                                <span className="text-slate-700">{item.value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : rawText ? (
+                          <p className="text-[11px] text-slate-700 leading-relaxed whitespace-pre-line">{rawText}</p>
+                        ) : null}
                       </section>
                     );
                   }

@@ -16,6 +16,7 @@ import {
   Award,
   Calculator,
 } from "lucide-react";
+import { revealDestination } from "@/lib/ux/action-destination";
 
 export default function PercentageCalculatorPage() {
   const [decimals, setDecimals] = useState<number>(2);
@@ -92,7 +93,12 @@ export default function PercentageCalculatorPage() {
         </div>
 
         {/* Results Card */}
-        <div className="p-6 sm:p-8 bg-gradient-to-br from-violet-600 to-indigo-700 text-white rounded-3xl shadow-md space-y-4">
+        <div
+          id="percentage-result"
+          data-saarvi-target="calculation-result"
+          tabIndex={-1}
+          className="p-6 sm:p-8 bg-gradient-to-br from-violet-600 to-indigo-700 text-white rounded-3xl shadow-md space-y-4 saarvi-destination-target outline-hidden"
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="text-xs font-bold uppercase tracking-wider text-violet-200 flex items-center gap-1.5">
               <Award className="w-4 h-4" /> Overall Percentage
@@ -261,14 +267,33 @@ export default function PercentageCalculatorPage() {
             })}
           </div>
 
-          <button
-            type="button"
-            onClick={handleAddSubject}
-            className="w-full py-3 border-2 border-dashed border-slate-200 hover:border-violet-400 hover:bg-violet-50/50 text-violet-700 text-xs font-bold rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Another Subject</span>
-          </button>
+          <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={handleAddSubject}
+              className="w-full sm:w-1/2 py-3 border-2 border-dashed border-slate-200 hover:border-violet-400 hover:bg-violet-50/50 text-violet-700 text-xs font-bold rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Another Subject</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                revealDestination({
+                  target: "#percentage-result",
+                  fallbackTarget: "[data-saarvi-target='calculation-result']",
+                  mode: "result",
+                  focus: true,
+                  reason: "percentage_calculate_click",
+                  force: true,
+                });
+              }}
+              className="w-full sm:w-1/2 py-3 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-2xl flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+            >
+              <Calculator className="w-4 h-4" />
+              <span>Calculate & Reveal Percentage</span>
+            </button>
+          </div>
         </div>
 
         {/* Calculation Explanation */}
