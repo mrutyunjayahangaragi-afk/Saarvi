@@ -6,16 +6,16 @@
  * Guarantees zero duplicate entries and atomic batch operations.
  */
 
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { getSupabaseAdminClient } from "../supabase/admin.ts";
+import { isSupabaseConfigured } from "../supabase/config.ts";
 import type {
   JobItem,
   JobSearchParams,
   AdminJobLifecycleCounts,
   VerificationTier,
-} from "./types";
-import { isJobRowLiveForUsers, isSourceDiscoveryActive, getNowUtcMs } from "./live-predicate";
-import { cleanAndSanitizeUrl, isSafeUrl } from "@/lib/opportunities/opportunity-store";
+} from "./types.ts";
+import { isJobRowLiveForUsers, isSourceDiscoveryActive, getNowUtcMs } from "./live-predicate.ts";
+import { cleanAndSanitizeUrl, isSafeUrl } from "../opportunities/opportunity-store.ts";
 
 /**
  * Maps database row (snake_case) to domain JobItem (camelCase)
@@ -222,28 +222,50 @@ export class JobRepository {
    */
   public async getJobById(id: string): Promise<JobItem | null> {
     if (!id) return null;
+    const cleanId = decodeURIComponent(id).trim();
+    const strippedJob = cleanId.replace(/^job_/, "");
+    const strippedOpp = cleanId.replace(/^opp_/, "");
     const supabase = getSupabaseAdminClient();
     if (!supabase) return null;
 
     try {
-      // 1. Direct canonical ID lookup
+      // 1. Direct canonical ID lookup with prefix variations
+      const idCandidates = Array.from(
+        new Set([
+          cleanId,
+          strippedJob,
+          strippedOpp,
+          `job_${strippedJob}`,
+          `opp_${strippedOpp}`,
+          `opp_${cleanId}`,
+        ])
+      ).filter(Boolean);
+
       const { data, error } = await supabase
         .from("job_opportunities")
         .select("*")
-        .eq("id", id)
+        .in("id", idCandidates)
         .neq("record_state", "DELETED")
+        .limit(1)
         .maybeSingle();
 
       if (!error && data) {
         return rowToJobItem(data);
       }
 
-      // 2. Fallback: provider_job_id / source_job_id
+      // 2. Direct provider_job_id / source_job_id lookup
+      const sourceCandidates = Array.from(
+        new Set([cleanId, strippedJob, strippedOpp])
+      ).filter(Boolean);
+
       const { data: data2, error: err2 } = await supabase
         .from("job_opportunities")
         .select("*")
-        .or(`provider_job_id.eq.${id},source_job_id.eq.${id}`)
+        .or(
+          `source_job_id.in.(${sourceCandidates.join(",")}),provider_job_id.in.(${sourceCandidates.join(",")})`
+        )
         .neq("record_state", "DELETED")
+        .limit(1)
         .maybeSingle();
 
       if (!err2 && data2) {

@@ -19,11 +19,15 @@ export async function GET(req: NextRequest) {
     const oppsResult = opportunityStore.getAdminOpportunities({ pageSize: 1000 });
     const opps: Opportunity[] = oppsResult.items || [];
     
-    // Fetch reports from Supabase DB first, then fallback
-    let reports = await jobSupportService.getCareerReports("ALL");
-    if (reports.length === 0) {
-      reports = jobReportsStore.getAllReports();
-    }
+    // Fetch reports from both Supabase DB and memory store to guarantee visibility
+    const dbReports = await jobSupportService.getCareerReports("ALL");
+    const memReports = jobReportsStore.getAllReports();
+    const reportsMap = new Map();
+    for (const r of memReports) reportsMap.set(r.id, r);
+    for (const r of dbReports) reportsMap.set(r.id, r);
+    const reports = Array.from(reportsMap.values()).sort(
+      (a: any, b: any) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime()
+    );
     const alerts = jobAlertsStore.getAllAlerts();
 
     // Fetch authoritative database lifecycle counts

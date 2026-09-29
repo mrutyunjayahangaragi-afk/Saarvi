@@ -42,15 +42,32 @@ export class JobSupportService {
 
     if (supabase) {
       try {
+        const isUuid = (val?: string) =>
+          Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val));
+        const validReporterId = isUuid(input.reporterId) ? input.reporterId : null;
+
+        const ALLOWED_DB_REASONS = new Set([
+          "FAKE_JOB",
+          "EXPIRED",
+          "WRONG_COMPANY",
+          "BROKEN_LINK",
+          "MISLEADING_INFO",
+          "PAYMENT_REQUIRED",
+          "SUSPICIOUS",
+          "DUPLICATE",
+          "OTHER",
+        ]);
+        const dbReason = ALLOWED_DB_REASONS.has(input.reason) ? input.reason : "OTHER";
+
         const { error } = await supabase.from("job_reports").insert({
           id: reportId,
           job_id: input.jobId,
           job_title: input.jobTitle || "Job Listing",
           company_name: input.companyName || "Unknown",
           source_url: input.sourceUrl || null,
-          reason: input.reason,
-          notes: input.notes || "",
-          reporter_id: input.reporterId || null,
+          reason: dbReason,
+          notes: input.notes ? (dbReason !== input.reason ? `[${input.reason}] ${input.notes}` : input.notes) : (dbReason !== input.reason ? `[${input.reason}]` : ""),
+          reporter_id: validReporterId,
           reported_at: now,
           status: "PENDING",
         });
