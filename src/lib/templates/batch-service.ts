@@ -144,12 +144,16 @@ export class TemplateBatchService {
       }
     }
 
-    // Start background bounded worker processing (non-blocking)
-    this.processBatchAsync(batchId, files).catch((err) => {
-      console.error(`[TemplateBatchService] Batch processing failed: ${err.message}`);
-    });
+    const initialSnapshot: TemplateImportBatch = JSON.parse(JSON.stringify(batch));
 
-    return batch;
+    // Start background bounded worker processing (asynchronous non-blocking)
+    setTimeout(() => {
+      this.processBatchAsync(batchId, files).catch((err) => {
+        console.error(`[TemplateBatchService] Batch processing failed: ${err.message}`);
+      });
+    }, 10);
+
+    return initialSnapshot;
   }
 
   /**
