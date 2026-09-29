@@ -86,6 +86,12 @@ export default function AdminCareerPage() {
     paused: 0,
     draft: 0,
     total: 0,
+    // Canonical split metrics — these are the authoritative values
+    published: 0,      // records with publication_state=PUBLISHED
+    live: 0,           // records visible to users (published + not expired)
+    expiredPublished: 0, // published records whose deadline has passed
+    stored: 0,
+    archived: 0,
   });
   const [sources, setSources] = useState<SourceHealth[]>([]);
   const [config, setConfig] = useState<DiscoveryConfig | null>(null);
@@ -211,7 +217,22 @@ export default function AdminCareerPage() {
       if (oppsRes.ok) {
         const oppsData = await oppsRes.json();
         setItems(oppsData.items || []);
-        if (oppsData.counts) setCounts(oppsData.counts);
+        if (oppsData.counts) {
+          setCounts({
+            pending: oppsData.counts.pending || 0,
+            approved: oppsData.counts.approved || 0,
+            rejected: oppsData.counts.rejected || 0,
+            expired: oppsData.counts.expired || 0,
+            paused: oppsData.counts.paused || 0,
+            draft: oppsData.counts.draft || 0,
+            total: oppsData.counts.total || 0,
+            published: oppsData.counts.published || 0,
+            live: oppsData.counts.live || 0,
+            expiredPublished: oppsData.counts.expired || 0,
+            stored: oppsData.counts.stored || 0,
+            archived: oppsData.counts.archived || 0,
+          });
+        }
       }
 
       if (analyticsRes.ok) {
@@ -972,101 +993,109 @@ export default function AdminCareerPage() {
         </div>
       )}
 
-      {/* Metric Cards Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      {/* Metric Cards Row — 7 cards showing canonical lifecycle state */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
         <div
-          onClick={() => {
-            setActiveTab("OVERVIEW");
-            setStatusFilter("ALL");
-          }}
+          onClick={() => { setActiveTab("OVERVIEW"); setStatusFilter("ALL"); }}
           className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-xs cursor-pointer hover:border-slate-300 transition"
         >
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-            Total Catalog
-          </span>
-          <span className="text-2xl font-extrabold text-slate-900 mt-1 block font-mono">
-            {counts.total}
-          </span>
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Catalog</span>
+          <span className="text-2xl font-extrabold text-slate-900 mt-1 block font-mono">{counts.total}</span>
           <span className="text-[10px] text-slate-400 mt-0.5 block">All records</span>
         </div>
 
         <div
-          onClick={() => {
-            setActiveTab("PENDING_REVIEW");
-            setStatusFilter("PENDING_REVIEW");
-          }}
+          onClick={() => { setActiveTab("PENDING_REVIEW"); setStatusFilter("PENDING_REVIEW"); }}
           className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-2xl shadow-xs cursor-pointer hover:border-amber-300 transition"
         >
-          <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider block">
-            Pending Review
-          </span>
-          <span className="text-2xl font-extrabold text-amber-900 mt-1 block font-mono">
-            {counts.pending}
-          </span>
+          <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider block">Pending Review</span>
+          <span className="text-2xl font-extrabold text-amber-900 mt-1 block font-mono">{counts.pending}</span>
           <span className="text-[10px] text-amber-600 mt-0.5 block">Awaiting approval</span>
         </div>
 
+        {/* PUBLISHED — records with publication_state=PUBLISHED (may include expired) */}
         <div
-          onClick={() => {
-            setActiveTab("PUBLISHED");
-            setStatusFilter("APPROVED");
-          }}
+          onClick={() => { setActiveTab("PUBLISHED"); setStatusFilter("APPROVED"); }}
+          className="p-4 bg-blue-50/70 border border-blue-200/80 rounded-2xl shadow-xs cursor-pointer hover:border-blue-300 transition"
+        >
+          <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider block">Published</span>
+          <span className="text-2xl font-extrabold text-blue-900 mt-1 block font-mono">{counts.published || counts.approved}</span>
+          <span className="text-[10px] text-blue-600 mt-0.5 block">Admin-published records</span>
+        </div>
+
+        {/* LIVE TO USERS — uses canonical predicate including deadline check */}
+        <div
+          onClick={() => { setActiveTab("PUBLISHED"); setStatusFilter("APPROVED"); }}
           className="p-4 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl shadow-xs cursor-pointer hover:border-emerald-300 transition"
         >
-          <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">
-            Published Live
-          </span>
-          <span className="text-2xl font-extrabold text-emerald-900 mt-1 block font-mono">
-            {counts.approved}
-          </span>
-          <span className="text-[10px] text-emerald-600 mt-0.5 block">Live on /jobs</span>
+          <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">Live to Users</span>
+          <span className="text-2xl font-extrabold text-emerald-900 mt-1 block font-mono">{counts.live}</span>
+          <span className="text-[10px] text-emerald-600 mt-0.5 block">Visible on /jobs now</span>
+        </div>
+
+        {/* EXPIRED PUBLISHED — published but deadline passed */}
+        <div
+          onClick={() => { setActiveTab("EXPIRED"); setStatusFilter("EXPIRED"); }}
+          className="p-4 bg-orange-50/70 border border-orange-200/80 rounded-2xl shadow-xs cursor-pointer hover:border-orange-300 transition"
+        >
+          <span className="text-[11px] font-bold text-orange-700 uppercase tracking-wider block">Expired</span>
+          <span className="text-2xl font-extrabold text-orange-900 mt-1 block font-mono">{counts.expiredPublished || counts.expired}</span>
+          <span className="text-[10px] text-orange-600 mt-0.5 block">Deadline passed</span>
         </div>
 
         <div
-          onClick={() => {
-            setActiveTab("REJECTED");
-            setStatusFilter("REJECTED");
-          }}
+          onClick={() => { setActiveTab("REJECTED"); setStatusFilter("REJECTED"); }}
           className="p-4 bg-rose-50/70 border border-rose-200/80 rounded-2xl shadow-xs cursor-pointer hover:border-rose-300 transition"
         >
-          <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider block">
-            Rejected
-          </span>
-          <span className="text-2xl font-extrabold text-rose-900 mt-1 block font-mono">
-            {counts.rejected}
-          </span>
+          <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider block">Rejected</span>
+          <span className="text-2xl font-extrabold text-rose-900 mt-1 block font-mono">{counts.rejected}</span>
           <span className="text-[10px] text-rose-600 mt-0.5 block">Spam / discarded</span>
         </div>
 
         <div
-          onClick={() => {
-            setActiveTab("EXPIRED");
-            setStatusFilter("EXPIRED");
-          }}
+          onClick={() => setActiveTab("REPORTS")}
           className="p-4 bg-slate-100 border border-slate-200 rounded-2xl shadow-xs cursor-pointer hover:border-slate-300 transition"
         >
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-            Expired
-          </span>
-          <span className="text-2xl font-extrabold text-slate-700 mt-1 block font-mono">
-            {counts.expired}
-          </span>
-          <span className="text-[10px] text-slate-400 mt-0.5 block">Deadlines passed</span>
-        </div>
-
-        <div
-          onClick={() => setActiveTab("REPORTS")}
-          className="p-4 bg-blue-50/70 border border-blue-200/80 rounded-2xl shadow-xs cursor-pointer hover:border-blue-300 transition"
-        >
-          <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider block">
-            Scam Reports
-          </span>
-          <span className="text-2xl font-extrabold text-blue-900 mt-1 block font-mono">
-            {reports.filter((r) => r.status === "PENDING").length}
-          </span>
-          <span className="text-[10px] text-blue-600 mt-0.5 block">Student alerts</span>
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Scam Reports</span>
+          <span className="text-2xl font-extrabold text-slate-700 mt-1 block font-mono">{reports.filter((r) => r.status === "PENDING").length}</span>
+          <span className="text-[10px] text-slate-400 mt-0.5 block">Student alerts</span>
         </div>
       </div>
+
+      {/* Lifecycle Consistency Alert: warn admin if Published ≠ Live + Expired */}
+      {(counts.published || counts.approved) > 0 && (counts.live + (counts.expiredPublished || counts.expired)) !== (counts.published || counts.approved) && (
+        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Data Health Warning:</strong> Published ({counts.published || counts.approved}) ≠ Live ({counts.live}) + Expired ({counts.expiredPublished || counts.expired}).
+              There may be records with inconsistent lifecycle state. Run <strong>Reconcile Live Jobs</strong> to auto-correct.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              setNotice("Reconciling live jobs...");
+              try {
+                const res = await fetch("/api/admin/jobs/reconcile", { method: "POST" });
+                const data = await res.json();
+                if (res.ok) {
+                  setNotice(`Reconcile complete: ${data.summary?.expired || 0} expired, ${data.summary?.corrected || 0} corrected.`);
+                  await loadData();
+                } else {
+                  setNotice(`Reconcile failed: ${data.error}`);
+                }
+              } catch (err: any) {
+                setNotice(`Reconcile error: ${err.message}`);
+              }
+              setTimeout(() => setNotice(null), 5000);
+            }}
+            className="ml-4 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shrink-0"
+          >
+            Reconcile Live Jobs
+          </button>
+        </div>
+      )}
 
       {/* Primary Section Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto scrollbar-none text-xs font-bold">

@@ -27,6 +27,7 @@ import { deduplicateOpportunities } from "./deduplicator.ts";
 import { MockStorageProvider } from "../supabase/mock-storage.ts";
 import { CANONICAL_SEED_OPPORTUNITIES } from "./seed-opportunities.ts";
 import { isSupabaseConfigured } from "../supabase/config.ts";
+import { isJobLiveForUsers, computeAdminJobCounts, isDeadlineExpired } from "../jobs/live-predicate.ts";
 
 /**
  * Calculates deterministic date boundaries for Saarvi's reporting timezone (Asia/Kolkata, UTC+5:30).
@@ -1443,36 +1444,66 @@ class OpportunityStoreService {
     return MockStorageProvider.getDiscoveryBatches();
   }
 
-  public checkAndExpireOutdatedJobs(): number {
+  public async checkAndExpireOutdatedJobs(): Promise<number> {
     let expiredCount = 0;
     const now = Date.now();
 
+    const expiredIds: string[] = [];
+
     for (const opp of this.opportunities.values()) {
-      if (opp.status === "APPROVED" || opp.status === "PUBLISHED" || opp.status === "ACTIVE" || opp.publicationState === "PUBLISHED") {
-        if (opp.applicationDeadline && opp.applicationDeadline !== "Deadline not provided") {
-          const deadlineTime = new Date(opp.applicationDeadline).getTime();
-          if (!isNaN(deadlineTime) && deadlineTime < now) {
-            const prevStatus = opp.status;
-            opp.status = "EXPIRED";
-            opp.publicationState = "NOT_PUBLISHED";
-            opp.updatedAt = new Date().toISOString();
-            expiredCount++;
-            this.recordAuditEvent({
-              opportunityId: opp.id,
-              action: "EXPIRED",
-              actorId: "system_cron",
-              previousStatus: prevStatus,
-              newStatus: "EXPIRED",
-              details: `Auto-expired: deadline (${opp.applicationDeadline}) has passed`,
-            });
-          }
-        }
+      // Only check published/approved records with a deadline
+      const isPublishedOrApproved =
+        opp.status === "APPROVED" ||
+        opp.status === "PUBLISHED" ||
+        opp.status === "ACTIVE" ||
+        opp.publicationState === "PUBLISHED";
+
+      if (!isPublishedOrApproved) continue;
+      if (!opp.applicationDeadline || opp.applicationDeadline === "Deadline not provided") continue;
+
+      if (isDeadlineExpired(opp.applicationDeadline)) {
+        const prevStatus = opp.status;
+        opp.status = "EXPIRED";
+        opp.publicationState = "PAUSED";
+        opp.recordState = "ACTIVE"; // Keep record, just remove from live feed
+        opp.updatedAt = new Date().toISOString();
+        expiredCount++;
+        expiredIds.push(opp.id);
+        this.recordAuditEvent({
+          opportunityId: opp.id,
+          action: "EXPIRED",
+          actorId: "system_cron",
+          previousStatus: prevStatus,
+          newStatus: "EXPIRED",
+          details: `Auto-expired: deadline (${opp.applicationDeadline}) has passed`,
+        });
       }
     }
 
     if (expiredCount > 0) {
       this.persistToStorage();
       invalidateJobsCache();
+
+      // Also expire in Supabase if configured
+      if (typeof window === "undefined" && isSupabaseConfigured() && expiredIds.length > 0) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const { getSupabaseAdminClient } = require("../supabase/admin");
+          const supabase = getSupabaseAdminClient();
+          if (supabase) {
+            await supabase
+              .from("job_opportunities")
+              .update({
+                status: "EXPIRED",
+                publication_state: "PAUSED",
+                updated_at: new Date().toISOString(),
+              })
+              .in("id", expiredIds);
+          }
+        } catch (err) {
+          console.warn("[OpportunityStore] Failed to sync expiry to Supabase:", err);
+        }
+      }
     }
 
     return expiredCount;
@@ -1698,42 +1729,9 @@ class OpportunityStoreService {
     pageSize: number;
   } {
     const all = Array.from(this.opportunities.values());
-    let filtered = all.filter((o) => {
-      // 1. ABSOLUTE SECURITY FILTER: Zero seed, test, demo, or unknown origins
-      if (
-        o.dataOrigin === "SEED" ||
-        o.dataOrigin === "TEST" ||
-        o.dataOrigin === "UNKNOWN" ||
-        o.id.startsWith("opp_seed_")
-      ) {
-        return false;
-      }
-
-      // 2. Lifecycle dimensions: Must be ACTIVE record, APPROVED review, PUBLISHED, and PASSED verification
-      const isRecordActive = (o.recordState ? o.recordState === "ACTIVE" : true) && o.status !== "DELETED" && o.status !== "ARCHIVED" && o.status !== "EXPIRED";
-      const isReviewApproved = o.reviewState === "APPROVED" || o.status === "APPROVED" || o.status === "PUBLISHED";
-      const isPublished = o.publicationState === "PUBLISHED" || o.status === "PUBLISHED";
-      const isVerified = o.verificationState === "PASSED" || o.verifiedByAdmin === true;
-
-      // Filter ensures only APPROVED or PUBLISHED opportunities are returned
-      if (o.status !== "APPROVED" && o.status !== "PUBLISHED") {
-        return false;
-      }
-
-      if (!isRecordActive || !isReviewApproved || !isPublished || !isVerified) {
-        return false;
-      }
-
-      // 3. Deadline check: Expired jobs must never appear in live feed
-      if (o.applicationDeadline && o.applicationDeadline !== "Deadline not provided") {
-        const dl = new Date(o.applicationDeadline).getTime();
-        if (!isNaN(dl) && dl < Date.now()) {
-          return false;
-        }
-      }
-
-      return true;
-    });
+    // Use canonical isJobLiveForUsers predicate — single source of truth
+    // This ensures getApprovedOpportunities() exactly matches what querySupabaseLiveJobs() returns
+    let filtered = all.filter(isJobLiveForUsers);
 
     if (params.category && (params.category as string) !== "all") {
       filtered = filtered.filter(
@@ -1833,20 +1831,23 @@ class OpportunityStoreService {
   } {
     const all = Array.from(this.opportunities.values());
 
+    // Use canonical computeAdminJobCounts to ensure admin counts match user-visible count
+    const canonical = computeAdminJobCounts(all);
     const counts = {
-      pending: all.filter((o) => o.status === "PENDING_REVIEW" || o.status === "DISCOVERED").length,
-      approved: all.filter((o) => o.status === "APPROVED" || o.status === "PUBLISHED").length,
-      rejected: all.filter((o) => o.status === "REJECTED").length,
-      expired: all.filter((o) => o.status === "EXPIRED").length,
-      paused: all.filter((o) => o.status === "PAUSED").length,
-      draft: all.filter((o) => o.status === "DRAFT").length,
-      total: all.length,
-      stored: all.filter((o) => o.recordState !== "DELETED").length,
+      pending: canonical.pending,
+      approved: canonical.approved,
+      rejected: canonical.rejected,
+      expired: canonical.expiredPublished,
+      paused: canonical.paused,
+      draft: 0,
+      total: canonical.total,
+      stored: canonical.stored,
       verified: all.filter((o) => o.verificationState === "PASSED" || o.verifiedByAdmin).length,
       eligible: all.filter((o) => (o.verificationState === "PASSED" || o.verifiedByAdmin) && o.recordState === "ACTIVE" && o.status !== "EXPIRED").length,
-      published: all.filter((o) => o.publicationState === "PUBLISHED" || o.status === "PUBLISHED").length,
-      live: all.filter((o) => (o.publicationState === "PUBLISHED" || o.status === "PUBLISHED") && (o.reviewState === "APPROVED" || o.status === "APPROVED") && o.recordState === "ACTIVE" && o.dataOrigin !== "SEED" && o.dataOrigin !== "TEST").length,
-      archived: all.filter((o) => o.recordState === "ARCHIVED" || o.status === "ARCHIVED").length,
+      published: canonical.published,
+      // CRITICAL: live uses canonical predicate with deadline check — matches /jobs user count
+      live: canonical.liveToUsers,
+      archived: canonical.archived,
       importFailed: 0,
     };
 
@@ -1991,7 +1992,7 @@ class OpportunityStoreService {
 
 export const opportunityStore = new OpportunityStoreService();
 
-export function runExpiredJobsWorker(): { expiredCount: number } {
-  const expiredCount = opportunityStore.checkAndExpireOutdatedJobs();
+export async function runExpiredJobsWorker(): Promise<{ expiredCount: number }> {
+  const expiredCount = await opportunityStore.checkAndExpireOutdatedJobs();
   return { expiredCount };
 }

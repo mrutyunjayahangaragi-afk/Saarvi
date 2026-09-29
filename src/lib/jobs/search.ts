@@ -22,6 +22,7 @@ import { sortJobs } from "./ranking.ts";
 import { sanitizeSearchQuery, sanitizePagination } from "./security.ts";
 import { opportunityStore, registerJobsCacheInvalidator } from "../opportunities/opportunity-store.ts";
 import { isSupabaseConfigured } from "../supabase/config.ts";
+import { isJobRowLiveForUsers } from "./live-predicate.ts";
 
 interface CacheEntry {
   items: JobItem[];
@@ -82,33 +83,30 @@ class JobSearchService {
 
   /**
    * Query Supabase directly for live, admin-published jobs.
-   * Absolute user security filter is enforced at the DB layer.
+   * Returns { items, liveCount } where liveCount = total live before text/location filters.
    */
-  private async querySupabaseLiveJobs(params: JobSearchParams): Promise<JobItem[]> {
+  private async querySupabaseLiveJobs(params: JobSearchParams): Promise<{ items: JobItem[]; liveCount: number }> {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getSupabaseAdminClient } = require("../supabase/admin");
       const supabase = getSupabaseAdminClient();
-      if (!supabase) return [];
+      if (!supabase) return { items: [], liveCount: 0 };
 
       // Build query with absolute user-facing security filter
+      // Uses multi-dimensional state columns (fixed by migration 029)
       let query = supabase
         .from("job_opportunities")
         .select("*")
-        // === ABSOLUTE USER-FACING SECURITY RULE ===
+        // === CANONICAL LIVE PREDICATE (mirrors is_job_live_for_users SQL function) ===
         .eq("publication_state", "PUBLISHED")
         .eq("record_state", "ACTIVE")
         .eq("review_state", "APPROVED")
+        .eq("visibility", "public")
         .in("data_origin", ["PROVIDER", "ADMIN"])
-        // Exclude obviously expired (where deadline is set and in the past)
-        // We apply deadline filter in JS for flexibility
         .order("posted_at", { ascending: false })
-        .limit(200);
+        .limit(500);
 
-      // Apply filters
-      const safeQ = (params.q || "").trim().toLowerCase();
-      const safeLoc = (params.location || "").trim().toLowerCase();
-
+      // Apply type filters at DB level
       if (params.employmentType && params.employmentType !== "all") {
         if (params.employmentType === "internship") {
           query = query.eq("type", "INTERNSHIP");
@@ -129,21 +127,22 @@ class JobSearchService {
 
       if (error) {
         console.warn("[JobSearchService] Supabase query error:", error.message);
-        return [];
+        return { items: [], liveCount: 0 };
       }
 
-      if (!data || data.length === 0) return [];
+      if (!data || data.length === 0) return { items: [], liveCount: 0 };
 
-      // Client-side filtering for text search and deadline
-      const now = Date.now();
-      let results = data.filter((row: any) => {
-        // Deadline check: skip expired
-        if (row.deadline && row.deadline !== "Deadline not provided") {
-          const dl = new Date(row.deadline).getTime();
-          if (!isNaN(dl) && dl < now) return false;
-        }
-        return true;
-      });
+      // Apply deadline filter — use isJobRowLiveForUsers canonical predicate
+      // This also applies to rows that may have slipped through with old status column
+      const liveRows = data.filter((row: any) => isJobRowLiveForUsers(row));
+
+      // liveCount = count before text/location filters (for empty-state UX)
+      const liveCount = liveRows.length;
+
+      const safeQ = (params.q || "").trim().toLowerCase();
+      const safeLoc = (params.location || "").trim().toLowerCase();
+
+      let results = liveRows;
 
       // Text search (title, company, description, skills)
       if (safeQ) {
@@ -171,10 +170,10 @@ class JobSearchService {
         });
       }
 
-      return results.map(rowToJobItem);
+      return { items: results.map(rowToJobItem), liveCount };
     } catch (err) {
       console.warn("[JobSearchService] Supabase query failed:", err);
-      return [];
+      return { items: [], liveCount: 0 };
     }
   }
 
@@ -291,16 +290,24 @@ class JobSearchService {
 
     // 2. Primary: Query Supabase directly (authoritative database)
     let rawItems: JobItem[] = [];
+    let liveCount = 0;
     let usedSupabase = false;
 
     if (isSupabaseConfigured()) {
-      rawItems = await this.querySupabaseLiveJobs(normalizedParams);
+      const supabaseResult = await this.querySupabaseLiveJobs(normalizedParams);
+      rawItems = supabaseResult.items;
+      liveCount = supabaseResult.liveCount;
       usedSupabase = true;
     }
 
     // 3. Fallback: In-memory store (when Supabase is unavailable or returned 0)
     if (!usedSupabase || rawItems.length === 0) {
       const inMemoryItems = this.queryInMemoryStore(normalizedParams);
+      // liveCount from in-memory: count all live items (no text/location filter)
+      if (liveCount === 0) {
+        const allLive = this.queryInMemoryStore({ ...normalizedParams, q: undefined, location: undefined });
+        liveCount = allLive.length;
+      }
       // Merge: add any in-memory approved items not in Supabase results
       const supabaseIds = new Set(rawItems.map((j) => j.id));
       for (const item of inMemoryItems) {
@@ -312,6 +319,7 @@ class JobSearchService {
 
     // 4. Deduplicate
     const { uniqueJobs } = deduplicateJobs(rawItems);
+    const filteredCount = uniqueJobs.length;
 
     // 5. Update Cache
     this.cache.set(cacheKey, {
@@ -326,6 +334,8 @@ class JobSearchService {
     return {
       items: paginated,
       total: uniqueJobs.length,
+      liveCount,
+      filteredCount,
       page,
       pageSize: limit,
       cached: false,

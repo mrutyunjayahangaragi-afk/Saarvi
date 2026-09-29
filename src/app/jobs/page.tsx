@@ -81,6 +81,13 @@ function JobsContent() {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [candidateProfile, setCandidateProfile] = useState<any | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  /**
+   * liveCount: total live jobs BEFORE user filters are applied.
+   * Used to distinguish:
+   *   liveCount = 0 → "No live opportunities are currently available."
+   *   liveCount > 0 but jobs.length = 0 → "No opportunities match your current filters."
+   */
+  const [liveCount, setLiveCount] = useState<number | null>(null);
 
   // Auth Gate Modal State
   const [authGateOpen, setAuthGateOpen] = useState(false);
@@ -242,6 +249,12 @@ function JobsContent() {
         setJobs(items);
         setIsCached(Boolean(data.cached));
         setStaleFallback(Boolean(data.staleFallback));
+        // Track liveCount to power correct empty-state messaging
+        if (typeof data.liveCount === "number") {
+          setLiveCount(data.liveCount);
+        } else if (typeof data.filteredCount === "number") {
+          setLiveCount(data.filteredCount);
+        }
         setSearchState(items.length > 0 ? "ready" : "empty");
 
         try {
@@ -1036,25 +1049,67 @@ function JobsContent() {
             ) : jobs.length === 0 ? (
               <div className="text-center p-12 bg-white border border-slate-200 rounded-3xl space-y-3">
                 <Briefcase className="w-10 h-10 text-slate-400 mx-auto" />
-                <h3 className="text-base font-bold text-slate-900">
-                  {q || location || employmentType !== "all" || remote !== "all" || experience !== "all"
-                    ? "No opportunities available for this search"
-                    : "No live opportunities yet"}
-                </h3>
-                <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  {q || location || employmentType !== "all" || remote !== "all" || experience !== "all"
-                    ? "Try a broader search query, remove some filters, or search for fresher roles in another location."
-                    : "Our team actively discovers, verifies, and publishes campus and fresher opportunities continuously. Check back soon!"}
-                </p>
-                {(q || location || employmentType !== "all" || remote !== "all" || experience !== "all") && (
-                  <button
-                    type="button"
-                    onClick={handleClearFilters}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 transition cursor-pointer"
-                  >
-                    Reset Filters
-                  </button>
-                )}
+                {/* CORRECT EMPTY STATE: distinguish filter-mismatch from truly-empty */}
+                {(() => {
+                  const hasActiveFilters = q || location || employmentType !== "all" || remote !== "all" || experience !== "all";
+                  const hasLiveJobs = liveCount !== null && liveCount > 0;
+
+                  if (hasActiveFilters) {
+                    // Filters are set but returned no results
+                    return (
+                      <>
+                        <h3 className="text-base font-bold text-slate-900">
+                          No opportunities match your current filters
+                        </h3>
+                        <p className="text-xs text-slate-500 max-w-md mx-auto">
+                          {hasLiveJobs
+                            ? `There are ${liveCount} live opportunities available. Try broadening your search or clearing filters.`
+                            : "Try a broader search query or remove some filters to see all live opportunities."}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleClearFilters}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 transition cursor-pointer"
+                        >
+                          Clear Filters & Show All Live Opportunities
+                        </button>
+                      </>
+                    );
+                  }
+
+                  if (hasLiveJobs) {
+                    // Live jobs exist but none match (shouldn’t happen without filters, but defensive)
+                    return (
+                      <>
+                        <h3 className="text-base font-bold text-slate-900">
+                          No opportunities available for this search
+                        </h3>
+                        <p className="text-xs text-slate-500 max-w-md mx-auto">
+                          Try a different keyword or adjust your filters.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleClearFilters}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 transition cursor-pointer"
+                        >
+                          Reset Filters
+                        </button>
+                      </>
+                    );
+                  }
+
+                  // Truly no live opportunities — liveCount = 0 or unknown
+                  return (
+                    <>
+                      <h3 className="text-base font-bold text-slate-900">
+                        No live opportunities are currently available
+                      </h3>
+                      <p className="text-xs text-slate-500 max-w-md mx-auto">
+                        Our team actively discovers, verifies, and publishes campus and fresher opportunities continuously. Check back soon!
+                      </p>
+                    </>
+                  );
+                })()}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

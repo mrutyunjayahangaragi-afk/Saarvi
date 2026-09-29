@@ -68,6 +68,14 @@ export interface JobSearchResponse {
   cached: boolean;
   cacheTimestamp?: string;
   staleFallback?: boolean;
+  /**
+   * Total number of LIVE jobs before any user filters are applied.
+   * Used to distinguish "no jobs exist" from "filters eliminated all results".
+   * If liveCount > 0 and items.length = 0, show "No opportunities match your filters."
+   * If liveCount = 0, show "No live opportunities are currently available."
+   */
+  liveCount?: number;
+  filteredCount?: number;
   querySummary: {
     q: string;
     location: string;

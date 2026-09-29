@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { opportunityStore } from "@/lib/opportunities/opportunity-store";
+import { opportunityStore, runExpiredJobsWorker } from "@/lib/opportunities/opportunity-store";
 import { getAuthenticatedAdmin } from "@/lib/security/admin-auth";
 import {
   enforceRateLimit,
@@ -33,6 +33,12 @@ export async function GET(request: Request) {
     const search = searchParams.get("search") || undefined;
     const page = parseInt(searchParams.get("page") || "1", 10);
     const pageSize = parseInt(searchParams.get("pageSize") || "50", 10);
+
+    // Non-blocking: auto-expire any jobs whose deadline has passed since last load
+    // This ensures admin counts are accurate and "Published Live" reflects reality
+    runExpiredJobsWorker().catch((err) =>
+      console.warn("[Admin Career Opportunities] Expiry worker error:", err)
+    );
 
     const result = opportunityStore.getAdminOpportunities({
       status,
