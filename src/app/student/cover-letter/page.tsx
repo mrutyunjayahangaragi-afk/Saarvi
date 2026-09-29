@@ -26,6 +26,7 @@ import {
   Plus,
   Trash2,
   Download,
+  Loader2,
   ShieldCheck,
   Info,
   AlertTriangle,
@@ -89,6 +90,38 @@ export default function CoverLetterPage() {
 
   // Sample Safety Confirmation Modal state
   const [safetyModalOpen, setSafetyModalOpen] = useState(false);
+
+  // Post-Export Feedback States
+  const [showExportFeedback, setShowExportFeedback] = useState(false);
+  const [exportFeedbackRating, setExportFeedbackRating] = useState(0);
+  const [exportFeedbackComment, setExportFeedbackComment] = useState("");
+  const [exportFeedbackSubmitted, setExportFeedbackSubmitted] = useState(false);
+  const [exportFeedbackSubmitting, setExportFeedbackSubmitting] = useState(false);
+
+  const handleSendExportFeedback = async () => {
+    if (exportFeedbackRating < 1 || !activeLetter) return;
+    setExportFeedbackSubmitting(true);
+    try {
+      await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rating: exportFeedbackRating,
+          category: "General",
+          message: exportFeedbackComment.trim() || `Rated ${exportFeedbackRating} stars for cover letter: ${activeLetter.name}`,
+          toolKey: "cover_letter",
+          operationId: `cover_letter_export_${activeLetter.id}_${Date.now()}`,
+          pageUrl: "/student/cover-letter",
+          idempotencyKey: `idem_cl_${activeLetter.id}_${Date.now()}`,
+        }),
+      });
+      setExportFeedbackSubmitted(true);
+    } catch {
+      setExportFeedbackSubmitted(true);
+    } finally {
+      setExportFeedbackSubmitting(false);
+    }
+  };
 
   // Load stored letters & career profile
   useEffect(() => {
@@ -368,6 +401,7 @@ export default function CoverLetterPage() {
             a.click();
             document.body.removeChild(a);
             setExporting(false);
+            setShowExportFeedback(true);
             return null;
           }
           return prev - 1;
@@ -466,6 +500,69 @@ export default function CoverLetterPage() {
             )}
           </div>
         </div>
+
+        {/* POST-EXPORT COVER LETTER FEEDBACK PROMPT (NON-BLOCKING) */}
+        {showExportFeedback && (
+          <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200/80 text-xs space-y-2.5 shadow-2xs my-4 animate-in fade-in">
+            {exportFeedbackSubmitted ? (
+              <div className="flex items-center gap-2 text-emerald-800 font-semibold py-1">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Thank you! Your feedback helps us make Saarvi templates even better.</span>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-slate-900">Was this cover letter editor useful?</span>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setExportFeedbackRating(s)}
+                        className={`p-1 cursor-pointer transition-colors text-base leading-none ${
+                          exportFeedbackRating >= s ? "text-amber-500" : "text-slate-300 hover:text-amber-400"
+                        }`}
+                        aria-label={`Rate ${s} stars`}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {exportFeedbackRating > 0 && (
+                  <div className="space-y-2 pt-1">
+                    <input
+                      type="text"
+                      placeholder="What could we improve? (Optional)"
+                      value={exportFeedbackComment}
+                      onChange={(e) => setExportFeedbackComment(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-800 text-xs focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowExportFeedback(false)}
+                        className="px-2.5 py-1 text-slate-500 hover:text-slate-700 font-medium"
+                      >
+                        Not Now
+                      </button>
+                      <button
+                        type="button"
+                        disabled={exportFeedbackSubmitting}
+                        onClick={handleSendExportFeedback}
+                        className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl font-bold inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                      >
+                        {exportFeedbackSubmitting && <Loader2 className="w-3 h-3 animate-spin" />}
+                        <span>Send Feedback</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {/* Sample Demonstration Banner */}
         {isSampleActive && (

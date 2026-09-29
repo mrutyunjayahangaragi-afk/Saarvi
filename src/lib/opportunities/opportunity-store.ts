@@ -1834,13 +1834,13 @@ class OpportunityStoreService {
     // Use canonical computeAdminJobCounts to ensure admin counts match user-visible count
     const canonical = computeAdminJobCounts(all);
     const counts = {
-      pending: canonical.pending,
-      approved: canonical.approved,
-      rejected: canonical.rejected,
-      expired: canonical.expiredPublished,
-      paused: canonical.paused,
+      pending: canonical.pending ?? canonical.pendingReview ?? 0,
+      approved: canonical.approved ?? canonical.saarviVerified ?? 0,
+      rejected: canonical.rejected ?? 0,
+      expired: canonical.expiredPublished ?? canonical.expired ?? 0,
+      paused: canonical.paused ?? 0,
       draft: 0,
-      total: canonical.total,
+      total: canonical.total ?? canonical.stored ?? 0,
       stored: canonical.stored,
       verified: all.filter((o) => o.verificationState === "PASSED" || o.verifiedByAdmin).length,
       eligible: all.filter((o) => (o.verificationState === "PASSED" || o.verifiedByAdmin) && o.recordState === "ACTIVE" && o.status !== "EXPIRED").length,

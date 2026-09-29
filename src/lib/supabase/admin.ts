@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isSupabaseConfigured } from './config';
+import { isSupabaseConfigured } from './config.ts';
 
 let adminClientInstance: SupabaseClient | null = null;
 

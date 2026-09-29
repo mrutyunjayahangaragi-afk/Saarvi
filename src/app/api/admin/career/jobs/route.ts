@@ -3,6 +3,8 @@ import { getAuthenticatedAdmin } from "@/lib/security/admin-auth";
 import { opportunityStore } from "@/lib/opportunities/opportunity-store";
 import { jobReportsStore } from "@/lib/jobs/reports";
 import { jobAlertsStore } from "@/lib/jobs/alerts";
+import { jobSupportService } from "@/lib/jobs/support";
+import { jobRepository } from "@/lib/jobs/repository";
 import type { Opportunity } from "@/lib/opportunities/types";
 
 export const dynamic = "force-dynamic";
@@ -16,21 +18,33 @@ export async function GET(req: NextRequest) {
   try {
     const oppsResult = opportunityStore.getAdminOpportunities({ pageSize: 1000 });
     const opps: Opportunity[] = oppsResult.items || [];
-    const reports = jobReportsStore.getAllReports();
+    
+    // Fetch reports from Supabase DB first, then fallback
+    let reports = await jobSupportService.getCareerReports("ALL");
+    if (reports.length === 0) {
+      reports = jobReportsStore.getAllReports();
+    }
     const alerts = jobAlertsStore.getAllAlerts();
+
+    // Fetch authoritative database lifecycle counts
+    const dbCounts = await jobRepository.getAdminLifecycleCounts();
 
     return NextResponse.json({
       opportunities: opps,
       reports,
       alerts,
       metrics: {
-        totalOpportunities: oppsResult.counts.total,
-        approved: oppsResult.counts.approved,
-        pending: oppsResult.counts.pending,
+        totalOpportunities: dbCounts.totalCatalog || oppsResult.counts.total,
+        approved: dbCounts.saarviVerified || oppsResult.counts.approved,
+        pending: dbCounts.pendingReview || oppsResult.counts.pending,
         rejected: oppsResult.counts.rejected,
-        expired: oppsResult.counts.expired,
+        expired: dbCounts.expired || oppsResult.counts.expired,
+        published: dbCounts.published,
+        liveToUsers: dbCounts.liveToUsers,
+        sourceDiscoveries: dbCounts.sourceDiscoveries,
+        archived: dbCounts.archived,
         reportsCount: reports.length,
-        pendingReports: reports.filter((r) => r.status === "PENDING").length,
+        pendingReports: reports.filter((r) => r.status === "PENDING" || r.status === "INVESTIGATING").length,
         totalAlerts: alerts.length,
       },
     });
@@ -51,9 +65,14 @@ export async function PATCH(req: NextRequest) {
     const { action, id, reportId, resolutionNotes } = body;
 
     if (reportId) {
+      // 1. Resolve in jobSupportService (Supabase DB + optional pause/archive)
+      const supportAction = action === "PAUSE_JOB" ? "PAUSE_JOB" : action === "ARCHIVE_JOB" ? "ARCHIVE_JOB" : action === "DISMISS" ? "DISMISS" : "RESOLVE";
+      await jobSupportService.resolveReport(reportId, supportAction, authResult.user.id, resolutionNotes);
+
+      // 2. Also update in-memory reports store
       const updatedReport = jobReportsStore.updateReportStatus(
         reportId,
-        action === "RESOLVE" ? "RESOLVED" : "DISMISSED",
+        action === "DISMISS" ? "DISMISSED" : "RESOLVED",
         resolutionNotes
       );
       return NextResponse.json({ success: true, report: updatedReport });

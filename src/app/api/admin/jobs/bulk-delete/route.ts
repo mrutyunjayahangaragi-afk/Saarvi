@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedAdmin } from "@/lib/security/admin-auth";
 import { opportunityStore } from "@/lib/opportunities/opportunity-store";
+import { jobLifecycleService } from "@/lib/jobs/lifecycle";
 import { enforceRateLimit, createRateLimitResponse, withRateLimitHeaders } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +42,10 @@ export async function POST(req: NextRequest) {
 
     const isPermanent = Boolean(permanent);
     const result = opportunityStore.bulkDeleteOpportunities(targetJobIds, authResult.user.id, isPermanent);
+
+    if (targetJobIds.length > 0) {
+      await jobLifecycleService.bulkDelete(targetJobIds, authResult.user.id, isPermanent);
+    }
 
     const response = NextResponse.json({
       success: true,

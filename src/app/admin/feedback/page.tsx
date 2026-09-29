@@ -113,6 +113,10 @@ export default function AdminFeedbackPage() {
 
   useEffect(() => {
     fetchFeedback();
+    const interval = setInterval(() => {
+      fetchFeedback();
+    }, 15000);
+    return () => clearInterval(interval);
   }, [fetchFeedback]);
 
   const updateStatus = async (

@@ -68,11 +68,16 @@ function JobsContent() {
   const [employmentType, setEmploymentType] = useState(initialEmploymentType);
   const [remote, setRemote] = useState(searchParams.get("remote") || "all");
   const [experience, setExperience] = useState(searchParams.get("experience") || "all");
+  const [selectedTier, setSelectedTier] = useState<"all" | "verified" | "source">("all");
   const [sortBy, setSortBy] = useState<JobSortOption>((searchParams.get("sortBy") as JobSortOption) || "relevant");
 
   // State Machine
   const [searchState, setSearchState] = useState<SearchState>("idle");
   const [jobs, setJobs] = useState<JobItem[]>([]);
+  const [verifiedJobs, setVerifiedJobs] = useState<JobItem[]>([]);
+  const [sourceJobs, setSourceJobs] = useState<JobItem[]>([]);
+  const [verifiedCount, setVerifiedCount] = useState<number>(0);
+  const [sourceDiscoveryCount, setSourceDiscoveryCount] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCached, setIsCached] = useState(false);
@@ -186,6 +191,7 @@ function JobsContent() {
         employmentType: string;
         remote: string;
         experience: string;
+        tier: "all" | "verified" | "source";
         sortBy: JobSortOption;
       }> = {}
     ) => {
@@ -204,6 +210,7 @@ function JobsContent() {
       const activeEmp = overrides.employmentType !== undefined ? overrides.employmentType : employmentType;
       const activeRem = overrides.remote !== undefined ? overrides.remote : remote;
       const activeExp = overrides.experience !== undefined ? overrides.experience : experience;
+      const activeTier = overrides.tier !== undefined ? overrides.tier : selectedTier;
       const activeSort = overrides.sortBy !== undefined ? overrides.sortBy : sortBy;
 
       try {
@@ -219,6 +226,7 @@ function JobsContent() {
       if (activeEmp !== "all") params.set("employmentType", activeEmp);
       if (activeRem !== "all") params.set("remote", activeRem);
       if (activeExp !== "all") params.set("experience", activeExp);
+      if (activeTier !== "all") params.set("tier", activeTier);
       if (activeSort !== "relevant") params.set("sortBy", activeSort);
       if (isRefresh) params.set("t", String(Date.now()));
 
@@ -229,6 +237,8 @@ function JobsContent() {
             setSearchState("auth_required");
             setAuthGateOpen(true);
             setJobs([]);
+            setVerifiedJobs([]);
+            setSourceJobs([]);
             return;
           }
           if (res.status === 403) {
@@ -239,6 +249,8 @@ function JobsContent() {
               maintenanceMessage: errData.maintenanceMessage,
             });
             setJobs([]);
+            setVerifiedJobs([]);
+            setSourceJobs([]);
             setSearchState("error");
             return;
           }
@@ -247,6 +259,15 @@ function JobsContent() {
         const data = await res.json();
         const items: JobItem[] = data.items || [];
         setJobs(items);
+
+        // Populate verified and source jobs
+        const verified = data.verifiedItems || items.filter((j: any) => j.verificationTier === "SAARVI_VERIFIED");
+        const source = data.sourceItems || items.filter((j: any) => j.verificationTier === "SOURCE_DISCOVERY");
+        setVerifiedJobs(verified);
+        setSourceJobs(source);
+        setVerifiedCount(typeof data.verifiedCount === "number" ? data.verifiedCount : verified.length);
+        setSourceDiscoveryCount(typeof data.sourceDiscoveryCount === "number" ? data.sourceDiscoveryCount : source.length);
+
         setIsCached(Boolean(data.cached));
         setStaleFallback(Boolean(data.staleFallback));
         // Track liveCount to power correct empty-state messaging
@@ -287,7 +308,7 @@ function JobsContent() {
         setLoading(false);
       }
     },
-    [user, q, location, employmentType, remote, experience, sortBy]
+    [user, q, location, employmentType, remote, experience, selectedTier, sortBy]
   );
 
   // Restore search criteria on mount (e.g. returning after auth or via autoSearch)
@@ -589,6 +610,209 @@ function JobsContent() {
     );
   }
 
+  const renderJobCard = (job: JobItem) => {
+    const match = matchScoresMap.get(job.id);
+    const isSaved = savedJobIds.has(job.id);
+    const isVerified = job.verificationTier === "SAARVI_VERIFIED";
+
+    return (
+      <div
+        key={job.id}
+        className={`bg-white border rounded-2xl p-5 sm:p-6 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between space-y-4 relative group ${
+          isVerified ? "border-slate-200 hover:border-emerald-300" : "border-amber-200/80 bg-amber-50/15 hover:border-amber-400"
+        }`}
+      >
+        <div>
+          {/* Top Row: Logo, Badges, Title, Match Pill, Save */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              {/* Company Logo or Initials Fallback */}
+              <div className="shrink-0 mt-0.5">
+                {job.companyLogoUrl ? (
+                  <img
+                    src={job.companyLogoUrl}
+                    alt={job.companyName}
+                    className="w-10 h-10 rounded-xl object-contain border border-slate-100 bg-white p-1"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-600 text-xs">
+                    {job.companyName ? job.companyName.slice(0, 2).toUpperCase() : "JB"}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                  {/* Verification Tier Badge */}
+                  {isVerified ? (
+                    <span
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shadow-2xs"
+                      title="Reviewed and published by Saarvi Admin"
+                    >
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      <span>Saarvi Verified</span>
+                    </span>
+                  ) : (
+                    <span
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-100/70 px-2 py-0.5 rounded-full border border-amber-300 shadow-2xs"
+                      title="Discovered from external source. Saarvi has not individually verified this opportunity."
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      <span>Source Listing • Not Saarvi Verified</span>
+                    </span>
+                  )}
+
+                  <span
+                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                      job.isInternship
+                        ? "bg-purple-100 text-purple-800"
+                        : "bg-blue-100 text-blue-800"
+                    }`}
+                  >
+                    {job.isInternship ? "Internship" : "Job"}
+                  </span>
+
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600 capitalize">
+                    {job.remoteType}
+                  </span>
+
+                  {job.experienceLevel === "fresher" && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                      Fresher Friendly
+                    </span>
+                  )}
+                </div>
+
+                <Link
+                  href={`/jobs/${job.id}`}
+                  className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1"
+                >
+                  {job.title}
+                </Link>
+
+                <div className="text-xs text-slate-600 font-medium mt-0.5">
+                  {job.companyName}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1 shrink-0">
+              {match && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedMatchJob({ job, match })}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition cursor-pointer"
+                  title="Click to view explainable match breakdown"
+                >
+                  <Sparkles className="w-3 h-3 text-blue-600" />
+                  <span>{match.matchScore}% Match</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => handleSaveJob(job)}
+                className={`p-2 rounded-xl transition cursor-pointer ${
+                  isSaved
+                    ? "text-blue-600 bg-blue-50"
+                    : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                }`}
+                title={isSaved ? "Saved in Tracker" : "Save Job"}
+                aria-label={isSaved ? "Saved" : "Save Job"}
+              >
+                <Bookmark className={`w-4 h-4 ${isSaved ? "fill-current" : ""}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* Metadata Row: Location, Salary, Deadline */}
+          <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs text-slate-500 mt-2.5">
+            <div className="flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="truncate max-w-[160px]">{job.location}</span>
+            </div>
+            {job.salary && (
+              <div className="flex items-center gap-1">
+                <span className="font-semibold text-slate-700">{job.salary}</span>
+              </div>
+            )}
+            {job.applicationDeadline && job.applicationDeadline !== "Deadline not provided" && (
+              <div className="flex items-center gap-1 text-amber-700 font-medium">
+                <Clock className="w-3.5 h-3.5 shrink-0" />
+                <span>Deadline: {job.applicationDeadline}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Description Excerpt */}
+          <p className="text-xs text-slate-600 mt-3 line-clamp-2 leading-relaxed">
+            {job.description}
+          </p>
+
+          {/* Skills Pills */}
+          {job.skills.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {job.skills.slice(0, 5).map((sk) => (
+                <span
+                  key={sk}
+                  className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700"
+                >
+                  {sk}
+                </span>
+              ))}
+              {job.skills.length > 5 && (
+                <span className="text-[10px] text-slate-400 font-medium self-center">
+                  +{job.skills.length - 5} more
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Action Footer */}
+        <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-400">
+              Source: <strong className="text-slate-600">{job.sourceName || "Direct"}</strong>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setReportingJob(job)}
+              className="p-1 text-slate-300 hover:text-rose-600 rounded transition"
+              title="Report listing"
+              aria-label="Report listing"
+            >
+              <Flag className="w-3.5 h-3.5" />
+            </button>
+
+            <Link
+              href={`/jobs/${job.id}`}
+              className="px-3 py-1.5 rounded-xl border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50 transition"
+            >
+              View
+            </Link>
+
+            <a
+              href={job.applyUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="px-3.5 py-1.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition flex items-center gap-1 shadow-2xs"
+            >
+              <span>Apply</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col font-sans">
       <Navbar />
@@ -879,50 +1103,100 @@ function JobsContent() {
             {/* Tabs & Filter Header */}
             <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-                {/* Tabs: All / Jobs / Internships */}
-                <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-fit">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmploymentType("all");
-                      fetchJobs(false, { employmentType: "all" });
-                    }}
-                    className={`px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                      employmentType === "all"
-                        ? "bg-white text-blue-600 shadow-xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmploymentType("full-time");
-                      fetchJobs(false, { employmentType: "full-time" });
-                    }}
-                    className={`px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                      employmentType === "full-time"
-                        ? "bg-white text-blue-600 shadow-xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Jobs
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmploymentType("internship");
-                      fetchJobs(false, { employmentType: "internship" });
-                    }}
-                    className={`px-4 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                      employmentType === "internship"
-                        ? "bg-white text-purple-600 shadow-xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Internships
-                  </button>
+                {/* Tabs: Category & Verification Tiers */}
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Category: All / Jobs / Internships */}
+                  <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-fit">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmploymentType("all");
+                        fetchJobs(false, { employmentType: "all" });
+                      }}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
+                        employmentType === "all"
+                          ? "bg-white text-blue-600 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmploymentType("full-time");
+                        fetchJobs(false, { employmentType: "full-time" });
+                      }}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
+                        employmentType === "full-time"
+                          ? "bg-white text-blue-600 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      Jobs
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmploymentType("internship");
+                        fetchJobs(false, { employmentType: "internship" });
+                      }}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
+                        employmentType === "internship"
+                          ? "bg-white text-purple-600 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      Internships
+                    </button>
+                  </div>
+
+                  {/* Verification Tier: All / Saarvi Verified / Source Discoveries */}
+                  <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-fit">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedTier("all");
+                        fetchJobs(false, { tier: "all" });
+                      }}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
+                        selectedTier === "all"
+                          ? "bg-white text-slate-900 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      All ({jobs.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedTier("verified");
+                        fetchJobs(false, { tier: "verified" });
+                      }}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                        selectedTier === "verified"
+                          ? "bg-white text-emerald-700 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Saarvi Verified ({verifiedCount})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedTier("source");
+                        fetchJobs(false, { tier: "source" });
+                      }}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                        selectedTier === "source"
+                          ? "bg-white text-blue-700 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <span>Source Discoveries ({sourceDiscoveryCount})</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Filter Actions */}
@@ -1112,171 +1386,127 @@ function JobsContent() {
                 })()}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {jobs.map((job) => {
-                  const match = matchScoresMap.get(job.id);
-                  const isSaved = savedJobIds.has(job.id);
-
-                  return (
-                    <div
-                      key={job.id}
-                      className="bg-white border border-slate-200/90 rounded-2xl p-5 sm:p-6 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between space-y-4 relative group"
-                    >
-                      <div>
-                        {/* Top Row: Badges, Title, Match Pill, Save */}
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2 mb-1">
-                              <span
-                                className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                                  job.isInternship
-                                    ? "bg-purple-100 text-purple-800"
-                                    : "bg-blue-100 text-blue-800"
-                                }`}
-                              >
-                                {job.isInternship ? "Internship" : "Job"}
-                              </span>
-                              <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600 capitalize">
-                                {job.remoteType}
-                              </span>
-                              {job.experienceLevel === "fresher" && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                                  Fresher Friendly
-                                </span>
-                              )}
-                            </div>
-
-                            <Link
-                              href={`/jobs/${job.id}`}
-                              className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1"
-                            >
-                              {job.title}
-                            </Link>
-
-                            <div className="text-xs text-slate-600 font-medium mt-0.5">
-                              {job.companyName}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1 shrink-0">
-                            {match && (
-                              <button
-                                type="button"
-                                onClick={() => setSelectedMatchJob({ job, match })}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition cursor-pointer"
-                                title="Click to view explainable match breakdown"
-                              >
-                                <Sparkles className="w-3 h-3 text-blue-600" />
-                                <span>{match.matchScore}% Match</span>
-                              </button>
-                            )}
-
-                            <button
-                              type="button"
-                              onClick={() => handleSaveJob(job)}
-                              className={`p-2 rounded-xl transition cursor-pointer ${
-                                isSaved
-                                  ? "text-blue-600 bg-blue-50"
-                                  : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
-                              }`}
-                              title={isSaved ? "Saved in Tracker" : "Save Job"}
-                              aria-label={isSaved ? "Saved" : "Save Job"}
-                            >
-                              <Bookmark className={`w-4 h-4 ${isSaved ? "fill-current" : ""}`} />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Metadata Row: Location, Salary, Deadline */}
-                        <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs text-slate-500 mt-2.5">
-                          <div className="flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span className="truncate max-w-[160px]">{job.location}</span>
-                          </div>
-                          {job.salary && (
-                            <div className="flex items-center gap-1">
-                              <span className="font-semibold text-slate-700">{job.salary}</span>
-                            </div>
-                          )}
-                          {job.applicationDeadline && job.applicationDeadline !== "Deadline not provided" && (
-                            <div className="flex items-center gap-1 text-amber-700 font-medium">
-                              <Clock className="w-3.5 h-3.5 shrink-0" />
-                              <span>Deadline: {job.applicationDeadline}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Description Excerpt */}
-                        <p className="text-xs text-slate-600 mt-3 line-clamp-2 leading-relaxed">
-                          {job.description}
-                        </p>
-
-                        {/* Skills Pills */}
-                        {job.skills.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mt-3">
-                            {job.skills.slice(0, 5).map((sk) => (
-                              <span
-                                key={sk}
-                                className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700"
-                              >
-                                {sk}
-                              </span>
-                            ))}
-                            {job.skills.length > 5 && (
-                              <span className="text-[10px] text-slate-400 font-medium self-center">
-                                +{job.skills.length - 5} more
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Bottom Action Footer */}
-                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] text-slate-400">
-                            {job.sourceName}
-                          </span>
-                          {job.verifiedStatus === 'verified' && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              Verified
+              <div className="space-y-8">
+                {/* Selected Tier: ALL -> Show Tier A Verified first, then Tier B Source Discoveries */}
+                {selectedTier === "all" ? (
+                  <>
+                    {/* Tier A: Saarvi Verified Opportunities */}
+                    {verifiedJobs.length > 0 && (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                            <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                              Saarvi Verified Opportunities
+                            </h2>
+                            <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                              {verifiedJobs.length} {verifiedJobs.length === 1 ? "Role" : "Roles"}
                             </span>
-                          )}
+                          </div>
+                          <span className="text-xs text-slate-500 hidden sm:inline">
+                            Admin-reviewed & published • Canonical database records
+                          </span>
                         </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setReportingJob(job)}
-                            className="p-1 text-slate-300 hover:text-slate-500 rounded"
-                            title="Report listing"
-                            aria-label="Report listing"
-                          >
-                            <Flag className="w-3.5 h-3.5" />
-                          </button>
-
-                          <Link
-                            href={`/jobs/${job.id}`}
-                            className="px-3 py-1.5 rounded-xl border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50 transition"
-                          >
-                            View
-                          </Link>
-
-                          <a
-                            href={job.applyUrl}
-                            target="_blank"
-                            rel="noreferrer noopener"
-                            className="px-3.5 py-1.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition flex items-center gap-1 shadow-2xs"
-                          >
-                            <span>Apply</span>
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {verifiedJobs.map((job) => renderJobCard(job))}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Tier B: Live Source Discoveries */}
+                    {sourceJobs.length > 0 && (
+                      <div className="space-y-4 pt-4 border-t border-slate-200/80">
+                        <div className="p-4 bg-amber-50/90 border border-amber-200 rounded-2xl text-xs text-amber-950 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 font-bold text-amber-900">
+                              <Layers className="w-4 h-4 text-amber-600" />
+                              <span>Live Source Discoveries ({sourceJobs.length})</span>
+                            </div>
+                            <span className="text-[11px] font-semibold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full border border-amber-300">
+                              External Sources
+                            </span>
+                          </div>
+                          <p className="text-amber-800 leading-relaxed pt-0.5">
+                            These opportunities were discovered from configured external job sources (e.g. LinkedIn, Indeed, Google Jobs) in response to your search query. Saarvi has not individually verified these listings. Always apply directly through the employer&apos;s official portal.
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {sourceJobs.map((job) => renderJobCard(job))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : selectedTier === "verified" ? (
+                  /* Selected Tier: Verified only */
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                        <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                          Saarvi Verified Opportunities ({verifiedJobs.length})
+                        </h2>
                       </div>
                     </div>
-                  );
-                })}
+                    {verifiedJobs.length === 0 ? (
+                      <div className="p-8 text-center bg-white border border-slate-200 rounded-2xl space-y-2">
+                        <p className="text-sm font-semibold text-slate-700">No Saarvi Verified roles match your search.</p>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTier("all")}
+                          className="text-xs text-blue-600 font-bold hover:underline"
+                        >
+                          View all opportunities
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {verifiedJobs.map((job) => renderJobCard(job))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Selected Tier: Source Discoveries only */
+                  <div className="space-y-4">
+                    <div className="p-4 bg-amber-50/90 border border-amber-200 rounded-2xl text-xs text-amber-950 space-y-1">
+                      <div className="flex items-center gap-2 font-bold text-amber-900">
+                        <Layers className="w-4 h-4 text-amber-600" />
+                        <span>External Source Discoveries ({sourceJobs.length})</span>
+                      </div>
+                      <p className="text-amber-800 leading-relaxed pt-0.5">
+                        These opportunities were discovered from configured external job sources. Saarvi has not individually verified these listings.
+                      </p>
+                    </div>
+                    {sourceJobs.length === 0 ? (
+                      <div className="p-8 text-center bg-white border border-slate-200 rounded-2xl space-y-2">
+                        <p className="text-sm font-semibold text-slate-700">No external source discoveries found.</p>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTier("all")}
+                          className="text-xs text-blue-600 font-bold hover:underline"
+                        >
+                          View all opportunities
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {sourceJobs.map((job) => renderJobCard(job))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Compact Safety Notice (Prompt Requirement 30) */}
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-600">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span>
+                      <strong>Saarvi Trust & Safety:</strong> Apply through the official employer/source whenever possible. Saarvi does not charge applicants for access to job listings.
+                    </span>
+                  </div>
+                  <Link href="/support" className="text-blue-600 font-bold hover:underline shrink-0 text-right">
+                    Report Concerns
+                  </Link>
+                </div>
               </div>
             )}
           </div>
@@ -1406,12 +1636,12 @@ function JobsContent() {
                   onChange={(e) => setReportReason(e.target.value as JobReportReason)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:outline-hidden"
                 >
-                  <option value="MISLEADING_INFO">Misleading job title or details</option>
-                  <option value="SCAM_OR_FEE">Demands money or application fee (Scam)</option>
-                  <option value="BROKEN_LINK">Application link is broken or expired</option>
-                  <option value="EXPIRED_LISTING">Listing is already closed / expired</option>
-                  <option value="INAPPROPRIATE_CONTENT">Inappropriate or offensive content</option>
-                  <option value="OTHER">Other reason</option>
+                  <option value="EXPIRED">Expired or Closed Listing</option>
+                  <option value="MISLEADING_INFO">Incorrect or Misleading Information</option>
+                  <option value="BROKEN_LINK">Broken Apply Link</option>
+                  <option value="DUPLICATE">Duplicate Listing</option>
+                  <option value="SUSPICIOUS">Suspicious Listing or Fraud/Fee</option>
+                  <option value="OTHER">Other Reason</option>
                 </select>
               </div>
 

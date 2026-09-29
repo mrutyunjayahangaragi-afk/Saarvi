@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedAdmin } from "@/lib/security/admin-auth";
 import { opportunityStore } from "@/lib/opportunities/opportunity-store";
+import { jobLifecycleService } from "@/lib/jobs/lifecycle";
 import { enforceRateLimit, createRateLimitResponse, withRateLimitHeaders } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +51,10 @@ export async function POST(req: NextRequest) {
       filterCriteria: effectiveCriteria,
       discoveryBatchId: effectiveBatchId,
     });
+
+    if (targetJobIds.length > 0) {
+      await jobLifecycleService.bulkArchive(targetJobIds, authResult.user.id);
+    }
 
     const response = NextResponse.json({
       success: true,

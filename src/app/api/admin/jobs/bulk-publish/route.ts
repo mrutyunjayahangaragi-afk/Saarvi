@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedAdmin } from "@/lib/security/admin-auth";
 import { opportunityStore } from "@/lib/opportunities/opportunity-store";
+import { jobLifecycleService } from "@/lib/jobs/lifecycle";
 import { enforceRateLimit, createRateLimitResponse, withRateLimitHeaders } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -47,11 +48,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 1. Update in-memory store
     const result = opportunityStore.bulkPublishOpportunities(targetJobIds, authResult.user.id, {
       allMatching: isAllMatching,
       filterCriteria: effectiveCriteria,
       discoveryBatchId: effectiveBatchId,
     });
+
+    // 2. Synchronize to Supabase PostgreSQL database
+    const dbTargetIds = isAllMatching ? ((result as any).publishedOpportunities || targetJobIds) : targetJobIds;
+    if (dbTargetIds.length > 0) {
+      await jobLifecycleService.bulkPublish(dbTargetIds, authResult.user.id);
+    }
 
     const response = NextResponse.json({
       success: true,

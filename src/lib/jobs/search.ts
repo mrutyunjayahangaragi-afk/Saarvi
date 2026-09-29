@@ -1,71 +1,42 @@
 /**
- * Saarvi Jobs Engine 3.0 — Production Search Orchestrator
+ * Saarvi Jobs & Internships Engine 6.0 — Production Search Orchestrator
  *
- * Architecture:
- * 1. PRIMARY source: Supabase database (authoritative, real-time).
- *    Only admin-published records with CORRECT lifecycle states are returned to users.
- * 2. FALLBACK: In-memory opportunityStore (populated by admin actions).
- * 3. TTL cache (60s) — short TTL so publish/approve is reflected within 1 minute.
- * 4. Absolute User-Facing Rule:
- *    publication_state = 'PUBLISHED'
- *    AND record_state = 'ACTIVE'
- *    AND review_state = 'APPROVED'
- *    AND data_origin IN ('PROVIDER', 'ADMIN')
- *    AND (deadline IS NULL OR deadline > NOW())
- *
- * Users NEVER see seed, test, unknown, pending, rejected, archived, or expired records.
+ * UNIFIED CAREER DISCOVERY ARCHITECTURE:
+ * 1. Mode 1 (Default /jobs view):
+ *    Returns Tier A: Saarvi Verified Opportunities immediately from the canonical database.
+ *    No search query required. Fast and reliable.
+ * 2. Mode 2 (Active User Search):
+ *    - Database search first: returns matching verified and stored source records.
+ *    - Live Source Discovery: if external discovery is enabled and authorized providers are configured,
+ *      queries external source (SerpApi Google Jobs) with in-flight request coalescing.
+ *    - Normalizes, validates, deduplicates O(n), and PERSISTS discovered records into the database.
+ *    - Explicitly marks discovered records as:
+ *      verification_tier = 'SOURCE_DISCOVERY'
+ *      review_state = 'DISCOVERED'
+ *      publication_state = 'NOT_PUBLISHED'
+ *    - Returns both tiers separated and clearly labeled to the user.
+ * 3. Zero Automatic Deletion:
+ *    Records remain in the database unless Admin explicitly deletes or archives them.
  */
 
-import type { JobItem, JobSearchParams, JobSearchResponse } from "./types.ts";
-import { deduplicateJobs } from "./dedupe.ts";
-import { sortJobs } from "./ranking.ts";
-import { sanitizeSearchQuery, sanitizePagination } from "./security.ts";
-import { opportunityStore, registerJobsCacheInvalidator } from "../opportunities/opportunity-store.ts";
-import { isSupabaseConfigured } from "../supabase/config.ts";
-import { isJobRowLiveForUsers } from "./live-predicate.ts";
+import type { JobItem, JobSearchParams, JobSearchResponse } from "./types";
+import { deduplicateJobs } from "./dedupe";
+import { sortJobs } from "./ranking";
+import { sanitizeSearchQuery, sanitizePagination } from "./security";
+import { opportunityStore, registerJobsCacheInvalidator } from "../opportunities/opportunity-store";
+import { isSupabaseConfigured } from "../supabase/config";
+import { jobRepository, rowToJobItem } from "./repository";
+import { SerpApiGoogleJobsProvider } from "./providers/serpapi";
 
 interface CacheEntry {
-  items: JobItem[];
+  response: JobSearchResponse;
   timestamp: number;
 }
 
-/** Convert a Supabase job_opportunities row to JobItem for the user feed */
-function rowToJobItem(row: any): JobItem {
-  const isInternship = row.type === "INTERNSHIP" || row.employment_type === "internship";
-  const salary =
-    row.salary_min != null || row.salary_max != null
-      ? `${row.salary_currency || "₹"} ${row.salary_min ?? ""} - ${row.salary_max ?? ""}`
-      : row.salary_text || "Salary not disclosed";
-
-  return {
-    id: row.id,
-    title: row.title,
-    companyName: row.company_name,
-    companyLogo: row.company_logo_url || undefined,
-    location: row.location || "India",
-    remoteType: row.remote_type || "onsite",
-    employmentType: row.employment_type || (isInternship ? "internship" : "full-time"),
-    experienceLevel: row.experience_level || "fresher",
-    salary,
-    description: row.description || "",
-    skills: Array.isArray(row.skills) ? row.skills : [],
-    datePosted: row.posted_at || row.created_at || new Date().toISOString(),
-    applicationDeadline: row.deadline || "Deadline not provided",
-    sourceName: row.source_verified ? "Verified by Saarvi" : (row.source_name || "Saarvi"),
-    sourceUrl: row.source_url || "",
-    applyUrl: row.apply_url || row.source_url || "",
-    sourceJobId: row.source_job_id || row.id,
-    fetchedAt: row.fetched_at || row.discovered_at || new Date().toISOString(),
-    verifiedStatus: row.source_verified ? "verified" : "source_checked",
-    isInternship,
-    confidenceScore: 98,
-  };
-}
-
-class JobSearchService {
-  // Short TTL (60s) so admin publishes are visible within 1 minute
+export class JobSearchService {
   private cache = new Map<string, CacheEntry>();
-  private defaultTtlMs = 60 * 1000; // 60 seconds
+  private defaultTtlMs = 60 * 1000; // 60s TTL so admin actions appear quickly
+  private serpApiProvider = new SerpApiGoogleJobsProvider();
 
   public clearCache(): void {
     this.cache.clear();
@@ -77,181 +48,18 @@ class JobSearchService {
     const exp = (params.experience || "").toLowerCase().trim();
     const emp = (params.employmentType || "").toLowerCase().trim();
     const rem = (params.remote || "").toLowerCase().trim();
+    const tier = params.tier || "all";
     const page = params.page || 1;
-    return `job_cache:${q}:${loc}:${exp}:${emp}:${rem}:${page}`;
+    return `job_cache_v6:${q}:${loc}:${exp}:${emp}:${rem}:${tier}:${page}`;
   }
 
   /**
-   * Query Supabase directly for live, admin-published jobs.
-   * Returns { items, liveCount } where liveCount = total live before text/location filters.
-   */
-  private async querySupabaseLiveJobs(params: JobSearchParams): Promise<{ items: JobItem[]; liveCount: number }> {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getSupabaseAdminClient } = require("../supabase/admin");
-      const supabase = getSupabaseAdminClient();
-      if (!supabase) return { items: [], liveCount: 0 };
-
-      // Build query with absolute user-facing security filter
-      // Uses multi-dimensional state columns (fixed by migration 029)
-      let query = supabase
-        .from("job_opportunities")
-        .select("*")
-        // === CANONICAL LIVE PREDICATE (mirrors is_job_live_for_users SQL function) ===
-        .eq("publication_state", "PUBLISHED")
-        .eq("record_state", "ACTIVE")
-        .eq("review_state", "APPROVED")
-        .eq("visibility", "public")
-        .in("data_origin", ["PROVIDER", "ADMIN"])
-        .order("posted_at", { ascending: false })
-        .limit(500);
-
-      // Apply type filters at DB level
-      if (params.employmentType && params.employmentType !== "all") {
-        if (params.employmentType === "internship") {
-          query = query.eq("type", "INTERNSHIP");
-        } else if (params.employmentType === "full-time" || params.employmentType === "job") {
-          query = query.eq("type", "JOB");
-        }
-      }
-
-      if (params.remote && params.remote !== "all") {
-        query = query.eq("remote_type", params.remote);
-      }
-
-      if (params.experience && params.experience !== "all") {
-        query = query.eq("experience_level", params.experience);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.warn("[JobSearchService] Supabase query error:", error.message);
-        return { items: [], liveCount: 0 };
-      }
-
-      if (!data || data.length === 0) return { items: [], liveCount: 0 };
-
-      // Apply deadline filter — use isJobRowLiveForUsers canonical predicate
-      // This also applies to rows that may have slipped through with old status column
-      const liveRows = data.filter((row: any) => isJobRowLiveForUsers(row));
-
-      // liveCount = count before text/location filters (for empty-state UX)
-      const liveCount = liveRows.length;
-
-      const safeQ = (params.q || "").trim().toLowerCase();
-      const safeLoc = (params.location || "").trim().toLowerCase();
-
-      let results = liveRows;
-
-      // Text search (title, company, description, skills)
-      if (safeQ) {
-        results = results.filter((row: any) => {
-          const title = (row.title || "").toLowerCase();
-          const company = (row.company_name || "").toLowerCase();
-          const desc = (row.description || "").toLowerCase();
-          const skills = Array.isArray(row.skills)
-            ? row.skills.join(" ").toLowerCase()
-            : "";
-          return (
-            title.includes(safeQ) ||
-            company.includes(safeQ) ||
-            desc.includes(safeQ) ||
-            skills.includes(safeQ)
-          );
-        });
-      }
-
-      // Location search
-      if (safeLoc) {
-        results = results.filter((row: any) => {
-          const loc = (row.location || "").toLowerCase();
-          return loc.includes(safeLoc);
-        });
-      }
-
-      return { items: results.map(rowToJobItem), liveCount };
-    } catch (err) {
-      console.warn("[JobSearchService] Supabase query failed:", err);
-      return { items: [], liveCount: 0 };
-    }
-  }
-
-  /**
-   * Fallback: query in-memory opportunityStore (for non-Supabase or fallback).
-   */
-  private queryInMemoryStore(params: JobSearchParams): JobItem[] {
-    try {
-      const safeQ = sanitizeSearchQuery(params.q);
-      const safeLoc = sanitizeSearchQuery(params.location);
-
-      const isInternshipQuery =
-        params.employmentType === "internship" ||
-        (safeQ && safeQ.toLowerCase().includes("internship"));
-
-      const isJobOnlyQuery =
-        params.employmentType === "full-time" || params.employmentType === "job";
-
-      const categoryFilter = isInternshipQuery
-        ? "internship"
-        : isJobOnlyQuery
-        ? "job"
-        : undefined;
-
-      const experienceFilter =
-        params.experience && params.experience !== "all"
-          ? (params.experience as any)
-          : undefined;
-
-      const { items: approvedOpps } = opportunityStore.getApprovedOpportunities({
-        search: safeQ,
-        location: safeLoc,
-        category: categoryFilter,
-        remoteOnly: params.remote === "remote",
-        experienceLevel: experienceFilter,
-        skills: params.skills,
-      });
-
-      return approvedOpps.map((opp) => ({
-        id: opp.id,
-        title: opp.title,
-        companyName: opp.companyName,
-        companyLogo: opp.companyLogo,
-        location: opp.location,
-        remoteType: opp.remoteType,
-        employmentType: opp.employmentType,
-        experienceLevel: opp.experienceLevel,
-        salary: opp.salary
-          ? `${opp.salary.currency || "₹"} ${opp.salary.min} - ${opp.salary.max}`
-          : "Salary not disclosed",
-        description: opp.description,
-        skills: opp.skills,
-        datePosted: opp.postedAt,
-        applicationDeadline: opp.applicationDeadline || "Deadline not provided",
-        sourceName: opp.verifiedByAdmin ? "Verified by Saarvi" : opp.source,
-        sourceUrl: opp.sourceUrl,
-        applyUrl: opp.applyUrl,
-        sourceJobId: opp.sourceId || opp.id,
-        fetchedAt: (opp as any).fetchedAt || opp.discoveredAt,
-        verifiedStatus: opp.verifiedByAdmin ? "verified" : "source_checked",
-        isInternship: opp.isInternship,
-        confidenceScore: opp.confidenceScore || 98,
-      }));
-    } catch (err) {
-      console.error("[JobSearchService] In-memory store query error:", err);
-      return [];
-    }
-  }
-
-  /**
-   * Search jobs & internships.
-   * PRIMARY: Supabase (real-time, authoritative).
-   * FALLBACK: In-memory store.
+   * Search and discovery entry point.
    */
   public async searchJobs(params: JobSearchParams): Promise<JobSearchResponse> {
     const safeQ = sanitizeSearchQuery(params.q);
     const safeLoc = sanitizeSearchQuery(params.location);
-    const { page, limit } = sanitizePagination(params.page, params.limit, 40);
+    const { page, limit } = sanitizePagination(params.page, params.limit, 30);
 
     const normalizedParams: JobSearchParams = {
       ...params,
@@ -265,149 +73,178 @@ class JobSearchService {
     const cached = this.cache.get(cacheKey);
     const now = Date.now();
 
-    // 1. Fresh Cache Hit (short 60s TTL to stay current after admin publishes)
+    // 1. Cache hit
     if (cached && now - cached.timestamp < this.defaultTtlMs) {
-      const sorted = sortJobs(cached.items, params.sortBy, normalizedParams);
-      const paginated = sorted.slice((page - 1) * limit, page * limit);
-
       return {
-        items: paginated,
-        total: cached.items.length,
-        page,
-        pageSize: limit,
+        ...cached.response,
         cached: true,
         cacheTimestamp: new Date(cached.timestamp).toISOString(),
-        querySummary: {
-          q: safeQ,
-          location: safeLoc,
-          filtersApplied:
-            (params.remote ? 1 : 0) +
-            (params.experience ? 1 : 0) +
-            (params.employmentType ? 1 : 0),
-        },
       };
     }
 
-    // 2. Primary: Query Supabase directly (authoritative database)
-    let rawItems: JobItem[] = [];
-    let liveCount = 0;
-    let usedSupabase = false;
+    const isSearchActive = Boolean(safeQ || safeLoc);
 
-    if (isSupabaseConfigured()) {
-      const supabaseResult = await this.querySupabaseLiveJobs(normalizedParams);
-      rawItems = supabaseResult.items;
-      liveCount = supabaseResult.liveCount;
-      usedSupabase = true;
+    // 2. Database-First Query for Tier A: Saarvi Verified Opportunities
+    const verifiedResult = await jobRepository.getLiveVerifiedOpportunities(normalizedParams);
+    let verifiedItems = verifiedResult.items;
+    const globalLiveCount = verifiedResult.liveCount;
+
+    // Fallback: If DB returned 0, check in-memory store
+    if (verifiedItems.length === 0) {
+      const memoryOpps = opportunityStore.getApprovedOpportunities({
+        search: safeQ,
+        location: safeLoc,
+        remoteOnly: params.remote === "remote",
+      });
+      verifiedItems = memoryOpps.items.map((o) => ({
+        id: o.id,
+        title: o.title,
+        companyName: o.companyName,
+        companyLogo: o.companyLogo,
+        location: o.location,
+        remoteType: o.remoteType,
+        employmentType: o.employmentType,
+        experienceLevel: o.experienceLevel,
+        salary: o.salary ? `${o.salary.currency || "₹"} ${o.salary.min} - ${o.salary.max}` : "Salary not disclosed",
+        description: o.description,
+        skills: o.skills,
+        datePosted: o.postedAt,
+        applicationDeadline: o.applicationDeadline || "Deadline not provided",
+        sourceName: "Verified by Saarvi",
+        sourceUrl: o.sourceUrl,
+        applyUrl: o.applyUrl,
+        sourceJobId: o.sourceId || o.id,
+        fetchedAt: (o as any).fetchedAt || o.discoveredAt,
+        verifiedStatus: "verified",
+        verificationTier: "SAARVI_VERIFIED",
+        isInternship: o.isInternship,
+        confidenceScore: 100,
+      }));
     }
 
-    // 3. Fallback: In-memory store (when Supabase is unavailable or returned 0)
-    if (!usedSupabase || rawItems.length === 0) {
-      const inMemoryItems = this.queryInMemoryStore(normalizedParams);
-      // liveCount from in-memory: count all live items (no text/location filter)
-      if (liveCount === 0) {
-        const allLive = this.queryInMemoryStore({ ...normalizedParams, q: undefined, location: undefined });
-        liveCount = allLive.length;
-      }
-      // Merge: add any in-memory approved items not in Supabase results
-      const supabaseIds = new Set(rawItems.map((j) => j.id));
-      for (const item of inMemoryItems) {
-        if (!supabaseIds.has(item.id)) {
-          rawItems.push(item);
+    let sourceItems: JobItem[] = [];
+    let providerStatus: JobSearchResponse["providerStatus"] = {
+      searched: false,
+    };
+
+    // 3. If User Searched: Retrieve Stored Source Discoveries + Live External Discovery
+    if (isSearchActive) {
+      // 3A. Stored source discoveries from DB
+      sourceItems = await jobRepository.getStoredSourceDiscoveries(normalizedParams);
+
+      // 3B. Live external source discovery via configured authorized provider (SerpApi)
+      if (this.serpApiProvider.isAvailable() && params.enableLiveDiscovery !== false) {
+        try {
+          providerStatus.searched = true;
+          providerStatus.provider = this.serpApiProvider.name;
+
+          const providerResult = await this.serpApiProvider.search({
+            q: safeQ,
+            location: safeLoc,
+            remote: params.remote,
+            experience: params.experience,
+            employmentType: params.employmentType,
+          });
+
+          if (providerResult.items.length > 0) {
+            // Persist newly discovered jobs into database as SOURCE_DISCOVERY
+            const persistRes = await jobRepository.bulkUpsertOpportunities(providerResult.items, {
+              query: safeQ || "Software Engineer",
+              location: safeLoc,
+              provider: "serpapi_google_jobs",
+              tier: "SOURCE_DISCOVERY",
+            });
+
+            providerStatus.newDiscovered = persistRes.newCount;
+
+            // Merge newly fetched items into sourceItems with O(n) deduplication
+            const existingIds = new Set(sourceItems.map((s) => s.id));
+            for (const item of providerResult.items) {
+              if (!existingIds.has(item.id)) {
+                sourceItems.push(item);
+                existingIds.add(item.id);
+              }
+            }
+          }
+        } catch (providerErr: any) {
+          console.warn("[JobSearchService] Live external discovery error:", providerErr.message);
+          providerStatus.error = providerErr.message || "Provider temporarily unavailable";
         }
       }
     }
 
-    // 4. Deduplicate
-    const { uniqueJobs } = deduplicateJobs(rawItems);
-    const filteredCount = uniqueJobs.length;
+    // 4. Deduplicate verified and source items
+    const { uniqueJobs: cleanVerified } = deduplicateJobs(verifiedItems);
+    const { uniqueJobs: cleanSource } = deduplicateJobs(sourceItems);
 
-    // 5. Update Cache
-    this.cache.set(cacheKey, {
-      items: uniqueJobs,
-      timestamp: now,
-    });
+    // Filter by tier if user clicked a specific tab
+    let combinedItems: JobItem[] = [];
+    if (params.tier === "verified") {
+      combinedItems = cleanVerified;
+    } else if (params.tier === "source") {
+      combinedItems = cleanSource;
+    } else {
+      // Combined: Verified items first, then source discoveries
+      combinedItems = [...cleanVerified, ...cleanSource];
+    }
 
-    // 6. Sort & Paginate
-    const sorted = sortJobs(uniqueJobs, params.sortBy, normalizedParams);
+    // 5. Transparent DSA Relevance Ranking
+    const sorted = sortJobs(combinedItems, params.sortBy, normalizedParams);
     const paginated = sorted.slice((page - 1) * limit, page * limit);
 
-    return {
+    const response: JobSearchResponse = {
       items: paginated,
-      total: uniqueJobs.length,
-      liveCount,
-      filteredCount,
+      verifiedItems: cleanVerified.slice((page - 1) * limit, page * limit),
+      sourceItems: cleanSource.slice((page - 1) * limit, page * limit),
+      total: combinedItems.length,
       page,
       pageSize: limit,
       cached: false,
       cacheTimestamp: new Date().toISOString(),
-      staleFallback: !usedSupabase,
+      liveCount: globalLiveCount > 0 ? globalLiveCount : cleanVerified.length,
+      filteredCount: combinedItems.length,
+      verifiedCount: cleanVerified.length,
+      sourceDiscoveryCount: cleanSource.length,
+      providerStatus,
       querySummary: {
         q: safeQ,
         location: safeLoc,
         filtersApplied:
           (params.remote ? 1 : 0) +
           (params.experience ? 1 : 0) +
-          (params.employmentType ? 1 : 0),
+          (params.employmentType ? 1 : 0) +
+          (params.tier && params.tier !== "all" ? 1 : 0),
       },
     };
+
+    // Store in cache
+    this.cache.set(cacheKey, {
+      response,
+      timestamp: now,
+    });
+
+    return response;
   }
 
   /**
-   * Fetches single job by canonical ID.
-   * Queries Supabase first, then falls back to in-memory store.
+   * Fetches single canonical opportunity by ID.
    */
   public async getJobById(id: string): Promise<JobItem | null> {
     if (!id) return null;
 
-    // 1. Query Supabase directly for authoritative record
+    // 1. Direct query to Supabase repository
     if (isSupabaseConfigured()) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { getSupabaseAdminClient } = require("../supabase/admin");
-        const supabase = getSupabaseAdminClient();
-        if (supabase) {
-          const { data, error } = await supabase
-            .from("job_opportunities")
-            .select("*")
-            .eq("id", id)
-            .eq("publication_state", "PUBLISHED")
-            .eq("record_state", "ACTIVE")
-            .in("data_origin", ["PROVIDER", "ADMIN"])
-            .maybeSingle();
-
-          if (!error && data) {
-            return rowToJobItem(data);
-          }
-
-          // Try by source_job_id (legacy provider ID redirect)
-          const { data: data2, error: err2 } = await supabase
-            .from("job_opportunities")
-            .select("*")
-            .eq("source_job_id", id)
-            .eq("publication_state", "PUBLISHED")
-            .eq("record_state", "ACTIVE")
-            .in("data_origin", ["PROVIDER", "ADMIN"])
-            .maybeSingle();
-
-          if (!err2 && data2) {
-            return rowToJobItem(data2);
-          }
-        }
-      } catch (err) {
-        console.warn("[JobSearchService] Supabase getJobById error:", err);
-      }
+      const dbJob = await jobRepository.getJobById(id);
+      if (dbJob) return dbJob;
     }
 
-    // 2. Fallback: In-memory store
+    // 2. Fallback: in-memory store
     const opp = opportunityStore.getOpportunityById(id);
     if (opp) {
-      const isPubliclyAvailable =
+      const isPublic =
         (opp.status === "APPROVED" || opp.status === "PUBLISHED") &&
-        opp.dataOrigin !== "SEED" &&
-        opp.dataOrigin !== "TEST" &&
-        !opp.id.startsWith("opp_seed_");
-
-      if (isPubliclyAvailable) {
+        opp.recordState !== "DELETED";
+      if (isPublic) {
         return {
           id: opp.id,
           title: opp.title,
@@ -417,9 +254,7 @@ class JobSearchService {
           remoteType: opp.remoteType,
           employmentType: opp.employmentType,
           experienceLevel: opp.experienceLevel,
-          salary: opp.salary
-            ? `${opp.salary.currency || "₹"} ${opp.salary.min} - ${opp.salary.max}`
-            : "Salary not disclosed",
+          salary: opp.salary ? `${opp.salary.currency || "₹"} ${opp.salary.min} - ${opp.salary.max}` : "Salary not disclosed",
           description: opp.description,
           skills: opp.skills,
           datePosted: opp.postedAt,
@@ -430,15 +265,16 @@ class JobSearchService {
           sourceJobId: opp.sourceId || opp.id,
           fetchedAt: (opp as any).fetchedAt || opp.discoveredAt,
           verifiedStatus: opp.verifiedByAdmin ? "verified" : "source_checked",
+          verificationTier: opp.verifiedByAdmin ? "SAARVI_VERIFIED" : "SOURCE_DISCOVERY",
           isInternship: opp.isInternship,
-          confidenceScore: opp.confidenceScore || 98,
+          confidenceScore: 100,
         };
       }
     }
 
     // 3. Search in cache entries
     for (const entry of this.cache.values()) {
-      const match = entry.items.find((j) => j.id === id || j.sourceJobId === id);
+      const match = entry.response.items.find((j) => j.id === id || j.sourceJobId === id);
       if (match) return match;
     }
 
@@ -448,5 +284,5 @@ class JobSearchService {
 
 export const jobSearchService = new JobSearchService();
 
-// Register with cache invalidation system so bulk publish/approve immediately clears search cache
+// Register with cache invalidation
 registerJobsCacheInvalidator(() => jobSearchService.clearCache());

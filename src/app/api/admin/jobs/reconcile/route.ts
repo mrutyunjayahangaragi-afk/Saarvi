@@ -113,7 +113,7 @@ export async function GET(request: Request) {
       return !isNaN(dlMs) && dlMs < Date.now();
     });
 
-    const isHealthy = counts.published === counts.liveToUsers + counts.expiredPublished;
+    const isHealthy = counts.published === counts.liveToUsers + (counts.expiredPublished ?? counts.expired ?? 0);
 
     return NextResponse.json({
       success: true,

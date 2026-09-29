@@ -48,12 +48,14 @@ export async function GET(request: Request) {
             rating: row.rating,
             category: row.category,
             toolKey: row.tool_key || row.tool_slug,
-            pageUrl: row.page_url,
+            pageUrl: row.page_url || row.page,
+            operationId: row.operation_id,
             message: row.message,
-            email: row.email,
+            email: row.user_email || row.email,
             status: row.status === 'UNDER_REVIEW' ? 'IN_REVIEW' : row.status,
             sentiment: row.sentiment || (row.rating >= 4 ? 'POSITIVE' : row.rating === 3 ? 'NEUTRAL' : 'NEGATIVE'),
-            adminNotes: row.admin_notes,
+            sentimentConfidence: row.sentiment_confidence || 0.95,
+            adminNotes: row.admin_notes || row.admin_note,
             resolvedAt: row.resolved_at,
             resolvedBy: row.resolved_by,
             createdAt: row.created_at,
@@ -63,8 +65,8 @@ export async function GET(request: Request) {
       }
     }
 
-    if (items.length === 0) {
-      // Mock storage
+    if (items.length === 0 && !isSupabaseConfigured()) {
+      // Mock storage only when Supabase is NOT configured
       items = MockStorageProvider.getFeedbackList().map((f) => ({
         ...f,
         toolKey: f.toolKey,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { opportunityStore, runExpiredJobsWorker } from "@/lib/opportunities/opportunity-store";
+import { jobRepository } from "@/lib/jobs/repository";
 import { getAuthenticatedAdmin } from "@/lib/security/admin-auth";
 import {
   enforceRateLimit,
@@ -35,7 +36,6 @@ export async function GET(request: Request) {
     const pageSize = parseInt(searchParams.get("pageSize") || "50", 10);
 
     // Non-blocking: auto-expire any jobs whose deadline has passed since last load
-    // This ensures admin counts are accurate and "Published Live" reflects reality
     runExpiredJobsWorker().catch((err) =>
       console.warn("[Admin Career Opportunities] Expiry worker error:", err)
     );
@@ -48,11 +48,73 @@ export async function GET(request: Request) {
       pageSize,
     });
 
+    const rawStatus = searchParams.get("status");
+    let items: any[] = result.items;
+    let total = result.total;
+
+    if (rawStatus === "SOURCE_DISCOVERY" || rawStatus === "SOURCE_DISCOVERIES") {
+      const sourceRes = await jobRepository.getStoredSourceDiscoveries({
+        limit: pageSize,
+        page,
+      });
+      items = sourceRes.map((j: any) => ({
+        id: j.id,
+        title: j.title,
+        companyName: j.companyName,
+        companyLogo: j.companyLogoUrl || j.companyLogo,
+        category: (j.isInternship ? "internship" : "job") as any,
+        employmentType: (j.employmentType || "full-time") as any,
+        remoteType: (j.remoteType || "onsite") as any,
+        experienceLevel: (j.experienceLevel || "fresher") as any,
+        location: j.location,
+        description: j.description,
+        skills: j.skills,
+        salary: j.salary ? { currency: "₹", min: 0, max: 0, period: "monthly" } : undefined,
+        sourceUrl: j.sourceUrl,
+        applyUrl: j.applyUrl,
+        source: j.sourceName,
+        verifiedByAdmin: false,
+        verificationTier: j.verificationTier,
+        status: "PENDING_REVIEW" as any,
+        reviewState: (j.reviewState || "DISCOVERED") as any,
+        publicationState: (j.publicationState || "NOT_PUBLISHED") as any,
+        recordState: (j.recordState || "ACTIVE") as any,
+        postedAt: j.datePosted,
+        applicationDeadline: j.applicationDeadline,
+        createdAt: j.datePosted,
+        updatedAt: j.datePosted,
+      }));
+      total = sourceRes.length;
+    }
+
+    // Fetch authoritative database lifecycle counts
+    const dbCounts = await jobRepository.getAdminLifecycleCounts();
+
+    const finalCounts = {
+      ...result.counts,
+      ...dbCounts,
+      // Map both naming conventions so all admin UI tabs and components match
+      pending: dbCounts.pendingReview || result.counts.pending,
+      pendingReview: dbCounts.pendingReview || result.counts.pending,
+      approved: dbCounts.saarviVerified || result.counts.approved,
+      saarviVerified: dbCounts.saarviVerified || result.counts.approved,
+      published: dbCounts.published,
+      live: dbCounts.liveToUsers,
+      liveToUsers: dbCounts.liveToUsers,
+      expired: dbCounts.expired,
+      expiredPublished: dbCounts.expired,
+      stored: dbCounts.stored || result.counts.stored,
+      totalStored: dbCounts.stored || result.counts.stored,
+      archived: dbCounts.archived || result.counts.archived,
+      reports: dbCounts.reports,
+      sourceDiscoveries: dbCounts.sourceDiscoveries,
+    };
+
     const response = NextResponse.json({
       success: true,
-      items: result.items,
-      total: result.total,
-      counts: result.counts,
+      items,
+      total,
+      counts: finalCounts,
       page,
       pageSize,
     });
@@ -122,4 +184,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message || "Failed to process opportunity mutation" }, { status: 500 });
   }
 }
-

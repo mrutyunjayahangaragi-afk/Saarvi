@@ -169,9 +169,11 @@ export async function POST(request: Request) {
       rating: numRating,
       category: validatedCategory,
       toolKey: sanitizedToolKey,
+      operationId: typeof operationId === 'string' ? sanitizeInput(operationId).slice(0, 150) : undefined,
       pageUrl: sanitizedPage,
       message: cleanMessage,
       sentiment,
+      sentimentConfidence: 0.95,
       status: 'NEW' as const,
       idempotencyKey: effectiveIdemKey,
     };
@@ -199,30 +201,62 @@ export async function POST(request: Request) {
           }
         }
 
+        const insertPayload: Record<string, any> = {
+          user_id: feedbackPayload.userId,
+          guest_session_id: feedbackPayload.guestSessionId,
+          user_type: feedbackPayload.userType,
+          rating: feedbackPayload.rating,
+          category: feedbackPayload.category,
+          tool_key: feedbackPayload.toolKey || null,
+          tool_slug: feedbackPayload.toolKey || null,
+          page_url: feedbackPayload.pageUrl || null,
+          page: feedbackPayload.pageUrl || null,
+          message: feedbackPayload.message,
+          user_email: feedbackPayload.userEmail || null,
+          email: feedbackPayload.userEmail || null,
+          sentiment: feedbackPayload.sentiment,
+          sentiment_confidence: feedbackPayload.sentimentConfidence,
+          status: 'NEW',
+          idempotency_key: feedbackPayload.idempotencyKey,
+          operation_id: feedbackPayload.operationId || null,
+        };
+
         const { data: inserted, error: dbError } = await adminClient
           .from('feedback')
-          .insert({
-            user_id: feedbackPayload.userId,
-            guest_session_id: feedbackPayload.guestSessionId,
-            user_type: feedbackPayload.userType,
-            rating: feedbackPayload.rating,
-            category: feedbackPayload.category,
-            tool_key: feedbackPayload.toolKey || null,
-            tool_slug: feedbackPayload.toolKey || null,
-            page_url: feedbackPayload.pageUrl || null,
-            message: feedbackPayload.message,
-            email: feedbackPayload.userEmail || null,
-            sentiment: feedbackPayload.sentiment,
-            status: 'NEW',
-            idempotency_key: feedbackPayload.idempotencyKey,
-          })
+          .insert(insertPayload)
           .select('id')
           .maybeSingle();
 
         if (dbError) {
-          console.warn('[Feedback API] DB insert error, falling back to mock storage:', dbError.message);
-          const savedMock = MockStorageProvider.addFeedback(feedbackPayload);
-          createdRecordId = savedMock.id;
+          console.warn('[Feedback API] DB insert error with full payload, trying canonical columns:', dbError.message);
+          // Fallback to core columns in case of any column mismatch
+          const canonicalOnly = {
+            user_id: feedbackPayload.userId,
+            guest_session_id: feedbackPayload.guestSessionId,
+            user_type: feedbackPayload.userType,
+            user_email: feedbackPayload.userEmail || null,
+            rating: feedbackPayload.rating,
+            category: feedbackPayload.category,
+            message: feedbackPayload.message,
+            tool_key: feedbackPayload.toolKey || null,
+            page_url: feedbackPayload.pageUrl || null,
+            status: 'NEW',
+            sentiment: feedbackPayload.sentiment,
+            idempotency_key: feedbackPayload.idempotencyKey,
+          };
+          const { data: retryInserted, error: retryError } = await adminClient
+            .from('feedback')
+            .insert(canonicalOnly)
+            .select('id')
+            .maybeSingle();
+
+          if (retryError) {
+            console.error('[Feedback API] DB retry failed, falling back to mock storage:', retryError.message);
+            const savedMock = MockStorageProvider.addFeedback(feedbackPayload);
+            createdRecordId = savedMock.id;
+          } else if (retryInserted) {
+            createdRecordId = retryInserted.id;
+          }
         } else if (inserted) {
           createdRecordId = inserted.id;
         }

@@ -104,6 +104,7 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
           category: feedbackCategory,
           message: msg,
           toolKey: derivedToolKey,
+          operationId: resultId,
           pageUrl: typeof window !== 'undefined' ? window.location.pathname : undefined,
           idempotencyKey,
         }),

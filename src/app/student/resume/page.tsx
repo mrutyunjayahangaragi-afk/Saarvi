@@ -54,6 +54,7 @@ import {
   Settings,
   Sparkles,
   Download,
+  Loader2,
   RotateCcw,
   Check,
   Briefcase,
@@ -170,6 +171,38 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
   const [newVersionName, setNewVersionName] = useState("");
   const [showNewVersionModal, setShowNewVersionModal] = useState(false);
   const [latexCopied, setLatexCopied] = useState(false);
+
+  // Post-Export Template Feedback States (Non-blocking)
+  const [showExportFeedback, setShowExportFeedback] = useState(false);
+  const [exportFeedbackRating, setExportFeedbackRating] = useState(0);
+  const [exportFeedbackComment, setExportFeedbackComment] = useState("");
+  const [exportFeedbackSubmitted, setExportFeedbackSubmitted] = useState(false);
+  const [exportFeedbackSubmitting, setExportFeedbackSubmitting] = useState(false);
+
+  const handleSendExportFeedback = async () => {
+    if (exportFeedbackRating < 1 || !activeVersion) return;
+    setExportFeedbackSubmitting(true);
+    try {
+      await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rating: exportFeedbackRating,
+          category: "General",
+          message: exportFeedbackComment.trim() || `Rated ${exportFeedbackRating} stars for template: ${activeVersion.template}`,
+          toolKey: "resume_builder",
+          operationId: `resume_export_${activeVersion.template}_${Date.now()}`,
+          pageUrl: "/student/resume",
+          idempotencyKey: `idem_resume_${activeVersion.template}_${Date.now()}`,
+        }),
+      });
+      setExportFeedbackSubmitted(true);
+    } catch {
+      setExportFeedbackSubmitted(true);
+    } finally {
+      setExportFeedbackSubmitting(false);
+    }
+  };
 
   // Job Description Matching States
   const [jobDescriptionInput, setJobDescriptionInput] = useState("");
@@ -499,6 +532,7 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
             a.click();
             document.body.removeChild(a);
             setExporting(false);
+            setShowExportFeedback(true);
             return null;
           }
           return prev - 1;
@@ -1210,28 +1244,62 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
               const isSelected = activeVersion.template === tmpl.id;
               const badge = tmpl.badges?.[0] || (tmpl.isPro ? "PRO" : tmpl.category);
               return (
-                <button
+                <div
                   key={tmpl.id}
-                  onClick={() => {
-                    updateActiveVersion((v) => ({ ...v, template: tmpl.id }));
-                    if (!profile?.fullName?.trim()) {
-                      setProfile(createSampleProfile());
-                    }
-                  }}
-                  className={`p-3 rounded-xl text-left border transition-all cursor-pointer ${
+                  className={`p-3 rounded-2xl text-left border transition-all flex flex-col justify-between ${
                     isSelected
                       ? "border-blue-600 bg-blue-50/70 ring-2 ring-blue-500/20 shadow-xs"
                       : "border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1 gap-1">
-                    <span className="text-xs font-bold text-slate-900 truncate">{tmpl.name}</span>
-                    <span className="text-[9px] uppercase font-bold tracking-wide px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 shrink-0">
-                      {badge}
-                    </span>
+                  <div>
+                    <div className="flex items-center justify-between mb-1 gap-1">
+                      <span className="text-xs font-bold text-slate-900 truncate">{tmpl.name}</span>
+                      <span className="text-[9px] uppercase font-bold tracking-wide px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0">
+                        {badge}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed mb-3">{tmpl.description}</p>
                   </div>
-                  <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">{tmpl.description}</p>
-                </button>
+
+                  <div className="flex items-center gap-1.5 pt-2 border-t border-slate-100 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateActiveVersion((v) => ({ ...v, template: tmpl.id }));
+                        setViewMode("preview");
+                      }}
+                      className="flex-1 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-center cursor-pointer transition-colors"
+                      title="Preview this template"
+                    >
+                      Preview
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateActiveVersion((v) => ({ ...v, template: tmpl.id }));
+                        setProfile(createSampleProfile());
+                      }}
+                      className="flex-1 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-center cursor-pointer transition-colors"
+                      title="View filled sample data"
+                    >
+                      Try Sample
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateActiveVersion((v) => ({ ...v, template: tmpl.id }));
+                        if (isSampleProfile(profile)) {
+                          handleReplaceWithMyInfo();
+                        }
+                      }}
+                      className="flex-1 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-center cursor-pointer transition-colors"
+                      title="Build your resume with this template"
+                    >
+                      Build
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -1403,6 +1471,69 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
                 <Printer className="w-4 h-4 text-slate-500" />
                 Print via Browser Dialog
               </button>
+
+              {/* POST-EXPORT TEMPLATE FEEDBACK PROMPT (NON-BLOCKING) */}
+              {showExportFeedback && (
+                <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200/80 text-xs space-y-2.5 shadow-2xs animate-in fade-in">
+                  {exportFeedbackSubmitted ? (
+                    <div className="flex items-center gap-2 text-emerald-800 font-semibold py-1">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Thank you! Your feedback helps us polish Saarvi templates.</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-slate-900">Was this template useful?</span>
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => setExportFeedbackRating(s)}
+                              className={`p-1 cursor-pointer transition-colors text-base leading-none ${
+                                exportFeedbackRating >= s ? "text-amber-500" : "text-slate-300 hover:text-amber-400"
+                              }`}
+                              aria-label={`Rate ${s} stars`}
+                            >
+                              ★
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {exportFeedbackRating > 0 && (
+                        <div className="space-y-2 pt-1">
+                          <input
+                            type="text"
+                            placeholder="What could we improve with this template? (Optional)"
+                            value={exportFeedbackComment}
+                            onChange={(e) => setExportFeedbackComment(e.target.value)}
+                            className="w-full px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-800 text-xs focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+                          />
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setShowExportFeedback(false)}
+                              className="px-2.5 py-1 text-slate-500 hover:text-slate-700 font-medium"
+                            >
+                              Not Now
+                            </button>
+                            <button
+                              type="button"
+                              disabled={exportFeedbackSubmitting}
+                              onClick={handleSendExportFeedback}
+                              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl font-bold inline-flex items-center gap-1.5 shadow-2xs"
+                            >
+                              {exportFeedbackSubmitting && <Loader2 className="w-3 h-3 animate-spin" />}
+                              <span>Send Feedback</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}

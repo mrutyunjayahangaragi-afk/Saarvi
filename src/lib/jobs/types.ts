@@ -1,12 +1,12 @@
 /**
- * Saarvi Jobs & Internships Discovery Engine 2.0 — Domain Types
+ * Saarvi Jobs & Internships Discovery Engine 6.0 — Domain Types
  *
  * Provides single source of truth for:
- * 1. Normalized Job Structure (No synthetic values, honest defaults)
- * 2. Pluggable JobSearchProvider interface
+ * 1. Two-Tier Verification System: Tier A (Saarvi Verified) vs Tier B (Source Discovery)
+ * 2. Canonical Job Item structure with full provenance & apply options
  * 3. Search query filters & sorting parameters
- * 4. Deterministic resume / profile match result
- * 5. Anti-scam report and alert domain entities
+ * 4. Admin 9-metric lifecycle counts
+ * 5. Customer safety reports and subscriptions
  */
 
 export type RemoteType = "remote" | "hybrid" | "onsite";
@@ -17,34 +17,58 @@ export type ExperienceLevel = "fresher" | "entry-level" | "mid-level" | "senior"
 
 export type VerifiedStatus = "verified" | "source_checked" | "unverified" | "reported" | "expired";
 
+export type VerificationTier = "SAARVI_VERIFIED" | "SOURCE_DISCOVERY";
+
 export type JobSortOption = "relevant" | "newest" | "deadline_soon" | "match_score";
+
+export interface JobApplyOption {
+  title?: string;
+  link: string;
+  source?: string;
+}
 
 export interface JobItem {
   id: string;
   title: string;
   companyName: string;
   companyLogo?: string;
+  companyLogoUrl?: string;
   location: string;
+  country?: string;
   remoteType: RemoteType;
   employmentType: EmploymentType;
   experienceLevel: ExperienceLevel;
   salary: string; // "₹6,00,000 - ₹9,00,000 / yr" or "Salary not disclosed"
+  salaryMin?: number;
+  salaryMax?: number;
+  salaryCurrency?: string;
+  salaryPeriod?: string;
   description: string;
   qualifications?: string[];
   responsibilities?: string[];
+  benefits?: string[];
   skills: string[];
   datePosted: string; // ISO 8601
   applicationDeadline: string; // ISO 8601 or "Deadline not provided"
   sourceName: string;
   sourceUrl: string;
   applyUrl: string;
+  applyOptions?: JobApplyOption[];
+  provider?: string;
   sourceJobId: string;
+  providerJobId?: string;
   fetchedAt: string; // ISO 8601
+  discoveredAt?: string;
+  lastVerifiedAt?: string;
   expiresAt?: string;
   verifiedStatus: VerifiedStatus;
+  verificationTier: VerificationTier;
   isInternship: boolean;
   confidenceScore?: number;
   rawDetails?: Record<string, unknown>;
+  recordState?: "ACTIVE" | "ARCHIVED" | "DELETED";
+  reviewState?: "DISCOVERED" | "PENDING_REVIEW" | "APPROVED" | "REJECTED";
+  publicationState?: "NOT_PUBLISHED" | "PUBLISHED" | "PAUSED";
 }
 
 export interface JobSearchParams {
@@ -55,13 +79,17 @@ export interface JobSearchParams {
   experience?: string; // "fresher" | "entry-level" | "all"
   datePosted?: string; // "today" | "3days" | "week" | "month" | "all"
   skills?: string[];
+  tier?: "all" | "verified" | "source"; // Filter by verification tier
   page?: number;
   limit?: number;
   sortBy?: JobSortOption;
+  enableLiveDiscovery?: boolean;
 }
 
 export interface JobSearchResponse {
   items: JobItem[];
+  verifiedItems?: JobItem[];
+  sourceItems?: JobItem[];
   total: number;
   page: number;
   pageSize: number;
@@ -76,11 +104,39 @@ export interface JobSearchResponse {
    */
   liveCount?: number;
   filteredCount?: number;
+  verifiedCount?: number;
+  sourceDiscoveryCount?: number;
+  providerStatus?: {
+    searched: boolean;
+    provider?: string;
+    newDiscovered?: number;
+    error?: string;
+  };
   querySummary: {
     q: string;
     location: string;
     filtersApplied: number;
   };
+}
+
+export interface AdminJobLifecycleCounts {
+  stored: number;
+  sourceDiscoveries: number;
+  pendingReview: number;
+  saarviVerified: number;
+  published: number;
+  liveToUsers: number;
+  expired: number;
+  archived: number;
+  reports: number;
+  totalCatalog: number;
+  // Compatibility fields for existing store & reconciliation controllers
+  pending?: number;
+  approved?: number;
+  rejected?: number;
+  paused?: number;
+  total?: number;
+  expiredPublished?: number;
 }
 
 export interface JobMatchingResult {
@@ -106,6 +162,7 @@ export type JobReportReason =
   | "BROKEN_LINK"
   | "MISLEADING_INFO"
   | "PAYMENT_REQUIRED"
+  | "DUPLICATE"
   | "SUSPICIOUS"
   | "OTHER";
 
@@ -115,9 +172,11 @@ export interface JobReportRecord {
   jobTitle: string;
   companyName: string;
   sourceUrl?: string;
+  verificationTier?: VerificationTier;
   reason: JobReportReason;
   notes?: string;
   reporterId?: string;
+  reporterEmail?: string;
   reportedAt: string;
   status: "PENDING" | "INVESTIGATING" | "RESOLVED" | "DISMISSED";
   resolutionNotes?: string;

@@ -181,6 +181,7 @@ export function normalizeSerpApiJob(raw: any, fallbackIndex = 0): JobItem | null
     sourceJobId,
     fetchedAt: new Date().toISOString(),
     verifiedStatus: "source_checked",
+    verificationTier: "SOURCE_DISCOVERY",
     isInternship,
     confidenceScore: 85,
   };

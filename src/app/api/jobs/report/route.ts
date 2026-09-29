@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jobReportsStore } from "@/lib/jobs/reports";
+import { jobSupportService } from "@/lib/jobs/support";
 import { enforceRateLimit, getClientIp } from "@/lib/security/rate-limit";
 import { getAuthenticatedUser } from "@/lib/security/auth-session";
 import { getUserEntitlement } from "@/lib/billing/entitlements";
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Persist to in-memory store for fast fallback
     const report = jobReportsStore.submitReport({
       jobId: String(jobId),
       jobTitle: String(jobTitle),
@@ -57,6 +59,18 @@ export async function POST(req: NextRequest) {
       reason: reason as JobReportReason,
       notes: notes ? String(notes) : undefined,
       reporterId: authUser.id,
+    });
+
+    // Also persist into Supabase job_reports
+    await jobSupportService.submitJobReport({
+      jobId: String(jobId),
+      jobTitle: String(jobTitle),
+      companyName: String(companyName),
+      sourceUrl: sourceUrl ? String(sourceUrl) : undefined,
+      reason: reason as JobReportReason,
+      notes: notes ? String(notes) : undefined,
+      reporterId: authUser.id,
+      reporterEmail: authUser.email,
     });
 
     return NextResponse.json({

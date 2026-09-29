@@ -43,6 +43,7 @@ import {
 type AdminTab =
   | "OVERVIEW"
   | "DISCOVER"
+  | "SOURCE_DISCOVERIES"
   | "PENDING_REVIEW"
   | "PUBLISHED"
   | "REJECTED"
@@ -79,19 +80,24 @@ export default function AdminCareerPage() {
   // Core Data States
   const [items, setItems] = useState<Opportunity[]>([]);
   const [counts, setCounts] = useState({
+    stored: 0,
+    sourceDiscoveries: 0,
+    pendingReview: 0,
+    saarviVerified: 0,
+    published: 0,
+    liveToUsers: 0,
+    expired: 0,
+    archived: 0,
+    reports: 0,
+    // Internal compatibility counters
     pending: 0,
     approved: 0,
     rejected: 0,
-    expired: 0,
     paused: 0,
     draft: 0,
     total: 0,
-    // Canonical split metrics — these are the authoritative values
-    published: 0,      // records with publication_state=PUBLISHED
-    live: 0,           // records visible to users (published + not expired)
-    expiredPublished: 0, // published records whose deadline has passed
-    stored: 0,
-    archived: 0,
+    live: 0,
+    expiredPublished: 0,
   });
   const [sources, setSources] = useState<SourceHealth[]>([]);
   const [config, setConfig] = useState<DiscoveryConfig | null>(null);
@@ -218,19 +224,25 @@ export default function AdminCareerPage() {
         const oppsData = await oppsRes.json();
         setItems(oppsData.items || []);
         if (oppsData.counts) {
+          const c = oppsData.counts;
           setCounts({
-            pending: oppsData.counts.pending || 0,
-            approved: oppsData.counts.approved || 0,
-            rejected: oppsData.counts.rejected || 0,
-            expired: oppsData.counts.expired || 0,
-            paused: oppsData.counts.paused || 0,
-            draft: oppsData.counts.draft || 0,
-            total: oppsData.counts.total || 0,
-            published: oppsData.counts.published || 0,
-            live: oppsData.counts.live || 0,
-            expiredPublished: oppsData.counts.expired || 0,
-            stored: oppsData.counts.stored || 0,
-            archived: oppsData.counts.archived || 0,
+            stored: c.stored ?? c.totalStored ?? c.total ?? 0,
+            sourceDiscoveries: c.sourceDiscoveries ?? 0,
+            pendingReview: c.pendingReview ?? c.pending ?? 0,
+            saarviVerified: c.saarviVerified ?? c.approved ?? 0,
+            published: c.published ?? 0,
+            liveToUsers: c.liveToUsers ?? c.live ?? 0,
+            expired: c.expired ?? 0,
+            archived: c.archived ?? 0,
+            reports: c.reports ?? (reports ? reports.length : 0),
+            pending: c.pendingReview ?? c.pending ?? 0,
+            approved: c.saarviVerified ?? c.approved ?? 0,
+            rejected: c.rejected ?? 0,
+            paused: c.paused ?? 0,
+            draft: c.draft ?? 0,
+            total: c.stored ?? c.total ?? 0,
+            live: c.liveToUsers ?? c.live ?? 0,
+            expiredPublished: c.expired ?? 0,
           });
         }
       }
@@ -528,6 +540,26 @@ export default function AdminCareerPage() {
     } finally {
       setIsBulkPublishing(false);
     }
+  };
+
+  const handleReportAction = async (reportId: string, action: "PAUSE_JOB" | "ARCHIVE_JOB" | "RESOLVE" | "DISMISS") => {
+    try {
+      const res = await fetch("/api/admin/career/jobs", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportId, action }),
+      });
+      if (res.ok) {
+        setNotice(`Report updated (${action.toLowerCase().replace(/_/g, " ")})`);
+        await loadData();
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setNotice(`Action failed: ${d.error || "Unknown error"}`);
+      }
+    } catch (err: any) {
+      setNotice(`Report action error: ${err.message}`);
+    }
+    setTimeout(() => setNotice(null), 3500);
   };
 
   const handleBulkAction = async (action: "APPROVE" | "REJECT" | "ARCHIVE" | "EXPIRE" | "DELETE") => {
@@ -993,72 +1025,96 @@ export default function AdminCareerPage() {
         </div>
       )}
 
-      {/* Metric Cards Row — 7 cards showing canonical lifecycle state */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+      {/* 9 Canonical Metric Cards (Section 40 & 76) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2.5">
+        {/* 1. TOTAL STORED */}
         <div
           onClick={() => { setActiveTab("OVERVIEW"); setStatusFilter("ALL"); }}
-          className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-xs cursor-pointer hover:border-slate-300 transition"
+          className="p-3 bg-white border border-slate-200/80 rounded-2xl shadow-2xs cursor-pointer hover:border-slate-300 transition"
         >
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Catalog</span>
-          <span className="text-2xl font-extrabold text-slate-900 mt-1 block font-mono">{counts.total}</span>
-          <span className="text-[10px] text-slate-400 mt-0.5 block">All records</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">Total Stored</span>
+          <span className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1 block font-mono">{counts.stored}</span>
+          <span className="text-[10px] text-slate-400 mt-0.5 block truncate">Canonical DB</span>
         </div>
 
+        {/* 2. SOURCE DISCOVERIES */}
+        <div
+          onClick={() => { setActiveTab("SOURCE_DISCOVERIES"); setStatusFilter("SOURCE_DISCOVERY" as any); }}
+          className="p-3 bg-amber-50/60 border border-amber-200/80 rounded-2xl shadow-2xs cursor-pointer hover:border-amber-300 transition"
+        >
+          <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block truncate">Discoveries</span>
+          <span className="text-xl sm:text-2xl font-extrabold text-amber-900 mt-1 block font-mono">{counts.sourceDiscoveries}</span>
+          <span className="text-[10px] text-amber-600 mt-0.5 block truncate">External sources</span>
+        </div>
+
+        {/* 3. PENDING REVIEW */}
         <div
           onClick={() => { setActiveTab("PENDING_REVIEW"); setStatusFilter("PENDING_REVIEW"); }}
-          className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-2xl shadow-xs cursor-pointer hover:border-amber-300 transition"
+          className="p-3 bg-yellow-50/60 border border-yellow-200/80 rounded-2xl shadow-2xs cursor-pointer hover:border-yellow-300 transition"
         >
-          <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider block">Pending Review</span>
-          <span className="text-2xl font-extrabold text-amber-900 mt-1 block font-mono">{counts.pending}</span>
-          <span className="text-[10px] text-amber-600 mt-0.5 block">Awaiting approval</span>
+          <span className="text-[10px] font-bold text-yellow-700 uppercase tracking-wider block truncate">Pending Review</span>
+          <span className="text-xl sm:text-2xl font-extrabold text-yellow-900 mt-1 block font-mono">{counts.pendingReview}</span>
+          <span className="text-[10px] text-yellow-600 mt-0.5 block truncate">Awaiting admin</span>
         </div>
 
-        {/* PUBLISHED — records with publication_state=PUBLISHED (may include expired) */}
+        {/* 4. SAARVI VERIFIED */}
         <div
           onClick={() => { setActiveTab("PUBLISHED"); setStatusFilter("APPROVED"); }}
-          className="p-4 bg-blue-50/70 border border-blue-200/80 rounded-2xl shadow-xs cursor-pointer hover:border-blue-300 transition"
+          className="p-3 bg-teal-50/60 border border-teal-200/80 rounded-2xl shadow-2xs cursor-pointer hover:border-teal-300 transition"
         >
-          <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider block">Published</span>
-          <span className="text-2xl font-extrabold text-blue-900 mt-1 block font-mono">{counts.published || counts.approved}</span>
-          <span className="text-[10px] text-blue-600 mt-0.5 block">Admin-published records</span>
+          <span className="text-[10px] font-bold text-teal-700 uppercase tracking-wider block truncate">Verified</span>
+          <span className="text-xl sm:text-2xl font-extrabold text-teal-900 mt-1 block font-mono">{counts.saarviVerified}</span>
+          <span className="text-[10px] text-teal-600 mt-0.5 block truncate">Admin approved</span>
         </div>
 
-        {/* LIVE TO USERS — uses canonical predicate including deadline check */}
+        {/* 5. PUBLISHED */}
         <div
           onClick={() => { setActiveTab("PUBLISHED"); setStatusFilter("APPROVED"); }}
-          className="p-4 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl shadow-xs cursor-pointer hover:border-emerald-300 transition"
+          className="p-3 bg-blue-50/60 border border-blue-200/80 rounded-2xl shadow-2xs cursor-pointer hover:border-blue-300 transition"
         >
-          <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">Live to Users</span>
-          <span className="text-2xl font-extrabold text-emerald-900 mt-1 block font-mono">{counts.live}</span>
-          <span className="text-[10px] text-emerald-600 mt-0.5 block">Visible on /jobs now</span>
+          <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider block truncate">Published</span>
+          <span className="text-xl sm:text-2xl font-extrabold text-blue-900 mt-1 block font-mono">{counts.published}</span>
+          <span className="text-[10px] text-blue-600 mt-0.5 block truncate">Published catalog</span>
         </div>
 
-        {/* EXPIRED PUBLISHED — published but deadline passed */}
+        {/* 6. LIVE TO USERS */}
+        <div
+          onClick={() => { setActiveTab("PUBLISHED"); setStatusFilter("APPROVED"); }}
+          className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl shadow-2xs cursor-pointer hover:border-emerald-300 transition ring-1 ring-emerald-500/20"
+        >
+          <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block truncate">Live to Users</span>
+          <span className="text-xl sm:text-2xl font-extrabold text-emerald-900 mt-1 block font-mono">{counts.liveToUsers}</span>
+          <span className="text-[10px] text-emerald-600 mt-0.5 block truncate">Visible on /jobs</span>
+        </div>
+
+        {/* 7. EXPIRED */}
         <div
           onClick={() => { setActiveTab("EXPIRED"); setStatusFilter("EXPIRED"); }}
-          className="p-4 bg-orange-50/70 border border-orange-200/80 rounded-2xl shadow-xs cursor-pointer hover:border-orange-300 transition"
+          className="p-3 bg-orange-50/60 border border-orange-200/80 rounded-2xl shadow-2xs cursor-pointer hover:border-orange-300 transition"
         >
-          <span className="text-[11px] font-bold text-orange-700 uppercase tracking-wider block">Expired</span>
-          <span className="text-2xl font-extrabold text-orange-900 mt-1 block font-mono">{counts.expiredPublished || counts.expired}</span>
-          <span className="text-[10px] text-orange-600 mt-0.5 block">Deadline passed</span>
+          <span className="text-[10px] font-bold text-orange-700 uppercase tracking-wider block truncate">Expired</span>
+          <span className="text-xl sm:text-2xl font-extrabold text-orange-900 mt-1 block font-mono">{counts.expired}</span>
+          <span className="text-[10px] text-orange-600 mt-0.5 block truncate">Deadline passed</span>
         </div>
 
+        {/* 8. ARCHIVED */}
         <div
           onClick={() => { setActiveTab("REJECTED"); setStatusFilter("REJECTED"); }}
-          className="p-4 bg-rose-50/70 border border-rose-200/80 rounded-2xl shadow-xs cursor-pointer hover:border-rose-300 transition"
+          className="p-3 bg-slate-100 border border-slate-200 rounded-2xl shadow-2xs cursor-pointer hover:border-slate-300 transition"
         >
-          <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider block">Rejected</span>
-          <span className="text-2xl font-extrabold text-rose-900 mt-1 block font-mono">{counts.rejected}</span>
-          <span className="text-[10px] text-rose-600 mt-0.5 block">Spam / discarded</span>
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block truncate">Archived</span>
+          <span className="text-xl sm:text-2xl font-extrabold text-slate-700 mt-1 block font-mono">{counts.archived}</span>
+          <span className="text-[10px] text-slate-400 mt-0.5 block truncate">Safely archived</span>
         </div>
 
+        {/* 9. REPORTS */}
         <div
           onClick={() => setActiveTab("REPORTS")}
-          className="p-4 bg-slate-100 border border-slate-200 rounded-2xl shadow-xs cursor-pointer hover:border-slate-300 transition"
+          className="p-3 bg-rose-50/60 border border-rose-200/80 rounded-2xl shadow-2xs cursor-pointer hover:border-rose-300 transition"
         >
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Scam Reports</span>
-          <span className="text-2xl font-extrabold text-slate-700 mt-1 block font-mono">{reports.filter((r) => r.status === "PENDING").length}</span>
-          <span className="text-[10px] text-slate-400 mt-0.5 block">Student alerts</span>
+          <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block truncate">Reports</span>
+          <span className="text-xl sm:text-2xl font-extrabold text-rose-900 mt-1 block font-mono">{counts.reports}</span>
+          <span className="text-[10px] text-rose-600 mt-0.5 block truncate">Customer safety</span>
         </div>
       </div>
 
@@ -1101,14 +1157,15 @@ export default function AdminCareerPage() {
       <div className="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto scrollbar-none text-xs font-bold">
         {[
           { id: "OVERVIEW", label: "Overview", filter: "ALL" },
-          { id: "PENDING_REVIEW", label: `Pending Review (${counts.pending})`, filter: "PENDING_REVIEW" },
-          { id: "PUBLISHED", label: `Published (${counts.approved})`, filter: "APPROVED" },
+          { id: "SOURCE_DISCOVERIES", label: `Source Discoveries (${counts.sourceDiscoveries})`, filter: "SOURCE_DISCOVERY" },
+          { id: "PENDING_REVIEW", label: `Pending Review (${counts.pendingReview})`, filter: "PENDING_REVIEW" },
+          { id: "PUBLISHED", label: `Published (${counts.published})`, filter: "APPROVED" },
           { id: "REJECTED", label: `Rejected (${counts.rejected})`, filter: "REJECTED" },
           { id: "EXPIRED", label: `Expired (${counts.expired})`, filter: "EXPIRED" },
           { id: "SOURCES", label: "Sources & Health", filter: "ALL" },
           { id: "CONFIG", label: "Search Configuration", filter: "ALL" },
           { id: "ACCESS_CONTROL", label: "Access & Availability", filter: "ALL" },
-          { id: "REPORTS", label: `Reports (${reports.filter((r) => r.status === "PENDING").length})`, filter: "ALL" },
+          { id: "REPORTS", label: `Reports (${counts.reports || reports.filter((r) => r.status === "PENDING").length})`, filter: "ALL" },
           { id: "AUDIT", label: "Audit Log", filter: "ALL" },
         ].map((tab) => (
           <button
@@ -1236,11 +1293,12 @@ export default function AdminCareerPage() {
         </div>
       )}
 
-      {/* Tab: Opportunity Lists (Pending Review, Published, Rejected, Expired) */}
+      {/* Tab: Opportunity Lists (Pending Review, Published, Rejected, Expired, Source Discoveries) */}
       {(activeTab === "PENDING_REVIEW" ||
         activeTab === "PUBLISHED" ||
         activeTab === "REJECTED" ||
-        activeTab === "EXPIRED") && (
+        activeTab === "EXPIRED" ||
+        activeTab === "SOURCE_DISCOVERIES") && (
         <div className="space-y-4">
           {/* List Search Bar & Bulk Selection Toolbar */}
           <div className="flex flex-col gap-3">
@@ -1375,26 +1433,29 @@ export default function AdminCareerPage() {
                             {opp.category}
                           </span>
                           <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                            {opp.source.replace(/_/g, " ")}
+                            Source: {opp.source.replace(/_/g, " ")}
                           </span>
                           <span
                             className={`text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded-full border ${
-                              opp.dataOrigin === "PROVIDER"
-                                ? "bg-cyan-50 text-cyan-700 border-cyan-200"
-                                : opp.dataOrigin === "ADMIN"
+                              opp.dataOrigin === "ADMIN" || opp.source === "admin_manual"
                                 ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                : opp.dataOrigin === "SEED"
-                                ? "bg-amber-50 text-amber-700 border-amber-200"
-                                : opp.dataOrigin === "TEST"
-                                ? "bg-violet-50 text-violet-700 border-violet-200"
-                                : "bg-slate-100 text-slate-600 border-slate-200"
+                                : "bg-cyan-50 text-cyan-700 border-cyan-200"
                             }`}
                           >
-                            Origin: {opp.dataOrigin || (opp.id.startsWith("opp_seed_") ? "SEED" : "PROVIDER")}
+                            {opp.dataOrigin === "ADMIN" || opp.source === "admin_manual" ? "ADMIN ADDED" : "EXTERNAL SOURCE"}
                           </span>
+                          {((opp as any).verificationTier === "SAARVI_VERIFIED" || opp.verifiedByAdmin) ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Saarvi Verified
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-300">
+                              Source Listing • Not Saarvi Verified
+                            </span>
+                          )}
                           {(opp.status === "APPROVED" || opp.status === "PUBLISHED" || opp.status === "ACTIVE") && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3" /> Admin Verified
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                              Published
                             </span>
                           )}
                           {opp.status === "PENDING_REVIEW" && (
@@ -1910,31 +1971,103 @@ export default function AdminCareerPage() {
         </div>
       )}
 
-      {/* Tab: Reports */}
+      {/* Tab: Reports / Safety Center */}
       {activeTab === "REPORTS" && (
         <div className="space-y-4">
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <ShieldAlert className="w-5 h-5 text-rose-600" />
-              <span>Student Scam & Integrity Reports</span>
-            </h2>
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-rose-600" />
+                <span>Customer Safety &amp; Listing Reports</span>
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Review user flags on suspicious, expired, broken, or duplicate opportunities.
+              </p>
+            </div>
+            <span className="text-xs font-bold px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl">
+              {reports.length} Total Reports
+            </span>
           </div>
           <div className="space-y-3">
             {reports.map((rep) => (
-              <div key={rep.id} className="p-4 bg-white border border-slate-200 rounded-2xl space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-900">{rep.jobTitle || rep.jobId}</span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
-                    {rep.reason}
-                  </span>
+              <div key={rep.id} className="p-5 bg-white border border-slate-200 rounded-2xl space-y-3 shadow-2xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                  <div>
+                    <span className="text-sm font-bold text-slate-900">{rep.jobTitle || rep.jobId}</span>
+                    {rep.companyName && <span className="text-xs text-slate-500 ml-2">at {rep.companyName}</span>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
+                      Reason: {rep.reason}
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      rep.status === "RESOLVED"
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : rep.status === "DISMISSED"
+                        ? "bg-slate-100 text-slate-600 border-slate-200"
+                        : "bg-amber-50 text-amber-700 border-amber-200"
+                    }`}>
+                      {rep.status || "PENDING"}
+                    </span>
+                  </div>
                 </div>
-                {rep.details && <p className="text-xs text-slate-600">{rep.details}</p>}
-                <div className="text-[10px] text-slate-400">Reported at: {new Date(rep.createdAt).toLocaleString()}</div>
+
+                {rep.notes && (
+                  <p className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <strong className="text-slate-900">User notes:</strong> {rep.notes}
+                  </p>
+                )}
+                {rep.details && !rep.notes && (
+                  <p className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    {rep.details}
+                  </p>
+                )}
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 text-[11px] text-slate-400">
+                  <span>
+                    Reported by: <strong className="text-slate-600">{rep.reporterEmail || rep.reporterId || "Student"}</strong> • {new Date(rep.createdAt || rep.reportedAt || Date.now()).toLocaleString()}
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    {rep.status !== "RESOLVED" && rep.status !== "DISMISSED" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleReportAction(rep.id, "PAUSE_JOB")}
+                          className="px-2.5 py-1 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 transition cursor-pointer"
+                        >
+                          Pause Job
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleReportAction(rep.id, "ARCHIVE_JOB")}
+                          className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition cursor-pointer"
+                        >
+                          Archive Job
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleReportAction(rep.id, "RESOLVE")}
+                          className="px-2.5 py-1 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition cursor-pointer"
+                        >
+                          Resolve
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleReportAction(rep.id, "DISMISS")}
+                          className="px-2.5 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                        >
+                          Dismiss
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
             ))}
             {reports.length === 0 && (
               <div className="p-12 text-center bg-white border border-slate-200 rounded-2xl text-slate-400 text-xs">
-                Zero active scam reports.
+                Zero active customer safety reports.
               </div>
             )}
           </div>
