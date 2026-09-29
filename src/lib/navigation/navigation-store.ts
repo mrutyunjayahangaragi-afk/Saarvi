@@ -21,6 +21,7 @@ export interface NavigationConfigItem {
   toolId: string;
   toolName: string;
   categoryId: string;
+  subcategory?: string;
   route: string;
   position: number;
   visibleInNavbar: boolean;
@@ -29,6 +30,9 @@ export interface NavigationConfigItem {
   visibleInHomepage: boolean;
   visibleInAI: boolean;
   featured: boolean;
+  essentialNavbar?: boolean;
+  pinnedRank?: number | null;
+  locked?: boolean;
   badge?: string | null;
   status: NavigationStatus;
   createdAt: string;

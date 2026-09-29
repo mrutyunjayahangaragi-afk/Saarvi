@@ -29,6 +29,7 @@ export interface CanonicalTool {
   name: string;              // Human-readable title
   description: string;       // Concise one-line description
   category: CanonicalToolCategory;
+  subcategory?: string;
   route: string;             // Direct URL route
   icon: string;              // Lucide icon name
   featureFlagKey: string;    // Corresponding feature flag key in authoritative store

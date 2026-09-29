@@ -31,6 +31,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
+      essentialTools: snapshot.essentialTools,
+      essentialSlots: snapshot.essentialSlots,
       categories: snapshot.categories,
       globalTools: snapshot.globalTools,
       windowDays: snapshot.windowDays,

@@ -29,9 +29,28 @@ import {
   ShieldAlert,
   ArrowRight,
   Info,
+  LayoutGrid,
+  Pin,
+  PinOff,
+  Zap,
+  ExternalLink,
+  FileText,
+  FileImage,
+  GraduationCap,
+  Briefcase,
+  Combine,
+  Minimize2,
+  Calculator,
+  Bell,
+  User,
+  ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import AdminConfirmModal from '@/components/admin/AdminConfirmModal';
+import MegaMenu from '@/components/layout/MegaMenu';
+import { SaarviNavbarLogo } from '@/components/brand/SaarviLogo';
+import type { SmartNavigationSnapshot, EssentialNavbarSlot, SmartNavToolItem } from '@/lib/navigation/tool-discovery-service';
+import type { NavigationConfigItem } from '@/lib/navigation/navigation-store';
 import type {
   ToolTelemetryMetric,
   ToolControlConfig,
@@ -43,12 +62,30 @@ import type {
   ToolChangeImpactSummary,
 } from '@/types/tool-control';
 
+const ADMIN_NAV_ICONS: Record<string, React.ElementType> = {
+  FileText,
+  FileImage,
+  GraduationCap,
+  Briefcase,
+  Sparkles,
+  LayoutGrid,
+  Combine,
+  Minimize2,
+  Calculator,
+  Zap,
+};
+
+function getAdminToolIcon(name?: string): React.ElementType {
+  if (!name) return FileText;
+  return ADMIN_NAV_ICONS[name] || FileText;
+}
+
 export default function AdminToolsControlCenterPage() {
   const { user, profile } = useAuth();
   const isSuperAdmin = profile?.role === 'SUPER_ADMIN' || user?.role === 'SUPER_ADMIN';
 
   // Subtabs
-  const [activeTab, setActiveTab] = useState<'overview' | 'access-matrix' | 'most-used' | 'beta-controls' | 'health' | 'activity'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'access-matrix' | 'most-used' | 'beta-controls' | 'health' | 'activity' | 'navbar-preview'>('overview');
 
   // Period for analytics
   const [period, setPeriod] = useState<'today' | '7d' | '30d' | '90d' | 'year' | 'all'>('30d');
@@ -95,6 +132,62 @@ export default function AdminToolsControlCenterPage() {
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [pendingTool, setPendingTool] = useState<ToolTelemetryMetric | null>(null);
   const [pendingStatus, setPendingStatus] = useState<ToolOperationalStatus>('DISABLED');
+
+  // Navbar 6.0 Essential Daily Slots & Live Preview State
+  const [navSnapshot, setNavSnapshot] = useState<SmartNavigationSnapshot | null>(null);
+  const [navItems, setNavItems] = useState<NavigationConfigItem[]>([]);
+  const [navWindow, setNavWindow] = useState<'7d' | '30d' | '90d'>('30d');
+  const [navLoading, setNavLoading] = useState(false);
+  const [navSearch, setNavSearch] = useState('');
+  const [navCategoryFilter, setNavCategoryFilter] = useState('all');
+  const [navActionSuccess, setNavActionSuccess] = useState<string | null>(null);
+
+  const loadNavSnapshot = useCallback(async (win: '7d' | '30d' | '90d' = navWindow) => {
+    setNavLoading(true);
+    try {
+      const res = await fetch(`/api/admin/navigation?window=${win}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.previewSnapshot) {
+          setNavSnapshot(data.previewSnapshot);
+        }
+        if (Array.isArray(data.items)) {
+          setNavItems(data.items);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load navigation preview:', err);
+    } finally {
+      setNavLoading(false);
+    }
+  }, [navWindow]);
+
+  useEffect(() => {
+    if (activeTab === 'navbar-preview') {
+      loadNavSnapshot(navWindow);
+    }
+  }, [activeTab, navWindow, loadNavSnapshot]);
+
+  const handleUpdateNavConfig = async (toolId: string, categoryId: string, updates: Partial<NavigationConfigItem>) => {
+    try {
+      const res = await fetch('/api/admin/navigation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toolId,
+          categoryId,
+          updates,
+        }),
+      });
+      if (res.ok) {
+        setNavActionSuccess(`Updated ${toolId}`);
+        setTimeout(() => setNavActionSuccess(null), 2500);
+        await loadNavSnapshot(navWindow);
+      }
+    } catch (err) {
+      console.error('Failed to update navigation config:', err);
+    }
+  };
 
   // Load Overview Data
   const loadOverview = useCallback(async (isRefresh = false) => {
@@ -179,6 +272,47 @@ export default function AdminToolsControlCenterPage() {
       return matchesSearch && matchesCat && matchesStatus && matchesAccess && matchesQuick;
     });
   }, [metrics, searchQuery, categoryFilter, statusFilter, accessFilter, quickFilter]);
+
+  // Tools list for Main Navbar 6.0 Essential Table
+  const navToolsList = useMemo(() => {
+    return metrics
+      .filter((m) => {
+        const matchesSearch =
+          m.displayName.toLowerCase().includes(navSearch.toLowerCase()) ||
+          m.toolKey.toLowerCase().includes(navSearch.toLowerCase()) ||
+          m.category.toLowerCase().includes(navSearch.toLowerCase());
+        const matchesCat = navCategoryFilter === 'all' || m.category === navCategoryFilter;
+        return matchesSearch && matchesCat;
+      })
+      .map((m) => {
+        const conf = navItems.find((i) => i.toolId === m.toolKey);
+        const slot = navSnapshot?.essentialSlots?.find((s) => s.tool.key === m.toolKey);
+        const isEssential = Boolean(conf?.essentialNavbar || slot);
+        const isNavbarVisible = conf?.visibleInNavbar !== false;
+        const pinnedRank = conf?.pinnedRank || null;
+
+        let reason = 'Available Candidate';
+        if (slot) {
+          reason = slot.reason;
+        } else if (conf?.essentialNavbar) {
+          reason = 'Admin Essential Override';
+        } else if (!isNavbarVisible) {
+          reason = 'Hidden from Navbar';
+        } else if (m.status === 'COMING_SOON' || m.status === 'DISABLED') {
+          reason = 'Ineligible (Not Healthy)';
+        }
+
+        return {
+          metric: m,
+          conf,
+          slot,
+          isEssential,
+          isNavbarVisible,
+          pinnedRank,
+          reason,
+        };
+      });
+  }, [metrics, navItems, navSnapshot, navSearch, navCategoryFilter]);
 
   // Sorted for Most Used Tab
   const mostUsedMetrics = useMemo(() => {
@@ -718,6 +852,21 @@ export default function AdminToolsControlCenterPage() {
         >
           <Clock className="w-4 h-4" />
           <span>Activity Audit Stream</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('navbar-preview')}
+          className={`pb-3 px-3 transition-colors cursor-pointer border-b-2 flex items-center gap-1.5 ${
+            activeTab === 'navbar-preview'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <LayoutGrid className="w-4 h-4" />
+          <span>Main Navbar 6.0</span>
+          <span className="ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-700 font-bold">
+            Live
+          </span>
         </button>
       </div>
 
@@ -1393,6 +1542,453 @@ export default function AdminToolsControlCenterPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 7: MAIN NAVBAR 6.0 ESSENTIAL TOOLS CONTROL CENTER & LIVE PREVIEW */}
+      {/* ========================================================================= */}
+      {activeTab === 'navbar-preview' && (
+        <div className="space-y-6">
+          {/* Header & Usage Window Controls */}
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-xs space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <LayoutGrid className="w-5 h-5 text-blue-600" />
+                    Main Navbar 6.0 — Compact Essential Daily Tools
+                  </h3>
+                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    Active System
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1 max-w-2xl">
+                  Strict 5–7 slot limit (Default: 6). Deterministically ranked by real Saarvi completion telemetry (30d default), Admin Pinned overrides, and diversity constraints. Everything else remains accessible via the master Tools menu.
+                </p>
+              </div>
+
+              <div className="flex items-center flex-wrap gap-2">
+                <span className="text-[11px] font-bold text-slate-500">Usage Window:</span>
+                <div className="flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs font-semibold">
+                  {(['7d', '30d', '90d'] as const).map((win) => (
+                    <button
+                      key={win}
+                      type="button"
+                      onClick={() => setNavWindow(win)}
+                      className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                        navWindow === win
+                          ? 'bg-white text-blue-700 font-bold shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {win === '7d' ? '7 Days' : win === '30d' ? '30 Days (Default)' : '90 Days'}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => loadNavSnapshot(navWindow)}
+                  disabled={navLoading}
+                  className="p-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                  title="Refresh Navigation Snapshot"
+                >
+                  <RefreshCw className={`w-4 h-4 ${navLoading ? 'animate-spin text-blue-600' : ''}`} />
+                </button>
+              </div>
+            </div>
+
+            {navActionSuccess && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800 flex items-center gap-2 animate-in fade-in duration-150">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{navActionSuccess}</span>
+              </div>
+            )}
+
+            {/* 1. DESKTOP MAIN NAVBAR 6.0 LIVE USER EXPERIENCE PREVIEW */}
+            <div className="space-y-2 pt-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-800 flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-blue-600" />
+                  Desktop Main Navbar 6.0 Live Preview
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  Showing top {navSnapshot?.essentialTools.length || 6} essential shortcuts directly in header
+                </span>
+              </div>
+
+              {/* Realistic Navbar Mockup Container */}
+              <div className="border border-slate-200 rounded-2xl bg-white shadow-sm overflow-hidden p-2 sm:p-3">
+                <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                  {/* Left: Brand Logo */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <SaarviNavbarLogo />
+                  </div>
+
+                  {/* Center: Compact Main Navigation with 6 Direct Essentials */}
+                  <div className="flex items-center gap-1 overflow-x-auto text-xs font-semibold text-slate-700">
+                    {/* Tools Mega Menu Launcher */}
+                    <div className="px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 font-bold flex items-center gap-1.5 border border-blue-200/60 shadow-2xs">
+                      <LayoutGrid className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Tools</span>
+                      <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                    </div>
+
+                    {/* Direct 6 Essential Daily Tools */}
+                    <div className="flex items-center gap-0.5 border-l border-r border-slate-200 px-1 mx-0.5">
+                      {(navSnapshot?.essentialTools.slice(0, 6) || []).map((tool, idx) => {
+                        const IconComp = getAdminToolIcon(tool.icon);
+                        return (
+                          <div
+                            key={tool.key}
+                            title={`${tool.name} — ${tool.selectionReason || 'Essential Daily Tool'}`}
+                            className={`px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap text-xs ${
+                              idx >= 3 ? 'hidden xl:flex' : 'flex'
+                            } text-slate-700 hover:text-slate-900 hover:bg-slate-100/80 border border-transparent hover:border-slate-200`}
+                          >
+                            <IconComp className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                            <span>{tool.name}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Jobs & Internships */}
+                    <div className="px-2.5 py-1.5 rounded-xl text-slate-700 flex items-center gap-1.5 whitespace-nowrap">
+                      <Briefcase className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Jobs &amp; Internships</span>
+                    </div>
+
+                    {/* Plans */}
+                    <div className="px-2.5 py-1.5 rounded-xl text-slate-700 flex items-center gap-1.5 whitespace-nowrap">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Plans</span>
+                    </div>
+                  </div>
+
+                  {/* Right: Search + Notifications + Profile */}
+                  <div className="flex items-center gap-2 shrink-0 text-xs">
+                    <div className="px-2.5 py-1.5 rounded-xl bg-slate-100 text-slate-500 flex items-center gap-2 border border-slate-200">
+                      <Search className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="hidden sm:inline">Search...</span>
+                    </div>
+                    <div className="p-1.5 rounded-xl border border-slate-200 text-slate-600">
+                      <Bell className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 font-bold flex items-center gap-1.5">
+                      <div className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[9px]">A</div>
+                      <span className="hidden sm:inline">Admin</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Responsive Guidance Banner */}
+                <div className="mt-2 pt-2 px-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-slate-500">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-700">Responsive Slot Reduction:</span>
+                    <span>Desktop (1280px+): 6 tools</span>
+                    <span>•</span>
+                    <span>Tablet (768–1279px): 3 tools</span>
+                    <span>•</span>
+                    <span>Mobile (&lt;768px): Tools drawer</span>
+                  </div>
+                  <div className="flex items-center gap-2 font-medium text-blue-700">
+                    <span>Main Navbar = Essential Daily Tools</span>
+                    <span>|</span>
+                    <span>Tools Menu = Complete 65-Tool Directory</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. ACTIVE ESSENTIAL SLOTS (SLOTS 1–6) EXPLANATION CARDS */}
+            <div className="space-y-3 pt-2">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <Zap className="w-4 h-4 text-amber-500" />
+                Active Essential Daily Slots &amp; Selection Explanations
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {(navSnapshot?.essentialSlots || []).map((slotItem) => {
+                  const IconComp = getAdminToolIcon(slotItem.tool.icon);
+                  const isPinned = slotItem.isPinned;
+                  const hasCompletions = slotItem.tool.successfulUses > 0;
+
+                  return (
+                    <div
+                      key={`slot-card-${slotItem.slot}`}
+                      className="border border-slate-200 rounded-2xl p-4 bg-slate-50/60 hover:bg-white hover:shadow-xs transition-all flex flex-col justify-between gap-3"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                            Slot #{slotItem.slot}
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            isPinned
+                              ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                              : hasCompletions
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : 'bg-slate-100 text-slate-700 border border-slate-200'
+                          }`}>
+                            {isPinned ? 'Admin Pinned' : hasCompletions ? 'Usage Ranked' : 'Core Utility'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-blue-600 shadow-2xs">
+                            <IconComp className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="font-bold text-xs text-slate-900">{slotItem.tool.name}</div>
+                            <div className="text-[10px] font-mono text-slate-400">{slotItem.tool.route}</div>
+                          </div>
+                        </div>
+
+                        <div className="p-2 rounded-xl bg-white border border-slate-200/80 text-[11px] space-y-1">
+                          <div className="font-bold text-slate-700 flex items-center gap-1.5">
+                            <Info className="w-3 h-3 text-blue-500" />
+                            Selection Reason:
+                          </div>
+                          <p className="text-slate-600 text-[11px] leading-tight font-medium">
+                            {slotItem.reason}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-200/80 text-[11px] text-slate-500">
+                        <div>
+                          <span className="font-bold text-slate-800">{slotItem.tool.successfulUses.toLocaleString()}</span> uses
+                          {' '}({slotItem.tool.uniqueUsers.toLocaleString()} users)
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Healthy
+                          </span>
+                          {slotItem.tool.requiresPro && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                              Pro
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 3. MAIN NAVBAR CONFIGURATION TABLE (Every Tool) */}
+            <div className="space-y-3 pt-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-blue-600" />
+                    All Tools Main Navbar Configuration Matrix
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Toggle navbar visibility, mark tools as essential, or pin explicit slot ranks (1–6).
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Filter tools..."
+                      value={navSearch}
+                      onChange={(e) => setNavSearch(e.target.value)}
+                      className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+
+                  <select
+                    value={navCategoryFilter}
+                    onChange={(e) => setNavCategoryFilter(e.target.value)}
+                    className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:outline-hidden"
+                  >
+                    <option value="all">All Categories</option>
+                    <option value="pdf">PDF Tools</option>
+                    <option value="image">Image Tools</option>
+                    <option value="student">Student Tools</option>
+                    <option value="career">Career Tools</option>
+                    <option value="ai">AI Tools</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                <div className="overflow-x-auto max-h-[420px]">
+                  <table className="w-full text-left text-xs text-slate-600 border-collapse">
+                    <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                      <tr>
+                        <th className="py-2.5 px-3">Tool</th>
+                        <th className="py-2.5 px-3">Category</th>
+                        <th className="py-2.5 px-3">Successful Uses ({navWindow})</th>
+                        <th className="py-2.5 px-3">Unique Users</th>
+                        <th className="py-2.5 px-3 text-center">Navbar</th>
+                        <th className="py-2.5 px-3 text-center">Essential</th>
+                        <th className="py-2.5 px-3">Pinned Rank</th>
+                        <th className="py-2.5 px-3">Health</th>
+                        <th className="py-2.5 px-3">Access</th>
+                        <th className="py-2.5 px-3">Selection Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {navToolsList.length === 0 ? (
+                        <tr>
+                          <td colSpan={10} className="py-8 text-center text-slate-400">
+                            No tools match your search criteria.
+                          </td>
+                        </tr>
+                      ) : (
+                        navToolsList.map((row) => {
+                          const IconComp = getAdminToolIcon(row.metric.toolKey);
+                          const isHealthy = row.metric.status === 'AVAILABLE' || row.metric.status === 'BETA';
+
+                          return (
+                            <tr key={row.metric.toolKey} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="py-2 px-3 font-semibold text-slate-900 flex items-center gap-2">
+                                <IconComp className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <div>
+                                  <div>{row.metric.displayName}</div>
+                                  <div className="text-[10px] font-mono text-slate-400">{row.metric.toolKey}</div>
+                                </div>
+                              </td>
+
+                              <td className="py-2 px-3">
+                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                                  {row.metric.category}
+                                </span>
+                              </td>
+
+                              <td className="py-2 px-3 font-bold text-slate-800">
+                                {row.metric.successfulOperations.toLocaleString()}
+                              </td>
+
+                              <td className="py-2 px-3 text-slate-600">
+                                {row.metric.uniqueUsers.toLocaleString()}
+                              </td>
+
+                              <td className="py-2 px-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleUpdateNavConfig(row.metric.toolKey, row.metric.category, {
+                                      visibleInNavbar: !row.isNavbarVisible,
+                                    })
+                                  }
+                                  className={`text-[10px] font-bold px-2 py-1 rounded-lg cursor-pointer transition-colors ${
+                                    row.isNavbarVisible
+                                      ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                  }`}
+                                >
+                                  {row.isNavbarVisible ? 'ON' : 'OFF'}
+                                </button>
+                              </td>
+
+                              <td className="py-2 px-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleUpdateNavConfig(row.metric.toolKey, row.metric.category, {
+                                      essentialNavbar: !row.isEssential,
+                                    })
+                                  }
+                                  className={`text-[10px] font-bold px-2 py-1 rounded-lg cursor-pointer transition-colors ${
+                                    row.isEssential
+                                      ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                  }`}
+                                >
+                                  {row.isEssential ? 'YES' : 'NO'}
+                                </button>
+                              </td>
+
+                              <td className="py-2 px-3">
+                                <select
+                                  value={row.pinnedRank || 0}
+                                  onChange={(e) => {
+                                    const rank = parseInt(e.target.value, 10);
+                                    handleUpdateNavConfig(row.metric.toolKey, row.metric.category, {
+                                      pinnedRank: rank === 0 ? null : rank,
+                                      essentialNavbar: rank > 0 ? true : row.isEssential,
+                                    });
+                                  }}
+                                  className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-hidden"
+                                >
+                                  <option value={0}>Auto</option>
+                                  <option value={1}>Slot 1</option>
+                                  <option value={2}>Slot 2</option>
+                                  <option value={3}>Slot 3</option>
+                                  <option value={4}>Slot 4</option>
+                                  <option value={5}>Slot 5</option>
+                                  <option value={6}>Slot 6</option>
+                                </select>
+                              </td>
+
+                              <td className="py-2 px-3">
+                                <span
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                    isHealthy
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                      : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                  }`}
+                                >
+                                  {row.metric.status}
+                                </span>
+                              </td>
+
+                              <td className="py-2 px-3">
+                                <span
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                    row.metric.accessMode === 'PRO'
+                                      ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                      : 'bg-blue-50 text-blue-700 border border-blue-200'
+                                  }`}
+                                >
+                                  {row.metric.accessMode}
+                                </span>
+                              </td>
+
+                              <td className="py-2 px-3 text-[11px] text-slate-600 font-medium">
+                                {row.reason}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. MASTER TOOLS MEGA MENU PREVIEW */}
+            <div className="space-y-2 pt-4">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-800 flex items-center gap-2">
+                  <LayoutGrid className="w-4 h-4 text-blue-600" />
+                  Tools Master Mega Menu — Live Panel Preview
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  Opens when user clicks &quot;Tools&quot; in the main navbar (All 65 Tools)
+                </span>
+              </div>
+
+              <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50 shadow-inner overflow-hidden relative min-h-[460px]">
+                <MegaMenu
+                  activeCategory="tools"
+                  onMouseEnter={() => {}}
+                  onMouseLeave={() => {}}
+                  onClose={() => {}}
+                />
+              </div>
+            </div>
           </div>
         </div>
       )}

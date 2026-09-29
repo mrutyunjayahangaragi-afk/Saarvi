@@ -22,7 +22,12 @@ import {
   Sparkles,
   MessageSquare,
   Briefcase,
-  Bell
+  Bell,
+  LayoutGrid,
+  Combine,
+  Minimize2,
+  Calculator,
+  Zap,
 } from "lucide-react";
 import { SITE_CONFIG } from "@/config/site";
 import { SaarviNavbarLogo } from "@/components/brand/SaarviLogo";
@@ -34,6 +39,34 @@ import GlobalSearchModal from "@/components/tools/GlobalSearchModal";
 import AnnouncementBanner from "./AnnouncementBanner";
 
 import { getStartupNavigation, getJobsFeatureControl } from "@/lib/api/request-coalesce";
+
+const NAVBAR_ICON_MAP: Record<string, React.ElementType> = {
+  FileText,
+  FileImage,
+  GraduationCap,
+  Briefcase,
+  Sparkles,
+  LayoutGrid,
+  Combine,
+  Minimize2,
+  Calculator,
+  Zap,
+  Search,
+};
+
+function getToolIcon(name?: string): React.ElementType {
+  if (!name) return FileText;
+  return NAVBAR_ICON_MAP[name] || FileText;
+}
+
+const DEFAULT_ESSENTIAL_TOOLS = [
+  { key: 'merge-pdf', name: 'Merge PDF', route: '/tools/merge-pdf', icon: 'Combine', category: 'pdf' },
+  { key: 'compress-pdf', name: 'Compress PDF', route: '/tools/compress-pdf', icon: 'Minimize2', category: 'pdf' },
+  { key: 'pdf-to-jpg', name: 'PDF to JPG', route: '/tools/pdf-to-jpg', icon: 'FileImage', category: 'pdf' },
+  { key: 'jpg-to-pdf', name: 'JPG to PDF', route: '/tools/jpg-to-pdf', icon: 'FileText', category: 'image' },
+  { key: 'sgpa-calculator', name: 'SGPA Calculator', route: '/student/sgpa-calculator', icon: 'Calculator', category: 'academic' },
+  { key: 'resume-builder', name: 'Resume Builder', route: '/student/resume', icon: 'Briefcase', category: 'career' },
+];
 
 export default function Navbar() {
   const { user, profile, signOut, isLoading } = useAuth();
@@ -47,9 +80,21 @@ export default function Navbar() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [navCategories, setNavCategories] = useState<any[]>([]);
+  const [essentialTools, setEssentialTools] = useState<any[]>(DEFAULT_ESSENTIAL_TOOLS);
   const [isMac, setIsMac] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [jobsNavbarVisible, setJobsNavbarVisible] = useState(true);
+
+  // Section 35: Background scroll lock when mobile drawer is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [mobileMenuOpen]);
 
   // Sync Jobs & Internships navbar visibility from feature control with SWR cache
   useEffect(() => {
@@ -120,8 +165,11 @@ export default function Navbar() {
     async function loadNav() {
       try {
         const data = await getStartupNavigation();
-        if (mounted && data.categories) {
+        if (mounted && Array.isArray(data.categories) && data.categories.length > 0) {
           setNavCategories(data.categories);
+        }
+        if (mounted && Array.isArray(data.essentialTools) && data.essentialTools.length > 0) {
+          setEssentialTools(data.essentialTools);
         }
       } catch {}
     }
@@ -350,7 +398,7 @@ export default function Navbar() {
             className="hidden md:flex items-center gap-1 text-sm font-medium text-slate-600"
             aria-label="Main Navigation"
           >
-            {/* Tools Category */}
+            {/* 1. MASTER TOOLS LAUNCHER (Consolidates PDF, Images, Student, Career, AI) */}
             <div
               onMouseEnter={() => handleNavMouseEnter("tools")}
               onMouseLeave={handleNavMouseLeave}
@@ -361,19 +409,25 @@ export default function Navbar() {
                 aria-expanded={activeCategory === "tools"}
                 aria-haspopup="true"
                 onFocus={() => handleNavMouseEnter("tools")}
-                onClick={() => setActiveCategory(null)}
+                onClick={(e) => {
+                  if (activeCategory === "tools") {
+                    e.preventDefault();
+                    setActiveCategory(null);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     setActiveCategory(activeCategory === "tools" ? null : "tools");
                   }
                 }}
-                className={`px-3.5 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
                   activeCategory === "tools" || pathname === "/tools"
-                    ? "text-blue-600 font-semibold bg-blue-50"
+                    ? "text-blue-600 font-bold bg-blue-50"
                     : "hover:text-slate-900 hover:bg-slate-100/70 text-slate-700"
                 }`}
               >
+                <LayoutGrid className="w-3.5 h-3.5 text-blue-600" />
                 <span>Tools</span>
                 <ChevronDown
                   className={`w-3.5 h-3.5 transition-transform duration-200 ${
@@ -383,110 +437,15 @@ export default function Navbar() {
               </Link>
             </div>
 
-            {/* PDF Category */}
-            <div
-              onMouseEnter={() => handleNavMouseEnter("pdf")}
-              onMouseLeave={handleNavMouseLeave}
-              className="relative py-2"
-            >
-              <Link
-                href="/pdf"
-                aria-expanded={activeCategory === "pdf"}
-                aria-haspopup="true"
-                onFocus={() => handleNavMouseEnter("pdf")}
-                onClick={() => setActiveCategory(null)}
-                onKeyDown={(e) => {
-                  if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setActiveCategory(activeCategory === "pdf" ? null : "pdf");
-                  }
-                }}
-                className={`px-3.5 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
-                  activeCategory === "pdf" || pathname === "/pdf"
-                    ? "text-blue-600 font-semibold bg-blue-50"
-                    : "hover:text-slate-900 hover:bg-slate-100/70 text-slate-700"
-                }`}
-              >
-                <span>PDF</span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                    activeCategory === "pdf" ? "rotate-180 text-blue-600" : "text-slate-400"
-                  }`}
-                />
-              </Link>
-            </div>
-
-            {/* Images Category */}
-            <div
-              onMouseEnter={() => handleNavMouseEnter("images")}
-              onMouseLeave={handleNavMouseLeave}
-              className="relative py-2"
-            >
-              <Link
-                href="/images"
-                aria-expanded={activeCategory === "images"}
-                aria-haspopup="true"
-                onFocus={() => handleNavMouseEnter("images")}
-                onClick={() => setActiveCategory(null)}
-                onKeyDown={(e) => {
-                  if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setActiveCategory(activeCategory === "images" ? null : "images");
-                  }
-                }}
-                className={`px-3.5 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
-                  activeCategory === "images" || pathname === "/images"
-                    ? "text-blue-600 font-semibold bg-blue-50"
-                    : "hover:text-slate-900 hover:bg-slate-100/70 text-slate-700"
-                }`}
-              >
-                <span>Images</span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                    activeCategory === "images" ? "rotate-180 text-blue-600" : "text-slate-400"
-                  }`}
-                />
-              </Link>
-            </div>
-
-            {/* Student Tools Category */}
-            <div
-              onMouseEnter={() => handleNavMouseEnter("student")}
-              onMouseLeave={handleNavMouseLeave}
-              className="relative py-2"
-            >
-              <Link
-                href="/student-tools"
-                aria-expanded={activeCategory === "student"}
-                aria-haspopup="true"
-                onFocus={() => handleNavMouseEnter("student")}
-                onClick={() => setActiveCategory(null)}
-                onKeyDown={(e) => {
-                  if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setActiveCategory(activeCategory === "student" ? null : "student");
-                  }
-                }}
-                className={`px-3.5 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
-                  activeCategory === "student" || pathname === "/student-tools"
-                    ? "text-blue-600 font-semibold bg-blue-50"
-                    : "hover:text-slate-900 hover:bg-slate-100/70 text-slate-700"
-                }`}
-              >
-                <span>Student Tools</span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                    activeCategory === "student" ? "rotate-180 text-blue-600" : "text-slate-400"
-                  }`}
-                />
-              </Link>
-            </div>
+            {/* Navbar 7.0: Primary Clean Desktop Navigation — Essential tools launch via Tools master launcher */}
+            {/* Responsive slot reduction invariant: isSlot4to6 ? 'hidden xl:flex' : 'flex' */}
 
             {/* Jobs & Internships */}
             {jobsNavbarVisible && (
               <div className="relative py-2">
                 <Link
                   href="/jobs"
+                  onClick={() => setActiveCategory(null)}
                   className={`px-3 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
                     pathname?.startsWith("/jobs")
                       ? "text-blue-600 bg-blue-50 font-bold"
@@ -503,6 +462,7 @@ export default function Navbar() {
             <div className="relative py-2">
               <Link
                 href="/pricing"
+                onClick={() => setActiveCategory(null)}
                 className={`px-3 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
                   pathname === "/pricing"
                     ? "text-blue-600 bg-blue-50"
@@ -756,12 +716,17 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Desktop Mega Menu Dropdown Container */}
+        {/* Desktop Mega Menu Dropdown Container — Navbar 7.0 Compact Essential Launcher */}
         <MegaMenu
           activeCategory={activeCategory}
           onMouseEnter={handleMenuMouseEnter}
           onMouseLeave={handleMenuMouseLeave}
           onClose={() => setActiveCategory(null)}
+          onOpenSearch={() => {
+            setActiveCategory(null);
+            setSearchOpen(true);
+          }}
+          essentialTools={essentialTools.slice(0, 6)}
         />
 
         {/* Mobile Navigation Drawer with Accordions */}
@@ -785,6 +750,42 @@ export default function Navbar() {
                 Cmd+K
               </kbd>
             </button>
+
+            {/* Mobile Essential Daily Tools Section */}
+            <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 space-y-2">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <Zap className="w-3 h-3 text-amber-500" />
+                  Essential Daily Tools
+                </span>
+                <Link
+                  href="/tools"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-[10px] font-semibold text-blue-600 hover:text-blue-700"
+                >
+                  View All
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {essentialTools.slice(0, 6).map((tool) => {
+                  const IconComponent = getToolIcon(tool.icon);
+                  return (
+                    <Link
+                      key={`mob-ess-${tool.key || tool.route}`}
+                      href={tool.route}
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        handleToolClick(tool.key, tool.category);
+                      }}
+                      className="flex items-center gap-2 p-2 rounded-xl bg-white border border-slate-200/70 hover:border-blue-300 hover:bg-blue-50/40 text-xs font-semibold text-slate-800 transition-colors shadow-2xs"
+                    >
+                      <IconComponent className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <span className="truncate">{tool.name}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
 
             {/* Mobile Accordion 1: PDF Tools */}
             <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">

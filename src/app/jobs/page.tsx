@@ -1503,7 +1503,7 @@ function JobsContent() {
                       <strong>Saarvi Trust & Safety:</strong> Apply through the official employer/source whenever possible. Saarvi does not charge applicants for access to job listings.
                     </span>
                   </div>
-                  <Link href="/support" className="text-blue-600 font-bold hover:underline shrink-0 text-right">
+                  <Link href="/contact" className="text-blue-600 font-bold hover:underline shrink-0 text-right">
                     Report Concerns
                   </Link>
                 </div>

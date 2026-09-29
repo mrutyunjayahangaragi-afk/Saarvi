@@ -36,11 +36,16 @@ export interface SmartNavToolItem {
   name: string;
   description: string;
   category: CanonicalToolCategory;
+  subcategory?: string;
   route: string;
   icon: string;
   position: number;
   isFeatured: boolean;
   isMostUsed: boolean;
+  isEssential?: boolean;
+  isPinned?: boolean;
+  pinnedRank?: number | null;
+  selectionReason?: string;
   badge: string | null;
   successfulUses: number;
   uniqueUsers: number;
@@ -50,6 +55,41 @@ export interface SmartNavToolItem {
   isBeta: boolean;
   status: string;
   isEnabled: boolean;
+}
+
+export function deriveCanonicalSubcategory(key: string, category: string): string {
+  // PDF Subcategories
+  if (['merge-pdf', 'split-pdf', 'reorder-pdf', 'rotate-pdf', 'delete-pdf-pages', 'extract-pdf-pages'].includes(key)) return 'organize';
+  if (['word-to-pdf', 'excel-to-pdf', 'powerpoint-to-pdf', 'txt-to-pdf', 'csv-to-pdf', 'html-to-pdf'].includes(key)) return 'convert-to';
+  if (['pdf-to-word', 'pdf-to-excel', 'pdf-to-powerpoint', 'pdf-to-jpg', 'pdf-to-png'].includes(key)) return 'convert-from';
+  if (['compress-pdf', 'watermark-pdf', 'page-numbers-pdf', 'pdf-header-footer', 'flatten-pdf'].includes(key)) return 'optimize';
+  if (['protect-pdf', 'unlock-pdf'].includes(key)) return 'security';
+  if (['pdf-metadata', 'pdf-info'].includes(key)) return 'inspect';
+
+  // Image Subcategories
+  if (['png-to-jpg', 'jpg-to-png', 'svg-to-png', 'heic-to-jpg'].includes(key)) return 'convert';
+  if (['image-resize', 'crop-image', 'compress-image'].includes(key)) return 'optimize';
+  if (['document-scanner', 'scan-to-pdf', 'photo-to-document', 'jpg-to-pdf', 'image-to-pdf', 'multiple-images-to-pdf'].includes(key)) return 'scan';
+
+  // Student & Academic Subcategories
+  if (['sgpa-calculator', 'cgpa-calculator', 'exam-marks-analyzer', 'attendance-tracker', 'academic-goals'].includes(key) || category === 'academic') return 'academic';
+  if (['timetable-generator', 'study-planner', 'exam-tracker', 'assignment-tracker', 'student-notes', 'certificate-manager', 'internship-tracker', 'hackathon-tracker', 'notes-to-pdf'].includes(key) || category === 'student') return 'planning';
+
+  // Career
+  if (category === 'career') return 'career';
+
+  // AI & OCR
+  if (category === 'ai') return 'ai';
+
+  return 'general';
+}
+
+export interface EssentialNavbarSlot {
+  slot: number; // 1 to 6
+  tool: SmartNavToolItem;
+  reason: string;
+  isPinned: boolean;
+  isLocked: boolean;
 }
 
 export interface SmartNavCategory {
@@ -66,6 +106,8 @@ export interface SmartNavigationSnapshot {
   windowDays: number;
   windowPeriod: UsageWindowPeriod;
   timestamp: string;
+  essentialTools: SmartNavToolItem[];
+  essentialSlots: EssentialNavbarSlot[];
   categories: SmartNavCategory[];
   globalTools: {
     pdf: SmartNavToolItem[];
@@ -205,11 +247,14 @@ class ToolDiscoveryService {
       const freeAllowed = !isPro;
       const isFeatured = Boolean(conf?.featured);
 
+      const subcategory = (conf as any)?.subcategory || (tool as any).subcategory || deriveCanonicalSubcategory(tool.key, tool.category);
+
       return {
         key: tool.key,
         name: tool.name,
         description: tool.description,
         category: tool.category,
+        subcategory,
         route: tool.route,
         icon: tool.icon,
         position: conf?.position ?? 0,
@@ -325,24 +370,30 @@ class ToolDiscoveryService {
       });
     }
 
-    // 6. Build Cross-Category Global Tools for the "Tools" mega menu
-    const getTopToolsForGlobal = (catId: string, limit = 5): SmartNavToolItem[] => {
+    // 6. Build Cross-Category Global Tools for the "Tools" mega menu (all tools for complete discovery)
+    const getAllToolsForGlobal = (catId: string): SmartNavToolItem[] => {
       const cat = resolvedCategories.find((c) => c.id === catId);
-      return cat ? cat.topTools.slice(0, limit) : [];
+      return cat ? cat.allTools : [];
     };
 
     const globalTools = {
-      pdf: getTopToolsForGlobal('pdf', 5),
-      images: getTopToolsForGlobal('images', 5),
-      student: getTopToolsForGlobal('student', 5),
-      career: getTopToolsForGlobal('career', 5),
-      ai: getTopToolsForGlobal('ai', 4),
+      pdf: getAllToolsForGlobal('pdf'),
+      images: getAllToolsForGlobal('images'),
+      student: getAllToolsForGlobal('student'),
+      career: getAllToolsForGlobal('career'),
+      ai: getAllToolsForGlobal('ai'),
     };
+
+    // 7. Build Authoritative Navbar 6.0 Essential Daily Tools (Strict limit 5-7, default 6)
+    const essentialSlots = this.buildEssentialSlots(allProcessedTools, configMap);
+    const essentialTools = essentialSlots.map((s) => s.tool);
 
     const snapshot: SmartNavigationSnapshot = {
       windowDays: days,
       windowPeriod: (days === 7 ? '7d' : days === 90 ? '90d' : '30d') as UsageWindowPeriod,
       timestamp: new Date().toISOString(),
+      essentialTools,
+      essentialSlots,
       categories: resolvedCategories,
       globalTools,
     };
@@ -352,6 +403,195 @@ class ToolDiscoveryService {
     this.cacheExpiresAt = now + this.CACHE_TTL_MS;
 
     return snapshot;
+  }
+
+  /**
+   * Builds the Authoritative Navbar 6.0 Essential Daily Tools (5-7 slots, default 6).
+   * Incorporates:
+   * 1. Admin Pinned / Locked slots
+   * 2. Real successful completions (30d) + unique users
+   * 3. Diversity protection (max 4 PDF, guarantees student/career representation)
+   * 4. Health check gate (no COMING_SOON, BROKEN, DISABLED)
+   * 5. Fallback essential candidates (Merge PDF, Compress PDF, PDF to JPG, JPG to PDF, SGPA, Resume Builder)
+   */
+  public buildEssentialSlots(
+    allTools: SmartNavToolItem[],
+    configMap: Map<string, NavigationConfigItem>
+  ): EssentialNavbarSlot[] {
+    const MAX_SLOTS = 6;
+    const slots: Array<EssentialNavbarSlot | null> = [null, null, null, null, null, null];
+
+    // Filter candidate pool:
+    // MUST be enabled, NOT coming soon, NOT disabled, NOT maintenance
+    const eligiblePool = allTools.filter((t) => {
+      if (!t.isEnabled) return false;
+      if (t.status === 'COMING_SOON' || t.status === 'DISABLED' || t.status === 'MAINTENANCE') return false;
+      const conf = configMap.get(`${t.key}:${t.category}`) || configMap.get(t.key);
+      if (conf && conf.visibleInNavbar === false) return false;
+      return true;
+    });
+
+    // Authoritative fallback essentials
+    const fallbackKeys = [
+      'merge-pdf',
+      'compress-pdf',
+      'pdf-to-jpg',
+      'jpg-to-pdf',
+      'sgpa-calculator',
+      'resume-builder',
+    ];
+
+    // Step 1: Assign explicit Admin Pinned tools (pinnedRank: 1..6)
+    eligiblePool.forEach((tool) => {
+      const conf = configMap.get(`${tool.key}:${tool.category}`) || configMap.get(tool.key);
+      if (conf && (conf.essentialNavbar || conf.pinnedRank)) {
+        const targetRank = typeof conf.pinnedRank === 'number' && conf.pinnedRank >= 1 && conf.pinnedRank <= MAX_SLOTS
+          ? conf.pinnedRank
+          : null;
+        if (targetRank) {
+          const slotIdx = targetRank - 1;
+          if (!slots[slotIdx]) {
+            slots[slotIdx] = {
+              slot: targetRank,
+              tool: {
+                ...tool,
+                isEssential: true,
+                isPinned: true,
+                pinnedRank: targetRank,
+                selectionReason: `Admin Pinned (Slot #${targetRank})`,
+              },
+              reason: `Admin Pinned (Slot #${targetRank})`,
+              isPinned: true,
+              isLocked: Boolean(conf.locked),
+            };
+          }
+        }
+      }
+    });
+
+    const assignedKeys = new Set<string>();
+    slots.forEach((s) => {
+      if (s) assignedKeys.add(s.tool.key);
+    });
+
+    // Step 2: Calculate scoring for all remaining eligible candidates
+    const maxUses = Math.max(1, ...eligiblePool.map((t) => t.successfulUses));
+    const maxUsers = Math.max(1, ...eligiblePool.map((t) => t.uniqueUsers));
+
+    const scoredCandidates = eligiblePool
+      .filter((t) => !assignedKeys.has(t.key))
+      .map((tool) => {
+        const conf = configMap.get(`${tool.key}:${tool.category}`) || configMap.get(tool.key);
+        const normUses = tool.successfulUses / maxUses;
+        const normUsers = tool.uniqueUsers / maxUsers;
+        const marketBonus = fallbackKeys.includes(tool.key) ? 0.20 : 0;
+        const adminEssentialBonus = conf?.essentialNavbar ? 0.35 : 0;
+        const score = 0.55 * normUses + 0.25 * normUsers + marketBonus + adminEssentialBonus;
+
+        return {
+          tool,
+          score,
+          conf,
+        };
+      })
+      .sort((a, b) => {
+        if (Math.abs(b.score - a.score) > 0.001) return b.score - a.score;
+        if (b.tool.successfulUses !== a.tool.successfulUses) return b.tool.successfulUses - a.tool.successfulUses;
+        if (a.tool.position !== b.tool.position) return a.tool.position - b.tool.position;
+        const aIdx = fallbackKeys.indexOf(a.tool.key);
+        const bIdx = fallbackKeys.indexOf(b.tool.key);
+        if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+        if (aIdx !== -1) return -1;
+        if (bIdx !== -1) return 1;
+        return a.tool.name.localeCompare(b.tool.name);
+      });
+
+    // Step 3: Fill unfilled slots with diversity protection
+    for (let i = 0; i < MAX_SLOTS; i++) {
+      if (slots[i]) continue;
+
+      const filled = slots.filter((s): s is EssentialNavbarSlot => Boolean(s));
+      const pdfCount = filled.filter((s) => s.tool.category === 'pdf').length;
+      const studentCount = filled.filter((s) => s.tool.category === 'student' || s.tool.category === 'academic').length;
+      const careerCount = filled.filter((s) => s.tool.category === 'career').length;
+
+      let chosenIdx = -1;
+
+      // Diversity guard: ensure student and career tools have a seat if eligible
+      const slotsRemaining = MAX_SLOTS - i;
+      if (studentCount === 0 && slotsRemaining <= 2) {
+        chosenIdx = scoredCandidates.findIndex(
+          (c) => !assignedKeys.has(c.tool.key) && (c.tool.category === 'student' || c.tool.category === 'academic')
+        );
+      }
+      if (chosenIdx === -1 && careerCount === 0 && slotsRemaining <= 1) {
+        chosenIdx = scoredCandidates.findIndex(
+          (c) => !assignedKeys.has(c.tool.key) && c.tool.category === 'career'
+        );
+      }
+      if (chosenIdx === -1) {
+        chosenIdx = scoredCandidates.findIndex((c) => {
+          if (assignedKeys.has(c.tool.key)) return false;
+          if (c.tool.category === 'pdf' && pdfCount >= 4) return false;
+          return true;
+        });
+      }
+      if (chosenIdx === -1) {
+        chosenIdx = scoredCandidates.findIndex((c) => !assignedKeys.has(c.tool.key));
+      }
+
+      if (chosenIdx !== -1) {
+        const chosen = scoredCandidates[chosenIdx];
+        assignedKeys.add(chosen.tool.key);
+
+        let reason = 'Essential Daily Utility';
+        if (chosen.tool.successfulUses > 0) {
+          reason = `#${i + 1} in 30-day completions (${chosen.tool.successfulUses.toLocaleString()} uses)`;
+        } else if (chosen.conf?.essentialNavbar) {
+          reason = 'Admin Essential Override';
+        } else if (chosen.tool.category === 'student' || chosen.tool.category === 'academic') {
+          reason = 'Category Diversity — Academic Student Utility';
+        } else if (chosen.tool.category === 'career') {
+          reason = 'Category Diversity — Career & Placement Utility';
+        } else if (fallbackKeys.includes(chosen.tool.key)) {
+          reason = 'High-Demand Core Document Utility';
+        }
+
+        slots[i] = {
+          slot: i + 1,
+          tool: {
+            ...chosen.tool,
+            isEssential: true,
+            isPinned: Boolean(chosen.conf?.essentialNavbar),
+            pinnedRank: i + 1,
+            selectionReason: reason,
+          },
+          reason,
+          isPinned: Boolean(chosen.conf?.essentialNavbar),
+          isLocked: Boolean(chosen.conf?.locked),
+        };
+      }
+    }
+
+    return slots.filter((s): s is EssentialNavbarSlot => Boolean(s));
+  }
+
+  public async getEssentialNavbarTools(options?: {
+    windowDays?: number;
+    forceRefresh?: boolean;
+    limit?: number;
+  }): Promise<SmartNavToolItem[]> {
+    const snapshot = await this.getNavigationSnapshot(options);
+    const limit = options?.limit ?? 6;
+    return snapshot.essentialTools.slice(0, limit);
+  }
+
+  public async getEssentialNavbarSlots(options?: {
+    windowDays?: number;
+    forceRefresh?: boolean;
+  }): Promise<EssentialNavbarSlot[]> {
+    const snapshot = await this.getNavigationSnapshot(options);
+    return snapshot.essentialSlots;
   }
 }
 

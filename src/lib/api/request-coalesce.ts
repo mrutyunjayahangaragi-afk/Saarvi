@@ -194,6 +194,8 @@ export async function getStartupFeatures(): Promise<{ flags: any[] }> {
  * Cached, deduplicated fetcher for Navigation Categories across Navbar and MegaMenu.
  */
 export async function getStartupNavigation(): Promise<{
+  essentialTools?: any[];
+  essentialSlots?: any[];
   categories: any[];
   globalTools?: any;
   windowDays?: number;
@@ -204,6 +206,8 @@ export async function getStartupNavigation(): Promise<{
     if (!res.ok) return { categories: [], globalTools: null };
     const data = await res.json();
     return {
+      essentialTools: Array.isArray(data.essentialTools) ? data.essentialTools : [],
+      essentialSlots: Array.isArray(data.essentialSlots) ? data.essentialSlots : [],
       categories: Array.isArray(data.categories) ? data.categories : [],
       globalTools: data.globalTools || null,
       windowDays: data.windowDays || 30,
