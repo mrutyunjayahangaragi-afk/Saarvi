@@ -45,10 +45,9 @@ CREATE POLICY "Admin read tool health checks"
   ON public.tool_health_checks FOR SELECT
   USING (
     EXISTS (
-      SELECT 1 FROM public.user_roles ur
-      WHERE ur.user_id = auth.uid()
-        AND ur.role IN ('ADMIN', 'SUPER_ADMIN')
-        AND ur.is_active = true
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+        AND profiles.role IN ('admin', 'superadmin', 'founder', 'ADMIN', 'SUPER_ADMIN')
     )
   );
 
@@ -56,10 +55,9 @@ CREATE POLICY "Admin insert tool health checks"
   ON public.tool_health_checks FOR INSERT
   WITH CHECK (
     EXISTS (
-      SELECT 1 FROM public.user_roles ur
-      WHERE ur.user_id = auth.uid()
-        AND ur.role IN ('ADMIN', 'SUPER_ADMIN')
-        AND ur.is_active = true
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+        AND profiles.role IN ('admin', 'superadmin', 'founder', 'ADMIN', 'SUPER_ADMIN')
     )
   );
 
