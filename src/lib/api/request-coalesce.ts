@@ -193,12 +193,22 @@ export async function getStartupFeatures(): Promise<{ flags: any[] }> {
 /**
  * Cached, deduplicated fetcher for Navigation Categories across Navbar and MegaMenu.
  */
-export async function getStartupNavigation(): Promise<{ categories: any[] }> {
+export async function getStartupNavigation(): Promise<{
+  categories: any[];
+  globalTools?: any;
+  windowDays?: number;
+  windowPeriod?: string;
+}> {
   return swrFetch('startup:navigation', async () => {
     const res = await fetch('/api/navigation');
-    if (!res.ok) return { categories: [] };
+    if (!res.ok) return { categories: [], globalTools: null };
     const data = await res.json();
-    return { categories: Array.isArray(data.categories) ? data.categories : [] };
+    return {
+      categories: Array.isArray(data.categories) ? data.categories : [],
+      globalTools: data.globalTools || null,
+      windowDays: data.windowDays || 30,
+      windowPeriod: data.windowPeriod || '30d',
+    };
   }, { ttlMs: 60_000 });
 }
 

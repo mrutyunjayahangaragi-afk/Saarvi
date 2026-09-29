@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import {
   Navigation,
   Eye,
@@ -19,10 +20,21 @@ import {
   AlertTriangle,
   Info,
   Layers,
+  Flame,
+  Sparkles,
+  ArrowRight,
+  ShieldCheck,
+  FileText,
+  FileImage,
+  GraduationCap,
+  Briefcase,
+  Activity,
+  BarChart2,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { NavigationConfigItem, NavigationStatus, CategoryConfigItem } from '@/lib/navigation/navigation-store';
 import { CANONICAL_TOOL_REGISTRY } from '@/lib/tools/tool-registry';
+import { SmartNavigationSnapshot } from '@/lib/navigation/tool-discovery-service';
 
 const DEFAULT_CATEGORIES = [
   { id: 'all', label: 'All Categories' },
@@ -38,10 +50,16 @@ export default function AdminNavigationPage() {
   const { user } = useAuth();
   const [items, setItems] = useState<NavigationConfigItem[]>([]);
   const [categories, setCategories] = useState<CategoryConfigItem[]>([]);
+  const [previewSnapshot, setPreviewSnapshot] = useState<SmartNavigationSnapshot | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+
+  // Time Window State
+  const [usageWindow, setUsageWindow] = useState<'7d' | '30d' | '90d'>('30d');
+  const [activePreviewCategory, setActivePreviewCategory] = useState<'pdf' | 'images' | 'student' | 'tools'>('pdf');
+  const [showNavbarPreview, setShowNavbarPreview] = useState(true);
 
   // Modals state
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -60,14 +78,16 @@ export default function AdminNavigationPage() {
   const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
 
   // Load from Supabase via API
-  const loadNavigation = async () => {
+  const loadNavigation = async (windowChoice?: string) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/navigation');
+      const activeWin = windowChoice || usageWindow;
+      const res = await fetch(`/api/admin/navigation?window=${activeWin}`);
       const data = await res.json();
       if (data.success) {
         if (Array.isArray(data.items)) setItems(data.items);
         if (Array.isArray(data.categories)) setCategories(data.categories);
+        if (data.previewSnapshot) setPreviewSnapshot(data.previewSnapshot);
       }
     } catch (err) {
       console.error('Failed to load navigation configs:', err);
@@ -78,7 +98,7 @@ export default function AdminNavigationPage() {
 
   useEffect(() => {
     loadNavigation();
-  }, []);
+  }, [usageWindow]);
 
   const displayCategories = useMemo(() => {
     if (categories.length > 0) {
@@ -86,6 +106,24 @@ export default function AdminNavigationPage() {
     }
     return DEFAULT_CATEGORIES;
   }, [categories]);
+
+  // Build a lookup map of real usage metrics from the snapshot
+  const telemetryLookup = useMemo(() => {
+    const map = new Map<string, { uses: number; users: number; isMostUsed: boolean; isFeatured: boolean }>();
+    if (!previewSnapshot) return map;
+
+    previewSnapshot.categories.forEach((cat) => {
+      (cat.allTools || cat.topTools || []).forEach((t) => {
+        map.set(t.key, {
+          uses: t.successfulUses,
+          users: t.uniqueUsers,
+          isMostUsed: t.isMostUsed,
+          isFeatured: t.isFeatured,
+        });
+      });
+    });
+    return map;
+  }, [previewSnapshot]);
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
@@ -129,6 +167,7 @@ export default function AdminNavigationPage() {
         throw new Error(data.error || 'Failed to update item');
       }
       showNotification(`Updated ${item.toolName}`);
+      loadNavigation(); // Refresh live preview
     } catch (err) {
       console.error('Save failed:', err);
       loadNavigation();
@@ -152,6 +191,7 @@ export default function AdminNavigationPage() {
           prev.map((i) => (i.id === item.id ? { ...i, visibleInNavbar: false } : i))
         );
         showNotification(`Removed ${item.toolName} from Navbar (Route still active)`);
+        loadNavigation();
       }
     } catch (err) {
       console.error('Failed to remove from navbar:', err);
@@ -236,30 +276,30 @@ export default function AdminNavigationPage() {
           toolIdsInOrder: orderedIds,
         }),
       });
+      loadNavigation();
     } catch (err) {
       console.error('Reorder error:', err);
       loadNavigation();
     }
   };
 
-  const handleUpdateCategory = async (catId: string, updates: Partial<CategoryConfigItem>) => {
+  const handleSetPlatformDefaultWindow = async (days: number) => {
     try {
       const res = await fetch('/api/admin/navigation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'update_category',
-          categoryId: catId,
-          updates,
+          action: 'set_window',
+          windowDays: days,
         }),
       });
       const data = await res.json();
-      if (data.success && Array.isArray(data.categories)) {
-        setCategories(data.categories);
-        showNotification(`Updated category ${catId}`);
+      if (data.success) {
+        showNotification(`Set platform ranking window to ${days} days.`);
+        loadNavigation();
       }
     } catch (err) {
-      console.error('Category update failed:', err);
+      console.error('Failed to set platform default window:', err);
     }
   };
 
@@ -278,6 +318,7 @@ export default function AdminNavigationPage() {
       if (data.success && Array.isArray(data.items)) {
         setItems(data.items);
         showNotification('Reset to canonical defaults successfully.');
+        loadNavigation();
       }
     } finally {
       setLoading(false);
@@ -291,28 +332,57 @@ export default function AdminNavigationPage() {
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <Navigation className="w-5 h-5 text-indigo-600" />
-            <span>Navbar & Tool Navigation Management</span>
+            <span>Smart Navbar &amp; Tool Discovery Control Center</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Super Admin control center for Navbar, Mega Menu, Categories, and AI tool visibility. Persisted in Supabase.
+            Data-driven tool discovery ranking based on real completions (<code className="text-blue-600 font-mono">tool_completed, success=true</code>) with Admin Featured overrides.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Usage Window Selector */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+            <span className="text-[10px] font-bold text-slate-500 uppercase px-2">Window:</span>
+            <button
+              onClick={() => setUsageWindow('7d')}
+              className={`px-2.5 py-1 rounded-lg font-bold transition ${
+                usageWindow === '7d' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              7D
+            </button>
+            <button
+              onClick={() => setUsageWindow('30d')}
+              className={`px-2.5 py-1 rounded-lg font-bold transition ${
+                usageWindow === '30d' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              30D (Default)
+            </button>
+            <button
+              onClick={() => setUsageWindow('90d')}
+              className={`px-2.5 py-1 rounded-lg font-bold transition ${
+                usageWindow === '90d' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              90D
+            </button>
+          </div>
+
           <button
             onClick={() => setAddModalOpen(true)}
             className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Add Tool to Navbar</span>
+            <span>Add Tool</span>
           </button>
 
           <button
-            onClick={() => setCategoryModalOpen(true)}
+            onClick={() => setShowNavbarPreview(!showNavbarPreview)}
             className="px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 flex items-center gap-1.5 transition cursor-pointer"
           >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Manage Categories</span>
+            <Compass className="w-3.5 h-3.5 text-blue-600" />
+            <span>{showNavbarPreview ? 'Hide Preview' : 'Show Preview'}</span>
           </button>
 
           <button
@@ -320,19 +390,266 @@ export default function AdminNavigationPage() {
             className="px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 flex items-center gap-1.5 transition cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset Defaults</span>
+            <span>Reset</span>
           </button>
         </div>
       </div>
 
-      {/* Persistence and Non-Destructive Invariant Callout */}
-      <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl flex items-start gap-2.5 text-xs text-blue-900">
-        <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-        <div className="leading-relaxed">
-          <span className="font-bold">Non-Destructive Navigation Invariant:</span> Removing a tool from the Navbar or Mega Menu alters presentation only. The underlying tool route (e.g. <code className="font-mono bg-white px-1 py-0.5 rounded border border-blue-200 text-[11px]">/tools/pdf-to-word</code>) remains fully operational and discoverable in Search/AI unless disabled via Feature Flags.
-        </div>
-      </div>
+      {/* ========================================================================= */}
+      {/* INNOVATION: LIVE NAVBAR MEGA MENU PREVIEW                                */}
+      {/* ========================================================================= */}
+      {showNavbarPreview && previewSnapshot && (
+        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-6 rounded-3xl text-white shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center border border-blue-400/30">
+                <Compass className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold tracking-tight text-white flex items-center gap-2">
+                  <span>Live Navbar Mega Menu Preview</span>
+                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-400/30">
+                    Real Analytics Calibrated
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-300">
+                  Exact mega menu representation as seen by users • Aggregated over {usageWindow.toUpperCase()} window
+                </p>
+              </div>
+            </div>
 
+            {/* Preview Category Tabs */}
+            <div className="flex items-center gap-1.5 bg-black/30 p-1 rounded-xl border border-white/10 text-xs font-semibold">
+              <button
+                onClick={() => setActivePreviewCategory('pdf')}
+                className={`px-3 py-1 rounded-lg transition ${
+                  activePreviewCategory === 'pdf' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                PDF
+              </button>
+              <button
+                onClick={() => setActivePreviewCategory('images')}
+                className={`px-3 py-1 rounded-lg transition ${
+                  activePreviewCategory === 'images' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Images
+              </button>
+              <button
+                onClick={() => setActivePreviewCategory('student')}
+                className={`px-3 py-1 rounded-lg transition ${
+                  activePreviewCategory === 'student' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Student Tools
+              </button>
+              <button
+                onClick={() => setActivePreviewCategory('tools')}
+                className={`px-3 py-1 rounded-lg transition ${
+                  activePreviewCategory === 'tools' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Tools (Global)
+              </button>
+            </div>
+          </div>
+
+          {/* Active Category Preview Card */}
+          <div className="bg-white rounded-2xl p-5 text-slate-900 shadow-md">
+            {activePreviewCategory === 'pdf' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-red-500" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-800">Top PDF Tools</span>
+                  </div>
+                  <span className="text-xs font-bold text-blue-600 flex items-center gap-1">
+                    View All PDF Tools →
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {previewSnapshot.categories
+                    .find((c) => c.id === 'pdf')
+                    ?.topTools.map((t) => (
+                      <div key={t.key} className="p-2.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-100/70 transition space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800">{t.name}</span>
+                          {t.isFeatured ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 font-bold">
+                              Featured
+                            </span>
+                          ) : t.isMostUsed ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
+                              Most Used
+                            </span>
+                          ) : t.requiresPro ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-white font-bold">
+                              PRO
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="text-[11px] text-slate-500 line-clamp-1">{t.description}</p>
+                        <div className="text-[10px] text-slate-400 font-mono pt-1 border-t border-slate-100 flex items-center justify-between">
+                          <span>{t.successfulUses} uses</span>
+                          <span>{t.uniqueUsers} users</span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {activePreviewCategory === 'images' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div className="flex items-center gap-2">
+                    <FileImage className="w-4 h-4 text-blue-500" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-800">Top Image Tools</span>
+                  </div>
+                  <span className="text-xs font-bold text-blue-600 flex items-center gap-1">
+                    View All Image Tools →
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {previewSnapshot.categories
+                    .find((c) => c.id === 'images')
+                    ?.topTools.map((t) => (
+                      <div key={t.key} className="p-2.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-100/70 transition space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800">{t.name}</span>
+                          {t.isFeatured ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 font-bold">
+                              Featured
+                            </span>
+                          ) : t.isMostUsed ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
+                              Most Used
+                            </span>
+                          ) : t.requiresPro ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-white font-bold">
+                              PRO
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="text-[11px] text-slate-500 line-clamp-1">{t.description}</p>
+                        <div className="text-[10px] text-slate-400 font-mono pt-1 border-t border-slate-100 flex items-center justify-between">
+                          <span>{t.successfulUses} uses</span>
+                          <span>{t.uniqueUsers} users</span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {activePreviewCategory === 'student' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="w-4 h-4 text-indigo-500" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-800">Top Student Tools</span>
+                  </div>
+                  <span className="text-xs font-bold text-blue-600 flex items-center gap-1">
+                    View All Student Tools →
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {previewSnapshot.categories
+                    .find((c) => c.id === 'student')
+                    ?.topTools.map((t) => (
+                      <div key={t.key} className="p-2.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-100/70 transition space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800">{t.name}</span>
+                          {t.isFeatured ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 font-bold">
+                              Featured
+                            </span>
+                          ) : t.isMostUsed ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
+                              Most Used
+                            </span>
+                          ) : t.requiresPro ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-white font-bold">
+                              PRO
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="text-[11px] text-slate-500 line-clamp-1">{t.description}</p>
+                        <div className="text-[10px] text-slate-400 font-mono pt-1 border-t border-slate-100 flex items-center justify-between">
+                          <span>{t.successfulUses} uses</span>
+                          <span>{t.uniqueUsers} users</span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {activePreviewCategory === 'tools' && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <span className="text-[11px] font-bold text-slate-600 uppercase border-b border-slate-100 pb-1 block">PDF</span>
+                  {previewSnapshot.globalTools.pdf.slice(0, 4).map((t) => (
+                    <div key={t.key} className="p-2 rounded-lg bg-slate-50 text-xs flex items-center justify-between">
+                      <span className="font-semibold text-slate-700 truncate">{t.name}</span>
+                      {t.isFeatured ? (
+                        <span className="text-[8px] px-1 py-0.2 rounded bg-purple-100 text-purple-700 font-bold">Featured</span>
+                      ) : t.isMostUsed ? (
+                        <span className="text-[8px] px-1 py-0.2 rounded bg-emerald-100 text-emerald-700 font-bold">Most Used</span>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-[11px] font-bold text-slate-600 uppercase border-b border-slate-100 pb-1 block">Images</span>
+                  {previewSnapshot.globalTools.images.slice(0, 4).map((t) => (
+                    <div key={t.key} className="p-2 rounded-lg bg-slate-50 text-xs flex items-center justify-between">
+                      <span className="font-semibold text-slate-700 truncate">{t.name}</span>
+                      {t.isFeatured ? (
+                        <span className="text-[8px] px-1 py-0.2 rounded bg-purple-100 text-purple-700 font-bold">Featured</span>
+                      ) : t.isMostUsed ? (
+                        <span className="text-[8px] px-1 py-0.2 rounded bg-emerald-100 text-emerald-700 font-bold">Most Used</span>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-[11px] font-bold text-slate-600 uppercase border-b border-slate-100 pb-1 block">Student</span>
+                  {previewSnapshot.globalTools.student.slice(0, 4).map((t) => (
+                    <div key={t.key} className="p-2 rounded-lg bg-slate-50 text-xs flex items-center justify-between">
+                      <span className="font-semibold text-slate-700 truncate">{t.name}</span>
+                      {t.isFeatured ? (
+                        <span className="text-[8px] px-1 py-0.2 rounded bg-purple-100 text-purple-700 font-bold">Featured</span>
+                      ) : t.isMostUsed ? (
+                        <span className="text-[8px] px-1 py-0.2 rounded bg-emerald-100 text-emerald-700 font-bold">Most Used</span>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-[11px] font-bold text-slate-600 uppercase border-b border-slate-100 pb-1 block">Career</span>
+                  {previewSnapshot.globalTools.career.slice(0, 4).map((t) => (
+                    <div key={t.key} className="p-2 rounded-lg bg-slate-50 text-xs flex items-center justify-between">
+                      <span className="font-semibold text-slate-700 truncate">{t.name}</span>
+                      {t.isFeatured ? (
+                        <span className="text-[8px] px-1 py-0.2 rounded bg-purple-100 text-purple-700 font-bold">Featured</span>
+                      ) : t.isMostUsed ? (
+                        <span className="text-[8px] px-1 py-0.2 rounded bg-emerald-100 text-emerald-700 font-bold">Most Used</span>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Notifications */}
       {saveSuccessMessage && (
         <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs text-emerald-800 animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -389,189 +706,182 @@ export default function AdminNavigationPage() {
                   <th className="py-3 px-3 w-16 text-center">Order</th>
                   <th className="py-3 px-4">Tool / Route</th>
                   <th className="py-3 px-3 text-center">Category</th>
+                  <th className="py-3 px-3 text-center">Successful Uses</th>
+                  <th className="py-3 px-3 text-center">Unique Users</th>
+                  <th className="py-3 px-3 text-center">Featured</th>
                   <th className="py-3 px-3 text-center">Navbar</th>
                   <th className="py-3 px-3 text-center">Mega Menu</th>
                   <th className="py-3 px-3 text-center">Search</th>
-                  <th className="py-3 px-3 text-center">AI</th>
-                  <th className="py-3 px-3 text-center">Featured</th>
-                  <th className="py-3 px-3">Badge</th>
                   <th className="py-3 px-3">Status</th>
                   <th className="py-3 px-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredItems.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="hover:bg-slate-50/70 transition group"
-                  >
-                    {/* Position & Move */}
-                    <td className="py-3 px-2 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => moveItem(item, 'up')}
-                          title="Move Up"
-                          className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition cursor-pointer"
-                        >
-                          <ChevronUp className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="text-[10px] font-mono text-slate-500 w-4 text-center">
-                          {item.position + 1}
+                {filteredItems.map((item) => {
+                  const telemetry = telemetryLookup.get(item.toolId) || { uses: 0, users: 0, isMostUsed: false, isFeatured: false };
+
+                  return (
+                    <tr
+                      key={item.id}
+                      className="hover:bg-slate-50/70 transition group"
+                    >
+                      {/* Position & Move */}
+                      <td className="py-3 px-2 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => moveItem(item, 'up')}
+                            title="Move Up"
+                            className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition cursor-pointer"
+                          >
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="text-[10px] font-mono text-slate-500 w-4 text-center">
+                            {item.position + 1}
+                          </span>
+                          <button
+                            onClick={() => moveItem(item, 'down')}
+                            title="Move Down"
+                            className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition cursor-pointer"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Tool Name & Route */}
+                      <td className="py-3 px-4">
+                        <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                          <span>{item.toolName}</span>
+                          {item.featured && (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 font-bold border border-purple-200">
+                              Featured
+                            </span>
+                          )}
+                          {!item.featured && telemetry.isMostUsed && (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
+                              Most Used
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] font-mono text-slate-400 mt-0.5">
+                          {item.route}
+                        </div>
+                      </td>
+
+                      {/* Category */}
+                      <td className="py-3 px-3 text-center">
+                        <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 capitalize">
+                          {item.categoryId}
                         </span>
+                      </td>
+
+                      {/* Successful Uses */}
+                      <td className="py-3 px-3 text-center font-mono font-bold text-slate-800">
+                        {telemetry.uses.toLocaleString()}
+                      </td>
+
+                      {/* Unique Users */}
+                      <td className="py-3 px-3 text-center font-mono text-slate-600">
+                        {telemetry.users.toLocaleString()}
+                      </td>
+
+                      {/* Featured Toggle */}
+                      <td className="py-3 px-3 text-center">
                         <button
-                          onClick={() => moveItem(item, 'down')}
-                          title="Move Down"
-                          className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition cursor-pointer"
+                          onClick={() => updateItemField(item, 'featured', !item.featured)}
+                          title="Toggle Admin Featured status (prominently displays tool)"
+                          className={`p-1.5 rounded-lg border transition cursor-pointer ${
+                            item.featured
+                              ? 'bg-purple-50 text-purple-600 border-purple-300'
+                              : 'bg-slate-100 text-slate-300 border-slate-200'
+                          }`}
                         >
-                          <ChevronDown className="w-3.5 h-3.5" />
+                          <Star className={`w-3.5 h-3.5 ${item.featured ? 'fill-current' : ''}`} />
                         </button>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Tool Name & Route */}
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-900">
-                        {item.toolName}
-                      </div>
-                      <div className="text-[11px] font-mono text-slate-400 mt-0.5">
-                        {item.route}
-                      </div>
-                    </td>
-
-                    {/* Category */}
-                    <td className="py-3 px-3 text-center">
-                      <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 capitalize">
-                        {item.categoryId}
-                      </span>
-                    </td>
-
-                    {/* Navbar Toggle */}
-                    <td className="py-3 px-3 text-center">
-                      <button
-                        onClick={() => updateItemField(item, 'visibleInNavbar', !item.visibleInNavbar)}
-                        title="Toggle visibility in top navbar"
-                        className={`p-1.5 rounded-lg border transition cursor-pointer ${
-                          item.visibleInNavbar
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : 'bg-slate-100 text-slate-400 border-slate-200'
-                        }`}
-                      >
-                        {item.visibleInNavbar ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                      </button>
-                    </td>
-
-                    {/* Mega Menu Toggle */}
-                    <td className="py-3 px-3 text-center">
-                      <button
-                        onClick={() => updateItemField(item, 'visibleInMegaMenu', !item.visibleInMegaMenu)}
-                        title="Toggle visibility in dropdown mega menus"
-                        className={`p-1.5 rounded-lg border transition cursor-pointer ${
-                          item.visibleInMegaMenu
-                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                            : 'bg-slate-100 text-slate-400 border-slate-200'
-                        }`}
-                      >
-                        <Compass className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-
-                    {/* Search Toggle */}
-                    <td className="py-3 px-3 text-center">
-                      <button
-                        onClick={() => updateItemField(item, 'visibleInSearch', !item.visibleInSearch)}
-                        title="Toggle visibility in search and command bar"
-                        className={`p-1.5 rounded-lg border transition cursor-pointer ${
-                          item.visibleInSearch
-                            ? 'bg-sky-50 text-sky-700 border-sky-200'
-                            : 'bg-slate-100 text-slate-400 border-slate-200'
-                        }`}
-                      >
-                        <Search className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-
-                    {/* AI Toggle */}
-                    <td className="py-3 px-3 text-center">
-                      <button
-                        onClick={() => updateItemField(item, 'visibleInAI', !item.visibleInAI)}
-                        title="Toggle visibility in AI assistant tool recommendations"
-                        className={`p-1.5 rounded-lg border transition cursor-pointer ${
-                          item.visibleInAI
-                            ? 'bg-purple-50 text-purple-700 border-purple-200'
-                            : 'bg-slate-100 text-slate-400 border-slate-200'
-                        }`}
-                      >
-                        <Bot className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-
-                    {/* Featured Toggle */}
-                    <td className="py-3 px-3 text-center">
-                      <button
-                        onClick={() => updateItemField(item, 'featured', !item.featured)}
-                        title="Highlight as featured tool"
-                        className={`p-1.5 rounded-lg border transition cursor-pointer ${
-                          item.featured
-                            ? 'bg-amber-50 text-amber-600 border-amber-300'
-                            : 'bg-slate-100 text-slate-300 border-slate-200'
-                        }`}
-                      >
-                        <Star className={`w-3.5 h-3.5 ${item.featured ? 'fill-current' : ''}`} />
-                      </button>
-                    </td>
-
-                    {/* Badge Input */}
-                    <td className="py-3 px-3">
-                      <input
-                        type="text"
-                        defaultValue={item.badge || ''}
-                        onBlur={(e) => {
-                          const val = e.target.value.trim() || null;
-                          if (val !== item.badge) {
-                            updateItemField(item, 'badge', val);
-                          }
-                        }}
-                        placeholder="e.g. NEW, PRO"
-                        className="w-20 text-[11px] font-mono px-2 py-1 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
-                      />
-                    </td>
-
-                    {/* Status Selector */}
-                    <td className="py-3 px-3">
-                      <select
-                        value={item.status}
-                        onChange={(e) => updateItemField(item, 'status', e.target.value as NavigationStatus)}
-                        className="text-[11px] px-2 py-1 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium text-slate-800"
-                      >
-                        <option value="ACTIVE">Active</option>
-                        <option value="NAVBAR_HIDDEN">Navbar Hidden</option>
-                        <option value="MAINTENANCE">Maintenance</option>
-                        <option value="DISABLED">Disabled</option>
-                      </select>
-                    </td>
-
-                    {/* Actions: Remove from Navbar */}
-                    <td className="py-3 px-3 text-right">
-                      {item.visibleInNavbar ? (
+                      {/* Navbar Toggle */}
+                      <td className="py-3 px-3 text-center">
                         <button
-                          onClick={() => handleRemoveFromNavbar(item)}
-                          className="px-2 py-1 rounded-lg text-[11px] text-red-600 hover:bg-red-50 font-medium transition cursor-pointer border border-red-100"
-                          title="Hide tool from top Navbar (retains tool functionality)"
+                          onClick={() => updateItemField(item, 'visibleInNavbar', !item.visibleInNavbar)}
+                          title="Toggle visibility in top navbar"
+                          className={`p-1.5 rounded-lg border transition cursor-pointer ${
+                            item.visibleInNavbar
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-slate-100 text-slate-400 border-slate-200'
+                          }`}
                         >
-                          Remove from Nav
+                          {item.visibleInNavbar ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                         </button>
-                      ) : (
+                      </td>
+
+                      {/* Mega Menu Toggle */}
+                      <td className="py-3 px-3 text-center">
                         <button
-                          onClick={() => updateItemField(item, 'visibleInNavbar', true)}
-                          className="px-2 py-1 rounded-lg text-[11px] text-blue-600 hover:bg-blue-50 font-medium transition cursor-pointer border border-blue-100"
-                          title="Add tool to top Navbar"
+                          onClick={() => updateItemField(item, 'visibleInMegaMenu', !item.visibleInMegaMenu)}
+                          title="Toggle visibility in dropdown mega menus"
+                          className={`p-1.5 rounded-lg border transition cursor-pointer ${
+                            item.visibleInMegaMenu
+                              ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                              : 'bg-slate-100 text-slate-400 border-slate-200'
+                          }`}
                         >
-                          Add to Nav
+                          <Compass className="w-3.5 h-3.5" />
                         </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+
+                      {/* Search Toggle */}
+                      <td className="py-3 px-3 text-center">
+                        <button
+                          onClick={() => updateItemField(item, 'visibleInSearch', !item.visibleInSearch)}
+                          title="Toggle visibility in search and command bar"
+                          className={`p-1.5 rounded-lg border transition cursor-pointer ${
+                            item.visibleInSearch
+                              ? 'bg-sky-50 text-sky-700 border-sky-200'
+                              : 'bg-slate-100 text-slate-400 border-slate-200'
+                          }`}
+                        >
+                          <Search className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+
+                      {/* Status Selector */}
+                      <td className="py-3 px-3">
+                        <select
+                          value={item.status}
+                          onChange={(e) => updateItemField(item, 'status', e.target.value as NavigationStatus)}
+                          className="text-[11px] px-2 py-1 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium text-slate-800"
+                        >
+                          <option value="ACTIVE">Active</option>
+                          <option value="NAVBAR_HIDDEN">Navbar Hidden</option>
+                          <option value="MAINTENANCE">Maintenance</option>
+                          <option value="DISABLED">Disabled</option>
+                        </select>
+                      </td>
+
+                      {/* Actions: Remove / Add */}
+                      <td className="py-3 px-3 text-right">
+                        {item.visibleInNavbar ? (
+                          <button
+                            onClick={() => handleRemoveFromNavbar(item)}
+                            className="px-2 py-1 rounded-lg text-[11px] text-red-600 hover:bg-red-50 font-medium transition cursor-pointer border border-red-100"
+                            title="Remove from Nav"
+                          >
+                            Remove from Nav
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => updateItemField(item, 'visibleInNavbar', true)}
+                            className="px-2 py-1 rounded-lg text-[11px] text-blue-600 hover:bg-blue-50 font-medium transition cursor-pointer border border-blue-100"
+                            title="Add tool to top Navbar"
+                          >
+                            Show
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -596,7 +906,6 @@ export default function AdminNavigationPage() {
             </div>
 
             <form onSubmit={handleAddToolSubmit} className="space-y-3.5 text-xs">
-              {/* Tool Selector */}
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
                   Select Registered Tool
@@ -614,7 +923,6 @@ export default function AdminNavigationPage() {
                 </select>
               </div>
 
-              {/* Category */}
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
                   Destination Category
@@ -633,7 +941,6 @@ export default function AdminNavigationPage() {
                 </select>
               </div>
 
-              {/* Toggles */}
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -658,154 +965,31 @@ export default function AdminNavigationPage() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={newVisibleSearch}
-                    onChange={(e) => setNewVisibleSearch(e.target.checked)}
-                    className="rounded text-blue-600 focus:ring-blue-500"
-                  />
-                  <span>Show in Search</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={newVisibleAI}
-                    onChange={(e) => setNewVisibleAI(e.target.checked)}
-                    className="rounded text-blue-600 focus:ring-blue-500"
-                  />
-                  <span>Show in AI</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
                     checked={newFeatured}
                     onChange={(e) => setNewFeatured(e.target.checked)}
-                    className="rounded text-amber-600 focus:ring-amber-500"
+                    className="rounded text-blue-600 focus:ring-blue-500"
                   />
-                  <span>Highlight as Featured</span>
+                  <span>Featured Tool</span>
                 </label>
               </div>
 
-              {/* Badge & Status */}
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Custom Badge (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={newBadge}
-                    onChange={(e) => setNewBadge(e.target.value)}
-                    placeholder="e.g. NEW, PRO"
-                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Initial Status
-                  </label>
-                  <select
-                    value={newStatus}
-                    onChange={(e) => setNewStatus(e.target.value as NavigationStatus)}
-                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="ACTIVE">Active</option>
-                    <option value="NAVBAR_HIDDEN">Navbar Hidden</option>
-                    <option value="MAINTENANCE">Maintenance</option>
-                    <option value="DISABLED">Disabled</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setAddModalOpen(false)}
-                  className="px-3 py-1.5 rounded-xl text-slate-600 hover:bg-slate-100 cursor-pointer"
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingAdd}
-                  className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xs cursor-pointer disabled:opacity-50"
                 >
-                  {isSubmittingAdd ? 'Saving...' : 'Add to Navigation'}
+                  {isSubmittingAdd ? 'Adding...' : 'Add to Navigation'}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal 2: Category Management */}
-      {categoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Layers className="w-4 h-4 text-indigo-600" />
-                <span>Category Management</span>
-              </h2>
-              <button
-                onClick={() => setCategoryModalOpen(false)}
-                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-500">
-              Customize the display names and visibility of top-level navigation categories. Internal IDs remain stable.
-            </p>
-
-            <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
-              {categories.map((cat) => (
-                <div
-                  key={cat.id}
-                  className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-3 text-xs"
-                >
-                  <div className="flex-1 space-y-1">
-                    <div className="font-mono text-[10px] text-slate-400 uppercase">
-                      ID: {cat.id}
-                    </div>
-                    <input
-                      type="text"
-                      defaultValue={cat.label}
-                      onBlur={(e) => {
-                        const val = e.target.value.trim();
-                        if (val && val !== cat.label) {
-                          handleUpdateCategory(cat.id, { label: val });
-                        }
-                      }}
-                      className="w-full px-2.5 py-1 rounded-lg border border-slate-200 bg-white font-semibold text-slate-800 text-xs"
-                    />
-                  </div>
-
-                  <button
-                    onClick={() => handleUpdateCategory(cat.id, { visible: !cat.visible })}
-                    className={`p-2 rounded-lg border transition cursor-pointer ${
-                      cat.visible
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-slate-200 text-slate-500 border-slate-300'
-                    }`}
-                    title={cat.visible ? 'Visible in navigation' : 'Hidden in navigation'}
-                  >
-                    {cat.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <div className="pt-3 flex justify-end border-t border-slate-100">
-              <button
-                onClick={() => setCategoryModalOpen(false)}
-                className="px-4 py-1.5 rounded-xl bg-slate-900 text-white font-semibold text-xs hover:bg-slate-800 cursor-pointer"
-              >
-                Done
-              </button>
-            </div>
           </div>
         </div>
       )}

@@ -9,10 +9,10 @@
  * 4. Zero arbitrary URLs or unsafe injections: every route is strictly derived from canonical tools.
  */
 
-import { CANONICAL_TOOL_REGISTRY, CANONICAL_TOOL_CATEGORIES } from '../tools/tool-registry';
-import type { CanonicalTool, CanonicalToolCategory } from '../tools/tool-registry';
-import { getSupabaseAdminClient } from '../supabase/admin';
-import { featureServerStore } from '../features/feature-store';
+import { CANONICAL_TOOL_REGISTRY, CANONICAL_TOOL_CATEGORIES } from '../tools/tool-registry.ts';
+import type { CanonicalTool, CanonicalToolCategory } from '../tools/tool-registry.ts';
+import { getSupabaseAdminClient } from '../supabase/admin.ts';
+import { featureServerStore } from '../features/feature-store.ts';
 
 export type NavigationStatus = 'ACTIVE' | 'NAVBAR_HIDDEN' | 'DISABLED' | 'MAINTENANCE';
 
@@ -81,11 +81,24 @@ function buildDefaultConfigs(): NavigationConfigItem[] {
   });
 }
 
+import { toolDiscoveryService } from './tool-discovery-service.ts';
+
 class NavigationStore {
   private cache: NavigationConfigItem[] | null = null;
   private categoryCache: CategoryConfigItem[] = [...DEFAULT_CATEGORY_CONFIGS];
   private cacheExpiry = 0;
   private readonly TTL_MS = 60_000; // 1 minute in-memory cache
+
+  /**
+   * Clears internal cache and triggers smart navbar tool discovery cache invalidation.
+   */
+  public invalidateCache(): void {
+    this.cache = null;
+    this.cacheExpiry = 0;
+    try {
+      toolDiscoveryService.invalidateCache();
+    } catch {}
+  }
 
   /**
    * Retrieves all navigation configurations, prioritizing Supabase table `navigation_configs`.
@@ -237,6 +250,9 @@ class NavigationStore {
       all.push(updatedItem);
     }
     this.cache = all;
+    try {
+      toolDiscoveryService.invalidateCache();
+    } catch {}
 
     try {
       const supabase = getSupabaseAdminClient();
@@ -337,6 +353,9 @@ class NavigationStore {
 
     all.sort((a, b) => a.position - b.position);
     this.cache = all;
+    try {
+      toolDiscoveryService.invalidateCache();
+    } catch {}
 
     // Batch upsert to Supabase in background
     try {
@@ -376,6 +395,9 @@ class NavigationStore {
     const defaults = buildDefaultConfigs();
     this.cache = defaults;
     this.categoryCache = [...DEFAULT_CATEGORY_CONFIGS];
+    try {
+      toolDiscoveryService.invalidateCache();
+    } catch {}
 
     try {
       const supabase = getSupabaseAdminClient();

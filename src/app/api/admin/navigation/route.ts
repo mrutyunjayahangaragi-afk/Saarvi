@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { navigationStore } from '@/lib/navigation/navigation-store';
+import { toolDiscoveryService } from '@/lib/navigation/tool-discovery-service';
 import { enforceRateLimit, createRateLimitResponse } from '@/lib/security/rate-limit';
 import { getAuthenticatedAdmin } from '@/lib/security/admin-auth';
 
@@ -7,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/admin/navigation
- * Returns current navigation configs and categories across the platform.
+ * Returns current navigation configs, categories, and smart navbar preview snapshot.
  * Requires server-authoritative admin authentication.
  */
 export async function GET(request: Request) {
@@ -20,12 +21,24 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: authResult.error }, { status: authResult.status });
     }
 
-    const [items, categories] = await Promise.all([
+    const { searchParams } = new URL(request.url);
+    const windowParam = searchParams.get('window');
+    const { days } = toolDiscoveryService.parseWindowPeriod(windowParam);
+
+    const [items, categories, previewSnapshot] = await Promise.all([
       navigationStore.getAllConfigs(),
       navigationStore.getCategoryConfigs(),
+      toolDiscoveryService.getNavigationSnapshot({ windowDays: days, forceRefresh: true }),
     ]);
 
-    return NextResponse.json({ success: true, items, categories });
+    return NextResponse.json({
+      success: true,
+      items,
+      categories,
+      previewSnapshot,
+      windowDays: days,
+      defaultWindowDays: toolDiscoveryService.getDefaultWindowDays(),
+    });
   } catch (error: any) {
     console.error('[Admin Navigation API] GET error:', error);
     return NextResponse.json({ error: error.message || 'Failed to fetch navigation' }, { status: 500 });
@@ -34,7 +47,7 @@ export async function GET(request: Request) {
 
 /**
  * POST /api/admin/navigation
- * Update single item, add tool, remove tool from navbar, reorder category, or reset to defaults.
+ * Update single item, add tool, remove tool from navbar, reorder category, set usage window, or reset to defaults.
  * Requires server-authoritative admin authentication with MANAGE permission.
  */
 export async function POST(request: Request) {
@@ -49,11 +62,33 @@ export async function POST(request: Request) {
 
     const adminEmail = authResult.user.email;
     const body = await request.json();
-    const { action, toolId, categoryId, updates, toolIdsInOrder, categoryIdsInOrder, overrides } = body;
+    const { action, toolId, categoryId, updates, toolIdsInOrder, categoryIdsInOrder, overrides, windowDays } = body;
+
+    // Action: Set Default Usage Window
+    if (action === 'set_window') {
+      if (typeof windowDays === 'number' || windowDays === '7d' || windowDays === '30d' || windowDays === '90d') {
+        toolDiscoveryService.setDefaultWindow(windowDays);
+        return NextResponse.json({
+          success: true,
+          defaultWindowDays: toolDiscoveryService.getDefaultWindowDays(),
+        });
+      } else if (typeof windowDays === 'string') {
+        const parsed = parseInt(windowDays, 10);
+        if (!isNaN(parsed) && (parsed === 7 || parsed === 30 || parsed === 90)) {
+          toolDiscoveryService.setDefaultWindow(parsed);
+          return NextResponse.json({
+            success: true,
+            defaultWindowDays: toolDiscoveryService.getDefaultWindowDays(),
+          });
+        }
+      }
+      return NextResponse.json({ error: 'windowDays must be 7, 30, 90, "7d", "30d", or "90d".' }, { status: 400 });
+    }
 
     // Action 1: Reset to canonical defaults
     if (action === 'reset') {
       const items = await navigationStore.resetToDefaults(adminEmail);
+      toolDiscoveryService.invalidateCache();
       return NextResponse.json({ success: true, items });
     }
 
@@ -63,6 +98,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'categoryId and toolIdsInOrder array are required.' }, { status: 400 });
       }
       const items = await navigationStore.reorderCategory(categoryId, toolIdsInOrder, adminEmail);
+      toolDiscoveryService.invalidateCache();
       return NextResponse.json({ success: true, items });
     }
 
@@ -72,6 +108,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'categoryIdsInOrder array is required.' }, { status: 400 });
       }
       const categories = await navigationStore.reorderCategories(categoryIdsInOrder);
+      toolDiscoveryService.invalidateCache();
       return NextResponse.json({ success: true, categories });
     }
 
@@ -81,6 +118,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'categoryId and updates are required.' }, { status: 400 });
       }
       const categories = await navigationStore.updateCategoryConfig(categoryId, updates, adminEmail);
+      toolDiscoveryService.invalidateCache();
       return NextResponse.json({ success: true, categories });
     }
 
@@ -90,6 +128,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'toolId and categoryId are required.' }, { status: 400 });
       }
       const item = await navigationStore.addTool(toolId, categoryId, overrides, adminEmail);
+      toolDiscoveryService.invalidateCache();
       return NextResponse.json({ success: true, item });
     }
 
@@ -99,6 +138,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'toolId and categoryId are required.' }, { status: 400 });
       }
       const item = await navigationStore.removeFromNavbar(toolId, categoryId, adminEmail);
+      toolDiscoveryService.invalidateCache();
       return NextResponse.json({ success: true, item });
     }
 
@@ -108,6 +148,7 @@ export async function POST(request: Request) {
     }
 
     const updated = await navigationStore.updateConfig(toolId, categoryId, updates, adminEmail);
+    toolDiscoveryService.invalidateCache();
     return NextResponse.json({ success: true, item: updated });
   } catch (error: any) {
     console.error('[Admin Navigation API] POST error:', error);

@@ -804,29 +804,66 @@ export default function Navbar() {
                 />
               </button>
               {mobileExpandedSection === "pdf" && (
-                <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs">
+                <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs max-h-80 overflow-y-auto">
                   <Link
                     href="/pdf"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50"
+                    className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50 mb-1"
                   >
                     View All PDF Tools →
                   </Link>
-                  <Link href="/tools/merge-pdf" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Merge PDF
-                  </Link>
-                  <Link href="/tools/split-pdf" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Split PDF
-                  </Link>
-                  <Link href="/tools/compress-pdf" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Compress PDF
-                  </Link>
-                  <Link href="/tools/pdf-to-jpg" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    PDF to JPG
-                  </Link>
-                  <Link href="/tools/rotate-pdf" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Rotate PDF
-                  </Link>
+                  {(
+                    navCategories.find((c) => c.id === "pdf")?.allTools?.length > 0
+                      ? navCategories.find((c) => c.id === "pdf")!.allTools
+                      : [
+                          { key: "merge-pdf", name: "Merge PDF", route: "/tools/merge-pdf" },
+                          { key: "split-pdf", name: "Split PDF", route: "/tools/split-pdf" },
+                          { key: "compress-pdf", name: "Compress PDF", route: "/tools/compress-pdf" },
+                          { key: "pdf-to-jpg", name: "PDF to JPG", route: "/tools/pdf-to-jpg" },
+                          { key: "pdf-to-word", name: "PDF to Word", route: "/tools/pdf-to-word" },
+                          { key: "pdf-to-excel", name: "PDF to Excel", route: "/tools/pdf-to-excel" },
+                          { key: "word-to-pdf", name: "Word to PDF", route: "/tools/word-to-pdf" },
+                          { key: "excel-to-pdf", name: "Excel to PDF", route: "/tools/excel-to-pdf" },
+                          { key: "protect-pdf", name: "Protect PDF", route: "/tools/protect-pdf" },
+                          { key: "unlock-pdf", name: "Unlock PDF", route: "/tools/unlock-pdf" },
+                          { key: "watermark-pdf", name: "Watermark PDF", route: "/tools/watermark-pdf" },
+                          { key: "reorder-pdf", name: "Reorder PDF Pages", route: "/tools/reorder-pdf" },
+                          { key: "rotate-pdf", name: "Rotate PDF", route: "/tools/rotate-pdf" },
+                          { key: "delete-pdf-pages", name: "Delete PDF Pages", route: "/tools/delete-pdf-pages" },
+                          { key: "extract-pdf-pages", name: "Extract PDF Pages", route: "/tools/extract-pdf-pages" },
+                          { key: "compress-pdf", name: "Compress PDF", route: "/tools/compress-pdf" },
+                          { key: "txt-to-pdf", name: "TXT to PDF", route: "/tools/txt-to-pdf" },
+                          { key: "csv-to-pdf", name: "CSV to PDF", route: "/tools/csv-to-pdf" },
+                          { key: "html-to-pdf", name: "HTML to PDF", route: "/tools/html-to-pdf" },
+                          { key: "pdf-to-png", name: "PDF to PNG", route: "/tools/pdf-to-png" },
+                          { key: "pdf-to-powerpoint", name: "PDF to PowerPoint", route: "/tools/pdf-to-powerpoint" },
+                          { key: "powerpoint-to-pdf", name: "PowerPoint to PDF", route: "/tools/powerpoint-to-pdf" },
+                          { key: "page-numbers-pdf", name: "Add Page Numbers", route: "/tools/page-numbers-pdf" },
+                          { key: "pdf-header-footer", name: "PDF Header & Footer", route: "/tools/pdf-header-footer" },
+                          { key: "flatten-pdf", name: "Flatten PDF", route: "/tools/flatten-pdf" },
+                          { key: "pdf-metadata", name: "PDF Metadata Editor", route: "/tools/pdf-metadata" },
+                          { key: "pdf-info", name: "PDF Info & Inspection", route: "/tools/pdf-info" },
+                        ]
+                  ).map((tool: any) => (
+                    <Link
+                      key={tool.key}
+                      href={tool.route}
+                      onClick={() => {
+                        handleToolClick(tool.key, "pdf");
+                        setMobileMenuOpen(false);
+                      }}
+                      className="flex items-center justify-between p-2 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                      <span className="font-medium truncate">{tool.name}</span>
+                      {tool.isFeatured ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 font-bold shrink-0">Featured</span>
+                      ) : tool.isMostUsed ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold shrink-0">Most Used</span>
+                      ) : tool.requiresPro ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-white font-bold shrink-0">PRO</span>
+                      ) : null}
+                    </Link>
+                  ))}
                 </div>
               )}
             </div>
@@ -849,72 +886,57 @@ export default function Navbar() {
                 />
               </button>
               {mobileExpandedSection === "images" && (
-                <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs">
+                <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs max-h-80 overflow-y-auto">
                   <Link
                     href="/images"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50"
+                    className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50 mb-1"
                   >
                     View All Image Tools →
                   </Link>
-                  <Link href="/tools/jpg-to-pdf" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    JPG to PDF
-                  </Link>
-                  <Link href="/tools/png-to-jpg" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    PNG to JPG
-                  </Link>
-                  <Link href="/tools/multiple-images-to-pdf" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Multiple Images to PDF
-                  </Link>
-                  <Link href="/tools/image-resize" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Resize Image
-                  </Link>
-                  <Link href="/tools/compress-image" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Compress Image
-                  </Link>
+                  {(
+                    navCategories.find((c) => c.id === "images" || c.id === "image")?.allTools?.length > 0
+                      ? navCategories.find((c) => c.id === "images" || c.id === "image")!.allTools
+                      : [
+                          { key: "document-scanner", name: "Document Scanner", route: "/tools/document-scanner" },
+                          { key: "scan-to-pdf", name: "Scan to PDF", route: "/tools/scan-to-pdf" },
+                          { key: "photo-to-document", name: "Photo to Document", route: "/tools/photo-to-document" },
+                          { key: "jpg-to-pdf", name: "JPG to PDF", route: "/tools/jpg-to-pdf" },
+                          { key: "png-to-jpg", name: "PNG to JPG", route: "/tools/png-to-jpg" },
+                          { key: "jpg-to-png", name: "JPG to PNG", route: "/tools/jpg-to-png" },
+                          { key: "image-to-pdf", name: "Image to PDF", route: "/tools/image-to-pdf" },
+                          { key: "multiple-images-to-pdf", name: "Multiple Images to PDF", route: "/tools/multiple-images-to-pdf" },
+                          { key: "image-resize", name: "Resize Image", route: "/tools/image-resize" },
+                          { key: "crop-image", name: "Crop Image", route: "/tools/crop-image" },
+                          { key: "compress-image", name: "Compress Image", route: "/tools/compress-image" },
+                          { key: "svg-to-png", name: "SVG to PNG", route: "/tools/svg-to-png" },
+                          { key: "heic-to-jpg", name: "HEIC to JPG", route: "/tools/heic-to-jpg" },
+                        ]
+                  ).map((tool: any) => (
+                    <Link
+                      key={tool.key}
+                      href={tool.route}
+                      onClick={() => {
+                        handleToolClick(tool.key, "images");
+                        setMobileMenuOpen(false);
+                      }}
+                      className="flex items-center justify-between p-2 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                      <span className="font-medium truncate">{tool.name}</span>
+                      {tool.isFeatured ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 font-bold shrink-0">Featured</span>
+                      ) : tool.isMostUsed ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold shrink-0">Most Used</span>
+                      ) : tool.requiresPro ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-white font-bold shrink-0">PRO</span>
+                      ) : null}
+                    </Link>
+                  ))}
                 </div>
               )}
             </div>
 
-            {/* Mobile Accordion 3: Academic Tools */}
-            <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">
-              <button
-                type="button"
-                onClick={() => toggleMobileSection("academic")}
-                className="w-full p-3.5 text-left font-bold text-xs text-slate-800 flex items-center justify-between"
-              >
-                <span className="flex items-center gap-2">
-                  <GraduationCap className="w-4 h-4 text-purple-600" />
-                  Academic Tools
-                </span>
-                <ChevronDown
-                  className={`w-4 h-4 text-slate-400 transition-transform ${
-                    mobileExpandedSection === "academic" ? "rotate-180 text-blue-600" : ""
-                  }`}
-                />
-              </button>
-              {mobileExpandedSection === "academic" && (
-                <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs">
-                  <Link href="/student/sgpa-calculator" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold">
-                    SGPA Calculator
-                  </Link>
-                  <Link href="/student/cgpa-calculator" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    CGPA Calculator
-                  </Link>
-                  <Link href="/student/attendance" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Attendance Planner
-                  </Link>
-                  <Link href="/student/calculator" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Marks Calculator
-                  </Link>
-                  <Link href="/student/goals" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Academic Goals
-                  </Link>
-                </div>
-              )}
-            </div>
-
-            {/* Mobile Accordion 4: Student Tools */}
+            {/* Mobile Accordion 3: Student Tools */}
             <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">
               <button
                 type="button"
@@ -922,8 +944,8 @@ export default function Navbar() {
                 className="w-full p-3.5 text-left font-bold text-xs text-slate-800 flex items-center justify-between"
               >
                 <span className="flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-indigo-600" />
-                  Student Utilities
+                  <GraduationCap className="w-4 h-4 text-indigo-600" />
+                  Student Tools
                 </span>
                 <ChevronDown
                   className={`w-4 h-4 text-slate-400 transition-transform ${
@@ -932,39 +954,53 @@ export default function Navbar() {
                 />
               </button>
               {mobileExpandedSection === "student" && (
-                <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs">
-                  <Link href="/student-tools" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50">
+                <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs max-h-80 overflow-y-auto">
+                  <Link href="/student-tools" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50 mb-1">
                     View All Student Tools →
                   </Link>
-                  <Link href="/student" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50 font-medium">
-                    Student Portal Overview
-                  </Link>
-                  <Link href="/student/timetable" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Timetable Generator
-                  </Link>
-                  <Link href="/student/study-planner" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Study Planner
-                  </Link>
-                  <Link href="/student/exams" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Exam Schedule Tracker
-                  </Link>
-                  <Link href="/student/assignments" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Assignment Tracker
-                  </Link>
-                  <Link href="/student/certificates" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Certificate Locker
-                  </Link>
-                  <Link href="/student/internships" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Internship Tracker
-                  </Link>
-                  <Link href="/student/hackathons" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Hackathon Tracker
-                  </Link>
+                  {(
+                    navCategories.find((c) => c.id === "student")?.allTools?.length > 0
+                      ? navCategories.find((c) => c.id === "student")!.allTools
+                      : [
+                          { key: "sgpa-calculator", name: "SGPA Calculator", route: "/student/sgpa-calculator" },
+                          { key: "cgpa-calculator", name: "CGPA Calculator", route: "/student/cgpa-calculator" },
+                          { key: "attendance-tracker", name: "Attendance Planner", route: "/student/attendance" },
+                          { key: "exam-marks-analyzer", name: "Marks Calculator", route: "/student/calculator" },
+                          { key: "academic-goals", name: "Academic Goals", route: "/student/goals" },
+                          { key: "timetable-generator", name: "Timetable Generator", route: "/student/timetable" },
+                          { key: "study-planner", name: "Study Planner", route: "/student/study-planner" },
+                          { key: "exam-tracker", name: "Exam Schedule Tracker", route: "/student/exams" },
+                          { key: "assignment-tracker", name: "Assignment Tracker", route: "/student/assignments" },
+                          { key: "student-notes", name: "Study Notes", route: "/student/notes" },
+                          { key: "certificate-manager", name: "Certificate Locker", route: "/student/certificates" },
+                          { key: "internship-tracker", name: "Internship Tracker", route: "/student/internships" },
+                          { key: "hackathon-tracker", name: "Hackathon Tracker", route: "/student/hackathons" },
+                        ]
+                  ).map((tool: any) => (
+                    <Link
+                      key={tool.key}
+                      href={tool.route}
+                      onClick={() => {
+                        handleToolClick(tool.key, "student");
+                        setMobileMenuOpen(false);
+                      }}
+                      className="flex items-center justify-between p-2 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                      <span className="font-medium truncate">{tool.name}</span>
+                      {tool.isFeatured ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 font-bold shrink-0">Featured</span>
+                      ) : tool.isMostUsed ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold shrink-0">Most Used</span>
+                      ) : tool.requiresPro ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-white font-bold shrink-0">PRO</span>
+                      ) : null}
+                    </Link>
+                  ))}
                 </div>
               )}
             </div>
 
-            {/* Mobile Accordion 5: Career Tools */}
+            {/* Mobile Accordion 4: Career Tools */}
             <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">
               <button
                 type="button"
@@ -982,28 +1018,37 @@ export default function Navbar() {
                 />
               </button>
               {mobileExpandedSection === "career" && (
-                <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs">
-                  <Link href="/jobs" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50">
+                <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs max-h-80 overflow-y-auto">
+                  <Link href="/jobs" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50 mb-1">
                     Jobs &amp; Internships Platform →
                   </Link>
-                  <Link href="/student/resume" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold">
-                    Resume Builder (Live Preview)
-                  </Link>
-                  <Link href="/student/cover-letter" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50 font-semibold">
-                    Cover Letter Builder
-                  </Link>
-                  <Link href="/student/jobs" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Job Application Tracker
-                  </Link>
-                  <Link href="/student/interviews" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Interview Preparation Hub
-                  </Link>
-                  <Link href="/student/skills" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Skill Gap Analysis
-                  </Link>
-                  <Link href="/student/ats" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    ATS Keyword Scanner
-                  </Link>
+                  {(
+                    navCategories.find((c) => c.id === "career")?.allTools?.length > 0
+                      ? navCategories.find((c) => c.id === "career")!.allTools
+                      : [
+                          { key: "resume-builder", name: "Resume Builder", route: "/student/resume" },
+                          { key: "cover-letter", name: "Cover Letter Builder", route: "/student/cover-letter" },
+                          { key: "job-tracker", name: "Job Application Tracker", route: "/student/jobs" },
+                          { key: "interview-prep", name: "Interview Preparation Hub", route: "/student/interviews" },
+                          { key: "skill-gap-analyzer", name: "Skill Gap Analysis", route: "/student/skills" },
+                          { key: "ats-analyzer", name: "ATS Keyword Scanner", route: "/student/ats" },
+                        ]
+                  ).map((tool: any) => (
+                    <Link
+                      key={tool.key}
+                      href={tool.route}
+                      onClick={() => {
+                        handleToolClick(tool.key, "career");
+                        setMobileMenuOpen(false);
+                      }}
+                      className="flex items-center justify-between p-2 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                      <span className="font-medium truncate">{tool.name}</span>
+                      {tool.requiresPro ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-white font-bold shrink-0">PRO</span>
+                      ) : null}
+                    </Link>
+                  ))}
                 </div>
               )}
             </div>
@@ -1026,25 +1071,41 @@ export default function Navbar() {
                 />
               </button>
               {mobileExpandedSection === "ai" && (
-                <div className="p-3 border-t border-purple-100 bg-white space-y-1 text-xs">
-                  <Link href="/student/copilot" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-purple-700 hover:bg-purple-50 font-semibold">
-                    AI Student Copilot
+                <div className="p-3 border-t border-purple-100 bg-white space-y-1 text-xs max-h-80 overflow-y-auto">
+                  <Link href="/tools?category=ai" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-purple-600 font-semibold hover:bg-purple-50 mb-1">
+                    View All AI Tools →
                   </Link>
-                  <Link href="/student/copilot/interview" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    AI Mock Interview Coach
-                  </Link>
-                  <Link href="/tools/ocr-image" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Image to Text (OCR)
-                  </Link>
-                  <Link href="/tools/ocr-pdf" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Scanned PDF to Text (OCR)
-                  </Link>
-                  <Link href="/tools/document-summary" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Document Summarizer
-                  </Link>
-                  <Link href="/tools/document-qa" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-slate-700 hover:bg-slate-50">
-                    Ask This Document
-                  </Link>
+                  {(
+                    navCategories.find((c) => c.id === "ai")?.allTools?.length > 0
+                      ? navCategories.find((c) => c.id === "ai")!.allTools
+                      : [
+                          { key: "student-copilot", name: "AI Student Copilot", route: "/student/copilot", requiresPro: true },
+                          { key: "copilot-interview", name: "AI Mock Interview Coach", route: "/student/copilot/interview", requiresPro: true },
+                          { key: "ocr-image", name: "Image to Text (OCR)", route: "/tools/ocr-image" },
+                          { key: "ocr-pdf", name: "Scanned PDF to Text (OCR)", route: "/tools/ocr-pdf" },
+                          { key: "document-summary", name: "Document Summarizer", route: "/tools/document-summary" },
+                          { key: "document-qa", name: "Ask This Document", route: "/tools/document-qa" },
+                        ]
+                  ).map((tool: any) => (
+                    <Link
+                      key={tool.key}
+                      href={tool.route}
+                      onClick={() => {
+                        handleToolClick(tool.key, "ai");
+                        setMobileMenuOpen(false);
+                      }}
+                      className="flex items-center justify-between p-2 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                      <span className="font-medium truncate">{tool.name}</span>
+                      {tool.isFeatured ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 font-bold shrink-0">Featured</span>
+                      ) : tool.requiresPro ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-white font-bold shrink-0">PRO</span>
+                      ) : tool.isBeta ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-bold shrink-0">Beta</span>
+                      ) : null}
+                    </Link>
+                  ))}
                 </div>
               )}
             </div>
