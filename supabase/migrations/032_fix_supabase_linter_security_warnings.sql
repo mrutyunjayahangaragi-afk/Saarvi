@@ -67,15 +67,15 @@ BEGIN
 END $$;
 
 -- 2.2 Table public.analytics_events
--- Replace WITH CHECK (true) with explicit event name validation
+-- Replace WITH CHECK (true) with explicit event_type validation
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'analytics_events') THEN
         DROP POLICY IF EXISTS "Allow analytics event inserts" ON public.analytics_events;
         CREATE POLICY "Allow analytics event inserts" ON public.analytics_events
             FOR INSERT WITH CHECK (
-                event_name IS NOT NULL 
-                AND length(event_name) > 0
+                event_type IS NOT NULL 
+                AND length(event_type) > 0
             );
 
         DROP POLICY IF EXISTS "Service role analytics access" ON public.analytics_events;
