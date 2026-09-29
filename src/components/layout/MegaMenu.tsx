@@ -426,6 +426,49 @@ function toSmartItem(t: CanonicalTool): SmartNavToolItem {
   };
 }
 
+// ─── Pure module-level subgroup builders (outside component, stable refs) ─────
+function buildPdfSubgroups(tools: SmartNavToolItem[]): Array<{ label: string; color: string; tools: SmartNavToolItem[] }> {
+  const toolMap = new Map(tools.map((t) => [t.key, t]));
+  const assigned = new Set<string>();
+  const groups: Array<{ label: string; color: string; tools: SmartNavToolItem[] }> = [];
+
+  for (const group of PDF_SUBGROUPS) {
+    const groupTools = group.keys
+      .map((k) => toolMap.get(k))
+      .filter((t): t is SmartNavToolItem => Boolean(t));
+    if (groupTools.length > 0) {
+      groupTools.forEach((t) => assigned.add(t.key));
+      groups.push({ label: group.label, color: group.color, tools: groupTools });
+    }
+  }
+  const remaining = tools.filter((t) => !assigned.has(t.key));
+  if (remaining.length > 0) {
+    groups.push({ label: "Other PDF Tools", color: "text-slate-500", tools: remaining });
+  }
+  return groups;
+}
+
+function buildImageSubgroups(tools: SmartNavToolItem[]): Array<{ label: string; color: string; tools: SmartNavToolItem[] }> {
+  const toolMap = new Map(tools.map((t) => [t.key, t]));
+  const assigned = new Set<string>();
+  const groups: Array<{ label: string; color: string; tools: SmartNavToolItem[] }> = [];
+
+  for (const group of IMAGE_SUBGROUPS) {
+    const groupTools = group.keys
+      .map((k) => toolMap.get(k))
+      .filter((t): t is SmartNavToolItem => Boolean(t));
+    if (groupTools.length > 0) {
+      groupTools.forEach((t) => assigned.add(t.key));
+      groups.push({ label: group.label, color: group.color, tools: groupTools });
+    }
+  }
+  const remaining = tools.filter((t) => !assigned.has(t.key));
+  if (remaining.length > 0) {
+    groups.push({ label: "Other Image Tools", color: "text-slate-500", tools: remaining });
+  }
+  return groups;
+}
+
 // ─── Main MegaMenu ────────────────────────────────────────────────────────────
 export default function MegaMenu({
   activeCategory,
@@ -631,52 +674,7 @@ export default function MegaMenu({
     gFilteredCareer.length > 0 ||
     gFilteredAi.length > 0;
 
-  if (!activeCategory) return null;
-
-  // ─── Resolve PDF subgroups for organized display ──────────────────────────
-  const buildPdfSubgroups = (tools: SmartNavToolItem[]) => {
-    const toolMap = new Map(tools.map((t) => [t.key, t]));
-    const assigned = new Set<string>();
-    const groups: Array<{ label: string; color: string; tools: SmartNavToolItem[] }> = [];
-
-    for (const group of PDF_SUBGROUPS) {
-      const groupTools = group.keys
-        .map((k) => toolMap.get(k))
-        .filter((t): t is SmartNavToolItem => Boolean(t));
-      if (groupTools.length > 0) {
-        groupTools.forEach((t) => assigned.add(t.key));
-        groups.push({ label: group.label, color: group.color, tools: groupTools });
-      }
-    }
-    // Other / remaining PDF tools not in any group
-    const remaining = tools.filter((t) => !assigned.has(t.key));
-    if (remaining.length > 0) {
-      groups.push({ label: "Other PDF Tools", color: "text-slate-500", tools: remaining });
-    }
-    return groups;
-  };
-
-  const buildImageSubgroups = (tools: SmartNavToolItem[]) => {
-    const toolMap = new Map(tools.map((t) => [t.key, t]));
-    const assigned = new Set<string>();
-    const groups: Array<{ label: string; color: string; tools: SmartNavToolItem[] }> = [];
-
-    for (const group of IMAGE_SUBGROUPS) {
-      const groupTools = group.keys
-        .map((k) => toolMap.get(k))
-        .filter((t): t is SmartNavToolItem => Boolean(t));
-      if (groupTools.length > 0) {
-        groupTools.forEach((t) => assigned.add(t.key));
-        groups.push({ label: group.label, color: group.color, tools: groupTools });
-      }
-    }
-    const remaining = tools.filter((t) => !assigned.has(t.key));
-    if (remaining.length > 0) {
-      groups.push({ label: "Other Image Tools", color: "text-slate-500", tools: remaining });
-    }
-    return groups;
-  };
-
+  // ─── Resolve PDF subgroups for organized display (must be before early return) ──
   const pdfSubgroups = useMemo(
     () => (searchFilter.trim() ? [] : buildPdfSubgroups(pdfAllTools)),
     [pdfAllTools, searchFilter]
@@ -689,6 +687,9 @@ export default function MegaMenu({
 
   const totalCount = (cat: SmartNavCategory | undefined, fallback: number) =>
     cat?.totalVisibleCount ?? fallback;
+
+  // ─── Early return MUST come after ALL hooks ──────────────────────────────────
+  if (!activeCategory) return null;
 
   return (
     <div
