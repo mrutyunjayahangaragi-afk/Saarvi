@@ -106,6 +106,18 @@ function JobsContent() {
   // Scope / Opportunity Type
   const initialType = searchParams.get("type") || searchParams.get("category");
   const initialEmp = searchParams.get("employmentType");
+  const hasUrlParams = Boolean(
+    searchParams.get("role") ||
+      searchParams.get("q") ||
+      searchParams.get("location") ||
+      searchParams.get("branch") ||
+      searchParams.get("domain") ||
+      searchParams.get("type") ||
+      searchParams.get("category") ||
+      searchParams.get("employmentType") ||
+      searchParams.get("autoSearch") === "true"
+  );
+
   const derivedInitialType =
     initialType === "internship" || initialEmp === "internship"
       ? "internship"
@@ -113,24 +125,35 @@ function JobsContent() {
       ? "training"
       : initialType === "job" || initialEmp === "full-time"
       ? "job"
-      : "any";
+      : initialType === "any"
+      ? "any"
+      : hasUrlParams
+      ? "any"
+      : "";
 
   const [selectedOpportunityType, setSelectedOpportunityType] = useState<string>(derivedInitialType);
   const [selectedExperience, setSelectedExperience] = useState<string>(searchParams.get("experience") || "all");
   const [selectedWorkMode, setSelectedWorkMode] = useState<string>(searchParams.get("workMode") || searchParams.get("remote") || "all");
   const [customQuery, setCustomQuery] = useState(searchParams.get("q") || "");
 
-  // Progressive Disclosure: "More Filters"
+  // Progressive Disclosure: Contextual Filters
   const [selectedSkills, setSelectedSkills] = useState<string[]>(
     searchParams.get("skills") ? searchParams.get("skills")!.split(",").filter(Boolean) : []
   );
   const [duration, setDuration] = useState(searchParams.get("duration") || "all");
   const [stipend, setStipend] = useState(searchParams.get("stipend") || "all");
   const [salary, setSalary] = useState(searchParams.get("salary") || "all");
+  const [employmentType, setEmploymentType] = useState(searchParams.get("employmentType") || "all");
   const [deliveryMode, setDeliveryMode] = useState(searchParams.get("deliveryMode") || "all");
+  const [company, setCompany] = useState(searchParams.get("company") || "");
+  const [eligibility, setEligibility] = useState(searchParams.get("eligibility") || "all");
+  const [startDate, setStartDate] = useState(searchParams.get("startDate") || "all");
+  const [feeType, setFeeType] = useState(searchParams.get("feeType") || "all");
+  const [provider, setProvider] = useState(searchParams.get("provider") || "");
 
   const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
 
   // Sorting
   const [sortBy, setSortBy] = useState<JobSortOption>((searchParams.get("sortBy") as JobSortOption) || "relevant");
@@ -213,6 +236,79 @@ function JobsContent() {
       opportunityType: selectedOpportunityType,
     });
   }, [selectedBranch, selectedRole, selectedDomain, selectedOpportunityType]);
+
+  // Dynamic Intent-Driven Helpers
+  const isOpportunityTypeSelected = Boolean(
+    selectedOpportunityType && selectedOpportunityType !== "none"
+  );
+
+  const handleOpportunityTypeChange = (newType: string) => {
+    setSelectedOpportunityType(newType);
+    const label =
+      newType === "job"
+        ? "Job"
+        : newType === "internship"
+        ? "Internship"
+        : newType === "training"
+        ? "Training"
+        : newType === "any"
+        ? "Any opportunity"
+        : "Unselected";
+    setLiveAnnouncement(`Opportunity type changed to ${label}. Relevant filters updated.`);
+  };
+
+  const presentation = useMemo(() => {
+    return CareerFilterDependencyEngine.getContextualHeadings(selectedOpportunityType);
+  }, [selectedOpportunityType]);
+
+  const roleLabel = useMemo(() => {
+    return CareerFilterDependencyEngine.getRoleLabel(selectedOpportunityType);
+  }, [selectedOpportunityType]);
+
+  const domainLabel = useMemo(() => {
+    return CareerFilterDependencyEngine.getDomainLabel(selectedOpportunityType);
+  }, [selectedOpportunityType]);
+
+  const activeFiltersConfig = useMemo(() => {
+    const opp = (selectedOpportunityType || "any") as any;
+    return CareerFilterDependencyEngine.getFiltersForOpportunity(opp);
+  }, [selectedOpportunityType]);
+
+  const searchButtonInfo = useMemo(() => {
+    return CareerFilterDependencyEngine.getSearchButtonLabel({
+      opportunityType: selectedOpportunityType,
+      role: selectedRole,
+      branch: selectedBranch,
+      domain: selectedDomain,
+      location: selectedLocation,
+      q: customQuery,
+      skills: selectedSkills,
+      liveCount,
+    });
+  }, [selectedOpportunityType, selectedRole, selectedBranch, selectedDomain, selectedLocation, customQuery, selectedSkills, liveCount]);
+
+  const resultsStreamHeading = useMemo(() => {
+    const opp = (selectedOpportunityType || "").toLowerCase();
+    const roleObj = CANONICAL_JOB_ROLES.find((r) => r.id === selectedRole);
+    const roleName = roleObj ? roleObj.name : selectedRole;
+
+    if (opp === "internship") {
+      return roleName ? `Internship opportunities for ${roleName}` : "Internship Opportunities";
+    }
+    if (opp === "job") {
+      return roleName ? `Job opportunities for ${roleName}` : "Job Opportunities";
+    }
+    if (opp === "training") {
+      return selectedDomain ? `Training programs in ${selectedDomain}` : "Training Programs";
+    }
+    if (roleName) {
+      return `Opportunities for ${roleName}`;
+    }
+    if (selectedLocation && selectedLocation !== "all" && selectedLocation !== "any-location") {
+      return `Opportunities in ${selectedLocation}`;
+    }
+    return "Your Opportunities";
+  }, [selectedOpportunityType, selectedRole, selectedDomain, selectedLocation]);
 
   // Fetch training opportunities
   const fetchTraining = useCallback(async () => {
@@ -555,20 +651,22 @@ function JobsContent() {
 
   // Handle Search Submission
   const handlePrimarySearch = async () => {
-    const hasMeaningfulCondition = Boolean(
-      selectedRole ||
-      selectedBranch ||
-      selectedDomain ||
-      (selectedLocation && selectedLocation !== "all" && selectedLocation !== "any-location") ||
-      (selectedOpportunityType && selectedOpportunityType !== "any") ||
-      (selectedExperience && selectedExperience !== "all") ||
-      (selectedWorkMode && selectedWorkMode !== "all") ||
-      customQuery.trim() ||
-      selectedSkills.length > 0
-    );
+    const opp = (selectedOpportunityType || "").toLowerCase();
+    const hasOpp = Boolean(opp && opp !== "none");
+    const hasRole = Boolean(selectedRole && selectedRole !== "all");
+    const hasBranch = Boolean(selectedBranch && selectedBranch !== "all");
+    const hasDomain = Boolean(selectedDomain && selectedDomain !== "all");
+    const hasLoc = Boolean(selectedLocation && selectedLocation !== "all" && selectedLocation !== "any-location");
+    const hasExp = Boolean(selectedExperience && selectedExperience !== "all" && selectedExperience !== "any");
+    const hasMode = Boolean(selectedWorkMode && selectedWorkMode !== "all" && selectedWorkMode !== "any");
+    const hasQuery = Boolean(customQuery.trim());
+    const hasSkills = selectedSkills.length > 0;
+
+    const hasMeaningfulCondition =
+      hasOpp || hasRole || hasBranch || hasDomain || hasLoc || hasExp || hasMode || hasQuery || hasSkills;
 
     if (!hasMeaningfulCondition) {
-      setNotice("Choose a role, opportunity type, location, domain, or enter a search.");
+      setNotice("Choose an opportunity type or select your requirements to search.");
       setTimeout(() => setNotice(null), 4000);
       return;
     }
@@ -590,7 +688,7 @@ function JobsContent() {
     setSelectedBranch("");
     setSelectedDomain("");
     setSelectedLocation("");
-    setSelectedOpportunityType("any");
+    setSelectedOpportunityType("");
     setSelectedExperience("all");
     setSelectedWorkMode("all");
     setCustomQuery("");
@@ -598,7 +696,13 @@ function JobsContent() {
     setDuration("all");
     setStipend("all");
     setSalary("all");
+    setEmploymentType("all");
     setDeliveryMode("all");
+    setCompany("");
+    setEligibility("all");
+    setStartDate("all");
+    setFeeType("all");
+    setProvider("");
     setSortBy("relevant");
 
     // Clean URL
@@ -606,18 +710,9 @@ function JobsContent() {
     cleanUrl.search = "";
     window.history.replaceState({}, "", cleanUrl.toString());
 
-    executeSearch({
-      role: "",
-      branch: "",
-      domain: "",
-      location: "",
-      opportunityType: "any",
-      experience: "all",
-      workMode: "all",
-      q: "",
-      skills: [],
-      sortBy: "relevant",
-    });
+    setJobs([]);
+    setHasSearched(false);
+    setSearchState("idle");
   };
 
   // Compute matches
@@ -767,14 +862,34 @@ function JobsContent() {
     [selectedRole, customQuery, selectedLocation, selectedExperience, selectedWorkMode, selectedOpportunityType, sortBy]
   );
 
-  // Active Applied Filters List
+  // Active Applied Filters List (Only meaningful selections, never defaults like 'Any location')
   const appliedFilters = useMemo(() => {
     const list: { key: string; label: string; onRemove: () => void }[] = [];
 
-    if (selectedRole) {
+    if (selectedOpportunityType && selectedOpportunityType !== "any" && selectedOpportunityType !== "none") {
+      const oppLabel =
+        selectedOpportunityType === "job"
+          ? "Job"
+          : selectedOpportunityType === "internship"
+          ? "Internship"
+          : selectedOpportunityType === "training"
+          ? "Training"
+          : selectedOpportunityType.charAt(0).toUpperCase() + selectedOpportunityType.slice(1);
+      list.push({
+        key: "type",
+        label: oppLabel,
+        onRemove: () => {
+          setSelectedOpportunityType("");
+          executeSearch({ opportunityType: "any" });
+        },
+      });
+    }
+
+    if (selectedRole && selectedRole !== "all") {
+      const roleObj = CANONICAL_JOB_ROLES.find((r) => r.id === selectedRole);
       list.push({
         key: "role",
-        label: selectedRole,
+        label: roleObj ? roleObj.name : selectedRole,
         onRemove: () => {
           setSelectedRole("");
           executeSearch({ role: "" });
@@ -782,10 +897,11 @@ function JobsContent() {
       });
     }
 
-    if (selectedBranch) {
+    if (selectedBranch && selectedBranch !== "all") {
+      const branchObj = CANONICAL_BRANCHES.find((b) => b.id === selectedBranch);
       list.push({
         key: "branch",
-        label: selectedBranch,
+        label: branchObj ? branchObj.name : selectedBranch,
         onRemove: () => {
           setSelectedBranch("");
           executeSearch({ branch: "" });
@@ -793,10 +909,11 @@ function JobsContent() {
       });
     }
 
-    if (selectedDomain) {
+    if (selectedDomain && selectedDomain !== "all") {
+      const domainObj = CANONICAL_DOMAINS.find((d) => d.id === selectedDomain);
       list.push({
         key: "domain",
-        label: selectedDomain,
+        label: domainObj ? domainObj.name : selectedDomain,
         onRemove: () => {
           setSelectedDomain("");
           executeSearch({ domain: "" });
@@ -815,18 +932,7 @@ function JobsContent() {
       });
     }
 
-    if (selectedOpportunityType !== "any") {
-      list.push({
-        key: "type",
-        label: selectedOpportunityType.charAt(0).toUpperCase() + selectedOpportunityType.slice(1),
-        onRemove: () => {
-          setSelectedOpportunityType("any");
-          executeSearch({ opportunityType: "any" });
-        },
-      });
-    }
-
-    if (selectedExperience !== "all") {
+    if (selectedExperience && selectedExperience !== "all" && selectedExperience !== "any") {
       list.push({
         key: "experience",
         label: selectedExperience === "fresher" ? "Fresher" : selectedExperience === "entry-level" ? "Entry-Level" : selectedExperience,
@@ -837,7 +943,7 @@ function JobsContent() {
       });
     }
 
-    if (selectedWorkMode !== "all") {
+    if (selectedWorkMode && selectedWorkMode !== "all" && selectedWorkMode !== "any") {
       list.push({
         key: "workMode",
         label: selectedWorkMode.charAt(0).toUpperCase() + selectedWorkMode.slice(1),
@@ -871,17 +977,77 @@ function JobsContent() {
       });
     }
 
+    if (duration !== "all") {
+      list.push({
+        key: "duration",
+        label: duration === "1-2-months" ? "1–2 Months" : duration === "3-6-months" ? "3–6 Months" : duration,
+        onRemove: () => {
+          setDuration("all");
+          executeSearch();
+        },
+      });
+    }
+
+    if (stipend !== "all") {
+      list.push({
+        key: "stipend",
+        label: stipend === "paid" ? "Paid Only" : stipend === "10k_plus" ? "₹10,000+/mo" : stipend === "20k_plus" ? "₹20,000+/mo" : stipend,
+        onRemove: () => {
+          setStipend("all");
+          executeSearch();
+        },
+      });
+    }
+
+    if (salary !== "all") {
+      list.push({
+        key: "salary",
+        label: salary,
+        onRemove: () => {
+          setSalary("all");
+          executeSearch();
+        },
+      });
+    }
+
+    if (employmentType !== "all") {
+      list.push({
+        key: "employmentType",
+        label: employmentType,
+        onRemove: () => {
+          setEmploymentType("all");
+          executeSearch();
+        },
+      });
+    }
+
+    if (company.trim()) {
+      list.push({
+        key: "company",
+        label: company,
+        onRemove: () => {
+          setCompany("");
+          executeSearch();
+        },
+      });
+    }
+
     return list;
   }, [
+    selectedOpportunityType,
     selectedRole,
     selectedBranch,
     selectedDomain,
     selectedLocation,
-    selectedOpportunityType,
     selectedExperience,
     selectedWorkMode,
     customQuery,
     selectedSkills,
+    duration,
+    stipend,
+    salary,
+    employmentType,
+    company,
     executeSearch,
   ]);
 
@@ -1301,206 +1467,317 @@ function JobsContent() {
             </div>
           )}
 
+          {/* Screen Reader Live Region for filter and context changes */}
+          <div aria-live="polite" className="sr-only">
+            {liveAnnouncement}
+          </div>
+
           {/* ========================================================================= */}
           {/* GUIDED REQUIREMENTS SELECTOR PANEL                                        */}
           {/* ========================================================================= */}
-          <div className="p-4 sm:p-5 bg-slate-50/90 border border-slate-200 rounded-2xl shadow-xs space-y-4">
-            
-            {/* Direct Keyword / Natural Query Input */}
-            <div className="flex items-center gap-2 px-3.5 py-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
-              <Search className="w-4 h-4 text-slate-400 shrink-0" />
-              <input
-                type="text"
-                value={customQuery}
-                onChange={(e) => setCustomQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handlePrimarySearch()}
-                placeholder="Search jobs, internships, and training (or select requirements below)..."
-                className="w-full bg-transparent text-xs sm:text-sm text-slate-900 focus:outline-hidden"
-              />
-              {customQuery && (
-                <button
-                  type="button"
-                  onClick={() => setCustomQuery("")}
-                  className="text-slate-400 hover:text-slate-600"
-                  aria-label="Clear query"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+          <div className="p-4 sm:p-6 bg-slate-50/90 border border-slate-200 rounded-2xl shadow-xs space-y-4">
 
-            {/* ROW 1: PRIMARY REQUIREMENT SELECTORS (Role, Branch, Domain, Area/Location) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* Job Role */}
-              <SearchableSelect
-                id="career-role-select"
-                label="Job Role"
-                placeholder="All Job Roles"
-                value={selectedRole}
-                onChange={(val) => {
-                  const clean = val === "all" ? "" : val;
-                  setSelectedRole(clean);
-                }}
-                options={roleSelectOptions}
-                anyLabel="All Job Roles"
-              />
-
-              {/* Branch / Discipline */}
-              <SearchableSelect
-                id="career-branch-select"
-                label="Branch / Discipline"
-                placeholder="All Branches"
-                value={selectedBranch}
-                onChange={(val) => {
-                  const clean = val === "all" ? "" : val;
-                  setSelectedBranch(clean);
-                }}
-                options={branchSelectOptions}
-                anyLabel="All Branches"
-              />
-
-              {/* Domain / Industry (Contextually highlighted when branch chosen) */}
-              <SearchableSelect
-                id="career-domain-select"
-                label="Domain / Industry"
-                placeholder="All Domains"
-                value={selectedDomain}
-                onChange={(val) => {
-                  const clean = val === "all" ? "" : val;
-                  setSelectedDomain(clean);
-                }}
-                options={domainSelectOptions}
-                anyLabel="All Domains"
-              />
-
-              {/* Area / Location */}
-              <SearchableSelect
-                id="career-location-select"
-                label="Area / Location"
-                placeholder="Any location"
-                value={selectedLocation}
-                onChange={(val) => {
-                  const clean = val === "all" || val === "any-location" ? "" : val;
-                  setSelectedLocation(clean);
-                }}
-                options={locationSelectOptions}
-                anyLabel="Any location"
-              />
-            </div>
-
-            {/* ROW 2: SECONDARY REFINEMENTS (Opportunity Type, Experience, Work Mode, More Filters) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-              {/* Opportunity Type */}
-              <div>
-                <label htmlFor="career-scope-select" className="block text-[11px] font-bold text-slate-600 mb-1">
-                  Opportunity Type
-                </label>
-                <select
-                  id="career-scope-select"
-                  value={selectedOpportunityType}
-                  onChange={(e) => setSelectedOpportunityType(e.target.value)}
-                  className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white cursor-pointer shadow-2xs ${
-                    selectedOpportunityType !== "any"
-                      ? `${activeTheme.primary.borderClass} font-bold`
-                      : "border-slate-200 text-slate-700"
-                  }`}
-                  aria-label="Opportunity type"
-                >
-                  <option value="any">Any opportunity</option>
-                  <option value="job">Job</option>
-                  <option value="internship">Internship</option>
-                  <option value="training">Training</option>
-                </select>
-              </div>
-
-              {/* Experience */}
-              <div>
-                <label htmlFor="career-exp-select" className="block text-[11px] font-bold text-slate-600 mb-1">
-                  Experience Level
-                </label>
-                <select
-                  id="career-exp-select"
-                  value={selectedExperience}
-                  onChange={(e) => setSelectedExperience(e.target.value)}
-                  className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white cursor-pointer shadow-2xs ${
-                    selectedExperience !== "all"
-                      ? `${activeTheme.primary.borderClass} font-bold`
-                      : "border-slate-200 text-slate-700"
-                  }`}
-                  aria-label="Experience level"
-                >
-                  {CANONICAL_EXPERIENCE_LEVELS.map((exp) => (
-                    <option key={exp.id} value={exp.id}>
-                      {exp.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Work Mode */}
-              <div>
-                <label htmlFor="career-mode-select" className="block text-[11px] font-bold text-slate-600 mb-1">
-                  Work Mode
-                </label>
-                <select
-                  id="career-mode-select"
-                  value={selectedWorkMode}
-                  onChange={(e) => setSelectedWorkMode(e.target.value)}
-                  className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white cursor-pointer shadow-2xs ${
-                    selectedWorkMode !== "all"
-                      ? `${activeTheme.primary.borderClass} font-bold`
-                      : "border-slate-200 text-slate-700"
-                  }`}
-                  aria-label="Work mode"
-                >
-                  {CANONICAL_WORK_MODES.map((mode) => (
-                    <option key={mode.id} value={mode.id}>
-                      {mode.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* "More Filters" Toggle */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                  Additional Details
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setMoreFiltersOpen(!moreFiltersOpen)}
-                  className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border transition flex items-center justify-between cursor-pointer shadow-2xs ${
-                    extraFiltersCount > 0 || moreFiltersOpen
-                      ? "bg-blue-50/40 border-blue-300 text-blue-800 font-bold"
-                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5 truncate">
-                    <SlidersHorizontal className="w-3.5 h-3.5" />
-                    <span>More filters</span>
-                    {extraFiltersCount > 0 && (
-                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-600 text-white font-bold">
-                        {extraFiltersCount}
-                      </span>
-                    )}
+            {/* --------------------------------------------------------------------- */}
+            {/* STAGE 1: INITIAL STATE (When user hasn't selected opportunity type)   */}
+            {/* --------------------------------------------------------------------- */}
+            {!isOpportunityTypeSelected ? (
+              <div className="space-y-4">
+                {/* Initial Calm Prompt */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900">
+                      What are you looking for?
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Choose an opportunity type to reveal context-aware refinements.
+                    </p>
                   </div>
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${moreFiltersOpen ? "rotate-180" : ""}`} />
-                </button>
-              </div>
-            </div>
 
-            {/* ROW 3: PROGRESSIVE DISCLOSURE ("More Filters" Popover Panel) */}
-            {moreFiltersOpen && (
-              <div className="p-4 bg-white border border-slate-200 rounded-2xl grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in fade-in duration-150">
-                {/* Internship Duration & Stipend (if Internship or Any) */}
-                {selectedOpportunityType === "internship" && (
-                  <>
+                  {/* Primary Opportunity Type Dropdown Selector */}
+                  <div className="w-full sm:w-64">
+                    <label htmlFor="career-scope-select" className="sr-only">
+                      Opportunity Type
+                    </label>
+                    <select
+                      id="career-scope-select"
+                      value={selectedOpportunityType || "none"}
+                      onChange={(e) => {
+                        const val = e.target.value === "none" ? "" : e.target.value;
+                        handleOpportunityTypeChange(val);
+                      }}
+                      className="w-full min-h-[42px] text-xs font-bold px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 cursor-pointer shadow-2xs hover:border-blue-400 focus:outline-hidden"
+                      aria-label="Opportunity type"
+                    >
+                      <option value="none">Choose an opportunity type</option>
+                      <option value="job">Job</option>
+                      <option value="internship">Internship</option>
+                      <option value="training">Training</option>
+                      <option value="any">Any opportunity</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* 4 Interactive Visual Intent Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => handleOpportunityTypeChange("job")}
+                    className="p-4 rounded-xl border border-slate-200/90 bg-white hover:border-blue-400 hover:shadow-xs transition text-left group cursor-pointer"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
+                      <Briefcase className="w-4 h-4" />
+                    </div>
+                    <div className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
+                      Job
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      Full-time &amp; entry-level roles
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleOpportunityTypeChange("internship")}
+                    className="p-4 rounded-xl border border-slate-200/90 bg-white hover:border-teal-400 hover:shadow-xs transition text-left group cursor-pointer"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
+                      <GraduationCap className="w-4 h-4" />
+                    </div>
+                    <div className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-teal-600 transition-colors">
+                      Internship
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      Summer &amp; semester internships
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleOpportunityTypeChange("training")}
+                    className="p-4 rounded-xl border border-slate-200/90 bg-white hover:border-purple-400 hover:shadow-xs transition text-left group cursor-pointer"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
+                      <Award className="w-4 h-4" />
+                    </div>
+                    <div className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-purple-600 transition-colors">
+                      Training
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      Upskilling, courses &amp; certificates
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleOpportunityTypeChange("any")}
+                    className="p-4 rounded-xl border border-slate-200/90 bg-white hover:border-slate-400 hover:shadow-xs transition text-left group cursor-pointer"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-slate-700 transition-colors">
+                      Any opportunity
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      Explore all campus opportunities
+                    </div>
+                  </button>
+                </div>
+
+                {/* Optional Search Query Input */}
+                <div className="flex items-center gap-2 px-3.5 py-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                  <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                  <input
+                    type="text"
+                    value={customQuery}
+                    onChange={(e) => setCustomQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handlePrimarySearch()}
+                    placeholder="Search jobs, internships, and training (or select requirements below)..."
+                    className="w-full bg-transparent text-xs sm:text-sm text-slate-900 focus:outline-hidden"
+                  />
+                  {customQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setCustomQuery("")}
+                      className="text-slate-400 hover:text-slate-600"
+                      aria-label="Clear query"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Initial Action Row */}
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200/80">
+                  <div className="text-xs text-slate-500">
+                    <span>Select an opportunity type above to begin refining your search</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handlePrimarySearch}
+                    disabled={!searchButtonInfo.enabled}
+                    className={`w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 ${
+                      searchButtonInfo.enabled
+                        ? `${activeTheme.primary.btnClass} cursor-pointer shadow-sm`
+                        : "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
+                    }`}
+                  >
+                    <Search className="w-4 h-4" />
+                    <span>{searchButtonInfo.label}</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* --------------------------------------------------------------------- */
+              /* STAGE 2 & 3: CONTEXT-REVEALED FILTERS (Job, Internship, Training, Any)*/
+              /* --------------------------------------------------------------------- */
+              <div className="space-y-4">
+                
+                {/* Search Text Input adapted to context */}
+                <div className="flex items-center gap-2 px-3.5 py-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                  <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                  <input
+                    type="text"
+                    value={customQuery}
+                    onChange={(e) => setCustomQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handlePrimarySearch()}
+                    placeholder="Search by role, skill, company, or keyword..."
+                    className="w-full bg-transparent text-xs sm:text-sm text-slate-900 focus:outline-hidden"
+                  />
+                  {customQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setCustomQuery("")}
+                      className="text-slate-400 hover:text-slate-600"
+                      aria-label="Clear query"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* STAGE 2: PRIMARY REFINEMENTS ROW 1 */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Role / Title Selector (Shared: Job, Internship, Any) */}
+                  {selectedOpportunityType === "internship" ? (
+                    <SearchableSelect
+                      id="career-role-select"
+                      label="Internship Role"
+                      placeholder="All Internship Roles"
+                      value={selectedRole}
+                      onChange={(val) => {
+                        const clean = val === "all" ? "" : val;
+                        setSelectedRole(clean);
+                      }}
+                      options={roleSelectOptions}
+                      anyLabel="All Internship Roles"
+                    />
+                  ) : selectedOpportunityType !== "training" ? (
+                    <SearchableSelect
+                      id="career-role-select"
+                      label="Job Role"
+                      placeholder="All Job Roles"
+                      value={selectedRole}
+                      onChange={(val) => {
+                        const clean = val === "all" ? "" : val;
+                        setSelectedRole(clean);
+                      }}
+                      options={roleSelectOptions}
+                      anyLabel="All Job Roles"
+                    />
+                  ) : null}
+
+                  {/* Academic Branch / Discipline (Shared: Job, Internship, Any) */}
+                  {selectedOpportunityType !== "training" && (
+                    <SearchableSelect
+                      id="career-branch-select"
+                      label="Branch / Discipline"
+                      placeholder="All Branches"
+                      value={selectedBranch}
+                      onChange={(val) => {
+                        const clean = val === "all" ? "" : val;
+                        setSelectedBranch(clean);
+                      }}
+                      options={branchSelectOptions}
+                      anyLabel="All Branches"
+                    />
+                  )}
+
+                  {/* Domain / Industry (Shared across all including Training) */}
+                  {selectedOpportunityType === "training" ? (
+                    <SearchableSelect
+                      id="career-domain-select"
+                      label="Training Domain"
+                      placeholder="All Domains"
+                      value={selectedDomain}
+                      onChange={(val) => {
+                        const clean = val === "all" ? "" : val;
+                        setSelectedDomain(clean);
+                      }}
+                      options={domainSelectOptions}
+                      anyLabel="All Domains"
+                    />
+                  ) : (
+                    <SearchableSelect
+                      id="career-domain-select"
+                      label="Domain / Industry"
+                      placeholder="All Domains"
+                      value={selectedDomain}
+                      onChange={(val) => {
+                        const clean = val === "all" ? "" : val;
+                        setSelectedDomain(clean);
+                      }}
+                      options={domainSelectOptions}
+                      anyLabel="All Domains"
+                    />
+                  )}
+
+                  {/* Area / Location (Shared across all) */}
+                  <SearchableSelect
+                    id="career-location-select"
+                    label="Area / Location"
+                    placeholder="Any location"
+                    value={selectedLocation}
+                    onChange={(val) => {
+                      const clean = val === "all" || val === "any-location" ? "" : val;
+                      setSelectedLocation(clean);
+                    }}
+                    options={locationSelectOptions}
+                    anyLabel="Any location"
+                  />
+
+                  {/* Training Delivery Mode (Primary for Training) */}
+                  {selectedOpportunityType === "training" && (
                     <div>
-                      <label className="text-[11px] font-bold text-slate-600 block mb-1">Internship Duration</label>
+                      <label htmlFor="training-mode-select" className="block text-[11px] font-bold text-slate-600 mb-1">
+                        Delivery Mode
+                      </label>
                       <select
+                        id="training-mode-select"
+                        value={deliveryMode}
+                        onChange={(e) => setDeliveryMode(e.target.value)}
+                        className="w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 bg-white"
+                      >
+                        <option value="all">All Modes</option>
+                        <option value="online">Online Live / Self-Paced</option>
+                        <option value="offline">Classroom / Offline</option>
+                        <option value="hybrid">Hybrid</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Training Duration (Primary for Training) */}
+                  {selectedOpportunityType === "training" && (
+                    <div>
+                      <label htmlFor="training-dur-select" className="block text-[11px] font-bold text-slate-600 mb-1">
+                        Duration
+                      </label>
+                      <select
+                        id="training-dur-select"
                         value={duration}
                         onChange={(e) => setDuration(e.target.value)}
-                        className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+                        className="w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 bg-white"
                       >
                         <option value="all">Any Duration</option>
                         <option value="1-2-months">1 – 2 Months</option>
@@ -1508,150 +1785,376 @@ function JobsContent() {
                         <option value="6-plus-months">6+ Months</option>
                       </select>
                     </div>
+                  )}
+                </div>
 
+                {/* STAGE 2: PRIMARY REFINEMENTS ROW 2 */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                  {/* Opportunity Type Switcher */}
+                  <div>
+                    <label htmlFor="career-scope-select" className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Opportunity Type
+                    </label>
+                    <select
+                      id="career-scope-select"
+                      value={selectedOpportunityType}
+                      onChange={(e) => handleOpportunityTypeChange(e.target.value)}
+                      className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white cursor-pointer shadow-2xs ${
+                        selectedOpportunityType !== "any" && selectedOpportunityType !== ""
+                          ? `${activeTheme.primary.borderClass} font-bold`
+                          : "border-slate-200 text-slate-700"
+                      }`}
+                      aria-label="Opportunity type"
+                    >
+                      <option value="job">Job</option>
+                      <option value="internship">Internship</option>
+                      <option value="training">Training</option>
+                      <option value="any">Any opportunity</option>
+                    </select>
+                  </div>
+
+                  {/* Experience Level (Shown for Job and Any) */}
+                  {(selectedOpportunityType === "job" || selectedOpportunityType === "any") && (
                     <div>
-                      <label className="text-[11px] font-bold text-slate-600 block mb-1">Stipend Minimum</label>
+                      <label htmlFor="career-exp-select" className="block text-[11px] font-bold text-slate-600 mb-1">
+                        Experience Level
+                      </label>
                       <select
-                        value={stipend}
-                        onChange={(e) => setStipend(e.target.value)}
-                        className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+                        id="career-exp-select"
+                        value={selectedExperience}
+                        onChange={(e) => setSelectedExperience(e.target.value)}
+                        className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white cursor-pointer shadow-2xs ${
+                          selectedExperience !== "all"
+                            ? `${activeTheme.primary.borderClass} font-bold`
+                            : "border-slate-200 text-slate-700"
+                        }`}
+                        aria-label="Experience level"
                       >
-                        <option value="all">Any Stipend</option>
-                        <option value="paid">Paid Only</option>
-                        <option value="10k_plus">₹10,000+ / mo</option>
-                        <option value="20k_plus">₹20,000+ / mo</option>
+                        {CANONICAL_EXPERIENCE_LEVELS.map((exp) => (
+                          <option key={exp.id} value={exp.id}>
+                            {exp.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
-                  </>
-                )}
+                  )}
 
-                {/* Job Salary Band */}
-                {selectedOpportunityType === "job" && (
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-600 block mb-1">Salary Range</label>
-                    <select
-                      value={salary}
-                      onChange={(e) => setSalary(e.target.value)}
-                      className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
-                    >
-                      <option value="all">Any Salary</option>
-                      <option value="3-6-lpa">₹3 – 6 LPA</option>
-                      <option value="6-10-lpa">₹6 – 10 LPA</option>
-                      <option value="10-18-lpa">₹10 – 18 LPA</option>
-                    </select>
-                  </div>
-                )}
-
-                {/* Training Delivery Mode */}
-                {selectedOpportunityType === "training" && (
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-600 block mb-1">Delivery Mode</label>
-                    <select
-                      value={deliveryMode}
-                      onChange={(e) => setDeliveryMode(e.target.value)}
-                      className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
-                    >
-                      <option value="all">All Modes</option>
-                      <option value="online">Online Live / Self-Paced</option>
-                      <option value="offline">Classroom / Offline</option>
-                    </select>
-                  </div>
-                )}
-
-                {/* Skills Multi-Select with recommendations */}
-                <div className="sm:col-span-2 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-bold text-slate-600 block">
-                      Skills &amp; Technologies
-                    </label>
-                    {selectedSkills.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedSkills([])}
-                        className="text-[10px] text-blue-600 hover:underline font-semibold"
+                  {/* Internship Duration (Primary for Internship) */}
+                  {selectedOpportunityType === "internship" && (
+                    <div>
+                      <label htmlFor="internship-duration-select" className="block text-[11px] font-bold text-slate-600 mb-1">
+                        Duration
+                      </label>
+                      <select
+                        id="internship-duration-select"
+                        value={duration}
+                        onChange={(e) => setDuration(e.target.value)}
+                        className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white cursor-pointer shadow-2xs ${
+                          duration !== "all"
+                            ? `${activeTheme.primary.borderClass} font-bold`
+                            : "border-slate-200 text-slate-700"
+                        }`}
+                        aria-label="Internship duration"
                       >
-                        Reset skills
-                      </button>
+                        <option value="all">Any Duration</option>
+                        <option value="1-2-months">1 – 2 Months</option>
+                        <option value="3-6-months">3 – 6 Months</option>
+                        <option value="6-plus-months">6+ Months</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Work Mode (Shared: Job, Internship, Any) */}
+                  {selectedOpportunityType !== "training" && (
+                    <div>
+                      <label htmlFor="career-mode-select" className="block text-[11px] font-bold text-slate-600 mb-1">
+                        Work Mode
+                      </label>
+                      <select
+                        id="career-mode-select"
+                        value={selectedWorkMode}
+                        onChange={(e) => setSelectedWorkMode(e.target.value)}
+                        className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white cursor-pointer shadow-2xs ${
+                          selectedWorkMode !== "all"
+                            ? `${activeTheme.primary.borderClass} font-bold`
+                            : "border-slate-200 text-slate-700"
+                        }`}
+                        aria-label="Work mode"
+                      >
+                        {CANONICAL_WORK_MODES.map((mode) => (
+                          <option key={mode.id} value={mode.id}>
+                            {mode.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* "More Filters" Progressive Disclosure Button */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Additional Details
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setMoreFiltersOpen(!moreFiltersOpen)}
+                      className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border transition flex items-center justify-between cursor-pointer shadow-2xs ${
+                        extraFiltersCount > 0 || moreFiltersOpen
+                          ? "bg-blue-50/40 border-blue-300 text-blue-800 font-bold"
+                          : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 truncate">
+                        <SlidersHorizontal className="w-3.5 h-3.5" />
+                        <span>More filters</span>
+                        {extraFiltersCount > 0 && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-600 text-white font-bold">
+                            {extraFiltersCount}
+                          </span>
+                        )}
+                      </div>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 transition-transform ${moreFiltersOpen ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {/* ----------------------------------------------------------------- */}
+                {/* STAGE 3: MORE FILTERS (Contextual to Selected Opportunity Type)    */}
+                {/* ----------------------------------------------------------------- */}
+                {moreFiltersOpen && (
+                  <div className="p-4 bg-white border border-slate-200 rounded-2xl grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in fade-in duration-150">
+                    {/* JOB CONTEXTUAL: Salary Band */}
+                    {selectedOpportunityType === "job" && (
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-600 block mb-1">Salary Range</label>
+                        <select
+                          value={salary}
+                          onChange={(e) => setSalary(e.target.value)}
+                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+                        >
+                          <option value="all">Any Salary</option>
+                          <option value="3-6-lpa">₹3 – 6 LPA</option>
+                          <option value="6-10-lpa">₹6 – 10 LPA</option>
+                          <option value="10-18-lpa">₹10 – 18 LPA</option>
+                          <option value="18-plus-lpa">₹18+ LPA</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {/* JOB CONTEXTUAL: Employment Type */}
+                    {selectedOpportunityType === "job" && (
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-600 block mb-1">Employment Type</label>
+                        <select
+                          value={employmentType}
+                          onChange={(e) => setEmploymentType(e.target.value)}
+                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+                        >
+                          <option value="all">All Employment Types</option>
+                          <option value="full-time">Full-time</option>
+                          <option value="part-time">Part-time</option>
+                          <option value="contract">Contract</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {/* JOB CONTEXTUAL: Company */}
+                    {selectedOpportunityType === "job" && (
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-600 block mb-1">Company</label>
+                        <input
+                          type="text"
+                          value={company}
+                          onChange={(e) => setCompany(e.target.value)}
+                          placeholder="e.g. Google, Infosys"
+                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white focus:outline-hidden"
+                        />
+                      </div>
+                    )}
+
+                    {/* INTERNSHIP CONTEXTUAL: Stipend Minimum */}
+                    {selectedOpportunityType === "internship" && (
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-600 block mb-1">Stipend Minimum</label>
+                        <select
+                          value={stipend}
+                          onChange={(e) => setStipend(e.target.value)}
+                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+                        >
+                          <option value="all">Any Stipend</option>
+                          <option value="paid">Paid Only</option>
+                          <option value="10k_plus">₹10,000+ / mo</option>
+                          <option value="20k_plus">₹20,000+ / mo</option>
+                          <option value="30k_plus">₹30,000+ / mo</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {/* INTERNSHIP CONTEXTUAL: Eligibility */}
+                    {selectedOpportunityType === "internship" && (
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-600 block mb-1">Eligibility</label>
+                        <select
+                          value={eligibility}
+                          onChange={(e) => setEligibility(e.target.value)}
+                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+                        >
+                          <option value="all">All Students &amp; Graduates</option>
+                          <option value="students">Current Students Only</option>
+                          <option value="batch_2025_2026">2025 / 2026 Batch</option>
+                          <option value="graduates">Graduates</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {/* INTERNSHIP CONTEXTUAL: Start Date */}
+                    {selectedOpportunityType === "internship" && (
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-600 block mb-1">Start Date</label>
+                        <select
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+                        >
+                          <option value="all">Flexible</option>
+                          <option value="immediate">Immediately</option>
+                          <option value="2weeks">Within 2 Weeks</option>
+                          <option value="1month">Within 1 Month</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {/* TRAINING CONTEXTUAL: Provider & Fee */}
+                    {selectedOpportunityType === "training" && (
+                      <>
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-600 block mb-1">Fee &amp; Certificate</label>
+                          <select
+                            value={feeType}
+                            onChange={(e) => setFeeType(e.target.value)}
+                            className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+                          >
+                            <option value="all">All Training</option>
+                            <option value="free">Free / Sponsored</option>
+                            <option value="certificate">With Certificate</option>
+                            <option value="placement_assisted">Placement Assisted</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-600 block mb-1">Provider</label>
+                          <input
+                            type="text"
+                            value={provider}
+                            onChange={(e) => setProvider(e.target.value)}
+                            placeholder="e.g. Coursera, NPTEL"
+                            className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white focus:outline-hidden"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* SHARED SKILLS MULTI-SELECT (Relevant across all opportunities) */}
+                    <div className="sm:col-span-3 space-y-1.5 pt-2 border-t border-slate-100">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-slate-600 block">
+                          Skills &amp; Technologies
+                        </label>
+                        {selectedSkills.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedSkills([])}
+                            className="text-[10px] text-blue-600 hover:underline font-semibold"
+                          >
+                            Reset skills
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1">
+                        {CANONICAL_SKILLS.map((sk) => {
+                          const active = selectedSkills.includes(sk);
+                          const isRecommended = dependencies.recommendedSkills.includes(sk);
+                          return (
+                            <button
+                              key={sk}
+                              type="button"
+                              onClick={() => {
+                                const next = active
+                                  ? selectedSkills.filter((s) => s !== sk)
+                                  : [...selectedSkills, sk];
+                                setSelectedSkills(next);
+                              }}
+                              className={`text-xs px-2.5 py-1 rounded-lg border transition cursor-pointer flex items-center gap-1 ${
+                                active
+                                  ? `${activeTheme.primary.btnClass} font-bold`
+                                  : isRecommended
+                                  ? "bg-amber-50/70 text-slate-800 border-amber-300 font-semibold"
+                                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                              }`}
+                            >
+                              <span>{sk}</span>
+                              {isRecommended && !active && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* PRIMARY ACTION ROW */}
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200/80">
+                  <div className="text-xs text-slate-500">
+                    {appliedFilters.length > 0 ? (
+                      <span>
+                        <strong>{appliedFilters.length}</strong> requirements configured
+                      </span>
+                    ) : (
+                      <span>Search with current context or refine further above</span>
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1">
-                    {CANONICAL_SKILLS.map((sk) => {
-                      const active = selectedSkills.includes(sk);
-                      const isRecommended = dependencies.recommendedSkills.includes(sk);
-                      return (
-                        <button
-                          key={sk}
-                          type="button"
-                          onClick={() => {
-                            const next = active
-                              ? selectedSkills.filter((s) => s !== sk)
-                              : [...selectedSkills, sk];
-                            setSelectedSkills(next);
-                          }}
-                          className={`text-xs px-2.5 py-1 rounded-lg border transition cursor-pointer flex items-center gap-1 ${
-                            active
-                              ? `${activeTheme.primary.btnClass} font-bold`
-                              : isRecommended
-                              ? "bg-amber-50/70 text-slate-800 border-amber-300 font-semibold"
-                              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                          }`}
-                        >
-                          <span>{sk}</span>
-                          {isRecommended && !active && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                          )}
-                        </button>
-                      );
-                    })}
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    {appliedFilters.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearAllFilters}
+                        className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition cursor-pointer"
+                      >
+                        Clear all
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handlePrimarySearch}
+                      disabled={loading || !searchButtonInfo.enabled}
+                      className={`flex-1 sm:flex-initial px-8 py-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-150 flex items-center justify-center gap-2 min-h-[44px] shadow-sm ${
+                        searchButtonInfo.enabled
+                          ? `${activeTheme.primary.btnClass} cursor-pointer`
+                          : "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
+                      }`}
+                    >
+                      {loading ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Searching...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Search className="w-4 h-4" />
+                          <span>{searchButtonInfo.label}</span>
+                          <ArrowRight className="w-4 h-4 ml-0.5" />
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
             )}
-
-            {/* ROW 4: PRIMARY ACTION (Search Opportunities CTA) */}
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200/80">
-              <div className="text-xs text-slate-500">
-                {appliedFilters.length > 0 ? (
-                  <span>
-                    <strong>{appliedFilters.length}</strong> requirements configured
-                  </span>
-                ) : (
-                  <span>No filters selected (searches all live opportunities)</span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                {appliedFilters.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleClearAllFilters}
-                    className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition cursor-pointer"
-                  >
-                    Clear all
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handlePrimarySearch}
-                  disabled={loading}
-                  className={`flex-1 sm:flex-initial px-8 py-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer min-h-[44px] shadow-sm ${activeTheme.primary.btnClass}`}
-                >
-                  {loading ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Searching...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Search className="w-4 h-4" />
-                      <span>Search Opportunities</span>
-                      <ArrowRight className="w-4 h-4 ml-0.5" />
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* VISIBLE APPLIED FILTER CHIPS */}
@@ -1804,11 +2307,7 @@ function JobsContent() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-slate-900">
-                  {selectedOpportunityType === "training"
-                    ? "Training Programs"
-                    : selectedOpportunityType === "internship"
-                    ? "Internship Opportunities"
-                    : "Your Opportunities"}
+                  {resultsStreamHeading}
                 </h2>
                 <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
                   {selectedOpportunityType === "training" ? trainingOpportunities.length : jobs.length}

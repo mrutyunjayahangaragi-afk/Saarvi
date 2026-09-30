@@ -16,6 +16,8 @@ import { isJobLiveForUsers } from "../jobs/live-predicate.ts";
 
 export type OpportunityScope = "any" | "job" | "internship" | "training";
 
+export type FilterCategory = "shared" | "contextual";
+
 export interface FilterOption {
   label: string;
   value: string;
@@ -24,15 +26,18 @@ export interface FilterOption {
 export interface CareerFilterConfig {
   key: string;
   label: string;
-  opportunityTypes: OpportunityScope[];
+  category: FilterCategory;
   categories: string[];
+  opportunityTypes: OpportunityScope[];
   enabled: boolean;
+  required: boolean;
   priority: number; // 1 = Primary refinement (always shown if relevant), 2 = Secondary, 3 = Progressive disclosure ("More filters")
   searchable?: boolean;
   multiSelect?: boolean;
   userVisible: boolean;
   adminOnly?: boolean;
   sortOrder: number;
+  dependencies?: string[];
   options?: FilterOption[];
   placeholder?: string;
   description?: string;
@@ -41,15 +46,84 @@ export interface CareerFilterConfig {
 /**
  * CANONICAL CAREER FILTER CONFIGURATIONS
  * Admin-controlled registry of filters for all career opportunity types.
+ * Categorized into SHARED and CONTEXTUAL filters.
  */
 export const CAREER_FILTER_CONFIGS: CareerFilterConfig[] = [
-  // 1. Work Mode (Relevant to Job, Internship, and Any)
+  // 1. Role (Shared: Job Role / Internship Role / Area of Interest)
   {
-    key: "remote",
-    label: "Work Mode",
+    key: "role",
+    label: "Role",
+    category: "shared",
     opportunityTypes: ["any", "job", "internship"],
     categories: ["all", "tech", "business", "design"],
     enabled: true,
+    required: false,
+    priority: 1,
+    searchable: true,
+    userVisible: true,
+    sortOrder: 1,
+    placeholder: "All Roles",
+    dependencies: ["branch", "domain"],
+  },
+
+  // 2. Branch / Discipline (Shared)
+  {
+    key: "branch",
+    label: "Branch / Discipline",
+    category: "shared",
+    opportunityTypes: ["any", "job", "internship"],
+    categories: ["all", "engineering", "academic"],
+    enabled: true,
+    required: false,
+    priority: 1,
+    searchable: true,
+    userVisible: true,
+    sortOrder: 2,
+    placeholder: "All Branches",
+  },
+
+  // 3. Domain / Industry (Shared across all opportunity types including Training)
+  {
+    key: "domain",
+    label: "Domain / Industry",
+    category: "shared",
+    opportunityTypes: ["any", "job", "internship", "training"],
+    categories: ["all", "tech", "business", "core"],
+    enabled: true,
+    required: false,
+    priority: 1,
+    searchable: true,
+    userVisible: true,
+    sortOrder: 3,
+    placeholder: "All Domains",
+    dependencies: ["branch"],
+  },
+
+  // 4. Area / Location (Shared)
+  {
+    key: "location",
+    label: "Area / Location",
+    category: "shared",
+    opportunityTypes: ["any", "job", "internship", "training"],
+    categories: ["all", "metro", "tier2"],
+    enabled: true,
+    required: false,
+    priority: 1,
+    searchable: true,
+    userVisible: true,
+    sortOrder: 4,
+    placeholder: "Any location",
+  },
+
+  // 5. Work Mode (Shared: Remote, Hybrid, On-site)
+  {
+    key: "remote",
+    label: "Work Mode",
+    category: "shared",
+    opportunityTypes: ["any", "job", "internship"],
+    categories: ["all", "tech", "business", "design"],
+    enabled: true,
+    required: false,
     priority: 1,
     multiSelect: false,
     userVisible: true,
@@ -62,13 +136,15 @@ export const CAREER_FILTER_CONFIGS: CareerFilterConfig[] = [
     ],
   },
 
-  // 2. Experience Level (Primary for Jobs, Secondary for Any)
+  // 6. Experience Level (Shared: Primary for Jobs, Secondary for Any)
   {
     key: "experience",
     label: "Experience",
+    category: "shared",
     opportunityTypes: ["job", "any"],
     categories: ["all"],
     enabled: true,
+    required: false,
     priority: 1,
     multiSelect: false,
     userVisible: true,
@@ -82,13 +158,15 @@ export const CAREER_FILTER_CONFIGS: CareerFilterConfig[] = [
     ],
   },
 
-  // 3. Internship Duration (Primary for Internships)
+  // 7. Internship Duration (Contextual: Primary for Internships & Training)
   {
     key: "duration",
     label: "Duration",
+    category: "contextual",
     opportunityTypes: ["internship", "training"],
     categories: ["all"],
     enabled: true,
+    required: false,
     priority: 1,
     multiSelect: false,
     userVisible: true,
@@ -101,13 +179,15 @@ export const CAREER_FILTER_CONFIGS: CareerFilterConfig[] = [
     ],
   },
 
-  // 4. Stipend / Compensation (Primary for Internships)
+  // 8. Stipend / Compensation (Contextual: Internship)
   {
     key: "stipend",
     label: "Stipend",
+    category: "contextual",
     opportunityTypes: ["internship"],
     categories: ["all"],
     enabled: true,
+    required: false,
     priority: 2,
     multiSelect: false,
     userVisible: true,
@@ -121,13 +201,15 @@ export const CAREER_FILTER_CONFIGS: CareerFilterConfig[] = [
     ],
   },
 
-  // 5. Salary Range (Secondary for Jobs under progressive disclosure)
+  // 9. Salary Range (Contextual: Job under progressive disclosure)
   {
     key: "salary",
     label: "Salary Band",
+    category: "contextual",
     opportunityTypes: ["job"],
     categories: ["all"],
     enabled: true,
+    required: false,
     priority: 3, // More filters
     multiSelect: false,
     userVisible: true,
@@ -141,13 +223,15 @@ export const CAREER_FILTER_CONFIGS: CareerFilterConfig[] = [
     ],
   },
 
-  // 6. Employment Type (Jobs)
+  // 10. Employment Type (Contextual: Job)
   {
     key: "employmentType",
     label: "Employment Type",
+    category: "contextual",
     opportunityTypes: ["job"],
     categories: ["all"],
     enabled: true,
+    required: false,
     priority: 3, // More filters
     multiSelect: false,
     userVisible: true,
@@ -160,13 +244,31 @@ export const CAREER_FILTER_CONFIGS: CareerFilterConfig[] = [
     ],
   },
 
-  // 7. Training Delivery Mode (Training)
+  // 11. Company (Contextual: Job)
+  {
+    key: "company",
+    label: "Company",
+    category: "contextual",
+    opportunityTypes: ["job"],
+    categories: ["all"],
+    enabled: true,
+    required: false,
+    priority: 3, // More filters
+    searchable: true,
+    userVisible: true,
+    sortOrder: 42,
+    placeholder: "Company name",
+  },
+
+  // 12. Training Delivery Mode (Contextual: Training)
   {
     key: "deliveryMode",
     label: "Delivery Mode",
+    category: "contextual",
     opportunityTypes: ["training"],
     categories: ["all"],
     enabled: true,
+    required: false,
     priority: 1,
     multiSelect: false,
     userVisible: true,
@@ -179,13 +281,15 @@ export const CAREER_FILTER_CONFIGS: CareerFilterConfig[] = [
     ],
   },
 
-  // 8. Training Certification & Fee (Training)
+  // 13. Training Certification & Fee (Contextual: Training)
   {
     key: "feeType",
     label: "Fee & Certificate",
+    category: "contextual",
     opportunityTypes: ["training"],
     categories: ["all"],
     enabled: true,
+    required: false,
     priority: 2,
     multiSelect: false,
     userVisible: true,
@@ -198,13 +302,50 @@ export const CAREER_FILTER_CONFIGS: CareerFilterConfig[] = [
     ],
   },
 
-  // 9. Key Skills (Progressive disclosure for all opportunity types)
+  // 13b. Certificate (Contextual: Training)
+  {
+    key: "certificate",
+    label: "Certificate Offered",
+    category: "contextual",
+    opportunityTypes: ["training"],
+    categories: ["all"],
+    enabled: true,
+    required: false,
+    priority: 3,
+    multiSelect: false,
+    userVisible: true,
+    sortOrder: 45.5,
+    options: [
+      { label: "Any", value: "all" },
+      { label: "Yes (Certificate included)", value: "yes" },
+      { label: "Industry Recognized Certificate", value: "industry_recognized" },
+    ],
+  },
+
+  // 14. Provider / Institution (Contextual: Training)
+  {
+    key: "provider",
+    label: "Training Provider",
+    category: "contextual",
+    opportunityTypes: ["training"],
+    categories: ["all"],
+    enabled: true,
+    required: false,
+    priority: 3,
+    userVisible: true,
+    sortOrder: 46,
+    placeholder: "Institution / Provider",
+  },
+
+  // 15. Key Skills (Shared across all opportunity types under progressive disclosure)
   {
     key: "skills",
     label: "Key Skills",
+    category: "shared",
     opportunityTypes: ["any", "job", "internship", "training"],
     categories: ["all"],
     enabled: true,
+    required: false,
     priority: 3, // More filters
     searchable: true,
     multiSelect: true,
@@ -223,13 +364,36 @@ export const CAREER_FILTER_CONFIGS: CareerFilterConfig[] = [
     ],
   },
 
-  // 10. Start Date / Timeline (Progressive disclosure)
+  // 16. Eligibility (Contextual: Internship & Training)
   {
-    key: "startDate",
-    label: "Start Date",
+    key: "eligibility",
+    label: "Eligibility",
+    category: "contextual",
     opportunityTypes: ["internship", "training"],
     categories: ["all"],
     enabled: true,
+    required: false,
+    priority: 3, // More filters
+    multiSelect: false,
+    userVisible: true,
+    sortOrder: 55,
+    options: [
+      { label: "All Students & Graduates", value: "all" },
+      { label: "Current Students Only", value: "students" },
+      { label: "2025 / 2026 Batch", value: "batch_2025_2026" },
+      { label: "Graduates", value: "graduates" },
+    ],
+  },
+
+  // 17. Start Date / Timeline (Contextual: Internship & Training)
+  {
+    key: "startDate",
+    label: "Start Date",
+    category: "contextual",
+    opportunityTypes: ["internship", "training"],
+    categories: ["all"],
+    enabled: true,
+    required: false,
     priority: 3, // More filters
     multiSelect: false,
     userVisible: true,
@@ -244,26 +408,38 @@ export const CAREER_FILTER_CONFIGS: CareerFilterConfig[] = [
 ];
 
 /**
- * Returns dynamic filters for a given opportunity scope with progressive disclosure.
- * Primary filters are shown right below search; secondary/more filters appear under [More filters].
+ * Dynamic Filter Resolution by Opportunity Scope.
+ * - When type is 'any': returns ONLY SHARED filters; contextual filters remain hidden.
+ * - When type is 'job': returns job-relevant shared filters + job contextual filters.
+ * - When type is 'internship': returns internship-relevant shared filters + internship contextual filters.
+ * - When type is 'training': returns training-relevant shared filters + training contextual filters.
  */
 export function getFiltersForOpportunity(
   type: OpportunityScope = "any"
 ): {
   primary: CareerFilterConfig[];
   more: CareerFilterConfig[];
+  shared: CareerFilterConfig[];
+  contextual: CareerFilterConfig[];
 } {
-  const eligible = CAREER_FILTER_CONFIGS.filter(
-    (f) =>
-      f.enabled &&
-      f.userVisible &&
-      (f.opportunityTypes.includes("any") || f.opportunityTypes.includes(type))
-  ).sort((a, b) => a.sortOrder - b.sortOrder);
+  const eligible = CAREER_FILTER_CONFIGS.filter((f) => {
+    if (!f.enabled || !f.userVisible) return false;
+
+    if (type === "any") {
+      // In "any" mode: show ONLY shared filters that apply to "any"
+      return f.category === "shared" && f.opportunityTypes.includes("any");
+    }
+
+    // Specific opportunity type: include if filter explicitly supports it
+    return f.opportunityTypes.includes(type);
+  }).sort((a, b) => a.sortOrder - b.sortOrder);
 
   const primary = eligible.filter((f) => f.priority <= 2);
   const more = eligible.filter((f) => f.priority > 2);
+  const shared = eligible.filter((f) => f.category === "shared");
+  const contextual = eligible.filter((f) => f.category === "contextual");
 
-  return { primary, more };
+  return { primary, more, shared, contextual };
 }
 
 /**
