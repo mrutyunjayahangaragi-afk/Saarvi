@@ -31,6 +31,40 @@
   --accent-primary-subtle: #eff6ff;
   --accent-primary-border: #bfdbfe;
 
+  /* Saarvi Adaptive Career Design Tokens (Requirement 37) */
+  --saarvi-primary: #2563eb;
+  --saarvi-primary-hover: #1d4ed8;
+  --saarvi-primary-soft: #eff6ff;
+  --saarvi-text: #0f172a;
+  --saarvi-muted: #64748b;
+  --saarvi-border: #e2e8f0;
+  --saarvi-surface: #ffffff;
+
+  /* Career Blue */
+  --career-accent: #2563eb;
+  --career-soft: #eff6ff;
+  --career-border: #bfdbfe;
+
+  /* Internship Teal */
+  --internship-accent: #0d9488;
+  --internship-soft: #f0fdfa;
+  --internship-border: #99f6e4;
+
+  /* Training Violet */
+  --training-accent: #7c3aed;
+  --training-soft: #f5f3ff;
+  --training-border: #ddd6fe;
+
+  /* Academic Indigo */
+  --academic-accent: #4f46e5;
+  --academic-soft: #eef2ff;
+  --academic-border: #c7d2fe;
+
+  /* Technology Cyan */
+  --technology-accent: #0284c7;
+  --technology-soft: #f0f9ff;
+  --technology-border: #bae6fd;
+
   /* Status Colors */
   --success-text: #047857;
   --success-bg: #ecfdf5;

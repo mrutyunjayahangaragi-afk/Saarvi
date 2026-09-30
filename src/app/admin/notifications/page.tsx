@@ -184,7 +184,10 @@ export default function AdminNotificationsPage() {
     }
   };
 
-  const handleOpenSendConfirmation = () => {
+  const [calculatingAudience, setCalculatingAudience] = useState(false);
+  const [emailPreviewDevice, setEmailPreviewDevice] = useState<"desktop" | "mobile">("desktop");
+
+  const handleOpenSendConfirmation = async () => {
     if (!title.trim() || !body.trim()) {
       alert("Title and body text are required.");
       return;
@@ -194,9 +197,29 @@ export default function AdminNotificationsPage() {
       return;
     }
 
-    const estimated = audienceType === "SELECTED_USERS" ? selectedUserIds.length : broadcasts.length > 0 ? 5 : 3;
-    setEstimatedRecipients(estimated);
-    setConfirmModalOpen(true);
+    setCalculatingAudience(true);
+    try {
+      const res = await fetch("/api/admin/notifications/audience-count", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          audience_type: audienceType,
+          audience_definition: audienceType === "SELECTED_USERS" ? { userIds: selectedUserIds } : {},
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setEstimatedRecipients(data.matchedCount ?? (audienceType === "SELECTED_USERS" ? selectedUserIds.length : 1));
+      } else {
+        setEstimatedRecipients(audienceType === "SELECTED_USERS" ? selectedUserIds.length : 1);
+      }
+    } catch {
+      setEstimatedRecipients(audienceType === "SELECTED_USERS" ? selectedUserIds.length : 1);
+    } finally {
+      setCalculatingAudience(false);
+      setConfirmModalOpen(true);
+    }
   };
 
   const handleExecuteSend = async (isDraft = false) => {
@@ -836,30 +859,76 @@ export default function AdminNotificationsPage() {
 
             {/* Email Preview Card */}
             {previewMode === "email" && (
-              <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden text-xs">
-                <div className="p-3 bg-slate-100/70 border-b border-slate-200 text-[11px] font-mono text-slate-600">
-                  <div><strong>From:</strong> Saarvi &lt;no-reply@saarvi.in&gt;</div>
-                  <div><strong>Subject:</strong> Saarvi &mdash; {title || "New Platform Update"}</div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-end gap-1.5 px-1 text-[11px] text-slate-500 font-medium">
+                  <span>Device view:</span>
+                  <button
+                    type="button"
+                    onClick={() => setEmailPreviewDevice("desktop")}
+                    className={`px-2 py-0.5 rounded cursor-pointer ${
+                      emailPreviewDevice === "desktop"
+                        ? "bg-blue-100 text-blue-800 font-bold"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    Desktop
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEmailPreviewDevice("mobile")}
+                    className={`px-2 py-0.5 rounded cursor-pointer ${
+                      emailPreviewDevice === "mobile"
+                        ? "bg-blue-100 text-blue-800 font-bold"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    Mobile
+                  </button>
                 </div>
-                <div className="p-5 space-y-3">
-                  <div className="text-base font-extrabold text-slate-900">Saarvi<span className="text-blue-600">.</span></div>
-                  <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-50 text-blue-700">
-                    {category}
-                  </span>
-                  <h3 className="text-sm font-bold text-slate-900">{title || "Mock Interview 2.0"}</h3>
-                  <p className="text-slate-600 leading-relaxed whitespace-pre-line">
-                    {body || "Practice technical and HR interviews with Saarvi's new Mock Interview system."}
-                  </p>
-                  {ctaText && (
-                    <div className="pt-2">
-                      <span className="inline-block px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs">
-                        {ctaText}
+
+                <div
+                  className={`mx-auto transition-all duration-200 rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden text-xs ${
+                    emailPreviewDevice === "mobile" ? "max-w-[360px] border-slate-300 ring-4 ring-slate-100" : "w-full"
+                  }`}
+                >
+                  <div className="p-3 bg-slate-100/80 border-b border-slate-200 text-[11px] font-mono text-slate-600">
+                    <div><strong>From:</strong> Saarvi Notifications &lt;saarvinotifications@gmail.com&gt;</div>
+                    <div className="truncate"><strong>Subject:</strong> Saarvi &mdash; {title.trim() || "New Platform Update"}</div>
+                  </div>
+                  <div className="p-5 space-y-3 bg-slate-50/40">
+                    <div className="bg-slate-900 text-white p-4 rounded-xl flex items-center justify-between">
+                      <div className="text-base font-extrabold tracking-tight">Saarvi<span className="text-blue-400">.</span></div>
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                        {category}
                       </span>
                     </div>
-                  )}
-                  <div className="pt-4 border-t border-slate-100 text-[10px] text-slate-400">
-                    Saarvi &mdash; Study. Work. Grow.<br />
-                    Private by design. Fast by design. Simple by design.
+
+                    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+                      <h3 className="text-sm font-bold text-slate-900 leading-snug">{title.trim() || "Platform Announcement"}</h3>
+                      {subtitle && <p className="text-xs font-semibold text-slate-500">{subtitle.trim()}</p>}
+                      <p className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-line">
+                        {body.trim() || "Practice technical and HR interviews with Saarvi's new Mock Interview system."}
+                      </p>
+                      {ctaText && (
+                        <div className="pt-2">
+                          <span className="inline-block px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-xs">
+                            {ctaText} &rarr;
+                          </span>
+                        </div>
+                      )}
+                      <p className="text-[11px] text-slate-500 pt-2">
+                        Best regards,<br />
+                        <strong className="text-slate-700">The Saarvi Team</strong>
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-slate-200/70 text-[10px] text-slate-500 text-center space-y-1">
+                      <div className="font-bold text-slate-700">Saarvi &bull; Study. Work. Grow.</div>
+                      <p className="text-slate-400">Empowering students and professionals with verified career opportunities.</p>
+                      <div className="text-slate-400 pt-1">
+                        <span className="underline">Privacy</span> &bull; <span className="underline">Terms</span> &bull; <span className="underline">Preferences</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1046,23 +1115,31 @@ export default function AdminNotificationsPage() {
               </button>
             </div>
 
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 text-xs space-y-1.5">
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 text-xs space-y-2">
               <div><strong>Title:</strong> {title}</div>
               <div><strong>Category:</strong> {category} ({priority} priority)</div>
               <div><strong>Target Audience:</strong> {audienceType}</div>
-              <div><strong>Estimated Recipients:</strong> {estimatedRecipients} registered accounts</div>
-              <div><strong>Channels:</strong> {channels.join(", ")}</div>
+              <div className="flex items-center justify-between text-blue-700 font-bold bg-blue-50/70 p-2 rounded-lg border border-blue-100">
+                <span>Matched Recipients:</span>
+                <span>{estimatedRecipients.toLocaleString()} Users</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                <div><strong>In-App:</strong> {channels.includes("in_app") ? "YES" : "NO"}</div>
+                <div><strong>Email:</strong> {channels.includes("email") ? "YES" : "NO"}</div>
+                <div><strong>Estimated Batches:</strong> {Math.max(1, Math.ceil(estimatedRecipients / 50))}</div>
+                <div><strong>Idempotency:</strong> Guaranteed</div>
+              </div>
             </div>
 
             <p className="text-xs text-slate-500 leading-relaxed">
-              This message will be dispatched immediately to all targeted Saarvi users. Once sent, deliveries cannot be un-sent.
+              This message will be dispatched immediately in bounded batches to all {estimatedRecipients.toLocaleString()} matched users. Successful deliveries are tracked idempotently.
             </p>
 
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setConfirmModalOpen(false)}
-                className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold"
+                className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer"
               >
                 Cancel
               </button>
@@ -1070,10 +1147,10 @@ export default function AdminNotificationsPage() {
                 type="button"
                 onClick={() => handleExecuteSend(false)}
                 disabled={isSubmitting}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 cursor-pointer"
               >
                 {isSubmitting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                <span>Send Now</span>
+                <span>Send to {estimatedRecipients.toLocaleString()} Users</span>
               </button>
             </div>
           </div>

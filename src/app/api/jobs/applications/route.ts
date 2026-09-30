@@ -202,3 +202,29 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Failed to remove application from tracker." }, { status: 500 });
   }
 }
+
+/**
+ * createOrUpdateJobApplication
+ * Canonical helper for programmatic application tracking.
+ */
+export async function createOrUpdateJobApplication(
+  userId: string,
+  data: { jobId: string; jobTitle: string; companyName: string; status: string; notes?: string }
+) {
+  const supabase = getSupabaseAdminClient();
+  if (!supabase) throw new Error("Supabase unavailable");
+  const now = new Date().toISOString();
+  return await supabase.from("job_applications").upsert(
+    {
+      user_id: userId,
+      job_id: data.jobId,
+      job_title: data.jobTitle,
+      company_name: data.companyName,
+      status: data.status,
+      notes: data.notes || null,
+      updated_at: now,
+    },
+    { onConflict: "user_id,job_id" }
+  );
+}
+

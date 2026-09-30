@@ -15,258 +15,313 @@ import {
   FileText,
   FileImage,
   Briefcase,
-  Check,
   CheckCircle2,
+  Search,
+  Layers,
+  ChevronRight,
 } from "lucide-react";
 
 export default function HeroSection() {
-  const [activePreviewTab, setActivePreviewTab] = useState<"pdf" | "academic" | "resume">("pdf");
+  const [activeTab, setActiveTab] = useState<"tools" | "study" | "career" | "resume">("tools");
 
   return (
-    <section className="relative overflow-hidden py-14 sm:py-20 border-b border-slate-200/80 bg-gradient-to-b from-slate-50/70 via-white to-slate-50/40">
-      {/* Background Subtle Radial Light & Mesh Grid */}
+    <section className="relative overflow-hidden py-14 sm:py-20 border-b border-slate-200/80 bg-white">
+      {/* Background Subtle Radial Light */}
       <div
-        className="absolute inset-0 bg-mesh-grid pointer-events-none opacity-40"
-        aria-hidden="true"
-      />
-      <div
-        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[680px] h-[400px] bg-blue-500/8 blur-[130px] rounded-full pointer-events-none -z-10"
-        aria-hidden="true"
-      />
-      <div
-        className="absolute bottom-10 right-10 w-[320px] h-[260px] bg-indigo-500/5 blur-[90px] rounded-full pointer-events-none -z-10"
+        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[680px] h-[400px] bg-blue-500/5 blur-[140px] rounded-full pointer-events-none -z-10"
         aria-hidden="true"
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-          
+
           {/* Left Column: Product Value Proposition & CTAs */}
-          <div className="lg:col-span-7 space-y-6 sm:space-y-7 text-left">
+          <div className="lg:col-span-6 space-y-6 sm:space-y-7 text-left">
             {/* Eyebrow / Philosophy */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold tracking-wide uppercase shadow-2xs">
-              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold tracking-wide uppercase">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
               <span>PRIVATE BY DESIGN • FAST BY DESIGN</span>
             </div>
 
-            {/* Large Authoritative Headline */}
-            <div className="space-y-2.5">
-              <h1 className="text-4xl sm:text-5xl lg:text-5xl xl:text-6xl font-black text-slate-900 tracking-tight leading-[1.12]">
-                Everything you need to <br className="hidden sm:inline" />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500">
-                  study, work and grow.
-                </span>
+            {/* Restrained, Professional Headline */}
+            <div className="space-y-2">
+              <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-[1.12]">
+                One workspace to <br className="hidden sm:inline" />
+                <span className="text-blue-600">study, work, and grow.</span>
               </h1>
-              <p className="text-lg sm:text-xl font-bold text-slate-700">
+              <p className="text-base sm:text-lg font-bold text-slate-700">
                 Your everyday tools. One simple workspace.
               </p>
             </div>
 
-            {/* Self-Explanatory Subheadline */}
+            {/* Grounded, Realistic Supporting Copy */}
             <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-normal max-w-xl">
-              Saarvi brings together client-side document tools, university-grade student utilities, and career builders into one privacy-focused platform. Convert files, calculate semester grades, and build professional resumes without complexity.
+              Saarvi brings everyday academic tools, document utilities, and career workflows into one focused workspace. Built around privacy, speed, and simplicity.
             </p>
 
             {/* Action CTAs */}
-            <div className="pt-2 flex flex-wrap items-center gap-3.5 sm:gap-4">
+            <div className="pt-2 flex flex-wrap items-center gap-3 sm:gap-4">
               <Link
                 href="/tools"
                 id="hero-explore-tools"
-                className="px-7 py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-bold rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2.5 group cursor-pointer min-h-[44px]"
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-colors flex items-center gap-2 cursor-pointer min-h-[44px]"
               >
                 <span>Explore Tools</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="w-4 h-4" />
               </Link>
 
               <a
                 href="#how-it-works"
                 id="hero-see-how-works"
-                className="px-6 py-3.5 bg-white hover:bg-slate-50 text-slate-800 text-sm font-bold rounded-2xl border border-slate-300 shadow-2xs hover:shadow-xs transition-all duration-200 cursor-pointer min-h-[44px] flex items-center gap-2"
+                className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 shadow-2xs transition-colors cursor-pointer min-h-[44px] flex items-center gap-2"
               >
-                <Info className="w-4 h-4 text-slate-500" />
-                <span>See How Saarvi Works</span>
+                <Info className="w-4 h-4 text-slate-400" />
+                <span>See how it works</span>
               </a>
             </div>
 
-            {/* Micro Trust Indicators */}
-            <div className="pt-2 flex flex-wrap items-center gap-4 sm:gap-6 text-xs text-slate-600">
+            {/* Micro Trust Indicators (Accurate & Grounded) */}
+            <div className="pt-2 flex flex-wrap items-center gap-4 sm:gap-6 text-xs text-slate-500">
               <span className="flex items-center gap-1.5 font-medium">
-                <Lock className="w-4 h-4 text-emerald-600" />
+                <Lock className="w-3.5 h-3.5 text-emerald-600" />
                 Local processing
               </span>
               <span className="flex items-center gap-1.5 font-medium">
-                <Zap className="w-4 h-4 text-amber-500" />
-                Fast browser processing
+                <Zap className="w-3.5 h-3.5 text-amber-500" />
+                Fast in-browser execution
               </span>
               <span className="flex items-center gap-1.5 font-medium">
-                <Download className="w-4 h-4 text-blue-600" />
+                <Download className="w-3.5 h-3.5 text-blue-600" />
                 Automatic download
               </span>
               <span className="flex items-center gap-1.5 font-medium">
-                <UserCheck className="w-4 h-4 text-purple-600" />
+                <UserCheck className="w-3.5 h-3.5 text-slate-500" />
                 No account required
               </span>
             </div>
 
-            {/* Honest Privacy Value Statement */}
+            {/* Honest Privacy Architecture Statement */}
             <div className="pt-1">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-xs font-semibold">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>Your supported documents can stay on your device with our local-first tools.</span>
-              </div>
+              <p className="text-xs text-slate-500 leading-relaxed max-w-lg">
+                Many Saarvi tools process files locally in your browser. Tools that require server-side functionality clearly indicate when data is sent to our servers.
+              </p>
             </div>
           </div>
 
-          {/* Right Column: Live Simulated Saarvi Workspace Preview */}
-          <div className="lg:col-span-5 relative hidden lg:block">
-            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl overflow-hidden">
+          {/* Right Column: Realistic Saarvi Workspace Composition (Zero Fake Latencies) */}
+          <div className="lg:col-span-6 relative hidden lg:block">
+            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-lg overflow-hidden">
+
               {/* Window Title Bar */}
-              <div className="px-4 py-3 bg-slate-50/90 border-b border-slate-200/80 flex items-center justify-between">
+              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-rose-400 inline-block" />
-                  <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" />
-                  <span className="w-3 h-3 rounded-full bg-emerald-400 inline-block" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block" />
                 </div>
-                <span className="text-[11px] font-bold text-slate-500 font-mono">
+                <span className="text-xs font-semibold text-slate-600">
                   Saarvi Interactive Workspace
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                  Local Engine Active
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                  Active
                 </span>
               </div>
 
-              {/* Workspace Navigation Tabs */}
-              <div className="flex border-b border-slate-100 bg-slate-50/40 text-xs font-bold">
-                <button
-                  type="button"
-                  onClick={() => setActivePreviewTab("pdf")}
-                  className={`flex-1 py-2.5 px-3 text-center border-b-2 transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
-                    activePreviewTab === "pdf"
-                      ? "border-blue-600 text-blue-600 bg-white"
-                      : "border-transparent text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  <FileImage className="w-3.5 h-3.5" />
-                  <span>PDF to JPG</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActivePreviewTab("academic")}
-                  className={`flex-1 py-2.5 px-3 text-center border-b-2 transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
-                    activePreviewTab === "academic"
-                      ? "border-blue-600 text-blue-600 bg-white"
-                      : "border-transparent text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  <GraduationCap className="w-3.5 h-3.5" />
-                  <span>VTU SGPA</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActivePreviewTab("resume")}
-                  className={`flex-1 py-2.5 px-3 text-center border-b-2 transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
-                    activePreviewTab === "resume"
-                      ? "border-blue-600 text-blue-600 bg-white"
-                      : "border-transparent text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  <Briefcase className="w-3.5 h-3.5" />
-                  <span>Resume 2.0</span>
-                </button>
-              </div>
+              {/* Workspace Layout: Compact Sidebar + Main Work Area */}
+              <div className="grid grid-cols-12 min-h-[340px]">
 
-              {/* Preview Body */}
-              <div className="p-5 space-y-4">
-                {activePreviewTab === "pdf" && (
-                  <div className="space-y-3.5 animate-in fade-in duration-150">
-                    <div className="p-4 rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/40 text-center space-y-2">
-                      <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mx-auto">
-                        <FileText className="w-5 h-5" />
-                      </div>
-                      <span className="text-xs font-bold text-slate-800 block">
-                        lecture_notes_module_3.pdf (2.4 MB)
-                      </span>
-                      <span className="text-[10px] text-slate-500 block">
-                        Ready for instant extraction • 12 Pages Detected
-                      </span>
-                    </div>
+                {/* Sidebar Navigation */}
+                <div className="col-span-4 bg-slate-50/70 border-r border-slate-100 p-3 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block mb-2">
+                    Workspaces
+                  </span>
 
-                    <div className="p-3 bg-emerald-50/80 border border-emerald-200/80 rounded-xl flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 text-emerald-800">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span className="font-bold">Converted in 0.38s</span>
-                      </div>
-                      <span className="text-[10px] text-emerald-700 font-mono">0 bytes sent to server</span>
-                    </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("tools")}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition cursor-pointer ${activeTab === "tools"
+                      ? "bg-white text-blue-600 shadow-2xs border border-slate-200/80"
+                      : "text-slate-600 hover:text-slate-900"
+                      }`}
+                  >
+                    <FileText className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Tools</span>
+                  </button>
 
-                    <Link
-                      href="/tools/pdf-to-jpg"
-                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs text-center block transition shadow-xs cursor-pointer"
-                    >
-                      Try PDF to JPG Free
-                    </Link>
-                  </div>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("study")}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition cursor-pointer ${activeTab === "study"
+                      ? "bg-white text-blue-600 shadow-2xs border border-slate-200/80"
+                      : "text-slate-600 hover:text-slate-900"
+                      }`}
+                  >
+                    <GraduationCap className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Study</span>
+                  </button>
 
-                {activePreviewTab === "academic" && (
-                  <div className="space-y-3.5 animate-in fade-in duration-150">
-                    <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
-                      <div className="flex items-center justify-between text-xs font-bold">
-                        <span className="text-slate-800">VTU 2022 Scheme • 6th Sem</span>
-                        <span className="text-blue-600 font-mono">CS &amp; Engineering</span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 text-center pt-1 border-t border-slate-200/60">
-                        <div className="p-1.5 bg-white rounded-lg border border-slate-200">
-                          <span className="text-[10px] text-slate-400 block font-semibold">Total Credits</span>
-                          <span className="text-xs font-black text-slate-800">22.0</span>
-                        </div>
-                        <div className="p-1.5 bg-white rounded-lg border border-slate-200">
-                          <span className="text-[10px] text-slate-400 block font-semibold">Calculated SGPA</span>
-                          <span className="text-xs font-black text-emerald-600">8.82</span>
-                        </div>
-                        <div className="p-1.5 bg-white rounded-lg border border-slate-200">
-                          <span className="text-[10px] text-slate-400 block font-semibold">Equivalent %</span>
-                          <span className="text-xs font-black text-slate-800">80.7%</span>
-                        </div>
-                      </div>
-                    </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("career")}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition cursor-pointer ${activeTab === "career"
+                      ? "bg-white text-blue-600 shadow-2xs border border-slate-200/80"
+                      : "text-slate-600 hover:text-slate-900"
+                      }`}
+                  >
+                    <Search className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Career</span>
+                  </button>
 
-                    <Link
-                      href="/student/sgpa-calculator"
-                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs text-center block transition shadow-xs cursor-pointer"
-                    >
-                      Calculate Your SGPA
-                    </Link>
-                  </div>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("resume")}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition cursor-pointer ${activeTab === "resume"
+                      ? "bg-white text-blue-600 shadow-2xs border border-slate-200/80"
+                      : "text-slate-600 hover:text-slate-900"
+                      }`}
+                  >
+                    <Briefcase className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Resume</span>
+                  </button>
+                </div>
 
-                {activePreviewTab === "resume" && (
-                  <div className="space-y-3.5 animate-in fade-in duration-150">
-                    <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2 text-xs">
+                {/* Main View Area */}
+                <div className="col-span-8 p-4 flex flex-col justify-between">
+                  {activeTab === "tools" && (
+                    <div className="space-y-3 animate-in fade-in duration-150">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900">Modern Professional Template</span>
-                        <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-700">
-                          Sample Preview
-                        </span>
+                        <span className="text-xs font-bold text-slate-800">Recent Tools</span>
+                        <Link href="/tools" className="text-[10px] text-blue-600 font-semibold hover:underline">
+                          View all
+                        </Link>
                       </div>
-                      <div className="p-2 bg-white rounded-xl border border-slate-200 text-[11px] text-slate-600 space-y-1">
-                        <span className="font-bold text-slate-800 block">Alex Johnson • Software Engineer</span>
-                        <p className="line-clamp-2 text-slate-500 text-[10px]">
-                          Pre-loaded with sample projects, education, and skills. Live A4 typography updates instantly.
+
+                      <div className="space-y-2">
+                        <div className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <FileImage className="w-4 h-4 text-blue-600" />
+                            <div>
+                              <span className="font-semibold text-slate-800 block">PDF to JPG</span>
+                              <span className="text-[10px] text-slate-400">Client-side extraction</span>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            Local
+                          </span>
+                        </div>
+
+                        <div className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-teal-600" />
+                            <div>
+                              <span className="font-semibold text-slate-800 block">Merge PDF</span>
+                              <span className="text-[10px] text-slate-400">Combine multiple files</span>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            Local
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2">
+                        <Link
+                          href="/tools"
+                          className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs text-center block transition shadow-2xs"
+                        >
+                          Launch Document Utility
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === "study" && (
+                    <div className="space-y-3 animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800">Academic Utilities</span>
+                        <span className="text-[10px] text-purple-700 font-semibold">VTU Scheme 2022</span>
+                      </div>
+
+                      <div className="p-3 bg-purple-50/50 border border-purple-100 rounded-xl space-y-1 text-xs">
+                        <span className="font-semibold text-slate-800 block">SGPA Calculator</span>
+                        <p className="text-[11px] text-slate-500">
+                          Verified university credits, F-grade credit preservation, and deterministic percentage calculation.
                         </p>
                       </div>
-                    </div>
 
-                    <Link
-                      href="/student/resume"
-                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs text-center block transition shadow-xs cursor-pointer"
-                    >
-                      Build Resume Free
-                    </Link>
+                      <div className="pt-2">
+                        <Link
+                          href="/student/sgpa-calculator"
+                          className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs text-center block transition shadow-2xs"
+                        >
+                          Calculate SGPA
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === "career" && (
+                    <div className="space-y-3 animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800">Unified Career Search</span>
+                        <span className="text-[10px] text-emerald-700 font-semibold">Live verified</span>
+                      </div>
+
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900">Frontend Intern</span>
+                          <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                            Internship
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-slate-500 block">Bengaluru · Hybrid · 0–1 yrs</span>
+                      </div>
+
+                      <div className="pt-2">
+                        <Link
+                          href="/jobs"
+                          className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs text-center block transition shadow-2xs"
+                        >
+                          Search Career Opportunities
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === "resume" && (
+                    <div className="space-y-3 animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800">ATS Resume Builder</span>
+                        <span className="text-[10px] text-blue-700 font-semibold">A4 Live Preview</span>
+                      </div>
+
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-xs">
+                        <span className="font-bold text-slate-900 block">Modern ATS Template</span>
+                        <p className="text-[11px] text-slate-500">
+                          Structured typography, single-column parsing fidelity, and instant PDF vector export.
+                        </p>
+                      </div>
+
+                      <div className="pt-2">
+                        <Link
+                          href="/student/resume"
+                          className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs text-center block transition shadow-2xs"
+                        >
+                          Open Resume Builder
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Footer status bar */}
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
+                    <span>Clean client environment</span>
+                    <span>Saarvi Workspace</span>
                   </div>
-                )}
+                </div>
+
               </div>
+
             </div>
           </div>
 

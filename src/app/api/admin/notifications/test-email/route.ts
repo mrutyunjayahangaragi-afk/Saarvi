@@ -94,32 +94,53 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Dispatch Test Email via Active Provider
+    // 4. Dispatch Test Email via Active Provider using Saarvi Responsive Email Engine
     const emailProvider = providerFactory.getEmailProvider();
-
     const timestamp = new Date().toISOString();
+
+    const campaignTitle = (body as any).title ? String((body as any).title) : 'Transactional Email Verification';
+    const campaignBody = (body as any).body
+      ? String((body as any).body)
+      : `This is a test transactional email from Saarvi sent via ${emailProvider.name} on ${new Date().toLocaleString()}.\n\nIf you received this email, your transactional email provider configuration is working properly.`;
+    const campaignCategory = (body as any).category ? String((body as any).category) : 'SYSTEM';
+    const campaignSubtitle = (body as any).subtitle ? String((body as any).subtitle) : undefined;
+    const campaignCtaText = (body as any).cta_text ? String((body as any).cta_text) : 'Open Saarvi';
+    const campaignCtaUrl = (body as any).cta_url ? String((body as any).cta_url) : 'https://saarvi.in';
+
+    const { generateSaarviEmailHtml, generateSaarviEmailPlainText, sanitizeEmailSubject } = await import('@/lib/notifications/email-template');
+
+    const html = generateSaarviEmailHtml({
+      title: `[TEST] ${campaignTitle}`,
+      subtitle: campaignSubtitle,
+      body: campaignBody,
+      category: campaignCategory,
+      ctaText: campaignCtaText,
+      ctaUrl: campaignCtaUrl,
+      recipientEmail: cleanRecipient,
+      recipientName: 'Administrator',
+    });
+
+    const text = generateSaarviEmailPlainText({
+      title: `[TEST] ${campaignTitle}`,
+      subtitle: campaignSubtitle,
+      body: campaignBody,
+      category: campaignCategory,
+      ctaText: campaignCtaText,
+      ctaUrl: campaignCtaUrl,
+    });
+
+    const subject = sanitizeEmailSubject(`[TEST] ${campaignTitle}`);
+
     const result = await emailProvider.sendTransactionalEmail({
       to: cleanRecipient,
-      subject: 'Saarvi — Transactional Email Verification',
-      text: `Hello,\n\nThis is a test transactional email from Saarvi sent via ${emailProvider.name} on ${new Date().toLocaleString()}.\n\nIf you received this email, your transactional email provider configuration is working properly.\n\n— The Saarvi Team\nhttps://saarvi.app`,
-      html: `
-        <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; rounded: 16px;">
-          <h2 style="color: #2563eb; margin-top: 0;">Saarvi Email Verification</h2>
-          <p style="color: #334155; line-height: 1.6;">
-            This is a test transactional email sent via <strong>${emailProvider.name}</strong>.
-          </p>
-          <div style="background-color: #f8fafc; padding: 12px 16px; border-radius: 8px; font-size: 13px; color: #475569; margin: 16px 0;">
-            <strong>Dispatch Status:</strong> Successful<br/>
-            <strong>Timestamp:</strong> ${timestamp}
-          </div>
-          <p style="color: #64748b; font-size: 12px; margin-bottom: 0;">
-            Saarvi — Study. Work. Grow. • <a href="https://saarvi.app" style="color: #2563eb;">saarvi.app</a>
-          </p>
-        </div>
-      `,
+      subject,
+      text,
+      html,
       metadata: {
+        isTest: true,
+        actorId: user.id,
+        timestamp,
         type: 'test_email',
-        initiatedBy: user.id,
       },
     });
 

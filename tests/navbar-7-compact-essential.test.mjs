@@ -183,29 +183,36 @@ test('Navbar 7.0 (Section 1 & 14): Main Desktop Navbar Structure & Priority', ()
   const navbarPath = path.join(ROOT, 'src/components/layout/Navbar.tsx');
   const navbarContent = fs.readFileSync(navbarPath, 'utf8');
 
-  // Verify Navbar Priority Order:
-  // 1. Saarvi identity (SaarviNavbarLogo)
+  // 0. Config-driven architecture: Navbar consumes DEFAULT_NAVIGATION_ITEMS
+  assert.ok(navbarContent.includes('DEFAULT_NAVIGATION_ITEMS'), 'Navbar imports DEFAULT_NAVIGATION_ITEMS for zero-latency initial render');
+  assert.ok(navbarContent.includes('dynamicNavItems'), 'Navbar uses dynamicNavItems state driven by published registry');
+
+  // 1. Saarvi identity
   assert.ok(navbarContent.includes('SaarviNavbarLogo'), 'Navbar renders Saarvi identity logo');
 
   // 2. Tools launcher
-  assert.ok(navbarContent.includes('<span>Tools</span>'), 'Navbar renders Tools main launcher');
+  assert.ok(navbarContent.includes("item.key === 'tools'"), 'Navbar renders Tools launcher from config');
   assert.ok(navbarContent.includes('href="/tools"'), 'Tools links to /tools');
 
   // 3. Jobs & Internships
-  assert.ok(navbarContent.includes('Jobs &amp; Internships') || navbarContent.includes('Jobs & Internships'), 'Navbar renders Jobs & Internships');
-  assert.ok(navbarContent.includes('href="/jobs"'), 'Jobs & Internships links to /jobs');
+  assert.ok(navbarContent.includes("item.key === 'jobs'"), 'Navbar renders Jobs from config');
+  assert.ok(navbarContent.includes('href={item.route}') || navbarContent.includes('href="/jobs"'), 'Jobs uses config-driven route');
 
-  // 4. Plans
-  assert.ok(navbarContent.includes('<span>Plans</span>'), 'Navbar renders Plans');
+  // 4. Student Utilities
+  assert.ok(navbarContent.includes("item.key === 'student'"), 'Navbar renders Student Utilities from config');
+  assert.ok(navbarContent.includes('href="/student"'), 'Student Utilities links to /student');
+
+  // 5. Plans
+  assert.ok(navbarContent.includes('Plans'), 'Navbar includes Plans navigation');
   assert.ok(navbarContent.includes('href="/pricing"'), 'Plans links to /pricing');
 
-  // 5. Search trigger
+  // 6. Search trigger
   assert.ok(navbarContent.includes('Search tools...'), 'Navbar renders Search trigger button');
 
-  // 6. Notifications
+  // 7. Notifications
   assert.ok(navbarContent.includes('Notifications'), 'Navbar renders Notifications');
 
-  // 7. Profile / Account / Login
+  // 8. Profile / Account / Login
   assert.ok(navbarContent.includes('accountMenuOpen') || navbarContent.includes('Login'), 'Navbar renders Profile/Login controls');
 
   // Strict negative assertion: Main desktop bar must NOT have top-level category triggers

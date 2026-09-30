@@ -340,10 +340,11 @@ describe("Saarvi Enterprise Admin Control, Auth, Jobs & Payment Suite", () => {
       const navbarPath = path.join(rootDir, "src/components/layout/Navbar.tsx");
       const code = fs.readFileSync(navbarPath, "utf8");
 
-      // Verify desktop condition
-      assert.ok(code.includes("jobsNavbarVisible &&"), "Navbar desktop items conditionally rendered with jobsNavbarVisible");
-      // Verify mobile condition
-      assert.ok(code.includes("jobsNavbarVisible &&"), "Navbar mobile items conditionally rendered with jobsNavbarVisible");
+      // Verify jobs feature flag gate — supports both JSX conditional and early-return guard patterns
+      assert.ok(
+        code.includes("jobsNavbarVisible &&") || code.includes("!jobsNavbarVisible"),
+        "Navbar items conditionally rendered based on jobsNavbarVisible"
+      );
       // Verify realtime event listener
       assert.ok(code.includes("saarvi:jobs-feature-changed"), "Navbar must listen to saarvi:jobs-feature-changed for realtime updates");
     });

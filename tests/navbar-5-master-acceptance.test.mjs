@@ -276,7 +276,7 @@ test('Navbar 5.0 Architecture: Navbar.tsx and MegaMenu.tsx file invariants', () 
 
   // Desktop Navbar has master Tools launcher
   assert.ok(navbarContent.includes('href="/tools"'), 'Desktop Navbar has link to /tools');
-  assert.ok(navbarContent.includes('<span>Tools</span>'), 'Desktop Navbar displays Tools title');
+  assert.ok(navbarContent.includes('<span>Tools</span>') || navbarContent.includes("item.key === 'tools'"), 'Desktop Navbar renders Tools launcher');
   assert.ok(navbarContent.includes('LayoutGrid'), 'Desktop Navbar displays LayoutGrid icon for Tools');
 
   // MegaMenu has all 5 Category columns

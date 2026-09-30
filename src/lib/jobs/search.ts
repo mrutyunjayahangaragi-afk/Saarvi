@@ -28,6 +28,9 @@ import { isSupabaseConfigured } from "../supabase/config.ts";
 import { jobRepository, rowToJobItem } from "./repository.ts";
 import { SerpApiGoogleJobsProvider } from "./providers/serpapi.ts";
 
+import { buildCareerSearchIntent } from "../career/career-search-intent.ts";
+import { CareerRelevanceEngine } from "../career/career-relevance-engine.ts";
+
 interface CacheEntry {
   response: JobSearchResponse;
   timestamp: number;
@@ -44,13 +47,16 @@ export class JobSearchService {
 
   private getCacheKey(params: JobSearchParams): string {
     const q = (params.q || "").toLowerCase().trim();
+    const role = (params.role || "").toLowerCase().trim();
+    const branch = (params.branch || "").toLowerCase().trim();
+    const domain = (params.domain || "").toLowerCase().trim();
     const loc = (params.location || "").toLowerCase().trim();
     const exp = (params.experience || "").toLowerCase().trim();
     const emp = (params.employmentType || "").toLowerCase().trim();
     const rem = (params.remote || "").toLowerCase().trim();
     const tier = params.tier || "all";
     const page = params.page || 1;
-    return `job_cache_v6:${q}:${loc}:${exp}:${emp}:${rem}:${tier}:${page}`;
+    return `job_cache_v7:${q}:${role}:${branch}:${domain}:${loc}:${exp}:${emp}:${rem}:${tier}:${page}`;
   }
 
   /**
@@ -58,12 +64,20 @@ export class JobSearchService {
    */
   public async searchJobs(params: JobSearchParams): Promise<JobSearchResponse> {
     const safeQ = sanitizeSearchQuery(params.q);
+    const safeRole = sanitizeSearchQuery(params.role);
+    const safeBranch = sanitizeSearchQuery(params.branch);
+    const safeDomain = sanitizeSearchQuery(params.domain);
     const safeLoc = sanitizeSearchQuery(params.location);
     const { page, limit } = sanitizePagination(params.page, params.limit, 30);
 
+    const effectiveQ = safeQ || safeRole || safeDomain || undefined;
+
     const normalizedParams: JobSearchParams = {
       ...params,
-      q: safeQ,
+      q: effectiveQ,
+      role: safeRole,
+      branch: safeBranch,
+      domain: safeDomain,
       location: safeLoc,
       page,
       limit,
@@ -82,7 +96,14 @@ export class JobSearchService {
       };
     }
 
-    const isSearchActive = Boolean(safeQ || safeLoc);
+    const isSearchActive = Boolean(
+      effectiveQ ||
+      safeLoc ||
+      safeBranch ||
+      (params.employmentType && params.employmentType !== "all" && params.employmentType !== "any") ||
+      (params.remote && params.remote !== "all") ||
+      (params.skills && params.skills.length > 0)
+    );
 
     // 2. Database-First Query for Tier A: Saarvi Verified Opportunities
     const verifiedResult = await jobRepository.getLiveVerifiedOpportunities(normalizedParams);
@@ -139,7 +160,7 @@ export class JobSearchService {
           providerStatus.provider = this.serpApiProvider.name;
 
           const providerResult = await this.serpApiProvider.search({
-            q: safeQ,
+            q: effectiveQ || "Software Engineer",
             location: safeLoc,
             remote: params.remote,
             experience: params.experience,
@@ -149,7 +170,7 @@ export class JobSearchService {
           if (providerResult.items.length > 0) {
             // Persist newly discovered jobs into database as SOURCE_DISCOVERY
             const persistRes = await jobRepository.bulkUpsertOpportunities(providerResult.items, {
-              query: safeQ || "Software Engineer",
+              query: effectiveQ || "Software Engineer",
               location: safeLoc,
               provider: "serpapi_google_jobs",
               tier: "SOURCE_DISCOVERY",
@@ -192,6 +213,34 @@ export class JobSearchService {
     const sorted = sortJobs(combinedItems, params.sortBy, normalizedParams);
     const paginated = sorted.slice((page - 1) * limit, page * limit);
 
+    // 6. Compute explainable match reasons using CareerRelevanceEngine
+    const searchIntent = buildCareerSearchIntent({
+      q: safeQ,
+      role: safeRole,
+      branch: safeBranch,
+      domain: safeDomain,
+      location: safeLoc,
+      opportunityType: params.employmentType,
+      experience: params.experience,
+      workMode: params.remote,
+      skills: params.skills,
+    });
+
+    const matchReasonsMap: Record<string, string[]> = {};
+    for (const item of paginated) {
+      const canonicalRecord: any = {
+        ...item,
+        company: item.companyName,
+        remote: item.remoteType === "remote",
+        opportunityType: item.isInternship ? "INTERNSHIP" : "JOB",
+        verificationState: item.verificationTier === "SAARVI_VERIFIED" ? "VERIFIED" : "NOT_VERIFIED",
+      };
+      const scored = CareerRelevanceEngine.scoreJob(canonicalRecord, searchIntent);
+      if (scored.matchReasons.length > 0) {
+        matchReasonsMap[item.id] = scored.matchReasons;
+      }
+    }
+
     const response: JobSearchResponse = {
       items: paginated,
       verifiedItems: cleanVerified.slice((page - 1) * limit, page * limit),
@@ -205,9 +254,10 @@ export class JobSearchService {
       filteredCount: combinedItems.length,
       verifiedCount: cleanVerified.length,
       sourceDiscoveryCount: cleanSource.length,
+      matchReasonsMap,
       providerStatus,
       querySummary: {
-        q: safeQ,
+        q: effectiveQ || "",
         location: safeLoc,
         filtersApplied:
           (params.remote ? 1 : 0) +
@@ -242,7 +292,7 @@ export class JobSearchService {
     // 2. Fallback: in-memory opportunityStore
     const opp = opportunityStore.getOpportunityById(cleanId);
     if (opp) {
-      const isPublic = opp.recordState !== "DELETED" && opp.status !== "DELETED";
+      const isPublic = opp.recordState !== "DELETED" && opp.status !== "DELETED" && (opp.status === "PUBLISHED" || opp.status === "ACTIVE" || opp.status === "APPROVED");
       if (isPublic) {
         return {
           id: opp.id,

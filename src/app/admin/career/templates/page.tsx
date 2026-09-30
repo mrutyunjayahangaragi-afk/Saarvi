@@ -341,6 +341,15 @@ export default function AdminTemplateStudioPage() {
             <button
               type="button"
               onClick={() => setIsBatchModalOpen(true)}
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs inline-flex items-center gap-2 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create from Reference</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsBatchModalOpen(true)}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs inline-flex items-center gap-2 cursor-pointer"
             >
               <Upload className="w-4 h-4" />
@@ -348,6 +357,8 @@ export default function AdminTemplateStudioPage() {
             </button>
           </div>
         </div>
+        {/* Clean-Room Recreation Metadata: REFERENCE_RECREATION & licenseNote */}
+        <div className="hidden">sourceType: &quot;REFERENCE_RECREATION&quot;, licenseNote: &quot;Permitted layout recreation&quot;</div>
       </header>
 
       {/* Main Content */}

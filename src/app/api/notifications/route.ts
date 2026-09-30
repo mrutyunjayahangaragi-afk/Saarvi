@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
     const unreadOnly = searchParams.get('unread') === 'true';
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100);
+    const initialLimit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100);
 
     let userNotifications: any[] = [];
     let unreadCount = 0;
@@ -178,13 +178,23 @@ export async function GET(request: Request) {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '20', 10)), 100);
+    const offset = (page - 1) * limit;
+
     unreadCount = userNotifications.filter((n) => !n.read).length;
-    const paginated = userNotifications.slice(0, limit);
+    const paginated = userNotifications.slice(offset, offset + limit);
+    const hasMore = offset + limit < userNotifications.length;
+    const nextCursor = hasMore ? String(page + 1) : null;
 
     return NextResponse.json({
       success: true,
       unreadCount,
       total: userNotifications.length,
+      page,
+      pageSize: limit,
+      hasMore,
+      next_cursor: nextCursor,
       notifications: paginated,
     });
   } catch (err: any) {

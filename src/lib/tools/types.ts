@@ -20,6 +20,22 @@ export interface SingleFileResult {
   originalSize: number;
   newSize: number;
   details?: Record<string, string | number>;
+  previewData?: {
+    sheets: {
+      sheetName: string;
+      headers: (string | number | boolean | null)[];
+      sampleRows: (string | number | boolean | null)[][];
+      totalRows: number;
+      totalCols: number;
+      qualityScore: number;
+      strategyUsed: string;
+    }[];
+    documentType: string;
+    totalRows?: number;
+    maxCols?: number;
+    qualityScore?: number;
+    strategyUsed?: string;
+  };
 }
 
 export interface MultiFileResult {

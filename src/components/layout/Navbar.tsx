@@ -28,6 +28,8 @@ import {
   Minimize2,
   Calculator,
   Zap,
+  Home,
+  ExternalLink,
 } from "lucide-react";
 import { SITE_CONFIG } from "@/config/site";
 import { SaarviNavbarLogo } from "@/components/brand/SaarviLogo";
@@ -37,6 +39,7 @@ import { useFeedback } from "@/context/FeedbackContext";
 import MegaMenu, { ActiveMenuCategory, dedupeToolsByKey } from "./MegaMenu";
 import GlobalSearchModal from "@/components/tools/GlobalSearchModal";
 import AnnouncementBanner from "./AnnouncementBanner";
+import { DEFAULT_NAVIGATION_ITEMS } from "@/lib/navigation/navigation-service";
 
 import { getStartupNavigation, getJobsFeatureControl } from "@/lib/api/request-coalesce";
 
@@ -52,6 +55,9 @@ const NAVBAR_ICON_MAP: Record<string, React.ElementType> = {
   Calculator,
   Zap,
   Search,
+  Home,
+  Layers,
+  ExternalLink,
 };
 
 function getToolIcon(name?: string): React.ElementType {
@@ -84,6 +90,7 @@ export default function Navbar() {
   const [isMac, setIsMac] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [jobsNavbarVisible, setJobsNavbarVisible] = useState(true);
+  const [dynamicNavItems, setDynamicNavItems] = useState<any[]>(DEFAULT_NAVIGATION_ITEMS);
 
   // Section 35: Background scroll lock when mobile drawer is open
   useEffect(() => {
@@ -171,6 +178,20 @@ export default function Navbar() {
         if (mounted && Array.isArray(data.essentialTools) && data.essentialTools.length > 0) {
           setEssentialTools(data.essentialTools);
         }
+
+        // Fetch authoritative published navigation items (Admin Controlled Navbar 7.0)
+        fetch('/api/navigation')
+          .then((r) => r.json())
+          .then((d) => {
+            if (mounted && Array.isArray(d?.items)) {
+              setDynamicNavItems(d.items);
+              const jobsItem = d.items.find((i: any) => i.key === 'jobs');
+              if (jobsItem && jobsItem.enabled === false) {
+                setJobsNavbarVisible(false);
+              }
+            }
+          })
+          .catch(() => {});
       } catch {}
     }
     loadNav();
@@ -393,86 +414,166 @@ export default function Navbar() {
             <SaarviNavbarLogo />
           </Link>
 
-          {/* CENTER: Desktop Mega Menu Navigation Links */}
+          {/* CENTER: Desktop Navigation — Fully Config-Driven from Published Navigation Registry */}
           <nav
             className="hidden md:flex items-center gap-1 text-sm font-medium text-slate-600"
             aria-label="Main Navigation"
           >
-            {/* 1. MASTER TOOLS LAUNCHER (Consolidates PDF, Images, Student, Career, AI) */}
-            <div
-              onMouseEnter={() => handleNavMouseEnter("tools")}
-              onMouseLeave={handleNavMouseLeave}
-              className="relative py-2"
-            >
-              <Link
-                href="/tools"
-                aria-expanded={activeCategory === "tools"}
-                aria-haspopup="true"
-                onFocus={() => handleNavMouseEnter("tools")}
-                onClick={(e) => {
-                  if (activeCategory === "tools") {
-                    e.preventDefault();
-                    setActiveCategory(null);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setActiveCategory(activeCategory === "tools" ? null : "tools");
-                  }
-                }}
-                className={`px-3.5 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
-                  activeCategory === "tools" || pathname === "/tools"
-                    ? "text-blue-600 font-bold bg-blue-50"
-                    : "hover:text-slate-900 hover:bg-slate-100/70 text-slate-700"
-                }`}
-              >
-                <LayoutGrid className="w-3.5 h-3.5 text-blue-600" />
-                <span>Tools</span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                    activeCategory === "tools" ? "rotate-180 text-blue-600" : "text-slate-400"
-                  }`}
-                />
-              </Link>
-            </div>
+            {dynamicNavItems
+              .filter((item) => item.enabled && item.visible_desktop)
+              .map((item) => {
+                const isExternal = Boolean(item.external_url);
+                const targetHref = item.external_url || item.route;
+                const ItemIcon = getToolIcon(item.icon);
 
-            {/* Navbar 7.0: Primary Clean Desktop Navigation — Essential tools launch via Tools master launcher */}
-            {/* Responsive slot reduction invariant: isSlot4to6 ? 'hidden xl:flex' : 'flex' */}
+                // ── TOOLS: Master Mega Menu launcher ─────────────────────────────
+                if (item.key === 'tools') {
+                  const isToolsActive = activeCategory === 'tools' || pathname === '/tools';
+                  return (
+                    <div
+                      key={item.id}
+                      onMouseEnter={() => handleNavMouseEnter('tools')}
+                      onMouseLeave={handleNavMouseLeave}
+                      className="relative py-2"
+                    >
+                      <Link
+                        href="/tools"
+                        aria-expanded={activeCategory === 'tools'}
+                        aria-haspopup="true"
+                        onFocus={() => handleNavMouseEnter('tools')}
+                        onClick={(e) => {
+                          if (activeCategory === 'tools') {
+                            e.preventDefault();
+                            setActiveCategory(null);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setActiveCategory(activeCategory === 'tools' ? null : 'tools');
+                          }
+                        }}
+                        className={`px-3.5 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
+                          isToolsActive
+                            ? 'text-blue-600 font-bold bg-blue-50'
+                            : 'hover:text-slate-900 hover:bg-slate-100/70 text-slate-700'
+                        }`}
+                      >
+                        <LayoutGrid className="w-3.5 h-3.5 text-blue-600" />
+                        <span>{item.label}</span>
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                            activeCategory === 'tools' ? 'rotate-180 text-blue-600' : 'text-slate-400'
+                          }`}
+                        />
+                      </Link>
+                    </div>
+                  );
+                }
 
-            {/* Jobs & Internships */}
-            {jobsNavbarVisible && (
-              <div className="relative py-2">
-                <Link
-                  href="/jobs"
-                  onClick={() => setActiveCategory(null)}
-                  className={`px-3 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
-                    pathname?.startsWith("/jobs")
-                      ? "text-blue-600 bg-blue-50 font-bold"
-                      : "text-slate-700 hover:text-slate-900 hover:bg-slate-100/70"
-                  }`}
-                >
-                  <Briefcase className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Jobs &amp; Internships</span>
-                </Link>
-              </div>
-            )}
+                // ── STUDENT: Category dropdown launcher ───────────────────────────
+                if (item.key === 'student') {
+                  const isStudentActive = activeCategory === 'student' || pathname?.startsWith('/student');
+                  return (
+                    <div
+                      key={item.id}
+                      onMouseEnter={() => handleNavMouseEnter('student')}
+                      onMouseLeave={handleNavMouseLeave}
+                      className="relative py-2"
+                    >
+                      <Link
+                        href="/student"
+                        aria-expanded={activeCategory === 'student'}
+                        aria-haspopup="true"
+                        onFocus={() => handleNavMouseEnter('student')}
+                        onClick={(e) => {
+                          if (activeCategory === 'student') {
+                            e.preventDefault();
+                            setActiveCategory(null);
+                          } else {
+                            setActiveCategory(null);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setActiveCategory(activeCategory === 'student' ? null : 'student');
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
+                          isStudentActive
+                            ? 'text-indigo-600 bg-indigo-50 font-bold'
+                            : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/70'
+                        }`}
+                      >
+                        <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>{item.label}</span>
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                            activeCategory === 'student' ? 'rotate-180 text-indigo-600' : 'text-slate-400'
+                          }`}
+                        />
+                      </Link>
+                    </div>
+                  );
+                }
 
-            {/* Plans / Pricing */}
-            <div className="relative py-2">
-              <Link
-                href="/pricing"
-                onClick={() => setActiveCategory(null)}
-                className={`px-3 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
-                  pathname === "/pricing"
-                    ? "text-blue-600 bg-blue-50"
-                    : "text-slate-700 hover:text-slate-900 hover:bg-slate-100/70"
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span>Plans</span>
-              </Link>
-            </div>
+                // ── JOBS: Feature-flagged career link ─────────────────────────────
+                if (item.key === 'jobs') {
+                  if (!jobsNavbarVisible) return null;
+                  return (
+                    <div key={item.id} className="relative py-2">
+                      <Link
+                        href={item.route}
+                        onClick={() => setActiveCategory(null)}
+                        className={`px-3 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
+                          pathname?.startsWith('/jobs')
+                            ? 'text-blue-600 bg-blue-50 font-bold'
+                            : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/70'
+                        }`}
+                      >
+                        <Briefcase className="w-3.5 h-3.5 text-blue-600" />
+                        <span>{item.label}</span>
+                        {item.badge && (
+                          <span className="ml-0.5 px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+                            {item.badge}
+                          </span>
+                        )}
+                      </Link>
+                    </div>
+                  );
+                }
+
+                // ── HOME: Skip — rendered via logo ─────────────────────────────────
+                if (item.key === 'home') return null;
+
+                // ── ALL OTHER ITEMS: Generic link with optional badge ──────────────
+                const isActive = pathname === item.route || pathname?.startsWith(item.route + '/');
+                return (
+                  <div key={item.id} className="relative py-2">
+                    <Link
+                      href={targetHref}
+                      target={item.open_behavior === 'new_tab' || isExternal ? '_blank' : undefined}
+                      rel={isExternal ? 'noopener noreferrer' : undefined}
+                      onClick={() => setActiveCategory(null)}
+                      className={`px-3 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
+                        isActive
+                          ? 'text-blue-600 bg-blue-50 font-bold'
+                          : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/70'
+                      }`}
+                    >
+                      <ItemIcon className="w-3.5 h-3.5 text-blue-600" />
+                      <span>{item.label}</span>
+                      {item.badge && (
+                        <span className="ml-0.5 px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+                          {item.badge}
+                        </span>
+                      )}
+                      {isExternal && <ExternalLink className="w-2.5 h-2.5 text-slate-400" />}
+                    </Link>
+                  </div>
+                );
+              })}
           </nav>
 
           {/* RIGHT: Search Trigger Button & Login */}
@@ -1110,45 +1211,120 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* Mobile Direct Link: Jobs & Internships */}
-            {jobsNavbarVisible && (
-              <div>
-                <Link
-                  href="/jobs"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center justify-between p-3.5 rounded-2xl font-bold text-xs border transition-colors ${
-                    pathname?.startsWith("/jobs")
-                      ? "bg-blue-50 text-blue-700 border-blue-200"
-                      : "bg-slate-50/70 text-slate-800 border-slate-200/80 hover:bg-slate-100"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Briefcase className="w-4 h-4 text-blue-600" />
-                    <span>Jobs &amp; Internships</span>
-                  </div>
-                  <span className="px-2 py-0.5 text-[10px] font-bold text-blue-700 bg-blue-100/80 rounded-full">
-                    New
-                  </span>
-                </Link>
-              </div>
-            )}
+            {/* Mobile Direct Links: Config-Driven from Published Navigation Registry */}
+            {dynamicNavItems
+              .filter((item) => item.enabled && item.visible_mobile && item.key !== 'home' && item.key !== 'tools')
+              .map((item) => {
+                const isExternal = Boolean(item.external_url);
+                const targetHref = item.external_url || item.route;
+                const ItemIcon = getToolIcon(item.icon);
 
-            {/* Plans / Pricing */}
-            <div className="pt-2">
-              <Link
-                href="/pricing"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-between p-3 rounded-2xl bg-blue-50/60 hover:bg-blue-50 text-slate-800 font-semibold text-sm border border-blue-100 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-500" />
-                  <span>Plans & Features</span>
-                </div>
-                <span className="px-2 py-0.5 text-[10px] font-bold text-blue-700 bg-blue-100/80 rounded-full">
-                  Free / Pro
-                </span>
-              </Link>
-            </div>
+                // Jobs — respect feature flag
+                if (item.key === 'jobs') {
+                  if (!jobsNavbarVisible) return null;
+                  const isActive = pathname?.startsWith('/jobs');
+                  return (
+                    <div key={item.id}>
+                      <Link
+                        href={item.route}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center justify-between p-3.5 rounded-2xl font-bold text-xs border transition-colors ${
+                          isActive
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : 'bg-slate-50/70 text-slate-800 border-slate-200/80 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Briefcase className="w-4 h-4 text-blue-600" />
+                          <span>{item.label}</span>
+                        </div>
+                        {item.badge && (
+                          <span className="px-2 py-0.5 text-[10px] font-bold text-blue-700 bg-blue-100/80 rounded-full">
+                            {item.badge}
+                          </span>
+                        )}
+                      </Link>
+                    </div>
+                  );
+                }
+
+                // Student Utilities — navigates to /student
+                if (item.key === 'student') {
+                  const isActive = pathname?.startsWith('/student');
+                  return (
+                    <div key={item.id}>
+                      <Link
+                        href={item.route}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center justify-between p-3.5 rounded-2xl font-bold text-xs border transition-colors ${
+                          isActive
+                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                            : 'bg-slate-50/70 text-slate-800 border-slate-200/80 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <GraduationCap className="w-4 h-4 text-indigo-600" />
+                          <span>{item.label}</span>
+                        </div>
+                        {item.badge && (
+                          <span className="px-2 py-0.5 text-[10px] font-bold text-indigo-700 bg-indigo-100/80 rounded-full">
+                            {item.badge}
+                          </span>
+                        )}
+                      </Link>
+                    </div>
+                  );
+                }
+
+                // Plans / Pricing — highlighted treatment
+                if (item.key === 'pricing') {
+                  return (
+                    <div key={item.id} className="pt-2">
+                      <Link
+                        href={item.route}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center justify-between p-3 rounded-2xl bg-blue-50/60 hover:bg-blue-50 text-slate-800 font-semibold text-sm border border-blue-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-amber-500" />
+                          <span>{item.label}</span>
+                        </div>
+                        <span className="px-2 py-0.5 text-[10px] font-bold text-blue-700 bg-blue-100/80 rounded-full">
+                          Free / Pro
+                        </span>
+                      </Link>
+                    </div>
+                  );
+                }
+
+                // All other admin-configured items
+                const isActive = pathname === item.route || pathname?.startsWith(item.route + '/');
+                return (
+                  <div key={item.id} className="pt-1">
+                    <Link
+                      href={targetHref}
+                      target={item.open_behavior === 'new_tab' || isExternal ? '_blank' : undefined}
+                      rel={isExternal ? 'noopener noreferrer' : undefined}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center justify-between p-3.5 rounded-2xl font-bold text-xs border transition-colors ${
+                        isActive
+                          ? 'bg-blue-50 text-blue-700 border-blue-200'
+                          : 'bg-slate-50/70 text-slate-800 border-slate-200/80 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <ItemIcon className="w-4 h-4 text-blue-600" />
+                        <span>{item.label}</span>
+                      </div>
+                      {item.badge && (
+                        <span className="px-2 py-0.5 text-[10px] font-bold text-blue-700 bg-blue-100/80 rounded-full">
+                          {item.badge}
+                        </span>
+                      )}
+                    </Link>
+                  </div>
+                );
+              })}
 
             {/* Account Links in Mobile Drawer */}
             <div className="pt-3 border-t border-slate-200/80 space-y-2">

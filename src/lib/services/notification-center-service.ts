@@ -2,6 +2,12 @@ import { MockStorageProvider } from '../supabase/mock-storage';
 import { providerFactory } from '../notifications/providers/provider-factory';
 import { getSupabaseAdminClient } from '../supabase/admin';
 import { isSupabaseConfigured } from '../supabase/config';
+import { NotificationAudienceService, AuthoritativeUserRecipient } from './notification-audience-service';
+import {
+  generateSaarviEmailHtml,
+  generateSaarviEmailPlainText,
+  sanitizeEmailSubject,
+} from '../notifications/email-template';
 import type {
   NotificationRecord,
   NotificationRecipientRecord,
@@ -12,6 +18,7 @@ import type {
   CreateBroadcastPayload,
   NotificationAnalyticsSummary,
   NotificationSystemSettings,
+  NotificationAudienceDefinition,
 } from '../../types/notifications-v2';
 
 export interface AdminActor {
@@ -23,7 +30,7 @@ export interface AdminActor {
 export class NotificationCenterService {
   /**
    * Resolves target recipients based on audience criteria from server-side database.
-   * NEVER trusts client-supplied recipient emails or private local workspace data.
+   * Synchronous signature preserved for backward-compatibility; fetches authoritative users.
    */
   public static resolveAudience(
     audienceType: NotificationAudienceType,
@@ -122,9 +129,19 @@ export class NotificationCenterService {
   }
 
   /**
+   * Resolves target recipients asynchronously from authoritative database sources.
+   */
+  public static async resolveAudienceAsync(
+    audienceType: NotificationAudienceType,
+    audienceDef?: NotificationAudienceDefinition
+  ): Promise<AuthoritativeUserRecipient[]> {
+    return await NotificationAudienceService.resolveAudience(audienceType, audienceDef);
+  }
+
+  /**
    * Creates, validates, and initiates a platform notification broadcast.
    * Enforces transactional steps:
-   * Validate -> Authorize -> Create Notification -> Resolve Snapshot -> Create Delivery Jobs -> Process Batch
+   * Validate -> Authorize -> Create Notification -> Resolve Snapshot -> Create Delivery Jobs -> Process Batches
    */
   public static async createBroadcast(
     payload: CreateBroadcastPayload,
@@ -135,7 +152,7 @@ export class NotificationCenterService {
       throw new Error('Forbidden: Administrative privileges required.');
     }
 
-    // 2. Validate URL safety (Prevent javascript: and open redirects)
+    // 2. Validate URL safety (Prevent javascript:, data:, and open redirects)
     if (payload.cta_url) {
       const url = payload.cta_url.trim().toLowerCase();
       if (url.startsWith('javascript:') || url.startsWith('data:') || url.startsWith('vbscript:')) {
@@ -160,9 +177,15 @@ export class NotificationCenterService {
     }
 
     // 4. Resolve Target Recipients & Deduplicate with Set
-    const eligibleUsers = this.resolveAudience(payload.audience_type, payload.audience_definition);
+    let eligibleUsers: AuthoritativeUserRecipient[] = [];
+    try {
+      eligibleUsers = await this.resolveAudienceAsync(payload.audience_type, payload.audience_definition);
+    } catch {
+      eligibleUsers = this.resolveAudience(payload.audience_type, payload.audience_definition) as any;
+    }
+
     const seenUserIds = new Set<string>();
-    const deduplicatedUsers: typeof eligibleUsers = [];
+    const deduplicatedUsers: AuthoritativeUserRecipient[] = [];
 
     for (const u of eligibleUsers) {
       if (!seenUserIds.has(u.id)) {
@@ -172,11 +195,14 @@ export class NotificationCenterService {
     }
 
     if (deduplicatedUsers.length > settings.max_broadcast_size) {
-      throw new Error(`Target audience (${deduplicatedUsers.length}) exceeds maximum broadcast limit (${settings.max_broadcast_size}).`);
+      throw new Error(
+        `Target audience (${deduplicatedUsers.length}) exceeds maximum broadcast limit (${settings.max_broadcast_size}).`
+      );
     }
 
     // 5. Create authoritative Notification Record
-    const notificationId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `notif_${Date.now()}`;
+    const notificationId =
+      typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `notif_${Date.now()}`;
     const now = new Date().toISOString();
 
     const isScheduled = Boolean(payload.scheduled_at && !payload.sendNow);
@@ -213,13 +239,16 @@ export class NotificationCenterService {
 
     MockStorageProvider.saveNotification(notificationRecord);
 
-    // 6. Create Recipient Delivery Jobs (Immutable Snapshot)
+    // 6. Create Recipient Delivery Jobs (authoritative snapshot)
     const recipientJobs: NotificationRecipientRecord[] = [];
     const supabaseRecipientJobs: any[] = [];
 
     for (const user of deduplicatedUsers) {
       for (const ch of channels) {
-        const jobId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        const jobId =
+          typeof crypto !== 'undefined' && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
         const idempotencyKey = `${notificationId}_${user.id}_${ch}`;
         const deliveryStatus = isDraft ? 'PENDING' : isScheduled ? 'PENDING' : 'DELIVERED';
         const deliveredAt = !isDraft && !isScheduled ? now : undefined;
@@ -275,10 +304,14 @@ export class NotificationCenterService {
             scheduled_at: isScheduled ? payload.scheduled_at : undefined,
             sent_at: !isDraft && !isScheduled ? now : undefined,
             expires_at: payload.expires_at,
+            audience_count: deduplicatedUsers.length,
           });
 
-          if (supabaseRecipientJobs.length > 0) {
-            await supabase.from('notification_recipients').insert(supabaseRecipientJobs);
+          // Bounded batch insert into notification_recipients (250 rows per DB batch)
+          const DB_BATCH_SIZE = 250;
+          for (let b = 0; b < supabaseRecipientJobs.length; b += DB_BATCH_SIZE) {
+            const batch = supabaseRecipientJobs.slice(b, b + DB_BATCH_SIZE);
+            await supabase.from('notification_recipients').upsert(batch, { onConflict: 'idempotency_key' });
           }
         } catch (dbErr) {
           console.warn('[NotificationCenterService] Supabase insert warning:', dbErr);
@@ -294,13 +327,12 @@ export class NotificationCenterService {
       action: isDraft ? 'NOTIFICATION_CREATED' : isScheduled ? 'NOTIFICATION_SCHEDULED' : 'NOTIFICATION_SENT',
       recipient_count: deduplicatedUsers.length,
       target_type: payload.audience_type,
-      metadata: { channels, priority: payload.priority },
+      metadata: { channels, priority: payload.priority, audience_count: deduplicatedUsers.length },
       timestamp: now,
     });
 
-    // 8. If Immediate Send and Email channel enabled, dispatch email batch
+    // 8. If Immediate Send and Email channel enabled, dispatch email batches
     if (!isDraft && !isScheduled && channels.includes('email')) {
-      // Dispatch emails asynchronously in batches
       this.dispatchEmailBatch(notificationRecord, deduplicatedUsers).catch((err) => {
         console.error('[NotificationCenterService] Email batch error:', err);
       });
@@ -313,7 +345,8 @@ export class NotificationCenterService {
   }
 
   /**
-   * Batched email delivery engine using existing Saarvi SMTP infrastructure
+   * Bounded batch email delivery engine using transactional email provider.
+   * Batch size bounded between 50-100 to respect rate limits.
    */
   private static async dispatchEmailBatch(
     notification: NotificationRecord,
@@ -327,29 +360,60 @@ export class NotificationCenterService {
 
       await Promise.allSettled(
         chunk.map(async (recipient) => {
+          if (!recipient.email || !recipient.email.includes('@')) return;
+
           // Check promotional preferences
           const isPromotional = ['OFFER', 'PROMOTION', 'FEATURE_UPDATE'].includes(notification.category);
           if (isPromotional) {
             const userPrefs = MockStorageProvider.getNotificationPreferences(recipient.id);
             const pref = userPrefs.find((p) => p.category === notification.category);
             if (pref && !pref.enabled) {
-              // User opted out of this promotional category
-              return;
+              return; // Opted out
             }
           }
 
-          const htmlBody = this.renderEmailHtml(notification, recipient.fullName);
-          const plainText = `${notification.title}\n\n${notification.body}\n\n${notification.cta_url || ''}\n\nSaarvi — Study. Work. Grow.`;
+          const htmlBody = generateSaarviEmailHtml({
+            title: notification.title,
+            subtitle: notification.subtitle,
+            body: notification.body,
+            category: notification.category,
+            ctaText: notification.cta_text,
+            ctaUrl: notification.cta_url,
+            recipientEmail: recipient.email,
+            recipientName: recipient.fullName,
+          });
+
+          const plainText = generateSaarviEmailPlainText({
+            title: notification.title,
+            subtitle: notification.subtitle,
+            body: notification.body,
+            category: notification.category,
+            ctaText: notification.cta_text,
+            ctaUrl: notification.cta_url,
+          });
+
+          const subject = sanitizeEmailSubject(notification.title);
 
           try {
             await emailProvider.sendTransactionalEmail({
               to: recipient.email,
-              subject: `Saarvi — ${notification.title}`,
+              subject,
               html: htmlBody,
               text: plainText,
             });
-          } catch (err) {
-            console.warn(`[Notification Email Failure] ${recipient.email}:`, err);
+          } catch (err: any) {
+            console.warn(`[Notification Email Failure] ${recipient.email}:`, err?.message || err);
+            // Mark job as failed in storage
+            const idempotencyKey = `${notification.id}_${recipient.id}_email`;
+            const allRecipients = MockStorageProvider.getNotificationRecipients();
+            const job = allRecipients.find((r) => r.idempotency_key === idempotencyKey);
+            if (job) {
+              MockStorageProvider.updateNotificationRecipient(job.id, {
+                delivery_status: 'FAILED',
+                failed_at: new Date().toISOString(),
+                failure_reason: err?.message || 'SMTP delivery rejected',
+              });
+            }
           }
         })
       );
@@ -357,56 +421,78 @@ export class NotificationCenterService {
   }
 
   /**
-   * Generates responsive, accessible, branded Saarvi HTML email
+   * Sends a preview / test email to an authorized administrator address.
+   * Crucially does NOT pollute campaign delivery metrics.
+   */
+  public static async sendTestEmail(
+    payload: {
+      title: string;
+      subtitle?: string;
+      body: string;
+      category: NotificationCategory;
+      cta_text?: string;
+      cta_url?: string;
+    },
+    testEmail: string,
+    actor: AdminActor
+  ): Promise<{ success: boolean; message: string }> {
+    if (actor.role !== 'ADMIN' && actor.role !== 'SUPER_ADMIN') {
+      throw new Error('Forbidden: Administrative privileges required.');
+    }
+
+    if (!testEmail || !testEmail.includes('@')) {
+      throw new Error('Invalid test email address.');
+    }
+
+    const emailProvider = providerFactory.getEmailProvider();
+    const html = generateSaarviEmailHtml({
+      title: `[TEST] ${payload.title}`,
+      subtitle: payload.subtitle,
+      body: payload.body,
+      category: payload.category,
+      ctaText: payload.cta_text,
+      ctaUrl: payload.cta_url,
+      recipientEmail: testEmail,
+      recipientName: 'Administrator',
+    });
+
+    const text = generateSaarviEmailPlainText({
+      title: `[TEST] ${payload.title}`,
+      subtitle: payload.subtitle,
+      body: payload.body,
+      category: payload.category,
+      ctaText: payload.cta_text,
+      ctaUrl: payload.cta_url,
+    });
+
+    const subject = sanitizeEmailSubject(`[TEST] ${payload.title}`);
+
+    await emailProvider.sendTransactionalEmail({
+      to: testEmail.trim(),
+      subject,
+      html,
+      text,
+    });
+
+    return {
+      success: true,
+      message: `Test email successfully sent to ${testEmail.trim()}`,
+    };
+  }
+
+  /**
+   * Generates responsive, accessible, branded Saarvi HTML email (kept for backward-compatibility)
    */
   public static renderEmailHtml(notification: NotificationRecord, recipientName?: string): string {
-    const primaryLink = notification.cta_url || 'https://saarvi.app';
-    const ctaText = notification.cta_text || 'Open Saarvi';
-
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Saarvi — ${notification.title}</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #f8fafc; color: #1e293b; }
-    .container { max-width: 600px; margin: 24px auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; }
-    .header { padding: 24px; border-bottom: 1px solid #f1f5f9; background: #ffffff; text-align: center; }
-    .logo { font-size: 20px; font-weight: 800; color: #1e293b; text-decoration: none; }
-    .logo span { color: #2563eb; }
-    .badge { display: inline-block; padding: 4px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; border-radius: 6px; background: #eff6ff; color: #1d4ed8; margin-bottom: 12px; }
-    .content { padding: 32px 24px; }
-    .title { font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 8px 0; line-height: 1.3; }
-    .meta { font-size: 12px; color: #64748b; margin-bottom: 20px; }
-    .body-text { font-size: 14px; line-height: 1.6; color: #334155; margin-bottom: 28px; white-space: pre-line; }
-    .cta-button { display: inline-block; padding: 12px 24px; font-size: 13px; font-weight: 700; color: #ffffff !important; background-color: #2563eb; text-decoration: none; border-radius: 10px; text-align: center; }
-    .footer { padding: 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b; text-align: center; line-height: 1.5; }
-    .footer a { color: #2563eb; text-decoration: none; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <div class="logo">Saarvi<span>.</span></div>
-    </div>
-    <div class="content">
-      <span class="badge">${notification.category}</span>
-      <h1 class="title">${notification.title}</h1>
-      <div class="meta">${new Date(notification.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-      <div class="body-text">${notification.body}</div>
-      <div style="text-align: center; margin: 28px 0;">
-        <a href="${primaryLink}" class="cta-button" target="_blank">${ctaText}</a>
-      </div>
-    </div>
-    <div class="footer">
-      <strong>Saarvi — Study. Work. Grow.</strong><br>
-      Private by design. Fast by design. Simple by design.<br>
-      <a href="https://saarvi.app/dashboard/settings">Notification Preferences</a> &bull; <a href="https://saarvi.app/privacy">Privacy Policy</a>
-    </div>
-  </div>
-</body>
-</html>`;
+    return generateSaarviEmailHtml({
+      title: notification.title,
+      subtitle: notification.subtitle,
+      body: notification.body,
+      category: notification.category,
+      ctaText: notification.cta_text,
+      ctaUrl: notification.cta_url,
+      recipientName,
+    });
   }
 
   /**
@@ -417,7 +503,9 @@ export class NotificationCenterService {
     const recipients = MockStorageProvider.getNotificationRecipients();
 
     const totalSent = notifications.filter((n) => n.status === 'SENT').length;
-    const totalDelivered = recipients.filter((r) => r.delivery_status === 'DELIVERED' || r.delivery_status === 'READ' || r.delivery_status === 'CLICKED').length;
+    const totalDelivered = recipients.filter(
+      (r) => r.delivery_status === 'DELIVERED' || r.delivery_status === 'READ' || r.delivery_status === 'CLICKED'
+    ).length;
     const totalRead = recipients.filter((r) => r.delivery_status === 'READ' || r.delivery_status === 'CLICKED').length;
     const totalClicked = recipients.filter((r) => r.delivery_status === 'CLICKED').length;
     const totalFailed = recipients.filter((r) => r.delivery_status === 'FAILED').length;
@@ -442,9 +530,38 @@ export class NotificationCenterService {
   }
 
   /**
-   * Idempotent retry of failed delivery jobs
+   * Retrieves accurate campaign delivery breakdown for the delivery dashboard
    */
-  public static retryFailedDeliveries(notificationId?: string): { retriedCount: number } {
+  public static getCampaignDeliveryStats(campaignId: string): {
+    queued: number;
+    processed: number;
+    delivered: number;
+    failed: number;
+    pending: number;
+    total: number;
+  } {
+    const recipients = MockStorageProvider.getNotificationRecipients(campaignId);
+    const total = recipients.length;
+    const delivered = recipients.filter((r) => r.delivery_status === 'DELIVERED' || r.delivery_status === 'READ' || r.delivery_status === 'CLICKED').length;
+    const failed = recipients.filter((r) => r.delivery_status === 'FAILED').length;
+    const pending = recipients.filter((r) => r.delivery_status === 'PENDING').length;
+    const queued = pending;
+    const processed = delivered + failed;
+
+    return {
+      queued,
+      processed,
+      delivered,
+      failed,
+      pending,
+      total,
+    };
+  }
+
+  /**
+   * Idempotent retry of failed delivery jobs (only retries failed records)
+   */
+  public static async retryFailedDeliveries(notificationId?: string): Promise<{ retriedCount: number }> {
     let failedRecipients = MockStorageProvider.getNotificationRecipients().filter(
       (r) => r.delivery_status === 'FAILED'
     );
@@ -463,6 +580,26 @@ export class NotificationCenterService {
         failure_reason: undefined,
       });
       retried++;
+    }
+
+    // Also update Supabase if configured
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabaseAdminClient();
+      if (supabase && failedRecipients.length > 0) {
+        try {
+          const failedIds = failedRecipients.map((r) => r.id);
+          await supabase
+            .from('notification_recipients')
+            .update({
+              delivery_status: 'DELIVERED',
+              delivered_at: now,
+              failure_reason: null,
+            })
+            .in('id', failedIds);
+        } catch (dbErr) {
+          console.warn('[NotificationCenterService] Supabase retry update warning:', dbErr);
+        }
+      }
     }
 
     return { retriedCount: retried };

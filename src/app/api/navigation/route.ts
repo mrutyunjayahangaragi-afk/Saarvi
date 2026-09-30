@@ -2,14 +2,15 @@ import { NextResponse } from 'next/server';
 import { navigationStore } from '@/lib/navigation/navigation-store';
 import { toolDiscoveryService } from '@/lib/navigation/tool-discovery-service';
 import { enforceRateLimit, createRateLimitResponse } from '@/lib/security/rate-limit';
+import { NavigationService } from '@/lib/navigation/navigation-service';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/navigation
- * Public high-performance cached endpoint returning data-driven smart tool navigation.
- * Integrates Canonical Tool Registry + Real Completion Telemetry + Admin Controls + Fast Snapshot Cache.
- * Zero database aggregation on hover.
+ * Public high-performance cached endpoint returning:
+ * 1. Dynamic Admin-Controlled Navbar Items (Navigation 7.0)
+ * 2. Data-driven smart tool navigation & MegaMenu snapshot (Canonical Tool Registry + Telemetry)
  */
 export async function GET(request: Request) {
   const rateLimit = enforceRateLimit(request, 'publicRead');
@@ -20,9 +21,11 @@ export async function GET(request: Request) {
     const windowParam = searchParams.get('window');
     const forceRefresh = searchParams.get('refresh') === 'true';
 
-    // Verify navigation store effective navigation state
-    await navigationStore.getEffectiveNavigation();
+    // 1. Fetch Dynamic Top-Level Navbar Items (NavigationService 7.0)
+    const items = await NavigationService.getPublishedItems(forceRefresh);
 
+    // 2. Fetch Tool Discovery & MegaMenu snapshot
+    await navigationStore.getEffectiveNavigation();
     const { days, period } = toolDiscoveryService.parseWindowPeriod(windowParam);
     const snapshot = await toolDiscoveryService.getNavigationSnapshot({
       windowDays: days,
@@ -31,6 +34,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
+      items, // Canonical 7.0 dynamic navigation items
+      count: items.length,
       essentialTools: snapshot.essentialTools,
       essentialSlots: snapshot.essentialSlots,
       categories: snapshot.categories,
@@ -41,9 +46,14 @@ export async function GET(request: Request) {
     });
   } catch (error: any) {
     console.error('[Public Navigation API] Error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch navigation' },
-      { status: 500 }
-    );
+    // Graceful fallback to default navigation
+    const items = await NavigationService.getPublishedItems();
+    return NextResponse.json({
+      success: true,
+      items,
+      count: items.length,
+      categories: [],
+      globalTools: { pdf: [], images: [], student: [], career: [], ai: [] },
+    });
   }
 }

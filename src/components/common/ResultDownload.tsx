@@ -9,12 +9,14 @@ import {
   CheckCircle2,
   Sparkles,
   Star,
+  FileSpreadsheet,
 } from "lucide-react";
 import { formatBytes } from "@/lib/utils";
 import { SingleFileResult, MultiFileResult } from "@/lib/tools/types";
 import { useAutoDownload } from "@/hooks/useAutoDownload";
 import { useAuth } from "@/context/AuthContext";
 import { revealDestination } from "@/lib/ux/action-destination";
+import PdfExcelPreviewModal from "@/components/tools/PdfExcelPreviewModal";
 
 interface ResultDownloadProps {
   result: SingleFileResult | MultiFileResult;
@@ -24,6 +26,7 @@ interface ResultDownloadProps {
 export default function ResultDownload({ result, onReset }: ResultDownloadProps) {
   const { user } = useAuth();
   const [dismissPrompt, setDismissPrompt] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const isSingle = result.type === "single";
 
   // Determine primary blob & filename for auto-download
@@ -332,6 +335,17 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
 
             {/* Direct Action Button */}
             <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+              {isSingle && result.previewData && (
+                <button
+                  type="button"
+                  onClick={() => setShowPreviewModal(true)}
+                  className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl border border-emerald-200 transition-all duration-150 flex items-center gap-1.5 shadow-2xs hover:shadow-xs min-h-[44px] cursor-pointer"
+                  title="Preview extracted sheets, rows, and columns"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                  <span>Preview Data</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={downloadNow}
@@ -526,6 +540,16 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
           <span>Convert another</span>
         </button>
       </div>
+
+      {isSingle && result.previewData && (
+        <PdfExcelPreviewModal
+          isOpen={showPreviewModal}
+          onClose={() => setShowPreviewModal(false)}
+          previewData={result.previewData}
+          onDownload={downloadNow}
+          filename={targetFilename}
+        />
+      )}
 
     </div>
   );

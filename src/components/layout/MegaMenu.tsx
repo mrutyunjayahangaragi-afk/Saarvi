@@ -1311,13 +1311,22 @@ export default function MegaMenu({
                       <span className="text-slate-500 text-[11px]">
                         Showing {careerAllTools.length} career preparation tools
                       </span>
-                      <Link
-                        href="/career"
-                        onClick={onClose}
-                        className="font-bold text-blue-600 hover:underline flex items-center gap-1"
-                      >
-                        View All Career Tools →
-                      </Link>
+                      <div className="flex items-center gap-3">
+                        <Link
+                          href="/jobs"
+                          onClick={onClose}
+                          className="font-bold text-emerald-600 hover:underline flex items-center gap-1"
+                        >
+                          Jobs &amp; Internships →
+                        </Link>
+                        <Link
+                          href="/career"
+                          onClick={onClose}
+                          className="font-bold text-blue-600 hover:underline flex items-center gap-1"
+                        >
+                          View All Career Tools →
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -1394,7 +1403,7 @@ export default function MegaMenu({
                     onClick={onClose}
                     className="font-bold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 text-xs shrink-0"
                   >
-                    View All Saarvi Tools
+                    View All →
                     <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>

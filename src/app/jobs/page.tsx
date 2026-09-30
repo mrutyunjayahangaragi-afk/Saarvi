@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
@@ -31,6 +31,7 @@ import {
   CheckCircle2,
   X,
   ChevronRight,
+  ChevronDown,
   TrendingUp,
   Layers,
   ArrowRight,
@@ -38,16 +39,53 @@ import {
   Bell,
   RefreshCw,
   Lock,
+  Sliders,
+  SlidersHorizontal,
+  GraduationCap,
+  Info,
+  Calendar,
+  DollarSign,
+  Award,
+  Palette,
+  Check,
+  RotateCcw,
 } from "lucide-react";
+import GuidedCareerSearchModal from "@/components/career/GuidedCareerSearchModal";
+import TrainingOpportunityCard from "@/components/career/TrainingOpportunityCard";
+import { CareerProfilePreferences } from "@/lib/career/career-profile-service";
+import type { TrainingOpportunity } from "@/lib/career/training-service";
+import { isJobLiveForUsers } from "@/lib/jobs/live-predicate";
+import {
+  CANONICAL_JOB_ROLES,
+  CANONICAL_BRANCHES,
+  CANONICAL_DOMAINS,
+  CANONICAL_LOCATIONS,
+  CANONICAL_EXPERIENCE_LEVELS,
+  CANONICAL_WORK_MODES,
+  CANONICAL_OPPORTUNITY_TYPES,
+  CANONICAL_SKILLS,
+} from "@/lib/career/career-taxonomy";
+import { CareerFilterDependencyEngine } from "@/lib/career/career-dependency-engine";
+import {
+  resolveAdaptiveTheme,
+  getStoredThemePreference,
+  setStoredThemePreference,
+  getStoredLastCareerSearch,
+  saveStoredLastCareerSearch,
+  StoredCareerSearch,
+  ThemePreferenceMode,
+  ThemeColors,
+} from "@/lib/theme/adaptive-theme";
+import SearchableSelect from "@/components/career/SearchableSelect";
 
 type SearchState = "idle" | "auth_required" | "authenticating" | "searching" | "ready" | "empty" | "error";
 
 const SUGGESTED_SEARCHES = [
-  "React developer fresher Bengaluru",
-  "Java internship 2026 students",
-  "Software engineer fresher India",
-  "AI ML internship remote",
-  "Full stack developer entry level",
+  "Frontend internship in Bengaluru",
+  "Java fresher role",
+  "Remote AI internship",
+  "Full-stack training",
+  "Data Analyst entry-level",
   "Python developer remote",
 ];
 
@@ -56,23 +94,49 @@ function JobsContent() {
   const searchParams = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
 
-  // Search Query & Filters
-  const [q, setQ] = useState(searchParams.get("q") || "");
-  const [location, setLocation] = useState(searchParams.get("location") || "");
-  const initialEmploymentType =
-    searchParams.get("employmentType") ||
-    (searchParams.get("category") === "internship"
+  // Theme State
+  const [themeMode, setThemeMode] = useState<ThemePreferenceMode>("adaptive");
+
+  // Pre-Search Guided Requirement Selectors
+  const [selectedRole, setSelectedRole] = useState(searchParams.get("role") || "");
+  const [selectedBranch, setSelectedBranch] = useState(searchParams.get("branch") || "");
+  const [selectedDomain, setSelectedDomain] = useState(searchParams.get("domain") || "");
+  const [selectedLocation, setSelectedLocation] = useState(searchParams.get("location") || "");
+  
+  // Scope / Opportunity Type
+  const initialType = searchParams.get("type") || searchParams.get("category");
+  const initialEmp = searchParams.get("employmentType");
+  const derivedInitialType =
+    initialType === "internship" || initialEmp === "internship"
       ? "internship"
-      : searchParams.get("category") === "job"
-      ? "full-time"
-      : "all");
-  const [employmentType, setEmploymentType] = useState(initialEmploymentType);
-  const [remote, setRemote] = useState(searchParams.get("remote") || "all");
-  const [experience, setExperience] = useState(searchParams.get("experience") || "all");
-  const [selectedTier, setSelectedTier] = useState<"all" | "verified" | "source">("all");
+      : initialType === "training"
+      ? "training"
+      : initialType === "job" || initialEmp === "full-time"
+      ? "job"
+      : "any";
+
+  const [selectedOpportunityType, setSelectedOpportunityType] = useState<string>(derivedInitialType);
+  const [selectedExperience, setSelectedExperience] = useState<string>(searchParams.get("experience") || "all");
+  const [selectedWorkMode, setSelectedWorkMode] = useState<string>(searchParams.get("workMode") || searchParams.get("remote") || "all");
+  const [customQuery, setCustomQuery] = useState(searchParams.get("q") || "");
+
+  // Progressive Disclosure: "More Filters"
+  const [selectedSkills, setSelectedSkills] = useState<string[]>(
+    searchParams.get("skills") ? searchParams.get("skills")!.split(",").filter(Boolean) : []
+  );
+  const [duration, setDuration] = useState(searchParams.get("duration") || "all");
+  const [stipend, setStipend] = useState(searchParams.get("stipend") || "all");
+  const [salary, setSalary] = useState(searchParams.get("salary") || "all");
+  const [deliveryMode, setDeliveryMode] = useState(searchParams.get("deliveryMode") || "all");
+
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+
+  // Sorting
   const [sortBy, setSortBy] = useState<JobSortOption>((searchParams.get("sortBy") as JobSortOption) || "relevant");
 
-  // State Machine
+  // Search Results & State Machine
+  const [hasSearched, setHasSearched] = useState(false);
   const [searchState, setSearchState] = useState<SearchState>("idle");
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [verifiedJobs, setVerifiedJobs] = useState<JobItem[]>([]);
@@ -84,16 +148,17 @@ function JobsContent() {
   const [isCached, setIsCached] = useState(false);
   const [staleFallback, setStaleFallback] = useState(false);
   const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set());
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [candidateProfile, setCandidateProfile] = useState<any | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  /**
-   * liveCount: total live jobs BEFORE user filters are applied.
-   * Used to distinguish:
-   *   liveCount = 0 → "No live opportunities are currently available."
-   *   liveCount > 0 but jobs.length = 0 → "No opportunities match your current filters."
-   */
   const [liveCount, setLiveCount] = useState<number | null>(null);
+
+  // Intelligence state: explainable match reasons & source notices
+  const [matchReasonsMap, setMatchReasonsMap] = useState<Record<string, string[]>>({});
+  const [partialFailureNotice, setPartialFailureNotice] = useState<string | null>(null);
+  const [relaxationExplanation, setRelaxationExplanation] = useState<string | null>(null);
+
+  // Return Visit Resume Banner
+  const [previousSearch, setPreviousSearch] = useState<StoredCareerSearch | null>(null);
 
   // Auth Gate Modal State
   const [authGateOpen, setAuthGateOpen] = useState(false);
@@ -114,22 +179,92 @@ function JobsContent() {
 
   // Feature Gate State
   const [featureGated, setFeatureGated] = useState<{
-    status: 'DISABLED' | 'BETA' | 'PRO_REQUIRED';
+    status: "DISABLED" | "BETA" | "PRO_REQUIRED";
     reason: string;
     maintenanceMessage?: string;
   } | null>(null);
+
+  // Guided Career Search & Training State
+  const [careerModalOpen, setCareerModalOpen] = useState(false);
+  const [careerPrefs, setCareerPrefs] = useState<CareerProfilePreferences | null>(null);
+  const [trainingOpportunities, setTrainingOpportunities] = useState<TrainingOpportunity[]>([]);
+  const [trainingLoading, setTrainingLoading] = useState(false);
+
+  // Stale request cancellation
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const searchRequestIdRef = useRef<number>(0);
+
+  // 1. Resolve Active Adaptive Theme
+  const activeTheme = useMemo(() => {
+    return resolveAdaptiveTheme({
+      opportunityType: selectedOpportunityType,
+      domain: selectedDomain,
+      role: selectedRole || customQuery,
+      userPreference: themeMode,
+    });
+  }, [selectedOpportunityType, selectedDomain, selectedRole, customQuery, themeMode]);
+
+  // 2. Evaluate Dependent Recommendations (guiding without restricting)
+  const dependencies = useMemo(() => {
+    return CareerFilterDependencyEngine.evaluateDependencies({
+      branch: selectedBranch,
+      role: selectedRole,
+      domain: selectedDomain,
+      opportunityType: selectedOpportunityType,
+    });
+  }, [selectedBranch, selectedRole, selectedDomain, selectedOpportunityType]);
+
+  // Fetch training opportunities
+  const fetchTraining = useCallback(async () => {
+    setTrainingLoading(true);
+    try {
+      const res = await fetch("/api/career/training");
+      if (res.ok) {
+        const data = await res.json();
+        setTrainingOpportunities(data.items || []);
+      }
+    } catch {
+    } finally {
+      setTrainingLoading(false);
+    }
+  }, []);
+
+  // Hydrate theme preference & previous search from localStorage
+  useEffect(() => {
+    setThemeMode(getStoredThemePreference());
+    const prev = getStoredLastCareerSearch();
+    if (prev && !searchParams.get("q") && !searchParams.get("role")) {
+      setPreviousSearch(prev);
+    }
+  }, [searchParams]);
+
+  // Hydrate Career Preferences from local storage & API
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("saarvi_career_prefs");
+        if (saved) setCareerPrefs(JSON.parse(saved));
+      } catch {}
+    }
+    fetch("/api/career/preferences")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.preferences) setCareerPrefs(data.preferences);
+      })
+      .catch(() => {});
+  }, []);
 
   // Check initial Jobs feature control settings
   useEffect(() => {
     async function checkFeatureStatus() {
       try {
-        const res = await fetch('/api/jobs/feature-control');
+        const res = await fetch("/api/jobs/feature-control");
         if (res.ok) {
           const data = await res.json();
-          if (data.mode === 'DISABLED' || data.enabled === false) {
+          if (data.mode === "DISABLED" || data.enabled === false) {
             setFeatureGated({
-              status: 'DISABLED',
-              reason: 'Jobs & Internships is currently unavailable.',
+              status: "DISABLED",
+              reason: "Jobs & Internships is currently unavailable.",
               maintenanceMessage: data.maintenance_message,
             });
           }
@@ -163,7 +298,6 @@ function JobsContent() {
     }
     loadProfile();
 
-    // Load saved job IDs from local tracker
     async function loadSaved() {
       try {
         const apps = await academicStorage.getAllJobApplications();
@@ -174,145 +308,210 @@ function JobsContent() {
     loadSaved();
   }, [user]);
 
-  // Load recent searches from localStorage
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("saarvi_recent_job_searches");
-      if (saved) setRecentSearches(JSON.parse(saved).slice(0, 5));
-    } catch {}
-  }, []);
-
-  // Fetch Jobs from Server API (Strictly Authenticated)
-  const fetchJobs = useCallback(
-    async (
-      isRefresh = false,
-      overrides: Partial<{
-        q: string;
-        location: string;
-        employmentType: string;
-        remote: string;
-        experience: string;
-        tier: "all" | "verified" | "source";
-        sortBy: JobSortOption;
-      }> = {}
-    ) => {
+  // Execute Search Function
+  const executeSearch = useCallback(
+    async (overrides: Partial<{
+      role: string;
+      branch: string;
+      domain: string;
+      location: string;
+      opportunityType: string;
+      experience: string;
+      workMode: string;
+      q: string;
+      skills: string[];
+      sortBy: JobSortOption;
+    }> = {}) => {
       if (!user) {
+        saveSearchIntent({
+          q: overrides.q !== undefined ? overrides.q : (overrides.role || selectedRole || customQuery),
+          location: overrides.location !== undefined ? overrides.location : selectedLocation,
+          experience: overrides.experience !== undefined ? overrides.experience : selectedExperience,
+          remote: overrides.workMode !== undefined ? overrides.workMode : selectedWorkMode,
+          employmentType: (overrides.opportunityType || selectedOpportunityType) === "internship" ? "internship" : "all",
+          sortBy: overrides.sortBy !== undefined ? overrides.sortBy : sortBy,
+          skills: overrides.skills !== undefined ? overrides.skills : selectedSkills,
+        });
         setLoading(false);
-        setSearchState("idle");
+        setSearchState("auth_required");
+        setAuthGateOpen(true);
         return;
       }
 
+      // Cancel stale request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      const currentRequestId = ++searchRequestIdRef.current;
+
       setLoading(true);
       setSearchState("searching");
+      setHasSearched(true);
       setError(null);
 
-      const activeQ = overrides.q !== undefined ? overrides.q : q;
-      const activeLoc = overrides.location !== undefined ? overrides.location : location;
-      const activeEmp = overrides.employmentType !== undefined ? overrides.employmentType : employmentType;
-      const activeRem = overrides.remote !== undefined ? overrides.remote : remote;
-      const activeExp = overrides.experience !== undefined ? overrides.experience : experience;
-      const activeTier = overrides.tier !== undefined ? overrides.tier : selectedTier;
+      const activeRole = overrides.role !== undefined ? overrides.role : selectedRole;
+      const activeBranch = overrides.branch !== undefined ? overrides.branch : selectedBranch;
+      const activeDomain = overrides.domain !== undefined ? overrides.domain : selectedDomain;
+      const activeLoc = overrides.location !== undefined ? overrides.location : selectedLocation;
+      const activeOpp = overrides.opportunityType !== undefined ? overrides.opportunityType : selectedOpportunityType;
+      const activeExp = overrides.experience !== undefined ? overrides.experience : selectedExperience;
+      const activeMode = overrides.workMode !== undefined ? overrides.workMode : selectedWorkMode;
+      const activeQuery = overrides.q !== undefined ? overrides.q : customQuery;
+      const activeSkills = overrides.skills !== undefined ? overrides.skills : selectedSkills;
       const activeSort = overrides.sortBy !== undefined ? overrides.sortBy : sortBy;
 
-      try {
-        analytics.trackEvent({
-          name: "jobs_search_started" as any,
-          category: "public",
-        });
-      } catch {}
+      // Construct normalized search query for API
+      const queryParts: string[] = [];
+      if (activeQuery.trim()) queryParts.push(activeQuery.trim());
+      if (activeRole && !activeQuery.toLowerCase().includes(activeRole.toLowerCase())) {
+        queryParts.push(activeRole);
+      }
+      if (activeDomain && queryParts.length === 0) {
+        queryParts.push(activeDomain);
+      }
+      const combinedQ = queryParts.join(" ").trim();
 
       const params = new URLSearchParams();
-      if (activeQ.trim()) params.set("q", activeQ.trim());
-      if (activeLoc.trim()) params.set("location", activeLoc.trim());
-      if (activeEmp !== "all") params.set("employmentType", activeEmp);
-      if (activeRem !== "all") params.set("remote", activeRem);
+      if (combinedQ) params.set("q", combinedQ);
+      if (activeRole) params.set("role", activeRole);
+      if (activeBranch) params.set("branch", activeBranch);
+      if (activeDomain) params.set("domain", activeDomain);
+      if (activeLoc && activeLoc !== "all" && activeLoc !== "any-location") {
+        params.set("location", activeLoc);
+      }
+      if (activeOpp === "internship") {
+        params.set("employmentType", "internship");
+      } else if (activeOpp === "job") {
+        params.set("employmentType", "full-time");
+      }
+      if (activeMode !== "all") params.set("remote", activeMode);
       if (activeExp !== "all") params.set("experience", activeExp);
-      if (activeTier !== "all") params.set("tier", activeTier);
       if (activeSort !== "relevant") params.set("sortBy", activeSort);
-      if (isRefresh) params.set("t", String(Date.now()));
+      if (activeSkills.length > 0) params.set("skills", activeSkills.join(","));
+
+      // Update URL without full refresh for shareability and back/forward navigation
+      const currentUrl = new URL(window.location.href);
+      if (activeRole) currentUrl.searchParams.set("role", activeRole);
+      else currentUrl.searchParams.delete("role");
+      if (activeBranch) currentUrl.searchParams.set("branch", activeBranch);
+      else currentUrl.searchParams.delete("branch");
+      if (activeDomain) currentUrl.searchParams.set("domain", activeDomain);
+      else currentUrl.searchParams.delete("domain");
+      if (activeLoc) currentUrl.searchParams.set("location", activeLoc);
+      else currentUrl.searchParams.delete("location");
+      if (activeOpp !== "any") currentUrl.searchParams.set("type", activeOpp);
+      else currentUrl.searchParams.delete("type");
+      if (activeExp !== "all") currentUrl.searchParams.set("experience", activeExp);
+      else currentUrl.searchParams.delete("experience");
+      if (activeMode !== "all") currentUrl.searchParams.set("workMode", activeMode);
+      else currentUrl.searchParams.delete("workMode");
+      window.history.replaceState({}, "", currentUrl.toString());
+
+      // Save harmless search criteria in localStorage for return visits
+      saveStoredLastCareerSearch({
+        role: activeRole,
+        branch: activeBranch,
+        domain: activeDomain,
+        location: activeLoc,
+        opportunityType: activeOpp,
+        experience: activeExp,
+        workMode: activeMode,
+        skills: activeSkills,
+      });
+
+      // If training is chosen, fetch training endpoint
+      if (activeOpp === "training") {
+        await fetchTraining();
+      }
 
       try {
-        const res = await fetch(`/api/jobs/search?${params.toString()}`);
+        const res = await fetch(`/api/jobs/search?${params.toString()}`, {
+          signal: controller.signal,
+        });
+
+        if (currentRequestId !== searchRequestIdRef.current) return;
+
         if (!res.ok) {
           if (res.status === 401) {
             setSearchState("auth_required");
             setAuthGateOpen(true);
             setJobs([]);
-            setVerifiedJobs([]);
-            setSourceJobs([]);
             return;
           }
           if (res.status === 403) {
             const errData = await res.json().catch(() => ({}));
             setFeatureGated({
-              status: errData.status || (errData.error?.includes('beta') ? 'BETA' : errData.error?.includes('Pro') ? 'PRO_REQUIRED' : 'DISABLED'),
-              reason: errData.error || 'Jobs & Internships is currently unavailable.',
+              status:
+                errData.status ||
+                (errData.error?.includes("beta")
+                  ? "BETA"
+                  : errData.error?.includes("Pro")
+                  ? "PRO_REQUIRED"
+                  : "DISABLED"),
+              reason: errData.error || "Jobs & Internships is currently unavailable.",
               maintenanceMessage: errData.maintenanceMessage,
             });
             setJobs([]);
-            setVerifiedJobs([]);
-            setSourceJobs([]);
             setSearchState("error");
             return;
           }
           throw new Error(`HTTP ${res.status}`);
         }
+
         const data = await res.json();
         const items: JobItem[] = data.items || [];
         setJobs(items);
 
-        // Populate verified and source jobs
         const verified = data.verifiedItems || items.filter((j: any) => j.verificationTier === "SAARVI_VERIFIED");
         const source = data.sourceItems || items.filter((j: any) => j.verificationTier === "SOURCE_DISCOVERY");
         setVerifiedJobs(verified);
         setSourceJobs(source);
         setVerifiedCount(typeof data.verifiedCount === "number" ? data.verifiedCount : verified.length);
-        setSourceDiscoveryCount(typeof data.sourceDiscoveryCount === "number" ? data.sourceDiscoveryCount : source.length);
+        setSourceDiscoveryCount(
+          typeof data.sourceDiscoveryCount === "number" ? data.sourceDiscoveryCount : source.length
+        );
 
         setIsCached(Boolean(data.cached));
         setStaleFallback(Boolean(data.staleFallback));
-        // Track liveCount to power correct empty-state messaging
-        if (typeof data.liveCount === "number") {
-          setLiveCount(data.liveCount);
-        } else if (typeof data.filteredCount === "number") {
-          setLiveCount(data.filteredCount);
-        }
+        if (typeof data.liveCount === "number") setLiveCount(data.liveCount);
+        else if (typeof data.filteredCount === "number") setLiveCount(data.filteredCount);
+
+        if (data.matchReasonsMap) setMatchReasonsMap(data.matchReasonsMap);
+        if (data.partialFailureMessage) setPartialFailureNotice(data.partialFailureMessage);
+        else setPartialFailureNotice(null);
+        if (data.relaxationExplanation) setRelaxationExplanation(data.relaxationExplanation);
+        else setRelaxationExplanation(null);
+
         setSearchState(items.length > 0 ? "ready" : "empty");
-
-        try {
-          analytics.trackEvent({
-            name: "jobs_search_completed" as any,
-            category: "public",
-          });
-        } catch {}
-
-        // Record recent search
-        if (activeQ.trim()) {
-          setRecentSearches((prev) => {
-            const updated = Array.from(new Set([activeQ.trim(), ...prev])).slice(0, 5);
-            try {
-              localStorage.setItem("saarvi_recent_job_searches", JSON.stringify(updated));
-            } catch {}
-            return updated;
-          });
-        }
-      } catch {
-        setError("Unable to load opportunities right now. Please retry or adjust your search.");
+      } catch (err: any) {
+        if (err.name === "AbortError") return;
+        setError("Unable to load opportunities right now. Please retry.");
         setSearchState("error");
-        try {
-          analytics.trackEvent({
-            name: "jobs_search_failed" as any,
-            category: "public",
-          });
-        } catch {}
       } finally {
-        setLoading(false);
+        if (currentRequestId === searchRequestIdRef.current) {
+          setLoading(false);
+        }
       }
     },
-    [user, q, location, employmentType, remote, experience, selectedTier, sortBy]
+    [
+      user,
+      selectedRole,
+      selectedBranch,
+      selectedDomain,
+      selectedLocation,
+      selectedOpportunityType,
+      selectedExperience,
+      selectedWorkMode,
+      customQuery,
+      selectedSkills,
+      sortBy,
+      fetchTraining,
+    ]
   );
 
-  // Restore search criteria on mount (e.g. returning after auth or via autoSearch)
+  // Restore search criteria on mount (e.g. from session storage, URL params, or return login)
   useEffect(() => {
     if (authLoading) return;
 
@@ -322,51 +521,60 @@ function JobsContent() {
       return;
     }
 
-    // Authenticated user arriving: check for stored intent or autoSearch URL params
-    const autoSearch = searchParams.get("autoSearch") === "true";
     const savedIntent = getSearchIntent();
+    const hasUrlParams = Boolean(
+      searchParams.get("role") ||
+        searchParams.get("q") ||
+        searchParams.get("location") ||
+        searchParams.get("branch") ||
+        searchParams.get("domain") ||
+        searchParams.get("autoSearch") === "true"
+    );
 
     if (savedIntent) {
-      if (savedIntent.q !== undefined) setQ(savedIntent.q);
-      if (savedIntent.location !== undefined) setLocation(savedIntent.location);
-      if (savedIntent.experience !== undefined) setExperience(savedIntent.experience);
-      if (savedIntent.remote !== undefined) setRemote(savedIntent.remote);
-      if (savedIntent.employmentType !== undefined) setEmploymentType(savedIntent.employmentType);
-      if (savedIntent.sortBy !== undefined) setSortBy(savedIntent.sortBy as JobSortOption);
+      if (savedIntent.q) setCustomQuery(savedIntent.q);
+      if (savedIntent.location) setSelectedLocation(savedIntent.location);
+      if (savedIntent.experience) setSelectedExperience(savedIntent.experience);
+      if (savedIntent.remote) setSelectedWorkMode(savedIntent.remote);
+      if (savedIntent.sortBy) setSortBy(savedIntent.sortBy as JobSortOption);
+      if (savedIntent.skills) setSelectedSkills(savedIntent.skills);
 
       clearSearchIntent();
-      fetchJobs(true, {
+      executeSearch({
         q: savedIntent.q,
         location: savedIntent.location,
         experience: savedIntent.experience,
-        remote: savedIntent.remote,
-        employmentType: savedIntent.employmentType,
+        workMode: savedIntent.remote,
+        skills: savedIntent.skills,
         sortBy: savedIntent.sortBy as JobSortOption,
       });
-    } else if (autoSearch || q || location || initialEmploymentType !== "all" || remote !== "all") {
-      fetchJobs(false, { employmentType: initialEmploymentType });
-    } else {
-      // Authenticated initial view - immediately fetch all published verified opportunities
-      fetchJobs(false, { employmentType: initialEmploymentType });
+    } else if (hasUrlParams) {
+      executeSearch();
     }
   }, [user, authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Handle Search Button Click
-  const handleSearchClick = async () => {
-    if (!user) {
-      saveSearchIntent({ q, location, experience, remote, employmentType, sortBy });
-      setSearchState("auth_required");
-      setAuthGateOpen(true);
-      try {
-        analytics.trackEvent({
-          name: "jobs_auth_required" as any,
-          category: "auth",
-        });
-      } catch {}
+  // Handle Search Submission
+  const handlePrimarySearch = async () => {
+    const hasMeaningfulCondition = Boolean(
+      selectedRole ||
+      selectedBranch ||
+      selectedDomain ||
+      (selectedLocation && selectedLocation !== "all" && selectedLocation !== "any-location") ||
+      (selectedOpportunityType && selectedOpportunityType !== "any") ||
+      (selectedExperience && selectedExperience !== "all") ||
+      (selectedWorkMode && selectedWorkMode !== "all") ||
+      customQuery.trim() ||
+      selectedSkills.length > 0
+    );
+
+    if (!hasMeaningfulCondition) {
+      setNotice("Choose a role, opportunity type, location, domain, or enter a search.");
+      setTimeout(() => setNotice(null), 4000);
       return;
     }
 
-    await fetchJobs(true);
+    setPreviousSearch(null);
+    await executeSearch();
     revealDestination({
       target: "#jobs-search-results",
       fallbackTarget: "[data-saarvi-target='search-results']",
@@ -376,20 +584,38 @@ function JobsContent() {
     });
   };
 
-  // Clear filters
-  const handleClearFilters = () => {
-    setQ("");
-    setLocation("");
-    setEmploymentType("all");
-    setRemote("all");
-    setExperience("all");
+  // Clear all filters back to default
+  const handleClearAllFilters = () => {
+    setSelectedRole("");
+    setSelectedBranch("");
+    setSelectedDomain("");
+    setSelectedLocation("");
+    setSelectedOpportunityType("any");
+    setSelectedExperience("all");
+    setSelectedWorkMode("all");
+    setCustomQuery("");
+    setSelectedSkills([]);
+    setDuration("all");
+    setStipend("all");
+    setSalary("all");
+    setDeliveryMode("all");
     setSortBy("relevant");
-    fetchJobs(true, {
-      q: "",
+
+    // Clean URL
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.search = "";
+    window.history.replaceState({}, "", cleanUrl.toString());
+
+    executeSearch({
+      role: "",
+      branch: "",
+      domain: "",
       location: "",
-      employmentType: "all",
-      remote: "all",
+      opportunityType: "any",
       experience: "all",
+      workMode: "all",
+      q: "",
+      skills: [],
       sortBy: "relevant",
     });
   };
@@ -403,17 +629,22 @@ function JobsContent() {
   const matchScoresMap = useMemo(() => {
     const map = new Map<string, ReturnType<typeof calculateJobMatch>>();
     if (!candidateContext) return map;
-
     for (const job of jobs) {
       map.set(job.id, calculateJobMatch(candidateContext, job));
     }
     return map;
   }, [jobs, candidateContext]);
 
-  // Save Job to Local Application Tracker
+  // Save Job Toggle
   const handleSaveJob = async (job: JobItem) => {
     if (!user) {
-      saveSearchIntent({ q, location, experience, remote, employmentType, sortBy });
+      saveSearchIntent({
+        q: selectedRole || customQuery,
+        location: selectedLocation,
+        experience: selectedExperience,
+        remote: selectedWorkMode,
+        sortBy,
+      });
       setAuthGateOpen(true);
       return;
     }
@@ -422,7 +653,6 @@ function JobsContent() {
     const action = isAlreadySaved ? "UNSAVE" : "SAVE";
 
     try {
-      // Sync with server API
       fetch("/api/jobs/saved", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -448,41 +678,28 @@ function JobsContent() {
           status: "SAVED",
           priority: "medium",
           notes: `Saved from ${job.sourceName}. Salary: ${job.salary}`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
           events: [
             {
               id: `evt_${Date.now()}`,
               status: "SAVED",
-              date: new Date().toISOString().split("T")[0],
-              notes: "Bookmarked opportunity via Saarvi Jobs",
+              date: new Date().toISOString(),
+              notes: "Bookmarked in Career Tracker",
             },
           ],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
         });
-
         setSavedJobIds((prev) => new Set([...prev, job.id]));
-        setNotice(`Saved "${job.title}" to your private Application Tracker.`);
-        try {
-          analytics.trackEvent({
-            name: "job_saved" as any,
-            category: "student",
-          });
-        } catch {}
+        setNotice(`Saved "${job.title}" to your Career Tracker.`);
       }
       setTimeout(() => setNotice(null), 3000);
-    } catch {
-      setNotice("Could not update saved job state.");
-      setTimeout(() => setNotice(null), 2000);
-    }
+    } catch {}
   };
 
-  // Submit Report
-  const handleSubmitReport = async () => {
+  // Submit Safety Report
+  const handleReportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!reportingJob) return;
-    if (!user) {
-      setAuthGateOpen(true);
-      return;
-    }
 
     setReportingSubmitting(true);
     try {
@@ -491,147 +708,275 @@ function JobsContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jobId: reportingJob.id,
-          jobTitle: reportingJob.title,
-          companyName: reportingJob.companyName,
-          sourceUrl: reportingJob.sourceUrl,
           reason: reportReason,
           notes: reportNotes,
         }),
       });
 
       if (res.ok) {
-        setNotice("Thank you. Listing reported for administrative review.");
+        setNotice("Thank you. Our Trust & Safety team has received your report.");
         setReportingJob(null);
         setReportNotes("");
-      } else {
-        setNotice("Failed to submit report. Please retry.");
       }
     } catch {
-      setNotice("Network error reporting listing.");
+      setNotice("Unable to submit report. Please try again later.");
     } finally {
       setReportingSubmitting(false);
-      setTimeout(() => setNotice(null), 3500);
+      setTimeout(() => setNotice(null), 4000);
     }
   };
 
   // Create Job Alert
-  const handleCreateAlert = async () => {
-    if (!user) {
-      setAuthGateOpen(true);
-      setShowAlertModal(false);
-      return;
-    }
-
+  const handleCreateAlert = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
       const res = await fetch("/api/jobs/alerts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: q || "Opportunities Alert",
-          keywords: q ? [q] : ["Software Engineer"],
-          location: location || undefined,
-          employmentType: employmentType !== "all" ? employmentType : undefined,
+          criteria: {
+            role: selectedRole || customQuery || undefined,
+            location: selectedLocation || undefined,
+            experience: selectedExperience !== "all" ? selectedExperience : undefined,
+            remote: selectedWorkMode !== "all" ? selectedWorkMode : undefined,
+          },
           frequency: alertFrequency,
         }),
       });
-
       if (res.ok) {
-        setNotice(`Job alert created for "${q || "Opportunities"}". You will receive updates.`);
+        setNotice("Job alert created! You will receive updates matching your search.");
         setShowAlertModal(false);
       }
     } catch {
-      setNotice("Could not create alert.");
+      setNotice("Failed to create alert. Please try again.");
     } finally {
-      setTimeout(() => setNotice(null), 3500);
+      setTimeout(() => setNotice(null), 4000);
     }
   };
 
-  // Construct return URL for auth redirection
-  const returnUrl = useMemo(() => {
-    return buildReturnUrlWithSearch({
-      q,
-      location,
-      experience,
-      remote,
-      employmentType,
-      sortBy,
-    });
-  }, [q, location, experience, remote, employmentType, sortBy]);
+  const returnUrl = useMemo(
+    () =>
+      buildReturnUrlWithSearch({
+        q: selectedRole || customQuery,
+        location: selectedLocation,
+        experience: selectedExperience !== "all" ? selectedExperience : undefined,
+        remote: selectedWorkMode !== "all" ? selectedWorkMode : undefined,
+        employmentType: selectedOpportunityType === "internship" ? "internship" : undefined,
+        sortBy,
+      }),
+    [selectedRole, customQuery, selectedLocation, selectedExperience, selectedWorkMode, selectedOpportunityType, sortBy]
+  );
 
-  if (featureGated) {
+  // Active Applied Filters List
+  const appliedFilters = useMemo(() => {
+    const list: { key: string; label: string; onRemove: () => void }[] = [];
+
+    if (selectedRole) {
+      list.push({
+        key: "role",
+        label: selectedRole,
+        onRemove: () => {
+          setSelectedRole("");
+          executeSearch({ role: "" });
+        },
+      });
+    }
+
+    if (selectedBranch) {
+      list.push({
+        key: "branch",
+        label: selectedBranch,
+        onRemove: () => {
+          setSelectedBranch("");
+          executeSearch({ branch: "" });
+        },
+      });
+    }
+
+    if (selectedDomain) {
+      list.push({
+        key: "domain",
+        label: selectedDomain,
+        onRemove: () => {
+          setSelectedDomain("");
+          executeSearch({ domain: "" });
+        },
+      });
+    }
+
+    if (selectedLocation && selectedLocation !== "all" && selectedLocation !== "any-location") {
+      list.push({
+        key: "location",
+        label: selectedLocation,
+        onRemove: () => {
+          setSelectedLocation("");
+          executeSearch({ location: "" });
+        },
+      });
+    }
+
+    if (selectedOpportunityType !== "any") {
+      list.push({
+        key: "type",
+        label: selectedOpportunityType.charAt(0).toUpperCase() + selectedOpportunityType.slice(1),
+        onRemove: () => {
+          setSelectedOpportunityType("any");
+          executeSearch({ opportunityType: "any" });
+        },
+      });
+    }
+
+    if (selectedExperience !== "all") {
+      list.push({
+        key: "experience",
+        label: selectedExperience === "fresher" ? "Fresher" : selectedExperience === "entry-level" ? "Entry-Level" : selectedExperience,
+        onRemove: () => {
+          setSelectedExperience("all");
+          executeSearch({ experience: "all" });
+        },
+      });
+    }
+
+    if (selectedWorkMode !== "all") {
+      list.push({
+        key: "workMode",
+        label: selectedWorkMode.charAt(0).toUpperCase() + selectedWorkMode.slice(1),
+        onRemove: () => {
+          setSelectedWorkMode("all");
+          executeSearch({ workMode: "all" });
+        },
+      });
+    }
+
+    if (customQuery.trim()) {
+      list.push({
+        key: "query",
+        label: `"${customQuery}"`,
+        onRemove: () => {
+          setCustomQuery("");
+          executeSearch({ q: "" });
+        },
+      });
+    }
+
+    for (const sk of selectedSkills) {
+      list.push({
+        key: `skill-${sk}`,
+        label: sk,
+        onRemove: () => {
+          const next = selectedSkills.filter((s) => s !== sk);
+          setSelectedSkills(next);
+          executeSearch({ skills: next });
+        },
+      });
+    }
+
+    return list;
+  }, [
+    selectedRole,
+    selectedBranch,
+    selectedDomain,
+    selectedLocation,
+    selectedOpportunityType,
+    selectedExperience,
+    selectedWorkMode,
+    customQuery,
+    selectedSkills,
+    executeSearch,
+  ]);
+
+  // Options for Role Select with recommendations
+  const roleSelectOptions = useMemo(() => {
+    return CANONICAL_JOB_ROLES.map((r) => ({
+      id: r.id,
+      label: r.name,
+      category: r.category,
+      popular: r.popular,
+      recommended: dependencies.recommendedRoleIds.includes(r.id),
+      aliases: r.aliases,
+    }));
+  }, [dependencies.recommendedRoleIds]);
+
+  // Options for Branch Select
+  const branchSelectOptions = useMemo(() => {
+    return CANONICAL_BRANCHES.map((b) => ({
+      id: b.id,
+      label: b.name,
+      category: b.category,
+      popular: b.popular,
+    }));
+  }, []);
+
+  // Options for Domain Select with recommendations
+  const domainSelectOptions = useMemo(() => {
+    return CANONICAL_DOMAINS.map((d) => ({
+      id: d.id,
+      label: d.name,
+      category: d.category,
+      popular: d.popular,
+      recommended: dependencies.recommendedDomainIds.includes(d.id),
+    }));
+  }, [dependencies.recommendedDomainIds]);
+
+  // Options for Location Select
+  const locationSelectOptions = useMemo(() => {
+    return CANONICAL_LOCATIONS.map((l) => ({
+      id: l.id,
+      label: l.name,
+      category: l.category,
+      popular: l.popular,
+      aliases: l.aliases,
+    }));
+  }, []);
+
+  // Count extra active filters inside "More filters"
+  const extraFiltersCount =
+    (selectedSkills.length > 0 ? selectedSkills.length : 0) +
+    (duration !== "all" ? 1 : 0) +
+    (stipend !== "all" ? 1 : 0) +
+    (salary !== "all" ? 1 : 0) +
+    (deliveryMode !== "all" ? 1 : 0);
+
+  // Feature Gated Intercept
+  if (featureGated && featureGated.status === "DISABLED") {
     return (
-      <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col font-sans">
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between font-sans">
         <Navbar />
-        <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-16 flex items-center justify-center">
-          <div className="w-full bg-white rounded-3xl border border-slate-200 p-8 sm:p-12 text-center shadow-xs space-y-4">
-            <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center ${
-              featureGated.status === "PRO_REQUIRED"
-                ? "bg-blue-50 text-blue-600 border border-blue-200"
-                : "bg-amber-50 text-amber-600 border border-amber-200"
-            }`}>
-              {featureGated.status === "PRO_REQUIRED" ? (
-                <Sparkles className="w-7 h-7" />
-              ) : (
-                <Lock className="w-7 h-7" />
-              )}
-            </div>
-
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-              {featureGated.status === "DISABLED"
-                ? "Jobs & Internships"
-                : featureGated.status === "BETA"
-                ? "Jobs & Internships (Beta)"
-                : "Saarvi Pro Required"}
-            </h1>
-
-            <div className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed space-y-1">
-              {featureGated.status === "DISABLED" ? (
-                <>
-                  <p className="font-semibold text-slate-800">This feature is currently unavailable.</p>
-                  <p className="text-slate-500">{featureGated.maintenanceMessage || "Please check back later."}</p>
-                </>
-              ) : (
-                <p>{featureGated.maintenanceMessage || featureGated.reason}</p>
-              )}
-            </div>
-
-            <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
-              {featureGated.status === "PRO_REQUIRED" && (
-                <Link
-                  href="/pricing"
-                  className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
-                >
-                  Upgrade to Pro
-                </Link>
-              )}
-              <Link
-                href="/"
-                className="w-full sm:w-auto px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition border border-slate-200"
-              >
-                Return to Home
-              </Link>
-            </div>
+        <main className="flex-1 max-w-3xl mx-auto px-4 py-16 flex flex-col items-center justify-center text-center space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
+            <Lock className="w-6 h-6" />
           </div>
+          <h1 className="text-2xl font-bold text-slate-900">This feature is currently unavailable.</h1>
+          <p className="text-sm text-slate-600 max-w-md">
+            {featureGated.maintenanceMessage ||
+              "Jobs & Internships is undergoing scheduled platform maintenance. Please check back later."}
+          </p>
+          <p className="text-xs text-slate-400">Please check back later.</p>
+          <Link
+            href="/tools"
+            className="mt-4 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition"
+          >
+            Explore Other Tools
+          </Link>
         </main>
         <Footer />
       </div>
     );
   }
 
+  // Render Canonical Opportunity Card with Adaptive Accents
   const renderJobCard = (job: JobItem) => {
     const match = matchScoresMap.get(job.id);
     const isSaved = savedJobIds.has(job.id);
-    const isVerified = job.verificationTier === "SAARVI_VERIFIED";
+    const isVerified = job.verificationTier === "SAARVI_VERIFIED" || job.verifiedStatus === 'verified';
 
     return (
       <div
         key={job.id}
-        className={`bg-white border rounded-2xl p-5 sm:p-6 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between space-y-4 relative group ${
-          isVerified ? "border-slate-200 hover:border-emerald-300" : "border-amber-200/80 bg-amber-50/15 hover:border-amber-400"
-        }`}
+        className="group bg-white rounded-2xl border border-slate-200/90 hover:border-slate-300 hover:shadow-md transition-all p-5 flex flex-col justify-between space-y-4 relative"
       >
-        <div>
-          {/* Top Row: Logo, Badges, Title, Match Pill, Save */}
+        <div className="space-y-3">
+          {/* Header Row: Company Logo/Initials, Role, Badges, Save Button */}
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
               {/* Company Logo or Initials Fallback */}
@@ -653,70 +998,66 @@ function JobsContent() {
               </div>
 
               <div>
+                {/* Badges: Type & Trust Tier */}
                 <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                  {/* Verification Tier Badge */}
+                  <span
+                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                      job.isInternship
+                        ? "bg-teal-50 text-teal-800 border border-teal-200"
+                        : "bg-blue-50 text-blue-800 border border-blue-200"
+                    }`}
+                  >
+                    {job.isInternship ? "Internship" : "Job"}
+                  </span>
+
                   {isVerified ? (
                     <span
-                      className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shadow-2xs"
-                      title="Reviewed and published by Saarvi Admin"
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200"
+                      title="Reviewed and approved for publication by Saarvi."
                     >
                       <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                       <span>Saarvi Verified</span>
                     </span>
                   ) : (
                     <span
-                      className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-100/70 px-2 py-0.5 rounded-full border border-amber-300 shadow-2xs"
-                      title="Discovered from external source. Saarvi has not individually verified this opportunity."
+                      className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200"
+                      title="Imported from an external job source. Verify details on the employer's official page."
                     >
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                      <span>Source Listing • Not Saarvi Verified</span>
+                      <span>Source Listing</span>
                     </span>
                   )}
 
-                  <span
-                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                      job.isInternship
-                        ? "bg-purple-100 text-purple-800"
-                        : "bg-blue-100 text-blue-800"
-                    }`}
-                  >
-                    {job.isInternship ? "Internship" : "Job"}
-                  </span>
-
-                  <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600 capitalize">
-                    {job.remoteType}
-                  </span>
-
                   {job.experienceLevel === "fresher" && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                      Fresher Friendly
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Fresher
                     </span>
                   )}
                 </div>
 
+                {/* Role Title */}
                 <Link
                   href={`/jobs/${job.id}`}
-                  className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1"
+                  className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1"
                 >
                   {job.title}
                 </Link>
 
-                <div className="text-xs text-slate-600 font-medium mt-0.5">
-                  {job.companyName}
-                </div>
+                {/* Company Name */}
+                <div className="text-xs text-slate-500 font-medium">{job.companyName}</div>
               </div>
             </div>
 
-            <div className="flex items-center gap-1 shrink-0">
+            {/* Match Score & Bookmark Toggle */}
+            <div className="flex items-center gap-1.5 shrink-0">
               {match && (
                 <button
                   type="button"
                   onClick={() => setSelectedMatchJob({ job, match })}
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition cursor-pointer"
-                  title="Click to view explainable match breakdown"
+                  title="Click to view explainable ATS score breakdown"
                 >
                   <Sparkles className="w-3 h-3 text-blue-600" />
-                  <span>{match.matchScore}% Match</span>
+                  <span>{match.matchScore}%</span>
                 </button>
               )}
 
@@ -724,9 +1065,7 @@ function JobsContent() {
                 type="button"
                 onClick={() => handleSaveJob(job)}
                 className={`p-2 rounded-xl transition cursor-pointer ${
-                  isSaved
-                    ? "text-blue-600 bg-blue-50"
-                    : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                  isSaved ? "text-blue-600 bg-blue-50" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
                 }`}
                 title={isSaved ? "Saved in Tracker" : "Save Job"}
                 aria-label={isSaved ? "Saved" : "Save Job"}
@@ -736,56 +1075,79 @@ function JobsContent() {
             </div>
           </div>
 
-          {/* Metadata Row: Location, Salary, Deadline */}
-          <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs text-slate-500 mt-2.5">
-            <div className="flex items-center gap-1">
+          {/* Metadata Row: Location · Work Mode · Experience · Salary */}
+          <div className="flex flex-wrap items-center gap-y-1 gap-x-2.5 text-xs text-slate-500">
+            <span className="flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <span className="truncate max-w-[160px]">{job.location}</span>
-            </div>
-            {job.salary && (
-              <div className="flex items-center gap-1">
-                <span className="font-semibold text-slate-700">{job.salary}</span>
-              </div>
+              <span>{job.location}</span>
+            </span>
+            <span>·</span>
+            <span className="capitalize">{job.remoteType}</span>
+            {job.experienceLevel && (
+              <>
+                <span>·</span>
+                <span className="capitalize">{job.experienceLevel}</span>
+              </>
             )}
-            {job.applicationDeadline && job.applicationDeadline !== "Deadline not provided" && (
-              <div className="flex items-center gap-1 text-amber-700 font-medium">
-                <Clock className="w-3.5 h-3.5 shrink-0" />
-                <span>Deadline: {job.applicationDeadline}</span>
-              </div>
+            {job.salary && job.salary !== "Salary not disclosed" && (
+              <>
+                <span>·</span>
+                <span className="font-semibold text-slate-700">{job.salary}</span>
+              </>
             )}
           </div>
 
           {/* Description Excerpt */}
-          <p className="text-xs text-slate-600 mt-3 line-clamp-2 leading-relaxed">
+          <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
             {job.description}
           </p>
 
-          {/* Skills Pills */}
-          {job.skills.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-3">
-              {job.skills.slice(0, 5).map((sk) => (
+          {/* Skills Badges */}
+          {job.skills && job.skills.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {job.skills.slice(0, 4).map((sk) => (
                 <span
                   key={sk}
-                  className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700"
+                  className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-600 border border-slate-200/70"
                 >
                   {sk}
                 </span>
               ))}
-              {job.skills.length > 5 && (
+              {job.skills.length > 4 && (
                 <span className="text-[10px] text-slate-400 font-medium self-center">
-                  +{job.skills.length - 5} more
+                  +{job.skills.length - 4} more
                 </span>
               )}
             </div>
           )}
+
+          {/* Explainable Match Reasons (Requirement 38) */}
+          {matchReasonsMap[job.id] && matchReasonsMap[job.id].length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
+              <span className="font-semibold text-slate-400">Match signals:</span>
+              {matchReasonsMap[job.id].map((reason, idx) => (
+                <span
+                  key={idx}
+                  className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium"
+                >
+                  ✓ {reason}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Bottom Action Footer */}
+        {/* Footer: Source / Deadline & View/Apply Actions */}
         <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-slate-400">
-              Source: <strong className="text-slate-600">{job.sourceName || "Direct"}</strong>
-            </span>
+          <div className="flex items-center gap-2 text-slate-400 text-[11px]">
+            {job.applicationDeadline && job.applicationDeadline !== "Deadline not provided" ? (
+              <span className="flex items-center gap-1 text-slate-500">
+                <Clock className="w-3 h-3 text-slate-400" />
+                <span>Deadline: {job.applicationDeadline}</span>
+              </span>
+            ) : (
+              <span>Source: {job.sourceName || "Direct"}</span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -810,7 +1172,7 @@ function JobsContent() {
               href={job.applyUrl}
               target="_blank"
               rel="noreferrer noopener"
-              className="px-3.5 py-1.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition flex items-center gap-1 shadow-2xs"
+              className={`px-3.5 py-1.5 rounded-xl font-bold transition flex items-center gap-1 shadow-2xs ${activeTheme.primary.btnClass}`}
             >
               <span>Apply</span>
               <ExternalLink className="w-3.5 h-3.5" />
@@ -822,7 +1184,7 @@ function JobsContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50/60 text-slate-900 flex flex-col font-sans">
       <Navbar />
 
       {notice && (
@@ -831,67 +1193,134 @@ function JobsContent() {
         </div>
       )}
 
-      {/* Hero Search Header */}
-      <header className="bg-linear-to-b from-blue-900 via-slate-900 to-slate-900 text-white pt-10 pb-16 px-4 sm:px-6 lg:px-8 border-b border-slate-800">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* ========================================================================= */}
+      {/* SECTION 1: GUIDED CAREER SEARCH HEADER WITH PRE-SEARCH SELECTORS          */}
+      {/* ========================================================================= */}
+      <header className="bg-white border-b border-slate-200/90 pt-8 pb-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto space-y-6">
+          
+          {/* Header Title, Supporting Text, and Theme Selector */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-300 border border-blue-400/30 mb-2">
-                <Briefcase className="w-3.5 h-3.5" />
-                Real Career Discovery
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 mb-2">
+                <Briefcase className="w-3.5 h-3.5 text-blue-600" />
+                Career Search
               </div>
-              <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white">
-                Jobs &amp; Internships
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+                Find opportunities that fit you
               </h1>
-              <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl">
-                {user
-                  ? "Discover opportunities that match your skills and career goals."
-                  : "Find opportunities that match your skills, experience, location, and career goals."}
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl">
+                Choose what you&apos;re looking for and Saarvi will find relevant opportunities.
               </p>
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (!user) {
-                    setAuthGateOpen(true);
-                  } else {
-                    setShowAlertModal(true);
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-white border border-white/20 transition-colors cursor-pointer"
-              >
-                <Bell className="w-3.5 h-3.5 text-amber-400" />
-                <span>Create Job Alert</span>
-              </button>
+              {/* Theme Preference Toggle */}
+              <div className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-xl text-[11px] font-semibold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setThemeMode("adaptive");
+                    setStoredThemePreference("adaptive");
+                  }}
+                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                    themeMode === "adaptive"
+                      ? "bg-white text-slate-900 shadow-2xs font-bold"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                  title="Theme adapts intelligently to Job, Internship, or Training context"
+                >
+                  <Palette className="w-3 h-3 text-teal-600" />
+                  <span>Adaptive</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setThemeMode("saarvi-blue");
+                    setStoredThemePreference("saarvi-blue");
+                  }}
+                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                    themeMode === "saarvi-blue"
+                      ? "bg-white text-blue-700 shadow-2xs font-bold"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                  title="Locks visual accent to standard Saarvi Blue"
+                >
+                  <span className="w-2 h-2 rounded-full bg-blue-600" />
+                  <span>Saarvi Blue</span>
+                </button>
+              </div>
+
               <Link
                 href={user ? "/student/applications" : `/login?next=${encodeURIComponent("/student/applications")}`}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors shadow-sm"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
               >
-                <span>My Tracker</span>
+                <span>Tracker</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           </div>
 
-          {/* Search Inputs Bar */}
-          <div className="bg-white p-2.5 sm:p-3 rounded-2xl shadow-xl flex flex-col md:flex-row items-center gap-2 text-slate-800">
-            {/* Keyword / Role */}
-            <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl border border-slate-200/80 w-full">
+          {/* RETURN VISIT CONTINUATION BANNER (Harmless Memory) */}
+          {previousSearch && !hasSearched && (
+            <div className="p-3 bg-blue-50/80 border border-blue-200/90 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs animate-in fade-in duration-150">
+              <div className="flex items-center gap-2 text-blue-900">
+                <RotateCcw className="w-4 h-4 text-blue-600 shrink-0" />
+                <span>
+                  <strong>Continue previous search:</strong>{" "}
+                  {previousSearch.role || "Opportunities"} {previousSearch.location ? `in ${previousSearch.location}` : ""}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (previousSearch.role) setSelectedRole(previousSearch.role);
+                    if (previousSearch.branch) setSelectedBranch(previousSearch.branch);
+                    if (previousSearch.domain) setSelectedDomain(previousSearch.domain);
+                    if (previousSearch.location) setSelectedLocation(previousSearch.location);
+                    if (previousSearch.opportunityType) setSelectedOpportunityType(previousSearch.opportunityType);
+                    if (previousSearch.experience) setSelectedExperience(previousSearch.experience);
+                    if (previousSearch.workMode) setSelectedWorkMode(previousSearch.workMode);
+                    if (previousSearch.skills) setSelectedSkills(previousSearch.skills);
+                    setPreviousSearch(null);
+                    executeSearch(previousSearch);
+                  }}
+                  className="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer"
+                >
+                  Use previous search
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviousSearch(null)}
+                  className="text-slate-400 hover:text-slate-600 px-2 py-1"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* GUIDED REQUIREMENTS SELECTOR PANEL                                        */}
+          {/* ========================================================================= */}
+          <div className="p-4 sm:p-5 bg-slate-50/90 border border-slate-200 rounded-2xl shadow-xs space-y-4">
+            
+            {/* Direct Keyword / Natural Query Input */}
+            <div className="flex items-center gap-2 px-3.5 py-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
               <Search className="w-4 h-4 text-slate-400 shrink-0" />
               <input
                 type="text"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearchClick()}
-                placeholder="Keyword / Role (e.g. Software Developer)"
+                value={customQuery}
+                onChange={(e) => setCustomQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handlePrimarySearch()}
+                placeholder="Search jobs, internships, and training (or select requirements below)..."
                 className="w-full bg-transparent text-xs sm:text-sm text-slate-900 focus:outline-hidden"
               />
-              {q && (
+              {customQuery && (
                 <button
                   type="button"
-                  onClick={() => setQ("")}
+                  onClick={() => setCustomQuery("")}
                   className="text-slate-400 hover:text-slate-600"
                   aria-label="Clear query"
                 >
@@ -900,631 +1329,707 @@ function JobsContent() {
               )}
             </div>
 
-            {/* Location */}
-            <div className="w-full md:w-60 flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl border border-slate-200/80">
-              <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearchClick()}
-                placeholder="Location (e.g. Bengaluru)"
-                className="w-full bg-transparent text-xs sm:text-sm text-slate-900 focus:outline-hidden"
+            {/* ROW 1: PRIMARY REQUIREMENT SELECTORS (Role, Branch, Domain, Area/Location) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Job Role */}
+              <SearchableSelect
+                id="career-role-select"
+                label="Job Role"
+                placeholder="All Job Roles"
+                value={selectedRole}
+                onChange={(val) => {
+                  const clean = val === "all" ? "" : val;
+                  setSelectedRole(clean);
+                }}
+                options={roleSelectOptions}
+                anyLabel="All Job Roles"
+              />
+
+              {/* Branch / Discipline */}
+              <SearchableSelect
+                id="career-branch-select"
+                label="Branch / Discipline"
+                placeholder="All Branches"
+                value={selectedBranch}
+                onChange={(val) => {
+                  const clean = val === "all" ? "" : val;
+                  setSelectedBranch(clean);
+                }}
+                options={branchSelectOptions}
+                anyLabel="All Branches"
+              />
+
+              {/* Domain / Industry (Contextually highlighted when branch chosen) */}
+              <SearchableSelect
+                id="career-domain-select"
+                label="Domain / Industry"
+                placeholder="All Domains"
+                value={selectedDomain}
+                onChange={(val) => {
+                  const clean = val === "all" ? "" : val;
+                  setSelectedDomain(clean);
+                }}
+                options={domainSelectOptions}
+                anyLabel="All Domains"
+              />
+
+              {/* Area / Location */}
+              <SearchableSelect
+                id="career-location-select"
+                label="Area / Location"
+                placeholder="Any location"
+                value={selectedLocation}
+                onChange={(val) => {
+                  const clean = val === "all" || val === "any-location" ? "" : val;
+                  setSelectedLocation(clean);
+                }}
+                options={locationSelectOptions}
+                anyLabel="Any location"
               />
             </div>
 
-            {/* Experience Dropdown */}
-            <div className="w-full md:w-48 flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl border border-slate-200/80">
-              <select
-                value={experience}
-                onChange={(e) => setExperience(e.target.value)}
-                className="w-full bg-transparent text-xs sm:text-sm text-slate-900 focus:outline-hidden cursor-pointer"
-                aria-label="Experience level"
-              >
-                <option value="fresher">Fresher</option>
-                <option value="entry-level">Entry-Level (0-2 yrs)</option>
-                <option value="mid-level">Mid-Level (2-5 yrs)</option>
-                <option value="senior">Senior (5+ yrs)</option>
-                <option value="all">All Experience</option>
-              </select>
+            {/* ROW 2: SECONDARY REFINEMENTS (Opportunity Type, Experience, Work Mode, More Filters) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+              {/* Opportunity Type */}
+              <div>
+                <label htmlFor="career-scope-select" className="block text-[11px] font-bold text-slate-600 mb-1">
+                  Opportunity Type
+                </label>
+                <select
+                  id="career-scope-select"
+                  value={selectedOpportunityType}
+                  onChange={(e) => setSelectedOpportunityType(e.target.value)}
+                  className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white cursor-pointer shadow-2xs ${
+                    selectedOpportunityType !== "any"
+                      ? `${activeTheme.primary.borderClass} font-bold`
+                      : "border-slate-200 text-slate-700"
+                  }`}
+                  aria-label="Opportunity type"
+                >
+                  <option value="any">Any opportunity</option>
+                  <option value="job">Job</option>
+                  <option value="internship">Internship</option>
+                  <option value="training">Training</option>
+                </select>
+              </div>
+
+              {/* Experience */}
+              <div>
+                <label htmlFor="career-exp-select" className="block text-[11px] font-bold text-slate-600 mb-1">
+                  Experience Level
+                </label>
+                <select
+                  id="career-exp-select"
+                  value={selectedExperience}
+                  onChange={(e) => setSelectedExperience(e.target.value)}
+                  className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white cursor-pointer shadow-2xs ${
+                    selectedExperience !== "all"
+                      ? `${activeTheme.primary.borderClass} font-bold`
+                      : "border-slate-200 text-slate-700"
+                  }`}
+                  aria-label="Experience level"
+                >
+                  {CANONICAL_EXPERIENCE_LEVELS.map((exp) => (
+                    <option key={exp.id} value={exp.id}>
+                      {exp.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Work Mode */}
+              <div>
+                <label htmlFor="career-mode-select" className="block text-[11px] font-bold text-slate-600 mb-1">
+                  Work Mode
+                </label>
+                <select
+                  id="career-mode-select"
+                  value={selectedWorkMode}
+                  onChange={(e) => setSelectedWorkMode(e.target.value)}
+                  className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white cursor-pointer shadow-2xs ${
+                    selectedWorkMode !== "all"
+                      ? `${activeTheme.primary.borderClass} font-bold`
+                      : "border-slate-200 text-slate-700"
+                  }`}
+                  aria-label="Work mode"
+                >
+                  {CANONICAL_WORK_MODES.map((mode) => (
+                    <option key={mode.id} value={mode.id}>
+                      {mode.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* "More Filters" Toggle */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  Additional Details
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setMoreFiltersOpen(!moreFiltersOpen)}
+                  className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border transition flex items-center justify-between cursor-pointer shadow-2xs ${
+                    extraFiltersCount > 0 || moreFiltersOpen
+                      ? "bg-blue-50/40 border-blue-300 text-blue-800 font-bold"
+                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 truncate">
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span>More filters</span>
+                    {extraFiltersCount > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-600 text-white font-bold">
+                        {extraFiltersCount}
+                      </span>
+                    )}
+                  </div>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${moreFiltersOpen ? "rotate-180" : ""}`} />
+                </button>
+              </div>
             </div>
 
-            {/* Primary Search Button */}
-            <button
-              type="button"
-              onClick={handleSearchClick}
-              disabled={loading}
-              className="w-full md:w-auto px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-md transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0"
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Searching...</span>
-                </>
-              ) : (
-                <>
-                  <Search className="w-4 h-4" />
-                  <span>Search opportunities</span>
-                </>
-              )}
-            </button>
+            {/* ROW 3: PROGRESSIVE DISCLOSURE ("More Filters" Popover Panel) */}
+            {moreFiltersOpen && (
+              <div className="p-4 bg-white border border-slate-200 rounded-2xl grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in fade-in duration-150">
+                {/* Internship Duration & Stipend (if Internship or Any) */}
+                {selectedOpportunityType === "internship" && (
+                  <>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-600 block mb-1">Internship Duration</label>
+                      <select
+                        value={duration}
+                        onChange={(e) => setDuration(e.target.value)}
+                        className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+                      >
+                        <option value="all">Any Duration</option>
+                        <option value="1-2-months">1 – 2 Months</option>
+                        <option value="3-6-months">3 – 6 Months</option>
+                        <option value="6-plus-months">6+ Months</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-600 block mb-1">Stipend Minimum</label>
+                      <select
+                        value={stipend}
+                        onChange={(e) => setStipend(e.target.value)}
+                        className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+                      >
+                        <option value="all">Any Stipend</option>
+                        <option value="paid">Paid Only</option>
+                        <option value="10k_plus">₹10,000+ / mo</option>
+                        <option value="20k_plus">₹20,000+ / mo</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                {/* Job Salary Band */}
+                {selectedOpportunityType === "job" && (
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">Salary Range</label>
+                    <select
+                      value={salary}
+                      onChange={(e) => setSalary(e.target.value)}
+                      className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+                    >
+                      <option value="all">Any Salary</option>
+                      <option value="3-6-lpa">₹3 – 6 LPA</option>
+                      <option value="6-10-lpa">₹6 – 10 LPA</option>
+                      <option value="10-18-lpa">₹10 – 18 LPA</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Training Delivery Mode */}
+                {selectedOpportunityType === "training" && (
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">Delivery Mode</label>
+                    <select
+                      value={deliveryMode}
+                      onChange={(e) => setDeliveryMode(e.target.value)}
+                      className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+                    >
+                      <option value="all">All Modes</option>
+                      <option value="online">Online Live / Self-Paced</option>
+                      <option value="offline">Classroom / Offline</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Skills Multi-Select with recommendations */}
+                <div className="sm:col-span-2 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-slate-600 block">
+                      Skills &amp; Technologies
+                    </label>
+                    {selectedSkills.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSkills([])}
+                        className="text-[10px] text-blue-600 hover:underline font-semibold"
+                      >
+                        Reset skills
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1">
+                    {CANONICAL_SKILLS.map((sk) => {
+                      const active = selectedSkills.includes(sk);
+                      const isRecommended = dependencies.recommendedSkills.includes(sk);
+                      return (
+                        <button
+                          key={sk}
+                          type="button"
+                          onClick={() => {
+                            const next = active
+                              ? selectedSkills.filter((s) => s !== sk)
+                              : [...selectedSkills, sk];
+                            setSelectedSkills(next);
+                          }}
+                          className={`text-xs px-2.5 py-1 rounded-lg border transition cursor-pointer flex items-center gap-1 ${
+                            active
+                              ? `${activeTheme.primary.btnClass} font-bold`
+                              : isRecommended
+                              ? "bg-amber-50/70 text-slate-800 border-amber-300 font-semibold"
+                              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                          }`}
+                        >
+                          <span>{sk}</span>
+                          {isRecommended && !active && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ROW 4: PRIMARY ACTION (Search Opportunities CTA) */}
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200/80">
+              <div className="text-xs text-slate-500">
+                {appliedFilters.length > 0 ? (
+                  <span>
+                    <strong>{appliedFilters.length}</strong> requirements configured
+                  </span>
+                ) : (
+                  <span>No filters selected (searches all live opportunities)</span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                {appliedFilters.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAllFilters}
+                    className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition cursor-pointer"
+                  >
+                    Clear all
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handlePrimarySearch}
+                  disabled={loading}
+                  className={`flex-1 sm:flex-initial px-8 py-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer min-h-[44px] shadow-sm ${activeTheme.primary.btnClass}`}
+                >
+                  {loading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Searching...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4" />
+                      <span>Search Opportunities</span>
+                      <ArrowRight className="w-4 h-4 ml-0.5" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Suggested / Recent Searches */}
-          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
-            <span className="text-slate-400 font-medium">Suggestions:</span>
+          {/* VISIBLE APPLIED FILTER CHIPS */}
+          {appliedFilters.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
+              <span className="text-slate-400 font-medium">Searching for:</span>
+              {appliedFilters.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={chip.onRemove}
+                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold transition cursor-pointer border ${activeTheme.primary.badgeClass}`}
+                >
+                  <span>{chip.label}</span>
+                  <X className="w-3 h-3 text-slate-500 hover:text-slate-800" />
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={handleClearAllFilters}
+                className="text-xs text-blue-600 hover:underline font-semibold ml-1 cursor-pointer"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+
+          {/* QUICK SUGGESTIONS */}
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-400 pt-1">
+            <span className="font-medium text-slate-500">Popular suggestions:</span>
             {SUGGESTED_SEARCHES.map((sug) => (
               <button
                 key={sug}
                 type="button"
                 onClick={() => {
-                  setQ(sug);
-                  if (user) {
-                    setTimeout(() => fetchJobs(), 50);
-                  }
+                  setCustomQuery(sug);
+                  executeSearch({ q: sug });
                 }}
-                className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 text-[11px] transition-colors cursor-pointer"
+                className="px-2.5 py-0.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] transition cursor-pointer"
               >
                 {sug}
               </button>
             ))}
           </div>
+
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {/* Anti-Scam / Trust Guarantee Banner */}
-        <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-emerald-900">
-          <div className="flex items-center gap-2.5">
-            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-            <div>
-              <strong className="font-bold">Saarvi Trust &amp; Anti-Scam Policy:</strong>{" "}
-              Saarvi surfaces real job sources. Always apply directly on official employer portals. Never pay money for job offers or application forms.
+      {/* ========================================================================= */}
+      {/* SECTION 2: MAIN OPPORTUNITY STREAM OR PRE-SEARCH GUIDANCE                 */}
+      {/* ========================================================================= */}
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        
+        {/* PRE-SEARCH STATE (When user hasn't clicked search and no query in URL) */}
+        {!hasSearched && jobs.length === 0 && !loading && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-8 sm:p-12 text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+              <Search className="w-6 h-6" />
             </div>
-          </div>
-          <Link
-            href="/privacy"
-            className="text-emerald-700 font-semibold hover:underline shrink-0"
-          >
-            Learn about safety
-          </Link>
-        </div>
+            <div className="max-w-md mx-auto space-y-1">
+              <h2 className="text-lg font-bold text-slate-900">Tell us what you&apos;re looking for</h2>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Configure your job role, branch, domain, or location above and click Search Opportunities to view live positions.
+              </p>
+            </div>
 
-        {/* ========================================================================= */}
-        {/* UNREGISTERED / GUEST VISITOR EXPERIENCE                                   */}
-        {/* ========================================================================= */}
-        {!user && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            {/* Opportunity Workspace Showcase Banner */}
-            <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-10 shadow-xs space-y-8">
-              <div className="text-center max-w-2xl mx-auto space-y-2">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">
-                  <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                  Member-Exclusive Intelligence
-                </span>
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                  Your Saarvi Opportunity Workspace
-                </h2>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  Find opportunities that match your skills, experience, location, and career goals.
-                  Create your free account to run live searches, save roles, track applications, and view transparent ATS scores.
-                </p>
-              </div>
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedOpportunityType("internship");
+                  setSelectedLocation("Bengaluru");
+                  executeSearch({ opportunityType: "internship", location: "Bengaluru" });
+                }}
+                className="px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 transition"
+              >
+                Internships in Bengaluru
+              </button>
 
-              {/* 6 Core Value Propositions */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                <div className="p-5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
-                  <div className="w-10 h-10 rounded-xl bg-blue-100/80 text-blue-600 flex items-center justify-center font-bold shadow-2xs">
-                    <Search className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-900">Search real opportunities</h3>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Access genuine, verified jobs and internships vetted by Saarvi administrators. No fake listings or outdated deadlines.
-                  </p>
-                </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedRole("Software Developer");
+                  setSelectedExperience("fresher");
+                  executeSearch({ role: "Software Developer", experience: "fresher" });
+                }}
+                className="px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 transition"
+              >
+                Software Developer (Fresher)
+              </button>
 
-                <div className="p-5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
-                  <div className="w-10 h-10 rounded-xl bg-purple-100/80 text-purple-600 flex items-center justify-center font-bold shadow-2xs">
-                    <Bookmark className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-900">Save opportunities</h3>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Bookmark interesting roles with one click and organize your personal shortlist in your private workspace.
-                  </p>
-                </div>
-
-                <div className="p-5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100/80 text-emerald-600 flex items-center justify-center font-bold shadow-2xs">
-                    <Layers className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-900">Track applications</h3>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Follow your journey through Applied, Assessment, Interview, and Offer stages in your local-first tracker.
-                  </p>
-                </div>
-
-                <div className="p-5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
-                  <div className="w-10 h-10 rounded-xl bg-amber-100/80 text-amber-700 flex items-center justify-center font-bold shadow-2xs">
-                    <Sparkles className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-900">Match opportunities with your resume</h3>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Transparent 6-factor ATS scoring directly compares requirements with your resume skills and identifies missing gaps.
-                  </p>
-                </div>
-
-                <div className="p-5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
-                  <div className="w-10 h-10 rounded-xl bg-rose-100/80 text-rose-600 flex items-center justify-center font-bold shadow-2xs">
-                    <Clock className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-900">Track deadlines</h3>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Automated urgency countdowns and calendar synchronizations ensure you never miss application cutoff dates.
-                  </p>
-                </div>
-
-                <div className="p-5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-100/80 text-indigo-600 flex items-center justify-center font-bold shadow-2xs">
-                    <TrendingUp className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-900">Manage your career journey</h3>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Integrated cover letters, mock interviews, and academic schedule conflict resolution all in one unified platform.
-                  </p>
-                </div>
-              </div>
-
-              {/* Guest CTAs */}
-              <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    saveSearchIntent({ q, location, experience, remote, employmentType, sortBy });
-                    setAuthGateOpen(true);
-                  }}
-                  className="w-full sm:w-auto px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl transition shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span>Create account</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    saveSearchIntent({ q, location, experience, remote, employmentType, sortBy });
-                    setAuthGateOpen(true);
-                  }}
-                  className="w-full sm:w-auto px-8 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-sm rounded-xl transition border border-slate-200 flex items-center justify-center cursor-pointer"
-                >
-                  <span>Log in</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedOpportunityType("internship");
+                  setSelectedWorkMode("remote");
+                  executeSearch({ opportunityType: "internship", workMode: "remote" });
+                }}
+                className="px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 transition"
+              >
+                Remote Internships
+              </button>
             </div>
           </div>
         )}
 
-        {/* ========================================================================= */}
-        {/* AUTHENTICATED USER EXPERIENCE                                             */}
-        {/* ========================================================================= */}
-        {user && (
+        {/* POST-SEARCH STREAM */}
+        {(hasSearched || jobs.length > 0 || loading) && (
           <div
             id="jobs-search-results"
             data-saarvi-target="search-results"
             tabIndex={-1}
-            className="space-y-6 saarvi-destination-target outline-hidden"
+            className="space-y-6 outline-hidden"
           >
-            {/* Tabs & Filter Header */}
-            <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-                {/* Tabs: Category & Verification Tiers */}
-                <div className="flex flex-wrap items-center gap-3">
-                  {/* Category: All / Jobs / Internships */}
-                  <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-fit">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEmploymentType("all");
-                        fetchJobs(false, { employmentType: "all" });
-                      }}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                        employmentType === "all"
-                          ? "bg-white text-blue-600 shadow-xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      All
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEmploymentType("full-time");
-                        fetchJobs(false, { employmentType: "full-time" });
-                      }}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                        employmentType === "full-time"
-                          ? "bg-white text-blue-600 shadow-xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      Jobs
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEmploymentType("internship");
-                        fetchJobs(false, { employmentType: "internship" });
-                      }}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                        employmentType === "internship"
-                          ? "bg-white text-purple-600 shadow-xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      Internships
-                    </button>
-                  </div>
-
-                  {/* Verification Tier: All / Saarvi Verified / Source Discoveries */}
-                  <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-fit">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedTier("all");
-                        fetchJobs(false, { tier: "all" });
-                      }}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                        selectedTier === "all"
-                          ? "bg-white text-slate-900 shadow-xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      All ({jobs.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedTier("verified");
-                        fetchJobs(false, { tier: "verified" });
-                      }}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 ${
-                        selectedTier === "verified"
-                          ? "bg-white text-emerald-700 shadow-xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Saarvi Verified ({verifiedCount})</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedTier("source");
-                        fetchJobs(false, { tier: "source" });
-                      }}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 ${
-                        selectedTier === "source"
-                          ? "bg-white text-blue-700 shadow-xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      <span>Source Discoveries ({sourceDiscoveryCount})</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Filter Actions */}
+            {/* Partial Failure Notice (Requirement 44, 88) */}
+            {partialFailureNotice && (
+              <div className="p-3.5 bg-amber-50/90 border border-amber-200/90 text-amber-900 rounded-2xl text-xs flex items-center justify-between gap-3 animate-in fade-in duration-150">
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleClearFilters}
-                    className="text-xs font-medium text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer"
-                  >
-                    Clear filters
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fetchJobs(true)}
-                    disabled={loading}
-                    className="text-xs font-bold text-blue-600 hover:bg-blue-50 px-3.5 py-1.5 rounded-lg border border-blue-200 transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-                    <span>Search</span>
-                  </button>
+                  <Info className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>{partialFailureNotice}</span>
                 </div>
-              </div>
-
-              {/* Secondary Filter Dropdowns */}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* Work Mode */}
-                  <select
-                    value={remote}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setRemote(val);
-                      fetchJobs(false, { remote: val });
-                    }}
-                    className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 focus:outline-hidden cursor-pointer"
-                  >
-                    <option value="all">All Work Modes</option>
-                    <option value="remote">Remote Only</option>
-                    <option value="hybrid">Hybrid</option>
-                    <option value="onsite">On-site</option>
-                  </select>
-
-                  {/* Experience */}
-                  <select
-                    value={experience}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setExperience(val);
-                      fetchJobs(false, { experience: val });
-                    }}
-                    className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 focus:outline-hidden cursor-pointer"
-                  >
-                    <option value="all">All Experience Levels</option>
-                    <option value="fresher">Fresher Roles</option>
-                    <option value="entry-level">Entry-Level (0-2 yrs)</option>
-                    <option value="mid-level">Mid-Level (2-5 yrs)</option>
-                    <option value="senior">Senior (5+ yrs)</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500 font-medium">Sort by:</span>
-                  <select
-                    value={sortBy}
-                    onChange={(e) => {
-                      const val = e.target.value as JobSortOption;
-                      setSortBy(val);
-                      fetchJobs(false, { sortBy: val });
-                    }}
-                    className="text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-hidden cursor-pointer"
-                  >
-                    <option value="relevant">Most Relevant</option>
-                    <option value="newest">Newest</option>
-                    <option value="deadline_soon">Deadline Soon</option>
-                    {candidateProfile && <option value="match_score">Best Profile Match</option>}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Profile Match Banner when profile is absent */}
-            {!candidateProfile && (
-              <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-blue-900">
-                <div className="flex items-center gap-2.5">
-                  <Sparkles className="w-5 h-5 text-blue-600 shrink-0" />
-                  <div>
-                    <strong>Want personalized match scores?</strong> Create your Saarvi Career Profile or upload your resume to see transparent skill-gap analysis for every role.
-                  </div>
-                </div>
-                <Link
-                  href="/student/resume"
-                  className="px-3.5 py-1.5 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition shrink-0 text-center"
+                <button
+                  type="button"
+                  onClick={() => setPartialFailureNotice(null)}
+                  className="text-amber-800 font-bold hover:underline shrink-0 cursor-pointer"
                 >
-                  Create Profile
-                </Link>
-              </div>
-            )}
-
-            {/* Stale Cache Notice */}
-            {staleFallback && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center justify-between">
-                <span>Listing provider temporarily unavailable. Showing verified cached results.</span>
-                <button onClick={() => fetchJobs(true)} className="font-semibold underline cursor-pointer">
-                  Retry
+                  Dismiss
                 </button>
               </div>
             )}
 
-            {/* Job Listings Grid / Feed */}
+            {/* Controlled Relaxation Notice (Requirement 43) */}
+            {relaxationExplanation && (
+              <div className="p-3.5 bg-blue-50/90 border border-blue-200/90 text-blue-900 rounded-2xl text-xs flex items-center justify-between gap-3 animate-in fade-in duration-150">
+                <div className="flex items-center gap-2">
+                  <Info className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>{relaxationExplanation}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRelaxationExplanation(null)}
+                  className="text-blue-800 font-bold hover:underline shrink-0 cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            {/* Stream Header & Sorting */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                  {selectedOpportunityType === "training"
+                    ? "Training Programs"
+                    : selectedOpportunityType === "internship"
+                    ? "Internship Opportunities"
+                    : "Your Opportunities"}
+                </h2>
+                <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                  {selectedOpportunityType === "training" ? trainingOpportunities.length : jobs.length}
+                </span>
+              </div>
+
+              {/* Sort By Dropdown */}
+              <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                <span>Sort by:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => {
+                    const val = e.target.value as JobSortOption;
+                    setSortBy(val);
+                    executeSearch({ sortBy: val });
+                  }}
+                  className="text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-hidden cursor-pointer"
+                  aria-label="Sort opportunities"
+                >
+                  <option value="relevant">Most Relevant</option>
+                  <option value="newest">Newest</option>
+                  <option value="deadline_soon">Deadline Soon</option>
+                  {candidateProfile && <option value="match_score">Best Profile Match</option>}
+                </select>
+              </div>
+            </div>
+
+            {/* Optional Personalization Guidance Banner */}
+            {!candidateProfile && (
+              <div className="p-4 bg-blue-50/80 border border-blue-200/90 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-blue-900">
+                <div className="flex items-center gap-2.5">
+                  <Sparkles className="w-5 h-5 text-blue-600 shrink-0" />
+                  <div>
+                    <strong>Want personalized match scores?</strong> Add your career profile to calculate ATS alignment for every opportunity.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCareerModalOpen(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition shrink-0 text-center cursor-pointer shadow-2xs"
+                >
+                  Personalize Results
+                </button>
+              </div>
+            )}
+
+            {/* Loading Skeleton */}
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[1, 2, 3, 4, 5, 6].map((n) => (
+                {[1, 2, 3, 4].map((n) => (
                   <div key={n} className="p-6 bg-white border border-slate-200 rounded-2xl space-y-4 animate-pulse">
                     <div className="h-5 w-3/4 bg-slate-200 rounded" />
-                    <div className="h-4 w-1/2 bg-slate-200 rounded" />
-                    <div className="h-16 w-full bg-slate-100 rounded" />
-                    <div className="flex gap-2">
-                      <div className="h-6 w-16 bg-slate-200 rounded" />
-                      <div className="h-6 w-20 bg-slate-200 rounded" />
-                    </div>
+                    <div className="h-3 w-1/2 bg-slate-200 rounded" />
+                    <div className="h-10 w-full bg-slate-100 rounded" />
                   </div>
                 ))}
               </div>
+            ) : selectedOpportunityType === "training" ? (
+              trainingOpportunities.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {trainingOpportunities.map((training) => (
+                    <TrainingOpportunityCard key={training.id} training={training} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 p-8 space-y-3">
+                  <GraduationCap className="w-10 h-10 text-slate-300 mx-auto" />
+                  <h3 className="text-sm font-bold text-slate-800">No training programs match your criteria</h3>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    Try adjusting your filters or search keywords.
+                  </p>
+                </div>
+              )
             ) : jobs.length === 0 ? (
-              <div className="text-center p-12 bg-white border border-slate-200 rounded-3xl space-y-3">
-                <Briefcase className="w-10 h-10 text-slate-400 mx-auto" />
-                {/* CORRECT EMPTY STATE: distinguish filter-mismatch from truly-empty */}
-                {(() => {
-                  const hasActiveFilters = q || location || employmentType !== "all" || remote !== "all" || experience !== "all";
-                  const hasLiveJobs = liveCount !== null && liveCount > 0;
+              /* Differentiated Empty State */
+              <div className="text-center py-14 bg-white rounded-2xl border border-slate-200 p-8 space-y-4">
+                <Briefcase className="w-10 h-10 text-slate-300 mx-auto" />
 
-                  if (hasActiveFilters) {
-                    // Filters are set but returned no results
-                    return (
-                      <>
-                        <h3 className="text-base font-bold text-slate-900">
-                          No opportunities match your current filters
-                        </h3>
-                        <p className="text-xs text-slate-500 max-w-md mx-auto">
-                          {hasLiveJobs
-                            ? `There are ${liveCount} live opportunities available. Try broadening your search or clearing filters.`
-                            : "Try a broader search query or remove some filters to see all live opportunities."}
-                        </p>
+                {appliedFilters.length > 0 ? (
+                  /* Case B: Filter Mismatch */
+                  <div className="space-y-3 max-w-md mx-auto">
+                    <h3 className="text-base font-bold text-slate-900">
+                      No opportunities match your current filters
+                    </h3>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      {liveCount && liveCount > 0
+                        ? `There are ${liveCount} live opportunities in the platform. Try broadening your criteria or removing one of your filters.`
+                        : "Try removing a filter or adjusting your search query to see all available opportunities."}
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                      {appliedFilters.map((chip) => (
                         <button
+                          key={chip.key}
                           type="button"
-                          onClick={handleClearFilters}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 transition cursor-pointer"
+                          onClick={chip.onRemove}
+                          className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition cursor-pointer"
                         >
-                          Clear Filters & Show All Live Opportunities
+                          Remove {chip.label} ×
                         </button>
-                      </>
-                    );
-                  }
-
-                  if (hasLiveJobs) {
-                    // Live jobs exist but none match (shouldn’t happen without filters, but defensive)
-                    return (
-                      <>
-                        <h3 className="text-base font-bold text-slate-900">
-                          No opportunities available for this search
-                        </h3>
-                        <p className="text-xs text-slate-500 max-w-md mx-auto">
-                          Try a different keyword or adjust your filters.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={handleClearFilters}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 transition cursor-pointer"
-                        >
-                          Reset Filters
-                        </button>
-                      </>
-                    );
-                  }
-
-                  // Truly no live opportunities — liveCount = 0 or unknown
-                  return (
-                    <>
-                      <h3 className="text-base font-bold text-slate-900">
-                        No live opportunities are currently available
-                      </h3>
-                      <p className="text-xs text-slate-500 max-w-md mx-auto">
-                        Our team actively discovers, verifies, and publishes campus and fresher opportunities continuously. Check back soon!
-                      </p>
-                    </>
-                  );
-                })()}
-              </div>
-            ) : (
-              <div className="space-y-8">
-                {/* Selected Tier: ALL -> Show Tier A Verified first, then Tier B Source Discoveries */}
-                {selectedTier === "all" ? (
-                  <>
-                    {/* Tier A: Saarvi Verified Opportunities */}
-                    {verifiedJobs.length > 0 && (
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                          <div className="flex items-center gap-2">
-                            <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                            <h2 className="text-base sm:text-lg font-bold text-slate-900">
-                              Saarvi Verified Opportunities
-                            </h2>
-                            <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                              {verifiedJobs.length} {verifiedJobs.length === 1 ? "Role" : "Roles"}
-                            </span>
-                          </div>
-                          <span className="text-xs text-slate-500 hidden sm:inline">
-                            Admin-reviewed & published • Canonical database records
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {verifiedJobs.map((job) => renderJobCard(job))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Tier B: Live Source Discoveries */}
-                    {sourceJobs.length > 0 && (
-                      <div className="space-y-4 pt-4 border-t border-slate-200/80">
-                        <div className="p-4 bg-amber-50/90 border border-amber-200 rounded-2xl text-xs text-amber-950 space-y-1">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 font-bold text-amber-900">
-                              <Layers className="w-4 h-4 text-amber-600" />
-                              <span>Live Source Discoveries ({sourceJobs.length})</span>
-                            </div>
-                            <span className="text-[11px] font-semibold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full border border-amber-300">
-                              External Sources
-                            </span>
-                          </div>
-                          <p className="text-amber-800 leading-relaxed pt-0.5">
-                            These opportunities were discovered from configured external job sources (e.g. LinkedIn, Indeed, Google Jobs) in response to your search query. Saarvi has not individually verified these listings. Always apply directly through the employer&apos;s official portal.
-                          </p>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {sourceJobs.map((job) => renderJobCard(job))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : selectedTier === "verified" ? (
-                  /* Selected Tier: Verified only */
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                      <div className="flex items-center gap-2">
-                        <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                        <h2 className="text-base sm:text-lg font-bold text-slate-900">
-                          Saarvi Verified Opportunities ({verifiedJobs.length})
-                        </h2>
-                      </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={handleClearAllFilters}
+                        className="px-4 py-1 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition cursor-pointer"
+                      >
+                        Clear All Filters
+                      </button>
                     </div>
-                    {verifiedJobs.length === 0 ? (
-                      <div className="p-8 text-center bg-white border border-slate-200 rounded-2xl space-y-2">
-                        <p className="text-sm font-semibold text-slate-700">No Saarvi Verified roles match your search.</p>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedTier("all")}
-                          className="text-xs text-blue-600 font-bold hover:underline"
-                        >
-                          View all opportunities
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {verifiedJobs.map((job) => renderJobCard(job))}
-                      </div>
-                    )}
                   </div>
                 ) : (
-                  /* Selected Tier: Source Discoveries only */
-                  <div className="space-y-4">
-                    <div className="p-4 bg-amber-50/90 border border-amber-200 rounded-2xl text-xs text-amber-950 space-y-1">
-                      <div className="flex items-center gap-2 font-bold text-amber-900">
-                        <Layers className="w-4 h-4 text-amber-600" />
-                        <span>External Source Discoveries ({sourceJobs.length})</span>
-                      </div>
-                      <p className="text-amber-800 leading-relaxed pt-0.5">
-                        These opportunities were discovered from configured external job sources. Saarvi has not individually verified these listings.
-                      </p>
-                    </div>
-                    {sourceJobs.length === 0 ? (
-                      <div className="p-8 text-center bg-white border border-slate-200 rounded-2xl space-y-2">
-                        <p className="text-sm font-semibold text-slate-700">No external source discoveries found.</p>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedTier("all")}
-                          className="text-xs text-blue-600 font-bold hover:underline"
-                        >
-                          View all opportunities
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {sourceJobs.map((job) => renderJobCard(job))}
-                      </div>
-                    )}
+                  /* Case A: Truly No Live Opportunities */
+                  <div className="space-y-2 max-w-md mx-auto">
+                    <h3 className="text-base font-bold text-slate-900">
+                      No live opportunities are currently available
+                    </h3>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Our team actively discovers, verifies, and publishes campus and fresher opportunities continuously. Check back soon!
+                    </p>
                   </div>
                 )}
-
-                {/* Compact Safety Notice (Prompt Requirement 30) */}
-                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-600">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
-                    <span>
-                      <strong>Saarvi Trust & Safety:</strong> Apply through the official employer/source whenever possible. Saarvi does not charge applicants for access to job listings.
-                    </span>
-                  </div>
-                  <Link href="/contact" className="text-blue-600 font-bold hover:underline shrink-0 text-right">
-                    Report Concerns
-                  </Link>
-                </div>
+              </div>
+            ) : (
+              /* ONE UNIFIED RESULT STREAM */
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {jobs.map((job) => renderJobCard(job))}
               </div>
             )}
           </div>
         )}
       </main>
+
+      {/* ========================================================================= */}
+      {/* MOBILE FILTER DRAWER                                                      */}
+      {/* ========================================================================= */}
+      {mobileDrawerOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex justify-end">
+          <div className="bg-white w-full max-w-sm h-full p-6 flex flex-col justify-between overflow-y-auto animate-in slide-in-from-right duration-200">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                <h3 className="font-bold text-slate-900 text-base">Filter Opportunities</h3>
+                <button
+                  type="button"
+                  onClick={() => setMobileDrawerOpen(false)}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Opportunity Scope */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Opportunity Type</label>
+                <select
+                  value={selectedOpportunityType}
+                  onChange={(e) => setSelectedOpportunityType(e.target.value)}
+                  className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-800"
+                >
+                  <option value="any">Any opportunity</option>
+                  <option value="job">Job</option>
+                  <option value="internship">Internship</option>
+                  <option value="training">Training</option>
+                </select>
+              </div>
+
+              {/* Work Mode */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Work Mode</label>
+                <select
+                  value={selectedWorkMode}
+                  onChange={(e) => setSelectedWorkMode(e.target.value)}
+                  className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-800"
+                >
+                  <option value="all">All Work Modes</option>
+                  <option value="remote">Remote Only</option>
+                  <option value="hybrid">Hybrid</option>
+                  <option value="onsite">On-site</option>
+                </select>
+              </div>
+
+              {/* Experience */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Experience Level</label>
+                <select
+                  value={selectedExperience}
+                  onChange={(e) => setSelectedExperience(e.target.value)}
+                  className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-800"
+                >
+                  <option value="all">All Experience Levels</option>
+                  <option value="fresher">Fresher Roles</option>
+                  <option value="entry-level">Entry-Level (0-2 yrs)</option>
+                  <option value="mid-level">Mid-Level (2-5 yrs)</option>
+                  <option value="senior">Senior (5+ yrs)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  handleClearAllFilters();
+                  setMobileDrawerOpen(false);
+                }}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  executeSearch();
+                  setMobileDrawerOpen(false);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition"
+              >
+                Apply Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* AUTHENTICATION GATE MODAL                                                 */}
@@ -1534,9 +2039,35 @@ function JobsContent() {
         onClose={() => setAuthGateOpen(false)}
         returnUrl={returnUrl}
         searchSummary={{
-          role: q,
-          location,
-          experience: experience !== "all" ? experience : undefined,
+          role: selectedRole || customQuery,
+          location: selectedLocation,
+          experience: selectedExperience !== "all" ? selectedExperience : undefined,
+        }}
+      />
+
+      {/* ========================================================================= */}
+      {/* GUIDED CAREER SEARCH MODAL (OPTIONAL)                                     */}
+      {/* ========================================================================= */}
+      <GuidedCareerSearchModal
+        isOpen={careerModalOpen}
+        onClose={() => setCareerModalOpen(false)}
+        initialPreferences={careerPrefs || undefined}
+        onApplyPreferences={(prefs: CareerProfilePreferences) => {
+          setCareerPrefs(prefs);
+          if (prefs.roles && prefs.roles.length > 0) {
+            setSelectedRole(prefs.roles[0]);
+          }
+          if (prefs.location) {
+            setSelectedLocation(prefs.location);
+          }
+          if (prefs.workMode) {
+            setSelectedWorkMode(prefs.workMode);
+          }
+          executeSearch({
+            role: prefs.roles?.[0] || selectedRole,
+            location: prefs.location || selectedLocation,
+            workMode: prefs.workMode || selectedWorkMode,
+          });
         }}
       />
 
@@ -1573,46 +2104,46 @@ function JobsContent() {
                 </span>
               </div>
 
-              {/* Matched Skills */}
               <div>
                 <span className="font-bold text-slate-700 block mb-1">Matched Skills:</span>
                 <div className="flex flex-wrap gap-1">
                   {selectedMatchJob.match.matchedSkills.length > 0 ? (
                     selectedMatchJob.match.matchedSkills.map((sk) => (
-                      <span key={sk} className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">
-                        {sk}
+                      <span key={sk} className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        ✓ {sk}
                       </span>
                     ))
                   ) : (
-                    <span className="text-slate-400">None matched</span>
+                    <span className="text-slate-400 italic">No direct keyword overlap</span>
                   )}
                 </div>
               </div>
 
-              {/* Missing Skills */}
               <div>
-                <span className="font-bold text-slate-700 block mb-1">Missing Skills (Gap Analysis):</span>
+                <span className="font-bold text-slate-700 block mb-1">Missing Skills to Add:</span>
                 <div className="flex flex-wrap gap-1">
                   {selectedMatchJob.match.missingSkills.length > 0 ? (
                     selectedMatchJob.match.missingSkills.map((sk) => (
-                      <span key={sk} className="px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 font-semibold">
-                        {sk}
+                      <span key={sk} className="px-2 py-0.5 rounded bg-rose-50 text-rose-800 border border-rose-200">
+                        + {sk}
                       </span>
                     ))
                   ) : (
-                    <span className="text-emerald-600 font-medium">You have all listed technical skills!</span>
+                    <span className="text-slate-400 italic">Great match! No missing skills identified.</span>
                   )}
                 </div>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setSelectedMatchJob(null)}
-              className="w-full py-2 bg-slate-100 hover:bg-slate-200 font-semibold text-xs rounded-xl text-slate-700 transition cursor-pointer"
-            >
-              Close Breakdown
-            </button>
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedMatchJob(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 font-semibold text-slate-700 text-xs"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1624,10 +2155,7 @@ function JobsContent() {
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-200 max-w-md w-full p-6 space-y-4 shadow-xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-extrabold text-slate-900 flex items-center gap-2">
-                <Flag className="w-4 h-4 text-rose-600" />
-                Report Suspicious Listing
-              </h3>
+              <h3 className="font-bold text-slate-900 text-sm">Report Listing</h3>
               <button
                 type="button"
                 onClick={() => setReportingJob(null)}
@@ -1636,57 +2164,48 @@ function JobsContent() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-
-            <div className="text-xs space-y-3">
-              <p className="text-slate-600">
-                Reporting: <strong className="text-slate-900">{reportingJob.title}</strong> at {reportingJob.companyName}
-              </p>
-
+            <form onSubmit={handleReportSubmit} className="space-y-4 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Reason for report</label>
+                <label className="font-bold text-slate-700 block mb-1">Reason for Report</label>
                 <select
                   value={reportReason}
                   onChange={(e) => setReportReason(e.target.value as JobReportReason)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:outline-hidden"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-white"
                 >
-                  <option value="EXPIRED">Expired or Closed Listing</option>
-                  <option value="MISLEADING_INFO">Incorrect or Misleading Information</option>
-                  <option value="BROKEN_LINK">Broken Apply Link</option>
-                  <option value="DUPLICATE">Duplicate Listing</option>
-                  <option value="SUSPICIOUS">Suspicious Listing or Fraud/Fee</option>
-                  <option value="OTHER">Other Reason</option>
+                  <option value="MISLEADING_INFO">Misleading Information</option>
+                  <option value="SUSPECTED_SCAM">Suspected Scam / Demanding Money</option>
+                  <option value="EXPIRED_LINK">Expired Link / Position Filled</option>
+                  <option value="OFFENSIVE_CONTENT">Offensive Content</option>
+                  <option value="OTHER">Other</option>
                 </select>
               </div>
-
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Additional notes (optional)</label>
+                <label className="font-bold text-slate-700 block mb-1">Additional Details (Optional)</label>
                 <textarea
+                  rows={3}
                   value={reportNotes}
                   onChange={(e) => setReportNotes(e.target.value)}
-                  placeholder="Provide any details to help our safety team investigate..."
-                  rows={3}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:outline-hidden"
+                  placeholder="Provide context to help our Trust & Safety review..."
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs"
                 />
               </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setReportingJob(null)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSubmitReport}
-                disabled={reportingSubmitting}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition"
-              >
-                {reportingSubmitting ? "Submitting..." : "Submit Report"}
-              </button>
-            </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setReportingJob(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={reportingSubmitting}
+                  className="px-4 py-2 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-700"
+                >
+                  {reportingSubmitting ? "Submitting..." : "Submit Report"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -1698,10 +2217,7 @@ function JobsContent() {
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-200 max-w-md w-full p-6 space-y-4 shadow-xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-extrabold text-slate-900 flex items-center gap-2">
-                <Bell className="w-4 h-4 text-blue-600" />
-                Create Real-Time Job Alert
-              </h3>
+              <h3 className="font-bold text-slate-900 text-sm">Create Job Alert</h3>
               <button
                 type="button"
                 onClick={() => setShowAlertModal(false)}
@@ -1710,67 +2226,37 @@ function JobsContent() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-
-            <div className="text-xs space-y-3">
+            <form onSubmit={handleCreateAlert} className="space-y-4 text-xs">
               <p className="text-slate-600">
-                Receive notifications when new verified roles matching your criteria are published.
+                Receive notifications when new opportunities matching &ldquo;{selectedRole || customQuery || "all roles"}&rdquo; {selectedLocation ? `in ${selectedLocation}` : ""} are published.
               </p>
-
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Keywords</label>
-                <input
-                  type="text"
-                  value={q || "Software Engineer"}
-                  readOnly
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 text-xs"
-                />
+                <label className="font-bold text-slate-700 block mb-1">Notification Frequency</label>
+                <select
+                  value={alertFrequency}
+                  onChange={(e) => setAlertFrequency(e.target.value as "daily" | "weekly")}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-white"
+                >
+                  <option value="daily">Daily Digest</option>
+                  <option value="weekly">Weekly Summary</option>
+                </select>
               </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Frequency</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setAlertFrequency("daily")}
-                    className={`py-2 text-xs font-bold rounded-xl border transition cursor-pointer ${
-                      alertFrequency === "daily"
-                        ? "bg-blue-50 border-blue-300 text-blue-700"
-                        : "border-slate-200 text-slate-600"
-                    }`}
-                  >
-                    Daily Digest
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAlertFrequency("weekly")}
-                    className={`py-2 text-xs font-bold rounded-xl border transition cursor-pointer ${
-                      alertFrequency === "weekly"
-                        ? "bg-blue-50 border-blue-300 text-blue-700"
-                        : "border-slate-200 text-slate-600"
-                    }`}
-                  >
-                    Weekly Summary
-                  </button>
-                </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAlertModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700"
+                >
+                  Create Alert
+                </button>
               </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowAlertModal(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleCreateAlert}
-                className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition"
-              >
-                Create Alert
-              </button>
-            </div>
+            </form>
           </div>
         </div>
       )}
@@ -1782,7 +2268,13 @@ function JobsContent() {
 
 export default function JobsPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#f8fafc] flex items-center justify-center text-sm text-slate-500">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+          <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
       <JobsContent />
     </Suspense>
   );

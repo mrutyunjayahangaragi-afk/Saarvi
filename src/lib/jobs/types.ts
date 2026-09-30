@@ -11,7 +11,7 @@
 
 export type RemoteType = "remote" | "hybrid" | "onsite";
 
-export type EmploymentType = "full-time" | "part-time" | "internship" | "contract" | "temporary";
+export type EmploymentType = "full-time" | "part-time" | "internship" | "contract" | "temporary" | "training";
 
 export type ExperienceLevel = "fresher" | "entry-level" | "mid-level" | "senior";
 
@@ -73,6 +73,9 @@ export interface JobItem {
 
 export interface JobSearchParams {
   q?: string;
+  role?: string;
+  branch?: string;
+  domain?: string;
   location?: string;
   employmentType?: string;
   remote?: string; // "remote" | "hybrid" | "onsite" | "all"
@@ -96,6 +99,10 @@ export interface JobSearchResponse {
   cached: boolean;
   cacheTimestamp?: string;
   staleFallback?: boolean;
+  partialFailureMessage?: string;
+  relaxationExplanation?: string;
+  isRelaxed?: boolean;
+  matchReasonsMap?: Record<string, string[]>;
   /**
    * Total number of LIVE jobs before any user filters are applied.
    * Used to distinguish "no jobs exist" from "filters eliminated all results".

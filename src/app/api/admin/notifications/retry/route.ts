@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const notificationId = body.notificationId;
 
-    const result = NotificationCenterService.retryFailedDeliveries(notificationId);
+    const result = await NotificationCenterService.retryFailedDeliveries(notificationId);
 
     return NextResponse.json({
       success: true,

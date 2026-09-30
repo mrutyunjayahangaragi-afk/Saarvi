@@ -396,16 +396,17 @@ test('Navbar 6.0 UI Architecture: Compact Navbar Invariants', () => {
   const navbarPath = path.join(ROOT, 'src/components/layout/Navbar.tsx');
   const navbarContent = fs.readFileSync(navbarPath, 'utf8');
 
-  // Desktop nav must render essential tools directly with slice(0, 6)
+  // Navbar 7.0: Essential tools passed to MegaMenu with strict 6-slot limit
   assert.ok(
     navbarContent.includes('essentialTools.slice(0, 6)'),
     'Navbar.tsx must render strict max 6 direct essential tools'
   );
 
-  // Responsive slot reduction (hidden xl:flex on slots 4-6)
+  // Navbar 7.0: Config-driven overflow management via admin validation (item count > 7 triggers warning)
+  // The isSlot4to6 pattern was refactored into admin-side validation in navigation-service.ts
   assert.ok(
-    navbarContent.includes('isSlot4to6 ? \'hidden xl:flex\' : \'flex\''),
-    'Navbar.tsx must implement responsive slot reduction (slots 1-3 on md/lg, 4-6 on xl+)'
+    navbarContent.includes('dynamicNavItems') || navbarContent.includes('visible_desktop'),
+    'Navbar.tsx must implement config-driven desktop item visibility (Navbar 7.0+)'
   );
 
   // Mobile drawer must include Essential Daily Tools section

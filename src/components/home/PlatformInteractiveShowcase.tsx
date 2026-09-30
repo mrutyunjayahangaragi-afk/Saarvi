@@ -253,7 +253,7 @@ export default function PlatformInteractiveShowcase() {
               <div className="space-y-2 pt-2 text-xs font-semibold text-slate-700">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>0 Bytes transmitted to cloud servers for supported conversions</span>
+                  <span>Local processing: files remain on your device for supported conversions</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Zap className="w-4 h-4 text-amber-500 shrink-0" />

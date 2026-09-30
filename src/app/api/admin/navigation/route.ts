@@ -1,35 +1,44 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedAdmin } from '@/lib/security/admin-auth';
+import { enforceRateLimit, createRateLimitResponse } from '@/lib/security/rate-limit';
 import { navigationStore } from '@/lib/navigation/navigation-store';
 import { toolDiscoveryService } from '@/lib/navigation/tool-discovery-service';
-import { enforceRateLimit, createRateLimitResponse } from '@/lib/security/rate-limit';
-import { getAuthenticatedAdmin } from '@/lib/security/admin-auth';
+import { NavigationService } from '@/lib/navigation/navigation-service';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/admin/navigation
- * Returns current navigation configs, categories, and smart navbar preview snapshot.
- * Requires server-authoritative admin authentication.
+ * Returns:
+ * 1. Tool discovery config & previewSnapshot
+ * 2. Dynamic Navbar 7.0 draft, published, versions, and validation results
  */
-export async function GET(request: Request) {
-  const rateLimit = enforceRateLimit(request, 'adminRead');
-  if (!rateLimit.allowed) return createRateLimitResponse(rateLimit);
-
+export async function GET(request: NextRequest) {
   try {
     const authResult = await getAuthenticatedAdmin(request, 'VIEW');
     if (!authResult.success) {
-      return NextResponse.json({ error: authResult.error }, { status: authResult.status });
+      return NextResponse.json({ error: authResult.error }, { status: authResult.status || 401 });
     }
 
     const { searchParams } = new URL(request.url);
     const windowParam = searchParams.get('window');
     const { days } = toolDiscoveryService.parseWindowPeriod(windowParam);
 
+    // 1. Tool Discovery metadata & Preview Snapshot
     const [items, categories, previewSnapshot] = await Promise.all([
       navigationStore.getAllConfigs(),
       navigationStore.getCategoryConfigs(),
       toolDiscoveryService.getNavigationSnapshot({ windowDays: days, forceRefresh: true }),
     ]);
+
+    // 2. Dynamic Top Navbar 7.0 items, drafts, and version history
+    const [draft, published, versions] = await Promise.all([
+      NavigationService.getDraftItems(),
+      NavigationService.getPublishedItems(true),
+      NavigationService.getVersions(),
+    ]);
+
+    const validation = NavigationService.validateNavigation(draft);
 
     return NextResponse.json({
       success: true,
@@ -38,6 +47,11 @@ export async function GET(request: Request) {
       previewSnapshot,
       windowDays: days,
       defaultWindowDays: toolDiscoveryService.getDefaultWindowDays(),
+      // Dynamic Navbar 7.0
+      draft,
+      published,
+      versions,
+      validation,
     });
   } catch (error: any) {
     console.error('[Admin Navigation API] GET error:', error);
@@ -47,24 +61,97 @@ export async function GET(request: Request) {
 
 /**
  * POST /api/admin/navigation
- * Update single item, add tool, remove tool from navbar, reorder category, set usage window, or reset to defaults.
- * Requires server-authoritative admin authentication with MANAGE permission.
+ * Admin actions:
+ * - Dynamic Navbar 7.0: save_draft | publish | rollback | reset_navbar
+ * - Tool Discovery: set_window | reset | reorder | reorder_categories | update_category | add_tool | remove_from_navbar | update single item
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const rateLimit = enforceRateLimit(request, 'adminMutations');
   if (!rateLimit.allowed) return createRateLimitResponse(rateLimit);
 
   try {
     const authResult = await getAuthenticatedAdmin(request, 'MANAGE');
     if (!authResult.success) {
-      return NextResponse.json({ error: authResult.error }, { status: authResult.status });
+      return NextResponse.json({ error: authResult.error }, { status: authResult.status || 401 });
     }
 
-    const adminEmail = authResult.user.email;
-    const body = await request.json();
-    const { action, toolId, categoryId, updates, toolIdsInOrder, categoryIdsInOrder, overrides, windowDays } = body;
+    const adminEmail = authResult.user?.email || 'admin@saarvi.internal';
+    const adminId = authResult.user?.id || 'admin';
+    const body = await request.json().catch(() => ({}));
+    const {
+      action,
+      toolId,
+      categoryId,
+      updates,
+      toolIdsInOrder,
+      categoryIdsInOrder,
+      overrides,
+      windowDays,
+      items: draftItems,
+      notes,
+      version,
+    } = body;
 
-    // Action: Set Default Usage Window
+    // ── Dynamic Navbar 7.0 Actions ───────────────────────────────────────────
+    if (action === 'save_draft') {
+      if (!Array.isArray(draftItems)) {
+        return NextResponse.json({ error: 'Items must be an array' }, { status: 400 });
+      }
+      const result = NavigationService.saveDraft(draftItems);
+      toolDiscoveryService.invalidateCache();
+      return NextResponse.json({
+        success: true,
+        message: 'Draft navigation saved successfully.',
+        errors: result.errors,
+      });
+    }
+
+    if (action === 'publish') {
+      const result = await NavigationService.publishDraft(adminId, notes);
+      toolDiscoveryService.invalidateCache();
+      if (!result.success) {
+        return NextResponse.json(
+          {
+            error: 'Validation failed before publish.',
+            errors: result.errors,
+          },
+          { status: 422 }
+        );
+      }
+      return NextResponse.json({
+        success: true,
+        message: 'Navigation published to live users successfully.',
+        version: result.version,
+      });
+    }
+
+    if (action === 'rollback') {
+      const versionNumber = Number(version);
+      if (!versionNumber) {
+        return NextResponse.json({ error: 'Valid version number required' }, { status: 400 });
+      }
+      const result = await NavigationService.rollbackToVersion(versionNumber, adminId);
+      toolDiscoveryService.invalidateCache();
+      if (!result.success) {
+        return NextResponse.json({ error: result.error || 'Rollback failed' }, { status: 500 });
+      }
+      return NextResponse.json({
+        success: true,
+        message: `Successfully rolled back navigation to version ${versionNumber}.`,
+      });
+    }
+
+    if (action === 'reset_navbar') {
+      const defaultItems = NavigationService.resetToDefault();
+      toolDiscoveryService.invalidateCache();
+      return NextResponse.json({
+        success: true,
+        message: 'Reset navigation draft to default setup.',
+        items: defaultItems,
+      });
+    }
+
+    // ── Existing Tool Discovery Actions ──────────────────────────────────────
     if (action === 'set_window') {
       if (typeof windowDays === 'number' || windowDays === '7d' || windowDays === '30d' || windowDays === '90d') {
         toolDiscoveryService.setDefaultWindow(windowDays);
@@ -85,44 +172,39 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'windowDays must be 7, 30, 90, "7d", "30d", or "90d".' }, { status: 400 });
     }
 
-    // Action 1: Reset to canonical defaults
     if (action === 'reset') {
-      const items = await navigationStore.resetToDefaults(adminEmail);
+      const itemsRes = await navigationStore.resetToDefaults(adminEmail);
       toolDiscoveryService.invalidateCache();
-      return NextResponse.json({ success: true, items });
+      return NextResponse.json({ success: true, items: itemsRes });
     }
 
-    // Action 2: Reorder tools within a category
     if (action === 'reorder') {
       if (!categoryId || !Array.isArray(toolIdsInOrder)) {
         return NextResponse.json({ error: 'categoryId and toolIdsInOrder array are required.' }, { status: 400 });
       }
-      const items = await navigationStore.reorderCategory(categoryId, toolIdsInOrder, adminEmail);
+      const itemsRes = await navigationStore.reorderCategory(categoryId, toolIdsInOrder, adminEmail);
       toolDiscoveryService.invalidateCache();
-      return NextResponse.json({ success: true, items });
+      return NextResponse.json({ success: true, items: itemsRes });
     }
 
-    // Action 3: Reorder categories
     if (action === 'reorder_categories') {
       if (!Array.isArray(categoryIdsInOrder)) {
         return NextResponse.json({ error: 'categoryIdsInOrder array is required.' }, { status: 400 });
       }
-      const categories = await navigationStore.reorderCategories(categoryIdsInOrder);
+      const categoriesRes = await navigationStore.reorderCategories(categoryIdsInOrder);
       toolDiscoveryService.invalidateCache();
-      return NextResponse.json({ success: true, categories });
+      return NextResponse.json({ success: true, categories: categoriesRes });
     }
 
-    // Action 4: Update category metadata (label, visibility)
     if (action === 'update_category') {
       if (!categoryId || !updates) {
         return NextResponse.json({ error: 'categoryId and updates are required.' }, { status: 400 });
       }
-      const categories = await navigationStore.updateCategoryConfig(categoryId, updates, adminEmail);
+      const categoriesRes = await navigationStore.updateCategoryConfig(categoryId, updates, adminEmail);
       toolDiscoveryService.invalidateCache();
-      return NextResponse.json({ success: true, categories });
+      return NextResponse.json({ success: true, categories: categoriesRes });
     }
 
-    // Action 5: Add an existing canonical tool to category
     if (action === 'add_tool') {
       if (!toolId || !categoryId) {
         return NextResponse.json({ error: 'toolId and categoryId are required.' }, { status: 400 });
@@ -132,7 +214,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, item });
     }
 
-    // Action 6: Remove tool from Navbar visibility
     if (action === 'remove_from_navbar') {
       if (!toolId || !categoryId) {
         return NextResponse.json({ error: 'toolId and categoryId are required.' }, { status: 400 });

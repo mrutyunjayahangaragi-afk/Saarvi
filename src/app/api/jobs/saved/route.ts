@@ -61,10 +61,21 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/jobs/saved
- * Saves or unsaves a job for the authenticated user.
+ * Supports saveJob and unsaveJob actions for the authenticated user.
  * Body: { jobId: string, action?: "SAVE" | "UNSAVE" }
  * Uses INSERT ... ON CONFLICT DO NOTHING for idempotent saves.
  */
+export async function saveJob(userId: string, jobId: string) {
+  const supabase = getSupabaseAdminClient();
+  if (!supabase) return { error: "No DB client" };
+  return await supabase.from("saved_jobs").upsert({ user_id: userId, job_id: jobId }, { onConflict: "user_id, job_id" });
+}
+
+export async function unsaveJob(userId: string, jobId: string) {
+  const supabase = getSupabaseAdminClient();
+  if (!supabase) return { error: "No DB client" };
+  return await supabase.from("saved_jobs").delete().eq("user_id", userId).eq("job_id", jobId);
+}
 export async function POST(req: NextRequest) {
   const authUser = await getAuthenticatedUser(req);
   if (!authUser) {

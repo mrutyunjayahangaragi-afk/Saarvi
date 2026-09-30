@@ -62,6 +62,9 @@ export async function GET(req: NextRequest) {
   // 2. Parse & Validate Query Parameters
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q") || undefined;
+  const role = searchParams.get("role") || undefined;
+  const branch = searchParams.get("branch") || undefined;
+  const domain = searchParams.get("domain") || undefined;
   const location = searchParams.get("location") || undefined;
   const employmentType = searchParams.get("employmentType") || undefined;
   const remote = searchParams.get("remote") || undefined;
@@ -77,6 +80,9 @@ export async function GET(req: NextRequest) {
   try {
     const result = await jobSearchService.searchJobs({
       q,
+      role,
+      branch,
+      domain,
       location,
       employmentType,
       remote,
