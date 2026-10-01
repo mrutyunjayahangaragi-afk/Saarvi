@@ -146,7 +146,7 @@ export default function Navbar() {
         } else {
           setJobsNavbarVisible(true);
         }
-      } catch {}
+      } catch { }
     }
 
     checkJobsNavbar();
@@ -220,8 +220,8 @@ export default function Navbar() {
               }
             }
           })
-          .catch(() => {});
-      } catch {}
+          .catch(() => { });
+      } catch { }
     }
     loadNav();
     return () => {
@@ -261,7 +261,7 @@ export default function Navbar() {
         if (!isCancelled && res?.data && typeof res.data.unreadCount === 'number') {
           setUnreadNotifications(res.data.unreadCount);
         }
-      } catch {}
+      } catch { }
     };
 
     fetchUnread();
@@ -295,8 +295,8 @@ export default function Navbar() {
           toolSlug: toolId,
           metadata: { source: 'navbar', category },
         }),
-      }).catch(() => {});
-    } catch {}
+      }).catch(() => { });
+    } catch { }
   };
 
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -440,14 +440,13 @@ export default function Navbar() {
       <AnnouncementBanner />
       <header
         ref={headerRef}
-        className={`sticky top-0 z-40 w-full transition-all duration-200 ${
-          isScrolled
+        className={`sticky top-0 z-40 w-full transition-all duration-200 ${isScrolled
             ? "bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-xs"
             : "bg-white/90 backdrop-blur-xs border-b border-slate-100"
-        }`}
+          }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4 relative">
-          
+
           {/* LEFT: Official Saarvi Logo */}
           <Link
             href="/"
@@ -496,18 +495,16 @@ export default function Navbar() {
                             setActiveCategory(activeCategory === 'tools' ? null : 'tools');
                           }
                         }}
-                        className={`group px-3.5 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
-                          isToolsActive
+                        className={`group px-3.5 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${isToolsActive
                             ? 'text-blue-600 font-bold bg-blue-50/90 border border-blue-200/70 shadow-2xs'
                             : 'hover:text-blue-600 hover:bg-slate-100/80 text-slate-700 border border-transparent'
-                        }`}
+                          }`}
                       >
                         <LayoutGrid className="w-3.5 h-3.5 text-blue-600 transition-transform duration-200 group-hover:scale-110" />
                         <span>{item.label}</span>
                         <ChevronDown
-                          className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                            activeCategory === 'tools' ? 'rotate-180 text-blue-600' : 'text-slate-400 group-hover:text-blue-600'
-                          }`}
+                          className={`w-3.5 h-3.5 transition-transform duration-200 ${activeCategory === 'tools' ? 'rotate-180 text-blue-600' : 'text-slate-400 group-hover:text-blue-600'
+                            }`}
                         />
                       </Link>
                     </div>
@@ -543,18 +540,16 @@ export default function Navbar() {
                             setActiveCategory(activeCategory === 'student' ? null : 'student');
                           }
                         }}
-                        className={`group px-3 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
-                          isStudentActive
+                        className={`group px-3 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${isStudentActive
                             ? 'text-blue-600 bg-blue-50/90 border border-blue-200/70 font-bold shadow-2xs'
                             : 'text-slate-700 hover:text-blue-600 hover:bg-slate-100/80 border border-transparent'
-                        }`}
+                          }`}
                       >
                         <GraduationCap className="w-3.5 h-3.5 text-indigo-600 transition-transform duration-200 group-hover:scale-110" />
                         <span>{item.label}</span>
                         <ChevronDown
-                          className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                            activeCategory === 'student' ? 'rotate-180 text-blue-600' : 'text-slate-400 group-hover:text-blue-600'
-                          }`}
+                          className={`w-3.5 h-3.5 transition-transform duration-200 ${activeCategory === 'student' ? 'rotate-180 text-blue-600' : 'text-slate-400 group-hover:text-blue-600'
+                            }`}
                         />
                       </Link>
                     </div>
@@ -570,11 +565,10 @@ export default function Navbar() {
                       <Link
                         href={item.route}
                         onClick={() => setActiveCategory(null)}
-                        className={`group px-3 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
-                          isJobsActive
+                        className={`group px-3 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${isJobsActive
                             ? 'text-blue-600 bg-blue-50/90 border border-blue-200/70 font-bold shadow-2xs'
                             : 'text-slate-700 hover:text-blue-600 hover:bg-slate-100/80 border border-transparent'
-                        }`}
+                          }`}
                       >
                         <Briefcase className="w-3.5 h-3.5 text-blue-600 transition-transform duration-200 group-hover:scale-110" />
                         <span>{item.label}</span>
@@ -600,11 +594,10 @@ export default function Navbar() {
                       target={item.open_behavior === 'new_tab' || isExternal ? '_blank' : undefined}
                       rel={isExternal ? 'noopener noreferrer' : undefined}
                       onClick={() => setActiveCategory(null)}
-                      className={`group px-3 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
-                        isActive
+                      className={`group px-3 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${isActive
                           ? 'text-blue-600 bg-blue-50/90 border border-blue-200/70 font-bold shadow-2xs'
                           : 'text-slate-700 hover:text-blue-600 hover:bg-slate-100/80 border border-transparent'
-                      }`}
+                        }`}
                     >
                       <ItemIcon className="w-3.5 h-3.5 text-blue-600 transition-transform duration-200 group-hover:scale-110" />
                       <span>{item.label}</span>
@@ -693,6 +686,7 @@ export default function Navbar() {
               </button>
             </div>
 
+
             {/* Notification Bell with Dynamic Unread Badge */}
             {!isLoading && user && (
               <Link
@@ -746,9 +740,8 @@ export default function Navbar() {
                     />
                   ) : null}
                   <div
-                    className={`w-6 h-6 rounded-full bg-blue-600 text-white items-center justify-center text-[11px] font-bold shrink-0 ${
-                      userAvatar ? "hidden" : "flex"
-                    }`}
+                    className={`w-6 h-6 rounded-full bg-blue-600 text-white items-center justify-center text-[11px] font-bold shrink-0 ${userAvatar ? "hidden" : "flex"
+                      }`}
                   >
                     {(profile?.fullName || user.fullName || "U").charAt(0).toUpperCase()}
                   </div>
@@ -756,9 +749,8 @@ export default function Navbar() {
                     {profile?.fullName || user.fullName || "Account"}
                   </span>
                   <ChevronDown
-                    className={`hidden sm:inline w-3 h-3 text-slate-400 transition-transform duration-150 ${
-                      accountMenuOpen ? "rotate-180 text-blue-600" : ""
-                    }`}
+                    className={`hidden sm:inline w-3 h-3 text-slate-400 transition-transform duration-150 ${accountMenuOpen ? "rotate-180 text-blue-600" : ""
+                      }`}
                   />
                 </button>
 
@@ -939,7 +931,7 @@ export default function Navbar() {
         {/* Mobile Navigation Drawer with Accordions */}
         {mobileMenuOpen && (
           <div className="md:hidden border-b border-slate-200 bg-white/98 backdrop-blur-md px-4 pt-3 pb-6 space-y-3 animate-in slide-in-from-top-2 duration-150">
-            
+
             {/* Quick Search on Mobile */}
             <button
               type="button"
@@ -1006,9 +998,8 @@ export default function Navbar() {
                   PDF Tools
                 </span>
                 <ChevronDown
-                  className={`w-4 h-4 text-slate-400 transition-transform ${
-                    mobileExpandedSection === "pdf" ? "rotate-180 text-blue-600" : ""
-                  }`}
+                  className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpandedSection === "pdf" ? "rotate-180 text-blue-600" : ""
+                    }`}
                 />
               </button>
               {mobileExpandedSection === "pdf" && (
@@ -1024,33 +1015,33 @@ export default function Navbar() {
                     navCategories.find((c) => c.id === "pdf")?.allTools?.length > 0
                       ? navCategories.find((c) => c.id === "pdf")!.allTools
                       : [
-                          { key: "merge-pdf", name: "Merge PDF", route: "/tools/merge-pdf" },
-                          { key: "split-pdf", name: "Split PDF", route: "/tools/split-pdf" },
-                          { key: "compress-pdf", name: "Compress PDF", route: "/tools/compress-pdf" },
-                          { key: "pdf-to-jpg", name: "PDF to JPG", route: "/tools/pdf-to-jpg" },
-                          { key: "pdf-to-word", name: "PDF to Word", route: "/tools/pdf-to-word" },
-                          { key: "pdf-to-excel", name: "PDF to Excel", route: "/tools/pdf-to-excel" },
-                          { key: "word-to-pdf", name: "Word to PDF", route: "/tools/word-to-pdf" },
-                          { key: "excel-to-pdf", name: "Excel to PDF", route: "/tools/excel-to-pdf" },
-                          { key: "protect-pdf", name: "Protect PDF", route: "/tools/protect-pdf" },
-                          { key: "unlock-pdf", name: "Unlock PDF", route: "/tools/unlock-pdf" },
-                          { key: "watermark-pdf", name: "Watermark PDF", route: "/tools/watermark-pdf" },
-                          { key: "reorder-pdf", name: "Reorder PDF Pages", route: "/tools/reorder-pdf" },
-                          { key: "rotate-pdf", name: "Rotate PDF", route: "/tools/rotate-pdf" },
-                          { key: "delete-pdf-pages", name: "Delete PDF Pages", route: "/tools/delete-pdf-pages" },
-                          { key: "extract-pdf-pages", name: "Extract PDF Pages", route: "/tools/extract-pdf-pages" },
-                          { key: "txt-to-pdf", name: "TXT to PDF", route: "/tools/txt-to-pdf" },
-                          { key: "csv-to-pdf", name: "CSV to PDF", route: "/tools/csv-to-pdf" },
-                          { key: "html-to-pdf", name: "HTML to PDF", route: "/tools/html-to-pdf" },
-                          { key: "pdf-to-png", name: "PDF to PNG", route: "/tools/pdf-to-png" },
-                          { key: "pdf-to-powerpoint", name: "PDF to PowerPoint", route: "/tools/pdf-to-powerpoint" },
-                          { key: "powerpoint-to-pdf", name: "PowerPoint to PDF", route: "/tools/powerpoint-to-pdf" },
-                          { key: "page-numbers-pdf", name: "Add Page Numbers", route: "/tools/page-numbers-pdf" },
-                          { key: "pdf-header-footer", name: "PDF Header & Footer", route: "/tools/pdf-header-footer" },
-                          { key: "flatten-pdf", name: "Flatten PDF", route: "/tools/flatten-pdf" },
-                          { key: "pdf-metadata", name: "PDF Metadata Editor", route: "/tools/pdf-metadata" },
-                          { key: "pdf-info", name: "PDF Info & Inspection", route: "/tools/pdf-info" },
-                        ]
+                        { key: "merge-pdf", name: "Merge PDF", route: "/tools/merge-pdf" },
+                        { key: "split-pdf", name: "Split PDF", route: "/tools/split-pdf" },
+                        { key: "compress-pdf", name: "Compress PDF", route: "/tools/compress-pdf" },
+                        { key: "pdf-to-jpg", name: "PDF to JPG", route: "/tools/pdf-to-jpg" },
+                        { key: "pdf-to-word", name: "PDF to Word", route: "/tools/pdf-to-word" },
+                        { key: "pdf-to-excel", name: "PDF to Excel", route: "/tools/pdf-to-excel" },
+                        { key: "word-to-pdf", name: "Word to PDF", route: "/tools/word-to-pdf" },
+                        { key: "excel-to-pdf", name: "Excel to PDF", route: "/tools/excel-to-pdf" },
+                        { key: "protect-pdf", name: "Protect PDF", route: "/tools/protect-pdf" },
+                        { key: "unlock-pdf", name: "Unlock PDF", route: "/tools/unlock-pdf" },
+                        { key: "watermark-pdf", name: "Watermark PDF", route: "/tools/watermark-pdf" },
+                        { key: "reorder-pdf", name: "Reorder PDF Pages", route: "/tools/reorder-pdf" },
+                        { key: "rotate-pdf", name: "Rotate PDF", route: "/tools/rotate-pdf" },
+                        { key: "delete-pdf-pages", name: "Delete PDF Pages", route: "/tools/delete-pdf-pages" },
+                        { key: "extract-pdf-pages", name: "Extract PDF Pages", route: "/tools/extract-pdf-pages" },
+                        { key: "txt-to-pdf", name: "TXT to PDF", route: "/tools/txt-to-pdf" },
+                        { key: "csv-to-pdf", name: "CSV to PDF", route: "/tools/csv-to-pdf" },
+                        { key: "html-to-pdf", name: "HTML to PDF", route: "/tools/html-to-pdf" },
+                        { key: "pdf-to-png", name: "PDF to PNG", route: "/tools/pdf-to-png" },
+                        { key: "pdf-to-powerpoint", name: "PDF to PowerPoint", route: "/tools/pdf-to-powerpoint" },
+                        { key: "powerpoint-to-pdf", name: "PowerPoint to PDF", route: "/tools/powerpoint-to-pdf" },
+                        { key: "page-numbers-pdf", name: "Add Page Numbers", route: "/tools/page-numbers-pdf" },
+                        { key: "pdf-header-footer", name: "PDF Header & Footer", route: "/tools/pdf-header-footer" },
+                        { key: "flatten-pdf", name: "Flatten PDF", route: "/tools/flatten-pdf" },
+                        { key: "pdf-metadata", name: "PDF Metadata Editor", route: "/tools/pdf-metadata" },
+                        { key: "pdf-info", name: "PDF Info & Inspection", route: "/tools/pdf-info" },
+                      ]
                   ).map((tool: any) => (
                     <Link
                       key={tool.key}
@@ -1087,9 +1078,8 @@ export default function Navbar() {
                   Image Tools
                 </span>
                 <ChevronDown
-                  className={`w-4 h-4 text-slate-400 transition-transform ${
-                    mobileExpandedSection === "images" ? "rotate-180 text-blue-600" : ""
-                  }`}
+                  className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpandedSection === "images" ? "rotate-180 text-blue-600" : ""
+                    }`}
                 />
               </button>
               {mobileExpandedSection === "images" && (
@@ -1105,20 +1095,20 @@ export default function Navbar() {
                     navCategories.find((c) => c.id === "images" || c.id === "image")?.allTools?.length > 0
                       ? navCategories.find((c) => c.id === "images" || c.id === "image")!.allTools
                       : [
-                          { key: "document-scanner", name: "Document Scanner", route: "/tools/document-scanner" },
-                          { key: "scan-to-pdf", name: "Scan to PDF", route: "/tools/scan-to-pdf" },
-                          { key: "photo-to-document", name: "Photo to Document", route: "/tools/photo-to-document" },
-                          { key: "jpg-to-pdf", name: "JPG to PDF", route: "/tools/jpg-to-pdf" },
-                          { key: "png-to-jpg", name: "PNG to JPG", route: "/tools/png-to-jpg" },
-                          { key: "jpg-to-png", name: "JPG to PNG", route: "/tools/jpg-to-png" },
-                          { key: "image-to-pdf", name: "Image to PDF", route: "/tools/image-to-pdf" },
-                          { key: "multiple-images-to-pdf", name: "Multiple Images to PDF", route: "/tools/multiple-images-to-pdf" },
-                          { key: "image-resize", name: "Resize Image", route: "/tools/image-resize" },
-                          { key: "crop-image", name: "Crop Image", route: "/tools/crop-image" },
-                          { key: "compress-image", name: "Compress Image", route: "/tools/compress-image" },
-                          { key: "svg-to-png", name: "SVG to PNG", route: "/tools/svg-to-png" },
-                          { key: "heic-to-jpg", name: "HEIC to JPG", route: "/tools/heic-to-jpg" },
-                        ]
+                        { key: "document-scanner", name: "Document Scanner", route: "/tools/document-scanner" },
+                        { key: "scan-to-pdf", name: "Scan to PDF", route: "/tools/scan-to-pdf" },
+                        { key: "photo-to-document", name: "Photo to Document", route: "/tools/photo-to-document" },
+                        { key: "jpg-to-pdf", name: "JPG to PDF", route: "/tools/jpg-to-pdf" },
+                        { key: "png-to-jpg", name: "PNG to JPG", route: "/tools/png-to-jpg" },
+                        { key: "jpg-to-png", name: "JPG to PNG", route: "/tools/jpg-to-png" },
+                        { key: "image-to-pdf", name: "Image to PDF", route: "/tools/image-to-pdf" },
+                        { key: "multiple-images-to-pdf", name: "Multiple Images to PDF", route: "/tools/multiple-images-to-pdf" },
+                        { key: "image-resize", name: "Resize Image", route: "/tools/image-resize" },
+                        { key: "crop-image", name: "Crop Image", route: "/tools/crop-image" },
+                        { key: "compress-image", name: "Compress Image", route: "/tools/compress-image" },
+                        { key: "svg-to-png", name: "SVG to PNG", route: "/tools/svg-to-png" },
+                        { key: "heic-to-jpg", name: "HEIC to JPG", route: "/tools/heic-to-jpg" },
+                      ]
                   ).map((tool: any) => (
                     <Link
                       key={tool.key}
@@ -1155,9 +1145,8 @@ export default function Navbar() {
                   Student Tools
                 </span>
                 <ChevronDown
-                  className={`w-4 h-4 text-slate-400 transition-transform ${
-                    mobileExpandedSection === "student" ? "rotate-180 text-blue-600" : ""
-                  }`}
+                  className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpandedSection === "student" ? "rotate-180 text-blue-600" : ""
+                    }`}
                 />
               </button>
               {mobileExpandedSection === "student" && (
@@ -1169,20 +1158,20 @@ export default function Navbar() {
                     navCategories.find((c) => c.id === "student")?.allTools?.length > 0
                       ? navCategories.find((c) => c.id === "student")!.allTools
                       : [
-                          { key: "sgpa-calculator", name: "SGPA Calculator", route: "/student/sgpa-calculator" },
-                          { key: "cgpa-calculator", name: "CGPA Calculator", route: "/student/cgpa-calculator" },
-                          { key: "attendance-tracker", name: "Attendance Planner", route: "/student/attendance" },
-                          { key: "exam-marks-analyzer", name: "Marks Calculator", route: "/student/calculator" },
-                          { key: "academic-goals", name: "Academic Goals", route: "/student/goals" },
-                          { key: "timetable-generator", name: "Timetable Generator", route: "/student/timetable" },
-                          { key: "study-planner", name: "Study Planner", route: "/student/study-planner" },
-                          { key: "exam-tracker", name: "Exam Schedule Tracker", route: "/student/exams" },
-                          { key: "assignment-tracker", name: "Assignment Tracker", route: "/student/assignments" },
-                          { key: "student-notes", name: "Study Notes", route: "/student/notes" },
-                          { key: "certificate-manager", name: "Certificate Locker", route: "/student/certificates" },
-                          { key: "internship-tracker", name: "Internship Tracker", route: "/student/internships" },
-                          { key: "hackathon-tracker", name: "Hackathon Tracker", route: "/student/hackathons" },
-                        ]
+                        { key: "sgpa-calculator", name: "SGPA Calculator", route: "/student/sgpa-calculator" },
+                        { key: "cgpa-calculator", name: "CGPA Calculator", route: "/student/cgpa-calculator" },
+                        { key: "attendance-tracker", name: "Attendance Planner", route: "/student/attendance" },
+                        { key: "exam-marks-analyzer", name: "Marks Calculator", route: "/student/calculator" },
+                        { key: "academic-goals", name: "Academic Goals", route: "/student/goals" },
+                        { key: "timetable-generator", name: "Timetable Generator", route: "/student/timetable" },
+                        { key: "study-planner", name: "Study Planner", route: "/student/study-planner" },
+                        { key: "exam-tracker", name: "Exam Schedule Tracker", route: "/student/exams" },
+                        { key: "assignment-tracker", name: "Assignment Tracker", route: "/student/assignments" },
+                        { key: "student-notes", name: "Study Notes", route: "/student/notes" },
+                        { key: "certificate-manager", name: "Certificate Locker", route: "/student/certificates" },
+                        { key: "internship-tracker", name: "Internship Tracker", route: "/student/internships" },
+                        { key: "hackathon-tracker", name: "Hackathon Tracker", route: "/student/hackathons" },
+                      ]
                   ).map((tool: any) => (
                     <Link
                       key={tool.key}
@@ -1219,9 +1208,8 @@ export default function Navbar() {
                   Career Tools
                 </span>
                 <ChevronDown
-                  className={`w-4 h-4 text-slate-400 transition-transform ${
-                    mobileExpandedSection === "career" ? "rotate-180 text-blue-600" : ""
-                  }`}
+                  className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpandedSection === "career" ? "rotate-180 text-blue-600" : ""
+                    }`}
                 />
               </button>
               {mobileExpandedSection === "career" && (
@@ -1233,13 +1221,13 @@ export default function Navbar() {
                     navCategories.find((c) => c.id === "career")?.allTools?.length > 0
                       ? navCategories.find((c) => c.id === "career")!.allTools
                       : [
-                          { key: "resume-builder", name: "Resume Builder", route: "/student/resume" },
-                          { key: "cover-letter", name: "Cover Letter Builder", route: "/student/cover-letter" },
-                          { key: "job-tracker", name: "Job Application Tracker", route: "/student/jobs" },
-                          { key: "interview-prep", name: "Interview Preparation Hub", route: "/student/interviews" },
-                          { key: "skill-gap-analyzer", name: "Skill Gap Analysis", route: "/student/skills" },
-                          { key: "ats-analyzer", name: "ATS Keyword Scanner", route: "/student/ats" },
-                        ]
+                        { key: "resume-builder", name: "Resume Builder", route: "/student/resume" },
+                        { key: "cover-letter", name: "Cover Letter Builder", route: "/student/cover-letter" },
+                        { key: "job-tracker", name: "Job Application Tracker", route: "/student/jobs" },
+                        { key: "interview-prep", name: "Interview Preparation Hub", route: "/student/interviews" },
+                        { key: "skill-gap-analyzer", name: "Skill Gap Analysis", route: "/student/skills" },
+                        { key: "ats-analyzer", name: "ATS Keyword Scanner", route: "/student/ats" },
+                      ]
                   ).map((tool: any) => (
                     <Link
                       key={tool.key}
@@ -1272,9 +1260,8 @@ export default function Navbar() {
                   AI & OCR Tools
                 </span>
                 <ChevronDown
-                  className={`w-4 h-4 text-slate-400 transition-transform ${
-                    mobileExpandedSection === "ai" ? "rotate-180 text-purple-600" : ""
-                  }`}
+                  className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpandedSection === "ai" ? "rotate-180 text-purple-600" : ""
+                    }`}
                 />
               </button>
               {mobileExpandedSection === "ai" && (
@@ -1286,13 +1273,13 @@ export default function Navbar() {
                     navCategories.find((c) => c.id === "ai")?.allTools?.length > 0
                       ? navCategories.find((c) => c.id === "ai")!.allTools
                       : [
-                          { key: "student-copilot", name: "AI Student Copilot", route: "/student/copilot", requiresPro: true },
-                          { key: "copilot-interview", name: "AI Mock Interview Coach", route: "/student/copilot/interview", requiresPro: true },
-                          { key: "ocr-image", name: "Image to Text (OCR)", route: "/tools/ocr-image" },
-                          { key: "ocr-pdf", name: "Scanned PDF to Text (OCR)", route: "/tools/ocr-pdf" },
-                          { key: "document-summary", name: "Document Summarizer", route: "/tools/document-summary" },
-                          { key: "document-qa", name: "Ask This Document", route: "/tools/document-qa" },
-                        ]
+                        { key: "student-copilot", name: "AI Student Copilot", route: "/student/copilot", requiresPro: true },
+                        { key: "copilot-interview", name: "AI Mock Interview Coach", route: "/student/copilot/interview", requiresPro: true },
+                        { key: "ocr-image", name: "Image to Text (OCR)", route: "/tools/ocr-image" },
+                        { key: "ocr-pdf", name: "Scanned PDF to Text (OCR)", route: "/tools/ocr-pdf" },
+                        { key: "document-summary", name: "Document Summarizer", route: "/tools/document-summary" },
+                        { key: "document-qa", name: "Ask This Document", route: "/tools/document-qa" },
+                      ]
                   ).map((tool: any) => (
                     <Link
                       key={tool.key}
@@ -1334,11 +1321,10 @@ export default function Navbar() {
                       <Link
                         href={item.route}
                         onClick={() => setMobileMenuOpen(false)}
-                        className={`flex items-center justify-between p-3.5 rounded-2xl font-bold text-xs border transition-colors ${
-                          isActive
+                        className={`flex items-center justify-between p-3.5 rounded-2xl font-bold text-xs border transition-colors ${isActive
                             ? 'bg-blue-50 text-blue-700 border-blue-200'
                             : 'bg-slate-50/70 text-slate-800 border-slate-200/80 hover:bg-slate-100'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-2">
                           <Briefcase className="w-4 h-4 text-blue-600" />
@@ -1362,11 +1348,10 @@ export default function Navbar() {
                       <Link
                         href={item.route}
                         onClick={() => setMobileMenuOpen(false)}
-                        className={`flex items-center justify-between p-3.5 rounded-2xl font-bold text-xs border transition-colors ${
-                          isActive
+                        className={`flex items-center justify-between p-3.5 rounded-2xl font-bold text-xs border transition-colors ${isActive
                             ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
                             : 'bg-slate-50/70 text-slate-800 border-slate-200/80 hover:bg-slate-100'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-2">
                           <GraduationCap className="w-4 h-4 text-indigo-600" />
@@ -1412,11 +1397,10 @@ export default function Navbar() {
                       target={item.open_behavior === 'new_tab' || isExternal ? '_blank' : undefined}
                       rel={isExternal ? 'noopener noreferrer' : undefined}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center justify-between p-3.5 rounded-2xl font-bold text-xs border transition-colors ${
-                        isActive
+                      className={`flex items-center justify-between p-3.5 rounded-2xl font-bold text-xs border transition-colors ${isActive
                           ? 'bg-blue-50 text-blue-700 border-blue-200'
                           : 'bg-slate-50/70 text-slate-800 border-slate-200/80 hover:bg-slate-100'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-2">
                         <ItemIcon className="w-4 h-4 text-blue-600" />
@@ -1450,9 +1434,8 @@ export default function Navbar() {
                       />
                     ) : null}
                     <div
-                      className={`w-6 h-6 rounded-full bg-blue-600 text-white items-center justify-center text-[10px] font-bold shrink-0 ${
-                        userAvatar ? "hidden" : "flex"
-                      }`}
+                      className={`w-6 h-6 rounded-full bg-blue-600 text-white items-center justify-center text-[10px] font-bold shrink-0 ${userAvatar ? "hidden" : "flex"
+                        }`}
                     >
                       {(profile?.fullName || user.fullName || "U").charAt(0).toUpperCase()}
                     </div>

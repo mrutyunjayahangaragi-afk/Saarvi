@@ -115,7 +115,7 @@ export default function SmartDiscoverRail({
 
   return (
     <div
-      className={`w-full max-w-2xl mx-auto pt-3 px-1 transition-opacity duration-200 ${
+      className={`w-full max-w-2xl sm:max-w-3xl mx-auto pt-3 px-1 transition-opacity duration-200 ${
         isFocused ? "opacity-60" : "opacity-100"
       } ${className}`}
       aria-label="Popular discoveries"

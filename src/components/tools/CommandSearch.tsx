@@ -189,10 +189,10 @@ export default function CommandSearch() {
             setIsOpen(true);
             setIsFocused(true);
           }}
-          className="saarvi-search-inner flex items-center bg-white dark:bg-[#111c38] transition-colors duration-200"
+          className="saarvi-search-inner flex items-center min-h-[52px] sm:min-h-[56px] w-full bg-white dark:bg-[#111c38] transition-colors duration-200"
         >
           <div className="pl-4 pr-2.5 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-            <Search className="w-5 h-5 transition-transform duration-200" />
+            <Search className="w-5 h-5 shrink-0" />
           </div>
 
           <div className="relative flex-1 flex items-center min-w-0">
@@ -215,7 +215,7 @@ export default function CommandSearch() {
               }}
               onKeyDown={handleKeyDown}
               placeholder={currentPlaceholder}
-              className={`w-full py-4 px-2 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-sm sm:text-base font-normal outline-none transition-opacity duration-200 ${
+              className={`w-full py-3.5 sm:py-4 px-2 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-sm sm:text-base font-normal outline-none transition-opacity duration-200 ${
                 placeholderFading ? "placeholder:opacity-30" : "placeholder:opacity-100"
               }`}
               autoComplete="off"
@@ -235,7 +235,7 @@ export default function CommandSearch() {
                 setIsOpen(false);
                 inputRef.current?.focus();
               }}
-              className="p-1.5 mr-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              className="p-1.5 mr-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
               aria-label="Clear search"
             >
               <X className="w-4 h-4" />
