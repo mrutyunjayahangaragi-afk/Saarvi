@@ -120,16 +120,16 @@ export default function SmartDiscoverRail({
       } ${className}`}
       aria-label="Popular discoveries"
     >
-      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+      <div className="flex items-center gap-2 flex-wrap">
         {/* Subtle Label */}
         <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 shrink-0 select-none">
           Popular
         </span>
 
-        <span className="hidden sm:inline text-slate-300 dark:text-slate-700">·</span>
+        <span className="text-slate-300 dark:text-slate-700">·</span>
 
         {/* 3-4 Compact Discover Chips */}
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap w-full overflow-x-auto no-scrollbar py-0.5">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap py-0.5">
           {items.map((item) => {
             const content = (
               <div className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/90 dark:bg-[#111c38]/90 hover:bg-white dark:hover:bg-[#162244] border border-slate-200/80 dark:border-slate-700/80 hover:border-blue-300 dark:hover:border-blue-700/80 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-2xs hover:shadow-xs transition-all duration-150 cursor-pointer shrink-0">

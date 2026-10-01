@@ -175,7 +175,7 @@ export default function CommandSearch() {
     : ROTATING_SEARCH_PLACEHOLDERS[placeholderIndex];
 
   return (
-    <div ref={containerRef} className="relative w-full max-w-2xl sm:max-w-3xl mx-auto z-30">
+    <div ref={containerRef} className="relative w-full max-w-2xl sm:max-w-3xl lg:max-w-full mx-auto lg:mx-0 z-30">
       {/* High-Priority Search Container with Signature CSS Rotating Gradient Border */}
       {/* Border animation freezes immediately when isInteracting is true (via data-active="true") */}
       <div
