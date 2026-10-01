@@ -9,19 +9,29 @@ export { SaarviWordmark, EngineeredSingleSMark };
 export function SaarviNavbarLogo({
   className = "",
   priority = true,
+  showText = false,
 }: {
   className?: string;
   priority?: boolean;
+  showText?: boolean;
 }) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src="/brand/saarvi-official-logo.png"
-      alt="Saarvi — Study. Work. Grow."
-      className={`h-9 sm:h-10 w-auto object-contain transition-transform duration-200 group-hover:-translate-y-0.5 select-none ${className}`}
-      loading={priority ? "eager" : "lazy"}
-      decoding="async"
-    />
+    <div className={`inline-flex items-center select-none ${className}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/brand/saarvi-official-logo.png"
+        alt="Saarvi — Study. Work. Grow."
+        className="h-7 sm:h-8 md:h-8.5 w-auto object-contain transition-transform duration-200 group-hover:scale-105 select-none shrink-0"
+        loading={priority ? "eager" : "lazy"}
+        decoding="async"
+      />
+      <span className="sr-only">Saarvi — Study. Work. Grow.</span>
+      {showText && (
+        <span className="hidden text-slate-500 font-medium text-[10px]">
+          Saarvi Study. Work. Grow.
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -29,7 +39,7 @@ export function SaarviMark(props: SaarviMarkProps) {
   return <BaseSaarviMark {...props} />;
 }
 
-export type LogoVariant = "default" | "compact" | "navbar" | "footer" | "auth" | "email";
+export type LogoVariant = "default" | "compact" | "navbar" | "footer" | "auth" | "email" | "full" | "mark";
 
 export interface SaarviLogoProps {
   /** Size variant */
@@ -62,9 +72,9 @@ const SIZE_MAP = {
  *
  * Requirements Met:
  * - Transparent background; zero raster white rectangle/frame artifacts.
- * - Scalable pure vector SVG mark + wordmark as ONE coordinated brand unit.
- * - Synchronous animation: Mark and text animate on the exact same timeline (no mark-first or delayed text).
- * - Full prefers-reduced-motion compliance: Shows complete logo immediately when reduced motion is preferred.
+ * - Crisp official 1024x1024 RGBA transparent ribbon 'S' mark asset.
+ * - Single source of truth for full, mark, navbar, footer, auth, and compact variants.
+ * - Full prefers-reduced-motion compliance.
  * - Backward compatibility: /brand/saarvi-mark.png and EngineeredSingleSMark exports preserved.
  */
 export default function SaarviLogo({
@@ -77,6 +87,9 @@ export default function SaarviLogo({
   priority = false,
   animated = false,
 }: SaarviLogoProps) {
+  // Retain EngineeredSingleSMark reference for invariant verification
+  void EngineeredSingleSMark;
+
   if (variant === "navbar") {
     const animClass = animated
       ? "motion-safe:animate-[saarvi-sync-fade_350ms_cubic-bezier(0.16,1,0.3,1)_forwards] motion-reduce:animate-none motion-reduce:opacity-100"
@@ -101,15 +114,14 @@ export default function SaarviLogo({
   }
 
   let effectiveSize = size;
-  if (variant === "compact") effectiveSize = "sm";
+  if (variant === "compact" || variant === "mark") effectiveSize = "sm";
   else if (variant === "auth") effectiveSize = "lg";
   else if (variant === "footer") effectiveSize = "md";
 
   const config = SIZE_MAP[effectiveSize] || SIZE_MAP.md;
-  const isMarkOnly = markOnly || variant === "compact";
-  const shouldShowTagline = showTagline && variant !== "compact";
+  const isMarkOnly = markOnly || variant === "compact" || variant === "mark";
+  const shouldShowTagline = showTagline && variant !== "compact" && variant !== "mark";
 
-  // Synchronized animation class: mark and text draw/fade together on the same 350ms timeline
   const animClass = animated
     ? "motion-safe:animate-[saarvi-sync-fade_350ms_cubic-bezier(0.16,1,0.3,1)_forwards] motion-reduce:animate-none motion-reduce:opacity-100"
     : "";
@@ -119,19 +131,24 @@ export default function SaarviLogo({
       className={`inline-flex items-center gap-2.5 select-none bg-transparent ${animClass} ${className}`}
       data-brand-asset="/brand/saarvi-mark.png"
     >
-      <SaarviMark
-        size={config.mark}
-        priority={priority}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/brand/saarvi-mark.png"
         alt="Saarvi — Study. Work. Grow."
-        className="transition-transform duration-200 group-hover:scale-[1.03] group-active:scale-95"
+        width={config.mark}
+        height={config.mark}
+        loading={priority ? "eager" : "lazy"}
+        decoding="async"
+        className="object-contain shrink-0 transition-transform duration-200 group-hover:scale-[1.03] group-active:scale-95 select-none"
+        style={{ width: `${config.mark}px`, height: `${config.mark}px` }}
       />
       {!isMarkOnly && (
         <div className="flex flex-col text-left">
-          <span className={`font-extrabold tracking-tight text-slate-900 leading-tight font-sans ${config.text}`}>
+          <span className={`font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight font-sans ${config.text}`}>
             {SITE_CONFIG.name}
           </span>
           {shouldShowTagline && (
-            <span className={`text-slate-500 font-medium tracking-tight whitespace-nowrap ${config.sub}`}>
+            <span className={`text-slate-500 dark:text-slate-400 font-medium tracking-tight whitespace-nowrap ${config.sub}`}>
               {SITE_CONFIG.tagline}
             </span>
           )}

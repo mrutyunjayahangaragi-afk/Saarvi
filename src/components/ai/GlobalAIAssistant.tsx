@@ -238,19 +238,21 @@ export default function GlobalAIAssistant() {
     >
       {/* Floating Trigger Button */}
       {!isOpen && (
-        <button
-          ref={triggerButtonRef}
-          onClick={() => setIsOpen(true)}
-          aria-label="Open Saarvi AI"
-          aria-expanded={isOpen}
-          title="Saarvi AI Assistant — Study. Work. Grow."
-          className="min-h-[48px] min-w-[48px] px-4 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-xl hover:shadow-2xl flex items-center gap-2 font-bold text-xs transition-all duration-200 active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-300 select-none group cursor-pointer"
-        >
-          <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center group-hover:rotate-12 transition-transform">
-            <Sparkles className="w-3.5 h-3.5 text-white" />
-          </div>
-          <span className="tracking-tight hidden sm:inline">Saarvi AI</span>
-        </button>
+        <div className="saarvi-ai-ring-wrapper group">
+          <button
+            ref={triggerButtonRef}
+            onClick={() => setIsOpen(true)}
+            aria-label="Open Saarvi AI"
+            aria-expanded={isOpen}
+            title="Saarvi AI Assistant — Study. Work. Grow."
+            className="relative z-1 min-h-[48px] min-w-[48px] px-4 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-md flex items-center gap-2 font-bold text-xs transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white select-none cursor-pointer"
+          >
+            <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center group-hover:rotate-12 transition-transform">
+              <Sparkles className="w-3.5 h-3.5 text-white" />
+            </div>
+            <span className="tracking-tight hidden sm:inline">Saarvi AI</span>
+          </button>
+        </div>
       )}
 
       {/* Floating Chat Panel */}

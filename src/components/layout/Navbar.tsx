@@ -39,7 +39,9 @@ import { useFeedback } from "@/context/FeedbackContext";
 import MegaMenu, { ActiveMenuCategory, dedupeToolsByKey } from "./MegaMenu";
 import GlobalSearchModal from "@/components/tools/GlobalSearchModal";
 import AnnouncementBanner from "./AnnouncementBanner";
+import MobileProfileSheet from "./MobileProfileSheet";
 import { DEFAULT_NAVIGATION_ITEMS } from "@/lib/navigation/navigation-service";
+import { hasPrimarySearchOnPage, focusHeroSearch } from "@/lib/search/search-surface-resolver";
 
 import { getStartupNavigation, getJobsFeatureControl } from "@/lib/api/request-coalesce";
 
@@ -84,6 +86,7 @@ export default function Navbar() {
   const [mobileExpandedSection, setMobileExpandedSection] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [mobileProfileSheetOpen, setMobileProfileSheetOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [navCategories, setNavCategories] = useState<any[]>([]);
   const [essentialTools, setEssentialTools] = useState<any[]>(DEFAULT_ESSENTIAL_TOOLS);
@@ -91,6 +94,32 @@ export default function Navbar() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [jobsNavbarVisible, setJobsNavbarVisible] = useState(true);
   const [dynamicNavItems, setDynamicNavItems] = useState<any[]>(DEFAULT_NAVIGATION_ITEMS);
+
+  useEffect(() => {
+    const handleCloseProfile = () => setMobileProfileSheetOpen(false);
+    window.addEventListener("saarvi:close-profile-overlay", handleCloseProfile);
+    window.addEventListener("saarvi:close-navigation-overlays", handleCloseProfile);
+    return () => {
+      window.removeEventListener("saarvi:close-profile-overlay", handleCloseProfile);
+      window.removeEventListener("saarvi:close-navigation-overlays", handleCloseProfile);
+    };
+  }, []);
+
+  // Section 32: Mobile browser / Android back button integration
+  useEffect(() => {
+    if (!mobileProfileSheetOpen) return;
+
+    window.history.pushState({ saarviOverlay: "profile" }, "");
+
+    const handlePopState = () => {
+      setMobileProfileSheetOpen(false);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [mobileProfileSheetOpen]);
 
   // Section 35: Background scroll lock when mobile drawer is open
   useEffect(() => {
@@ -275,6 +304,7 @@ export default function Navbar() {
   const accountDropdownRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
+  const hasHeroSearch = hasPrimarySearchOnPage(pathname);
 
   // Clear pending timers on unmount
   useEffect(() => {
@@ -324,7 +354,12 @@ export default function Navbar() {
     const handleKeyDown = (e: globalThis.KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setSearchOpen(true);
+        if (hasPrimarySearchOnPage(pathname)) {
+          const focused = focusHeroSearch({ smooth: true });
+          if (!focused) setSearchOpen(true);
+        } else {
+          setSearchOpen(true);
+        }
       } else if (e.key === "Escape") {
         setActiveCategory(null);
         setAccountMenuOpen(false);
@@ -585,29 +620,76 @@ export default function Navbar() {
               })}
           </nav>
 
-          {/* RIGHT: Search Trigger Button & Login */}
-          <div className="flex items-center gap-2.5">
-            {/* Signature Rotating Conic Gradient Search Box */}
-            <div className="saarvi-navbar-search-wrapper">
+          {/* RIGHT: Search Trigger Button & Login / Profile Controls */}
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Desktop Signature Rotating Conic Gradient Search Box (>= sm) */}
+            <div className="hidden sm:inline-flex saarvi-navbar-search-wrapper">
+              {hasHeroSearch ? (
+                /* Compact Search Control [ 🔍 ⌘K ] on pages with primary hero search */
+                <button
+                  type="button"
+                  onClick={() => {
+                    const focused = focusHeroSearch({ smooth: true });
+                    if (!focused) setSearchOpen(true);
+                  }}
+                  className="saarvi-navbar-search-inner group flex items-center gap-2 px-3 py-1.5 min-h-[38px] text-xs text-slate-500 hover:text-blue-600 bg-white dark:bg-[#111c38] rounded-[13px] transition-all duration-200 cursor-pointer focus-visible:outline-none"
+                  aria-label="Search tools"
+                  title={isMac ? "Jump to search (Cmd+K)" : "Jump to search (Ctrl+K)"}
+                >
+                  <Search className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
+                  <kbd className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] text-slate-500 dark:text-slate-400 font-semibold shadow-2xs group-hover:border-blue-300 group-hover:text-blue-600 transition-colors">
+                    {isMac ? (
+                      <>
+                        <Command className="w-2.5 h-2.5" />
+                        <span>K</span>
+                      </>
+                    ) : (
+                      <span>Ctrl+K</span>
+                    )}
+                  </kbd>
+                </button>
+              ) : (
+                /* Compact Search Field on pages without hero search */
+                <button
+                  type="button"
+                  onClick={() => setSearchOpen(true)}
+                  className="saarvi-navbar-search-inner group flex items-center gap-2.5 px-3.5 py-1.5 min-h-[38px] text-xs text-slate-500 hover:text-blue-600 bg-white dark:bg-[#111c38] rounded-[13px] transition-all duration-200 cursor-pointer focus-visible:outline-none"
+                  aria-label="Search tools"
+                  title={isMac ? "Search tools (Cmd+K)" : "Search tools (Ctrl+K)"}
+                >
+                  <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
+                  <span className="hidden sm:inline font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Search tools...</span>
+                  <kbd className="hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] text-slate-500 dark:text-slate-400 font-semibold shadow-2xs group-hover:border-blue-300 group-hover:text-blue-600 transition-colors">
+                    {isMac ? (
+                      <>
+                        <Command className="w-2.5 h-2.5" />
+                        <span>K</span>
+                      </>
+                    ) : (
+                      <span>Ctrl+K</span>
+                    )}
+                  </kbd>
+                </button>
+              )}
+            </div>
+
+            {/* Mobile Header Quick Search Button (< sm) — Signature Gradient & 44x44px touch target */}
+            <div className="sm:hidden saarvi-navbar-search-wrapper">
               <button
                 type="button"
-                onClick={() => setSearchOpen(true)}
-                className="saarvi-navbar-search-inner group flex items-center gap-2.5 px-3.5 py-1.5 min-h-[38px] text-xs text-slate-500 hover:text-blue-600 bg-white dark:bg-[#111c38] rounded-[13px] transition-all duration-200 cursor-pointer focus-visible:outline-none"
-                aria-label="Search tools"
-                title={isMac ? "Search tools (Cmd+K)" : "Search tools (Ctrl+K)"}
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent("saarvi:close-navigation-overlays"));
+                  if (hasHeroSearch) {
+                    const focused = focusHeroSearch({ smooth: true });
+                    if (!focused) setSearchOpen(true);
+                  } else {
+                    setSearchOpen(true);
+                  }
+                }}
+                className="saarvi-navbar-search-inner p-2 rounded-[13px] bg-white dark:bg-[#111c38] text-slate-700 hover:text-blue-600 dark:text-slate-200 dark:hover:text-blue-400 transition-all flex items-center justify-center min-w-[44px] min-h-[44px] cursor-pointer focus-visible:outline-none"
+                aria-label="Search Saarvi"
               >
-                <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
-                <span className="hidden sm:inline font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Search tools...</span>
-                <kbd className="hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] text-slate-500 dark:text-slate-400 font-semibold shadow-2xs group-hover:border-blue-300 group-hover:text-blue-600 transition-colors">
-                  {isMac ? (
-                    <>
-                      <Command className="w-2.5 h-2.5" />
-                      <span>K</span>
-                    </>
-                  ) : (
-                    <span>Ctrl+K</span>
-                  )}
-                </kbd>
+                <Search className="w-5 h-5 text-slate-600 dark:text-slate-300" />
               </button>
             </div>
 
@@ -615,7 +697,7 @@ export default function Navbar() {
             {!isLoading && user && (
               <Link
                 href="/notifications"
-                className="relative p-2 rounded-xl border border-slate-200/90 bg-white hover:bg-blue-50/40 hover:border-blue-200 text-slate-700 hover:text-blue-600 transition-all shadow-2xs hover:shadow-xs flex items-center justify-center min-w-[38px] min-h-[38px] cursor-pointer"
+                className="relative p-2 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111c38] hover:bg-blue-50/40 hover:border-blue-200 text-slate-700 dark:text-slate-300 hover:text-blue-600 transition-all shadow-2xs hover:shadow-xs flex items-center justify-center min-w-[44px] min-h-[44px] cursor-pointer"
                 title="Saarvi Notification Center"
                 aria-label={
                   unreadNotifications > 0
@@ -623,9 +705,9 @@ export default function Navbar() {
                     : "Notification Center"
                 }
               >
-                <Bell className="w-4 h-4 text-slate-600" />
+                <Bell className="w-5 h-5 text-slate-600 dark:text-slate-300" />
                 {unreadNotifications > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 bg-red-600 text-white rounded-full text-[9px] font-bold flex items-center justify-center ring-2 ring-white shadow-2xs animate-in zoom-in duration-150">
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-600 text-white rounded-full text-[9px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-[#111c38] shadow-2xs animate-in zoom-in duration-150">
                     {unreadNotifications > 99 ? "99+" : unreadNotifications}
                   </span>
                 )}
@@ -637,16 +719,25 @@ export default function Navbar() {
               <div className="relative" ref={accountDropdownRef}>
                 <button
                   type="button"
-                  onClick={() => setAccountMenuOpen(!accountMenuOpen)}
-                  className="flex items-center gap-2 px-3 py-1.5 min-h-[38px] rounded-xl border border-slate-200/90 bg-white hover:bg-blue-50/40 hover:border-blue-200 text-slate-800 text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
+                  onClick={() => {
+                    if (typeof window !== "undefined" && window.innerWidth < 768) {
+                      window.dispatchEvent(new CustomEvent("saarvi:close-navigation-overlays"));
+                      setMobileProfileSheetOpen(true);
+                      setAccountMenuOpen(false);
+                    } else {
+                      setAccountMenuOpen(!accountMenuOpen);
+                    }
+                  }}
+                  className="flex items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 min-w-[44px] min-h-[44px] rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111c38] hover:bg-blue-50/40 hover:border-blue-200 text-slate-800 dark:text-slate-200 text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer justify-center"
                   aria-expanded={accountMenuOpen}
                   aria-haspopup="true"
+                  aria-label="User account and profile menu"
                 >
                   {userAvatar ? (
                     <img
                       src={userAvatar}
                       alt={profile?.fullName || user.fullName || "User"}
-                      className="w-5 h-5 rounded-full object-cover shrink-0 ring-1 ring-slate-200"
+                      className="w-6 h-6 rounded-full object-cover shrink-0 ring-1 ring-slate-200 dark:ring-slate-700"
                       onError={(e) => {
                         (e.target as HTMLElement).style.display = "none";
                         const fallback = (e.target as HTMLElement).nextElementSibling as HTMLElement;
@@ -655,7 +746,7 @@ export default function Navbar() {
                     />
                   ) : null}
                   <div
-                    className={`w-5 h-5 rounded-full bg-blue-600 text-white items-center justify-center text-[10px] font-bold shrink-0 ${
+                    className={`w-6 h-6 rounded-full bg-blue-600 text-white items-center justify-center text-[11px] font-bold shrink-0 ${
                       userAvatar ? "hidden" : "flex"
                     }`}
                   >
@@ -665,13 +756,13 @@ export default function Navbar() {
                     {profile?.fullName || user.fullName || "Account"}
                   </span>
                   <ChevronDown
-                    className={`w-3 h-3 text-slate-400 transition-transform duration-150 ${
+                    className={`hidden sm:inline w-3 h-3 text-slate-400 transition-transform duration-150 ${
                       accountMenuOpen ? "rotate-180 text-blue-600" : ""
                     }`}
                   />
                 </button>
 
-                {/* Compact Account Menu */}
+                {/* Compact Account Menu (Desktop) */}
                 {accountMenuOpen && (
                   <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-200 rounded-2xl shadow-xl py-1.5 z-50 text-xs animate-in fade-in duration-100 divide-y divide-slate-100">
                     <div className="px-3.5 py-2">
@@ -800,31 +891,35 @@ export default function Navbar() {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <Link
-                  href="/login"
-                  className="px-3.5 py-1.5 min-h-[38px] inline-flex items-center justify-center text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-300 rounded-xl transition-all duration-150 border border-slate-200/90 shadow-2xs hover:shadow-xs hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                {/* Mobile Guest Profile Trigger (< md) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("saarvi:close-navigation-overlays"));
+                    setMobileProfileSheetOpen(true);
+                  }}
+                  className="md:hidden flex items-center justify-center min-w-[44px] min-h-[44px] rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111c38] hover:bg-slate-50 text-slate-700 dark:text-slate-300 hover:text-blue-600 transition shadow-2xs cursor-pointer"
+                  aria-label="Account and Profile"
                 >
-                  Login
-                </Link>
-                <Link
-                  href="/signup"
-                  className="saarvi-btn-primary px-4 py-1.5 min-h-[38px] text-xs font-semibold shadow-2xs hover:shadow-xs cursor-pointer"
-                >
-                  Create account
-                </Link>
+                  <User className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+                </button>
+
+                <div className="hidden md:flex items-center gap-2">
+                  <Link
+                    href="/login"
+                    className="px-3.5 py-1.5 min-h-[38px] inline-flex items-center justify-center text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-300 rounded-xl transition-all duration-150 border border-slate-200/90 shadow-2xs hover:shadow-xs hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    href="/signup"
+                    className="saarvi-btn-primary px-4 py-1.5 min-h-[38px] text-xs font-semibold shadow-2xs hover:shadow-xs cursor-pointer"
+                  >
+                    Create account
+                  </Link>
+                </div>
               </div>
             )}
-
-            {/* Mobile Hamburger Drawer Toggle */}
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 text-slate-600 hover:text-slate-900 md:hidden rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
-              aria-label="Toggle Navigation Menu"
-              aria-expanded={mobileMenuOpen}
-            >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
           </div>
         </div>
 
@@ -1475,6 +1570,12 @@ export default function Navbar() {
         isOpen={searchOpen}
         onClose={() => setSearchOpen(false)}
         profileId={user?.id || "guest"}
+      />
+
+      {/* Mobile Account Bottom Sheet */}
+      <MobileProfileSheet
+        isOpen={mobileProfileSheetOpen}
+        onClose={() => setMobileProfileSheetOpen(false)}
       />
     </>
   );

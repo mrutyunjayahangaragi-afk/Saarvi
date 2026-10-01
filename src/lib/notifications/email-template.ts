@@ -95,9 +95,18 @@ export function generateSaarviEmailHtml(options: SaarviEmailOptions): string {
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                   <td>
-                    <span style="display: inline-block; font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">
-                      Saarvi<span style="color: #60a5fa;">.</span>
-                    </span>
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="vertical-align: middle; padding-right: 10px;">
+                          <img src="https://saarvi.in/brand/saarvi-logo.png" alt="Saarvi" width="28" height="28" style="display: block; width: 28px; height: 28px; border-radius: 6px; border: 0;" />
+                        </td>
+                        <td style="vertical-align: middle;">
+                          <span style="display: inline-block; font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">
+                            Saarvi<span style="color: #60a5fa;">.</span>
+                          </span>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                   <td align="right">
                     <span style="display: inline-block; padding: 4px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; border-radius: 20px; background-color: rgba(96, 165, 250, 0.15); color: #93c5fd; border: 1px solid rgba(96, 165, 250, 0.3);">

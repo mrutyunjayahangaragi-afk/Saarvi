@@ -150,6 +150,7 @@ function JobsContent() {
   const [startDate, setStartDate] = useState(searchParams.get("startDate") || "all");
   const [feeType, setFeeType] = useState(searchParams.get("feeType") || "all");
   const [provider, setProvider] = useState(searchParams.get("provider") || "");
+  const [verifiedOnly, setVerifiedOnly] = useState(searchParams.get("verified") === "true");
 
   const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -241,6 +242,53 @@ function JobsContent() {
   const isOpportunityTypeSelected = Boolean(
     selectedOpportunityType && selectedOpportunityType !== "none"
   );
+
+  // Section 15 & 16: Freeze border rotation on interaction, selection, input focus, or search
+  const isSearchPanelActive = useMemo(() => {
+    return Boolean(
+      (selectedOpportunityType && selectedOpportunityType !== "none" && selectedOpportunityType !== "") ||
+      customQuery.trim() ||
+      (selectedRole && selectedRole !== "all") ||
+      (selectedBranch && selectedBranch !== "all") ||
+      (selectedDomain && selectedDomain !== "all") ||
+      (selectedLocation && selectedLocation !== "all" && selectedLocation !== "any-location") ||
+      (selectedExperience && selectedExperience !== "all" && selectedExperience !== "any") ||
+      (selectedWorkMode && selectedWorkMode !== "all" && selectedWorkMode !== "any") ||
+      selectedSkills.length > 0 ||
+      duration !== "all" ||
+      stipend !== "all" ||
+      salary !== "all" ||
+      employmentType !== "all" ||
+      deliveryMode !== "all" ||
+      company.trim() ||
+      feeType !== "all" ||
+      provider.trim() ||
+      verifiedOnly ||
+      moreFiltersOpen ||
+      loading
+    );
+  }, [
+    selectedOpportunityType,
+    customQuery,
+    selectedRole,
+    selectedBranch,
+    selectedDomain,
+    selectedLocation,
+    selectedExperience,
+    selectedWorkMode,
+    selectedSkills,
+    duration,
+    stipend,
+    salary,
+    employmentType,
+    deliveryMode,
+    company,
+    feeType,
+    provider,
+    verifiedOnly,
+    moreFiltersOpen,
+    loading,
+  ]);
 
   const handleOpportunityTypeChange = (newType: string) => {
     setSelectedOpportunityType(newType);
@@ -703,6 +751,7 @@ function JobsContent() {
     setStartDate("all");
     setFeeType("all");
     setProvider("");
+    setVerifiedOnly(false);
     setSortBy("relevant");
 
     // Clean URL
@@ -1032,6 +1081,14 @@ function JobsContent() {
       });
     }
 
+    if (verifiedOnly) {
+      list.push({
+        key: "verified",
+        label: "Verified Only",
+        onRemove: () => setVerifiedOnly(false),
+      });
+    }
+
     return list;
   }, [
     selectedOpportunityType,
@@ -1048,8 +1105,19 @@ function JobsContent() {
     salary,
     employmentType,
     company,
+    verifiedOnly,
     executeSearch,
   ]);
+
+  // Filtered jobs matching active modifiers (e.g. verifiedOnly)
+  const displayedJobs = useMemo(() => {
+    if (verifiedOnly) {
+      return jobs.filter(
+        (j) => j.verificationTier === "SAARVI_VERIFIED" || j.verifiedStatus === 'verified'
+      );
+    }
+    return jobs;
+  }, [jobs, verifiedOnly]);
 
   // Options for Role Select with recommendations
   const roleSelectOptions = useMemo(() => {
@@ -1365,24 +1433,24 @@ function JobsContent() {
       <header className="bg-white border-b border-slate-200/90 pt-8 pb-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto space-y-6">
           
-          {/* Header Title, Supporting Text, and Theme Selector */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 mb-2">
+          {/* Modern Eyebrow, Title, Description, and Secondary Controls */}
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+            <div className="space-y-1.5 max-w-2xl">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wider uppercase bg-blue-50 text-blue-700 border border-blue-200/90 shadow-2xs">
                 <Briefcase className="w-3.5 h-3.5 text-blue-600" />
-                <span>Career &amp; Internships Dashboard</span>
+                <span>CAREER &amp; INTERNSHIPS</span>
               </div>
               <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
                 Find opportunities that fit you
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl leading-relaxed">
-                Discover internships, jobs, and opportunities built for students and early-career developers. Choose what you&apos;re looking for and Saarvi will find relevant opportunities.
+              <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                Discover jobs, internships, and training through one focused career search. Choose what you&apos;re looking for and Saarvi will find relevant opportunities.
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* Theme Preference Toggle */}
-              <div className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-xl text-[11px] font-semibold">
+            {/* Secondary Controls: Theme Mode & Application Tracker */}
+            <div className="flex items-center gap-2 self-start md:self-auto shrink-0 pt-1">
+              <div className="inline-flex items-center gap-1 p-1 bg-slate-100/90 border border-slate-200/70 rounded-xl text-[11px] font-semibold shadow-2xs">
                 <button
                   type="button"
                   onClick={() => {
@@ -1419,86 +1487,11 @@ function JobsContent() {
 
               <Link
                 href={user ? "/student/applications" : `/login?next=${encodeURIComponent("/student/applications")}`}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100/90 hover:bg-slate-200 border border-slate-200/70 text-slate-700 transition shadow-2xs"
               >
                 <span>Tracker</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </Link>
-            </div>
-          </div>
-
-          {/* SECTION 11: Real-Data Opportunity Summary Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-            <div className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/90 shadow-2xs hover:border-teal-200 hover:bg-teal-50/20 transition-all flex flex-col justify-between">
-              <span className="text-[11px] font-bold text-teal-700 uppercase tracking-wider flex items-center gap-1.5">
-                <GraduationCap className="w-3.5 h-3.5" /> Internships
-              </span>
-              <div className="mt-2">
-                {hasSearched ? (
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-xl font-black text-slate-900">
-                      {jobs.filter((j) => j.isInternship || j.employmentType === "internship").length}
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-medium">available</span>
-                  </div>
-                ) : (
-                  <span className="text-xs font-semibold text-slate-600 block">Summer &amp; semester roles</span>
-                )}
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/90 shadow-2xs hover:border-blue-200 hover:bg-blue-50/20 transition-all flex flex-col justify-between">
-              <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
-                <Briefcase className="w-3.5 h-3.5" /> Full-Time Jobs
-              </span>
-              <div className="mt-2">
-                {hasSearched ? (
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-xl font-black text-slate-900">
-                      {jobs.filter((j) => !j.isInternship && j.employmentType !== "internship").length}
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-medium">available</span>
-                  </div>
-                ) : (
-                  <span className="text-xs font-semibold text-slate-600 block">Entry-level &amp; fresher roles</span>
-                )}
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/90 shadow-2xs hover:border-emerald-200 hover:bg-emerald-50/20 transition-all flex flex-col justify-between">
-              <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5" /> Remote Opportunities
-              </span>
-              <div className="mt-2">
-                {hasSearched ? (
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-xl font-black text-slate-900">
-                      {jobs.filter((j) => j.remoteType === "remote").length}
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-medium">available</span>
-                  </div>
-                ) : (
-                  <span className="text-xs font-semibold text-slate-600 block">Work from home / anywhere</span>
-                )}
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/90 shadow-2xs hover:border-purple-200 hover:bg-purple-50/20 transition-all flex flex-col justify-between">
-              <span className="text-[11px] font-bold text-purple-700 uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" /> Verified Listings
-              </span>
-              <div className="mt-2">
-                {hasSearched ? (
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-xl font-black text-slate-900">
-                      {verifiedJobs.length || jobs.filter((j) => j.verificationTier === "SAARVI_VERIFIED" || j.verifiedStatus === "verified").length}
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-medium">vetted</span>
-                  </div>
-                ) : (
-                  <span className="text-xs font-semibold text-slate-600 block">Saarvi verified criteria</span>
-                )}
-              </div>
             </div>
           </div>
 
@@ -1550,26 +1543,33 @@ function JobsContent() {
           {/* ========================================================================= */}
           {/* GUIDED REQUIREMENTS SELECTOR PANEL                                        */}
           {/* ========================================================================= */}
-          <div className="p-4 sm:p-6 bg-slate-50/90 border border-slate-200 rounded-2xl shadow-xs space-y-4">
+          {/* ========================================================================= */}
+          {/* GUIDED REQUIREMENTS SELECTOR PANEL                                        */}
+          {/* ========================================================================= */}
+          <div
+            className={`saarvi-search-wrapper w-full max-w-full min-w-0 ${isSearchPanelActive ? "is-active" : ""}`}
+            data-active={isSearchPanelActive ? "true" : "false"}
+          >
+            <div className="saarvi-search-inner block w-full max-w-full min-w-0 p-4 sm:p-6 lg:p-7 bg-slate-50/90 dark:bg-[#0c1322] border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-xs space-y-4">
 
             {/* --------------------------------------------------------------------- */}
             {/* STAGE 1: INITIAL STATE (When user hasn't selected opportunity type)   */}
             {/* --------------------------------------------------------------------- */}
             {!isOpportunityTypeSelected ? (
-              <div className="space-y-4">
+              <div className="space-y-4 w-full min-w-0">
                 {/* Initial Calm Prompt */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-base font-bold text-slate-900">
+                <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(240px,320px)] gap-3 sm:gap-4 items-center w-full min-w-0">
+                  <div className="min-w-0">
+                    <h2 className="text-base font-bold text-slate-900 dark:text-white truncate">
                       What are you looking for?
                     </h2>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       Choose an opportunity type to reveal context-aware refinements.
                     </p>
                   </div>
 
                   {/* Primary Opportunity Type Dropdown Selector */}
-                  <div className="w-full sm:w-64">
+                  <div className="w-full min-w-0">
                     <label htmlFor="career-scope-select" className="sr-only">
                       Opportunity Type
                     </label>
@@ -1580,7 +1580,7 @@ function JobsContent() {
                         const val = e.target.value === "none" ? "" : e.target.value;
                         handleOpportunityTypeChange(val);
                       }}
-                      className="w-full min-h-[42px] text-xs font-bold px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 cursor-pointer shadow-2xs hover:border-blue-400 focus:outline-hidden"
+                      className="w-full min-h-[44px] text-xs font-bold px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#111c38] text-slate-800 dark:text-slate-200 cursor-pointer shadow-2xs hover:border-blue-400 focus:outline-hidden"
                       aria-label="Opportunity type"
                     >
                       <option value="none">Choose an opportunity type</option>
@@ -1593,74 +1593,82 @@ function JobsContent() {
                 </div>
 
                 {/* 4 Interactive Visual Intent Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1 w-full min-w-0">
                   <button
                     type="button"
                     onClick={() => handleOpportunityTypeChange("job")}
-                    className="p-4 rounded-xl border border-slate-200/90 bg-white hover:border-blue-400 hover:shadow-xs transition text-left group cursor-pointer"
+                    className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111c38] hover:border-blue-400 hover:shadow-xs transition text-left group cursor-pointer min-h-[105px] min-w-0 flex flex-col justify-between"
                   >
-                    <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
+                    <div className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
                       <Briefcase className="w-4 h-4" />
                     </div>
-                    <div className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
-                      Job
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      Full-time &amp; entry-level roles
+                    <div className="min-w-0">
+                      <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors truncate">
+                        Job
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 break-words">
+                        Full-time &amp; entry-level roles
+                      </div>
                     </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleOpportunityTypeChange("internship")}
-                    className="p-4 rounded-xl border border-slate-200/90 bg-white hover:border-teal-400 hover:shadow-xs transition text-left group cursor-pointer"
+                    className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111c38] hover:border-teal-400 hover:shadow-xs transition text-left group cursor-pointer min-h-[105px] min-w-0 flex flex-col justify-between"
                   >
-                    <div className="w-9 h-9 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
+                    <div className="w-9 h-9 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
                       <GraduationCap className="w-4 h-4" />
                     </div>
-                    <div className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-teal-600 transition-colors">
-                      Internship
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      Summer &amp; semester internships
+                    <div className="min-w-0">
+                      <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white group-hover:text-teal-600 transition-colors truncate">
+                        Internship
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 break-words">
+                        Summer &amp; semester internships
+                      </div>
                     </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleOpportunityTypeChange("training")}
-                    className="p-4 rounded-xl border border-slate-200/90 bg-white hover:border-purple-400 hover:shadow-xs transition text-left group cursor-pointer"
+                    className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111c38] hover:border-purple-400 hover:shadow-xs transition text-left group cursor-pointer min-h-[105px] min-w-0 flex flex-col justify-between"
                   >
-                    <div className="w-9 h-9 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
+                    <div className="w-9 h-9 rounded-lg bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
                       <Award className="w-4 h-4" />
                     </div>
-                    <div className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-purple-600 transition-colors">
-                      Training
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      Upskilling, courses &amp; certificates
+                    <div className="min-w-0">
+                      <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white group-hover:text-purple-600 transition-colors truncate">
+                        Training
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 break-words">
+                        Upskilling, courses &amp; certificates
+                      </div>
                     </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleOpportunityTypeChange("any")}
-                    className="p-4 rounded-xl border border-slate-200/90 bg-white hover:border-slate-400 hover:shadow-xs transition text-left group cursor-pointer"
+                    className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111c38] hover:border-slate-400 hover:shadow-xs transition text-left group cursor-pointer min-h-[105px] min-w-0 flex flex-col justify-between"
                   >
-                    <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
+                    <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
                       <Sparkles className="w-4 h-4" />
                     </div>
-                    <div className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-slate-700 transition-colors">
-                      Any opportunity
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      Explore all campus opportunities
+                    <div className="min-w-0">
+                      <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white group-hover:text-slate-700 transition-colors truncate">
+                        Any opportunity
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 break-words">
+                        Explore all campus opportunities
+                      </div>
                     </div>
                   </button>
                 </div>
 
                 {/* Optional Search Query Input */}
-                <div className="flex items-center gap-2 px-3.5 py-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                <div className="flex items-center gap-2 px-3.5 py-2.5 bg-white dark:bg-[#111c38] rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs w-full min-w-0">
                   <Search className="w-4 h-4 text-slate-400 shrink-0" />
                   <input
                     type="text"
@@ -1668,13 +1676,13 @@ function JobsContent() {
                     onChange={(e) => setCustomQuery(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handlePrimarySearch()}
                     placeholder="Search jobs, internships, and training (or select requirements below)..."
-                    className="w-full bg-transparent text-xs sm:text-sm text-slate-900 focus:outline-hidden"
+                    className="w-full min-w-0 bg-transparent text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-hidden truncate placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   />
                   {customQuery && (
                     <button
                       type="button"
                       onClick={() => setCustomQuery("")}
-                      className="text-slate-400 hover:text-slate-600"
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"
                       aria-label="Clear query"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -1683,8 +1691,8 @@ function JobsContent() {
                 </div>
 
                 {/* Initial Action Row */}
-                <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200/80">
-                  <div className="text-xs text-slate-500">
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200/80 dark:border-slate-800 w-full min-w-0">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 text-center sm:text-left min-w-0">
                     <span>Select an opportunity type above to begin refining your search</span>
                   </div>
 
@@ -1692,10 +1700,10 @@ function JobsContent() {
                     type="button"
                     onClick={handlePrimarySearch}
                     disabled={!searchButtonInfo.enabled}
-                    className={`w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 ${
+                    className={`w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 min-h-[44px] ${
                       searchButtonInfo.enabled
                         ? `${activeTheme.primary.btnClass} cursor-pointer shadow-sm`
-                        : "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-200 dark:border-slate-700"
                     }`}
                   >
                     <Search className="w-4 h-4" />
@@ -1707,10 +1715,148 @@ function JobsContent() {
               /* --------------------------------------------------------------------- */
               /* STAGE 2 & 3: CONTEXT-REVEALED FILTERS (Job, Internship, Training, Any)*/
               /* --------------------------------------------------------------------- */
-              <div className="space-y-4">
+              <div className="space-y-4 w-full min-w-0">
+                {/* 4 Interactive Visual Intent Cards with Active Selected State */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1 w-full min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => handleOpportunityTypeChange(selectedOpportunityType === "job" ? "" : "job")}
+                    className={`p-4 rounded-xl border transition-all duration-150 text-left cursor-pointer min-h-[105px] min-w-0 flex flex-col justify-between ${
+                      selectedOpportunityType === "job"
+                        ? "bg-blue-50/90 dark:bg-blue-950/60 border-blue-500 ring-2 ring-blue-500/20 shadow-xs"
+                        : "bg-white dark:bg-[#111c38] border-slate-200/90 dark:border-slate-800 hover:border-blue-400 hover:shadow-xs"
+                    }`}
+                    aria-pressed={selectedOpportunityType === "job"}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center transition-transform ${
+                        selectedOpportunityType === "job"
+                          ? "bg-blue-600 text-white"
+                          : "bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400"
+                      }`}>
+                        <Briefcase className="w-4 h-4" />
+                      </div>
+                      {selectedOpportunityType === "job" && (
+                        <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-blue-600 dark:text-blue-400" /> Active
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
+                        Job
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 break-words">
+                        Full-time &amp; entry-level roles
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleOpportunityTypeChange(selectedOpportunityType === "internship" ? "" : "internship")}
+                    className={`p-4 rounded-xl border transition-all duration-150 text-left cursor-pointer min-h-[105px] min-w-0 flex flex-col justify-between ${
+                      selectedOpportunityType === "internship"
+                        ? "bg-teal-50/90 dark:bg-teal-950/60 border-teal-500 ring-2 ring-teal-500/20 shadow-xs"
+                        : "bg-white dark:bg-[#111c38] border-slate-200/90 dark:border-slate-800 hover:border-teal-400 hover:shadow-xs"
+                    }`}
+                    aria-pressed={selectedOpportunityType === "internship"}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center transition-transform ${
+                        selectedOpportunityType === "internship"
+                          ? "bg-teal-600 text-white"
+                          : "bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400"
+                      }`}>
+                        <GraduationCap className="w-4 h-4" />
+                      </div>
+                      {selectedOpportunityType === "internship" && (
+                        <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-900/60 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-teal-600 dark:text-teal-400" /> Active
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
+                        Internship
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 break-words">
+                        Summer &amp; semester internships
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleOpportunityTypeChange(selectedOpportunityType === "training" ? "" : "training")}
+                    className={`p-4 rounded-xl border transition-all duration-150 text-left cursor-pointer min-h-[105px] min-w-0 flex flex-col justify-between ${
+                      selectedOpportunityType === "training"
+                        ? "bg-purple-50/90 dark:bg-purple-950/60 border-purple-500 ring-2 ring-purple-500/20 shadow-xs"
+                        : "bg-white dark:bg-[#111c38] border-slate-200/90 dark:border-slate-800 hover:border-purple-400 hover:shadow-xs"
+                    }`}
+                    aria-pressed={selectedOpportunityType === "training"}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center transition-transform ${
+                        selectedOpportunityType === "training"
+                          ? "bg-purple-600 text-white"
+                          : "bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400"
+                      }`}>
+                        <Award className="w-4 h-4" />
+                      </div>
+                      {selectedOpportunityType === "training" && (
+                        <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/60 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-purple-600 dark:text-purple-400" /> Active
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
+                        Training
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 break-words">
+                        Upskilling, courses &amp; certificates
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleOpportunityTypeChange(selectedOpportunityType === "any" ? "" : "any")}
+                    className={`p-4 rounded-xl border transition-all duration-150 text-left cursor-pointer min-h-[105px] min-w-0 flex flex-col justify-between ${
+                      selectedOpportunityType === "any"
+                        ? "bg-blue-50/70 dark:bg-slate-800 border-blue-400 ring-2 ring-blue-400/20 shadow-xs"
+                        : "bg-white dark:bg-[#111c38] border-slate-200/90 dark:border-slate-800 hover:border-slate-400 hover:shadow-xs"
+                    }`}
+                    aria-pressed={selectedOpportunityType === "any"}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center transition-transform ${
+                        selectedOpportunityType === "any"
+                          ? "bg-slate-800 text-white dark:bg-blue-600"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                      }`}>
+                        <Sparkles className="w-4 h-4" />
+                      </div>
+                      {selectedOpportunityType === "any" && (
+                        <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-blue-600" /> Active
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
+                        Any opportunity
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 break-words">
+                        Explore all campus opportunities
+                      </div>
+                    </div>
+                  </button>
+                </div>
                 
                 {/* Search Text Input adapted to context */}
-                <div className="flex items-center gap-2 px-3.5 py-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                <div className="flex items-center gap-2 px-3.5 py-2.5 bg-white dark:bg-[#111c38] rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs w-full min-w-0">
                   <Search className="w-4 h-4 text-slate-400 shrink-0" />
                   <input
                     type="text"
@@ -1718,13 +1864,13 @@ function JobsContent() {
                     onChange={(e) => setCustomQuery(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handlePrimarySearch()}
                     placeholder="Search by role, skill, company, or keyword..."
-                    className="w-full bg-transparent text-xs sm:text-sm text-slate-900 focus:outline-hidden"
+                    className="w-full min-w-0 bg-transparent text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-hidden truncate placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   />
                   {customQuery && (
                     <button
                       type="button"
                       onClick={() => setCustomQuery("")}
-                      className="text-slate-400 hover:text-slate-600"
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"
                       aria-label="Clear query"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -2181,23 +2327,23 @@ function JobsContent() {
                 )}
 
                 {/* PRIMARY ACTION ROW */}
-                <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200/80">
-                  <div className="text-xs text-slate-500">
+                <div className="pt-3 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200/80 dark:border-slate-800 w-full min-w-0">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 text-center sm:text-left min-w-0">
                     {appliedFilters.length > 0 ? (
                       <span>
-                        <strong>{appliedFilters.length}</strong> requirements configured
+                        <strong className="text-slate-900 dark:text-white">{appliedFilters.length}</strong> requirements configured
                       </span>
                     ) : (
                       <span>Search with current context or refine further above</span>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
                     {appliedFilters.length > 0 && (
                       <button
                         type="button"
                         onClick={handleClearAllFilters}
-                        className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition cursor-pointer"
+                        className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111c38] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold transition cursor-pointer min-h-[44px]"
                       >
                         Clear all
                       </button>
@@ -2207,10 +2353,10 @@ function JobsContent() {
                       type="button"
                       onClick={handlePrimarySearch}
                       disabled={loading || !searchButtonInfo.enabled}
-                      className={`flex-1 sm:flex-initial px-8 py-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-150 flex items-center justify-center gap-2 min-h-[44px] shadow-sm ${
+                      className={`w-full sm:w-auto px-8 py-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-150 flex items-center justify-center gap-2 min-h-[44px] shadow-sm ${
                         searchButtonInfo.enabled
                           ? `${activeTheme.primary.btnClass} cursor-pointer`
-                          : "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-200 dark:border-slate-700"
                       }`}
                     >
                       {loading ? (
@@ -2230,6 +2376,117 @@ function JobsContent() {
                 </div>
               </div>
             )}
+            </div>
+          </div>
+
+          {/* 4 ACTIONABLE CONTEXTUAL OPPORTUNITY SHORTCUT CARDS */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+            {/* Card 1: Internships */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedOpportunityType("internship");
+                executeSearch({ opportunityType: "internship" });
+              }}
+              className={`p-3.5 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between border shadow-2xs ${
+                selectedOpportunityType === "internship"
+                  ? "bg-teal-50/70 border-teal-400 ring-2 ring-teal-400/20 shadow-xs"
+                  : "bg-white hover:bg-teal-50/30 border-slate-200 hover:border-teal-300"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-teal-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <GraduationCap className="w-4 h-4 text-teal-600" /> Internships
+                </span>
+                {selectedOpportunityType === "internship" && (
+                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-teal-600 text-white">Active</span>
+                )}
+              </div>
+              <div className="mt-2.5">
+                <span className="text-xs font-semibold text-slate-800 block">Summer &amp; semester roles</span>
+                <span className="text-[11px] text-slate-500 mt-0.5 block">Explore paid and student opportunities</span>
+              </div>
+            </button>
+
+            {/* Card 2: Full-Time Jobs */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedOpportunityType("job");
+                executeSearch({ opportunityType: "job" });
+              }}
+              className={`p-3.5 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between border shadow-2xs ${
+                selectedOpportunityType === "job"
+                  ? "bg-blue-50/70 border-blue-400 ring-2 ring-blue-400/20 shadow-xs"
+                  : "bg-white hover:bg-blue-50/30 border-slate-200 hover:border-blue-300"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Briefcase className="w-4 h-4 text-blue-600" /> Full-Time Jobs
+                </span>
+                {selectedOpportunityType === "job" && (
+                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-blue-600 text-white">Active</span>
+                )}
+              </div>
+              <div className="mt-2.5">
+                <span className="text-xs font-semibold text-slate-800 block">Entry-level &amp; fresher roles</span>
+                <span className="text-[11px] text-slate-500 mt-0.5 block">Early career &amp; graduate opportunities</span>
+              </div>
+            </button>
+
+            {/* Card 3: Remote Opportunities */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedWorkMode("remote");
+                executeSearch({ workMode: "remote" });
+              }}
+              className={`p-3.5 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between border shadow-2xs ${
+                selectedWorkMode === "remote"
+                  ? "bg-emerald-50/70 border-emerald-400 ring-2 ring-emerald-400/20 shadow-xs"
+                  : "bg-white hover:bg-emerald-50/30 border-slate-200 hover:border-emerald-300"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-emerald-600" /> Remote Roles
+                </span>
+                {selectedWorkMode === "remote" && (
+                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-600 text-white">Active</span>
+                )}
+              </div>
+              <div className="mt-2.5">
+                <span className="text-xs font-semibold text-slate-800 block">Work from home / anywhere</span>
+                <span className="text-[11px] text-slate-500 mt-0.5 block">Distributed team opportunities</span>
+              </div>
+            </button>
+
+            {/* Card 4: Verified Listings */}
+            <button
+              type="button"
+              onClick={() => {
+                setVerifiedOnly((prev) => !prev);
+              }}
+              className={`p-3.5 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between border shadow-2xs ${
+                verifiedOnly
+                  ? "bg-purple-50/70 border-purple-400 ring-2 ring-purple-400/20 shadow-xs"
+                  : "bg-white hover:bg-purple-50/30 border-slate-200 hover:border-purple-300"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-purple-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-purple-600" /> Verified Listings
+                </span>
+                {verifiedOnly && (
+                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-purple-600 text-white">Active</span>
+                )}
+              </div>
+              <div className="mt-2.5">
+                <span className="text-xs font-semibold text-slate-800 block">Saarvi verified criteria</span>
+                <span className="text-[11px] text-slate-500 mt-0.5 block">Vetted credentials and safety</span>
+              </div>
+            </button>
           </div>
 
           {/* VISIBLE APPLIED FILTER CHIPS */}
@@ -2385,7 +2642,7 @@ function JobsContent() {
                   {resultsStreamHeading}
                 </h2>
                 <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
-                  {selectedOpportunityType === "training" ? trainingOpportunities.length : jobs.length}
+                  {selectedOpportunityType === "training" ? trainingOpportunities.length : displayedJobs.length}
                 </span>
               </div>
 
@@ -2470,7 +2727,7 @@ function JobsContent() {
                   </p>
                 </div>
               )
-            ) : jobs.length === 0 ? (
+            ) : displayedJobs.length === 0 ? (
               /* Differentiated Empty State */
               <div className="text-center py-14 bg-white rounded-2xl border border-slate-200/90 p-8 space-y-4 shadow-2xs">
                 <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto border border-blue-100">
@@ -2523,7 +2780,7 @@ function JobsContent() {
             ) : (
               /* ONE UNIFIED RESULT STREAM */
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {jobs.map((job) => renderJobCard(job))}
+                {displayedJobs.map((job) => renderJobCard(job))}
               </div>
             )}
           </div>
