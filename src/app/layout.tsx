@@ -80,6 +80,8 @@ import { FeedbackProvider } from "@/context/FeedbackContext";
 import FeedbackModal from "@/components/feedback/FeedbackModal";
 import SmartResultBanner from "@/components/ux/SmartResultBanner";
 
+import MobileBottomNav from "@/components/layout/MobileBottomNav";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
@@ -93,15 +95,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `
               (function() {
                 try {
-                  // Enforce clean white light-first experience by default
-                  document.documentElement.classList.remove('dark');
+                  var stored = localStorage.getItem('doc_ease_theme');
+                  var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  if (stored === 'dark' || (!stored && prefersDark)) {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
                 } catch (e) {}
               })();
             `
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col transition-colors duration-200">
+      <body className="min-h-full flex flex-col transition-colors duration-200 pb-16 md:pb-0">
         <ThemeProvider>
           <PlatformProvider>
             <AuthProvider>
@@ -111,6 +118,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <FeedbackModal />
                 <SmartResultBanner />
                 <GlobalAIAssistant />
+                <MobileBottomNav />
               </FeedbackProvider>
             </AuthProvider>
           </PlatformProvider>

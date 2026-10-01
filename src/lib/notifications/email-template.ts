@@ -123,6 +123,44 @@ export function generateSaarviEmailHtml(options: SaarviEmailOptions): string {
 
               ${formattedBody}
 
+              ${category === 'FEATURE_UPDATE' && (title.includes('Jobs') || title.includes('Career') || title.includes('Internships')) ? `
+                <div style="margin: 24px 0 20px;">
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                    <tr>
+                      <td style="padding: 14px 16px; background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px;">
+                        <strong style="color: #1e40af; font-size: 13px; letter-spacing: 0.5px;">💼 JOBS</strong>
+                        <p style="margin: 4px 0 0; font-size: 13px; line-height: 20px; color: #334155;">
+                          Explore relevant employment opportunities that fit your search.
+                        </p>
+                      </td>
+                    </tr>
+                    <tr><td style="height: 10px;"></td></tr>
+                    <tr>
+                      <td style="padding: 14px 16px; background-color: #f0fdfa; border: 1px solid #99f6e4; border-radius: 12px;">
+                        <strong style="color: #0f766e; font-size: 13px; letter-spacing: 0.5px;">🎓 INTERNSHIPS</strong>
+                        <p style="margin: 4px 0 0; font-size: 13px; line-height: 20px; color: #334155;">
+                          Discover opportunities for students and early-career applicants.
+                        </p>
+                      </td>
+                    </tr>
+                    <tr><td style="height: 10px;"></td></tr>
+                    <tr>
+                      <td style="padding: 14px 16px; background-color: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 12px;">
+                        <strong style="color: #6d28d9; font-size: 13px; letter-spacing: 0.5px;">⚡ TRAINING</strong>
+                        <p style="margin: 4px 0 0; font-size: 13px; line-height: 20px; color: #334155;">
+                          Find learning and career-development opportunities.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <div style="margin-top: 18px; padding: 12px 16px; background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px;">
+                    <span style="font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase;">Search by:</span>
+                    <span style="font-size: 12px; color: #2563eb; font-weight: 600; margin-left: 6px;">Role &bull; Branch &bull; Domain &bull; Location &bull; Work Mode</span>
+                  </div>
+                </div>
+              ` : ''}
+
               ${ctaBlock}
 
               <p style="margin: 24px 0 0; font-size: 14px; line-height: 22px; color: #64748b;">

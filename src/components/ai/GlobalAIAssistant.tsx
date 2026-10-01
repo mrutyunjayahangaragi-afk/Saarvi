@@ -234,11 +234,7 @@ export default function GlobalAIAssistant() {
 
   return (
     <div
-      className="fixed z-40"
-      style={{
-        right: 'max(20px, env(safe-area-inset-right))',
-        bottom: 'max(20px, env(safe-area-inset-bottom))',
-      }}
+      className="fixed z-40 right-4 md:right-6 bottom-[calc(env(safe-area-inset-bottom,0px)+68px)] md:bottom-[max(20px,env(safe-area-inset-bottom))]"
     >
       {/* Floating Trigger Button */}
       {!isOpen && (

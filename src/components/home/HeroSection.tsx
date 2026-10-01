@@ -25,10 +25,14 @@ export default function HeroSection() {
   const [activeTab, setActiveTab] = useState<"tools" | "study" | "career" | "resume">("tools");
 
   return (
-    <section className="relative overflow-hidden py-14 sm:py-20 border-b border-slate-200/80 bg-white">
-      {/* Background Subtle Radial Light */}
+    <section className="relative overflow-hidden py-14 sm:py-20 border-b border-slate-200/80 bg-white bg-mesh-grid">
+      {/* Background Subtle Radial Gradients */}
       <div
-        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[680px] h-[400px] bg-blue-500/5 blur-[140px] rounded-full pointer-events-none -z-10"
+        className="absolute top-1/4 left-1/3 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[360px] bg-gradient-to-tr from-blue-500/10 to-indigo-500/5 blur-[120px] rounded-full pointer-events-none -z-10"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute bottom-10 right-1/4 w-[420px] h-[320px] bg-cyan-500/5 blur-[100px] rounded-full pointer-events-none -z-10"
         aria-hidden="true"
       />
 
@@ -36,18 +40,23 @@ export default function HeroSection() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
 
           {/* Left Column: Product Value Proposition & CTAs */}
-          <div className="lg:col-span-6 space-y-6 sm:space-y-7 text-left">
+          <div className="lg:col-span-6 space-y-6 text-left">
             {/* Eyebrow / Philosophy */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold tracking-wide uppercase">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-50 border border-slate-200/90 text-slate-700 text-xs font-semibold tracking-wide uppercase shadow-2xs">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+              </span>
               <span>PRIVATE BY DESIGN • FAST BY DESIGN</span>
             </div>
 
             {/* Restrained, Professional Headline */}
             <div className="space-y-2">
-              <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-[1.12]">
+              <h1 className="text-4xl sm:text-5xl lg:text-[3.25rem] font-extrabold text-slate-900 tracking-tight leading-[1.12]">
                 One workspace to <br className="hidden sm:inline" />
-                <span className="text-blue-600">study, work, and grow.</span>
+                <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 bg-clip-text text-transparent uppercase">
+                  study, work, and grow.
+                </span>
               </h1>
               <p className="text-base sm:text-lg font-bold text-slate-700">
                 Your everyday tools. One simple workspace.
@@ -60,71 +69,95 @@ export default function HeroSection() {
             </p>
 
             {/* Action CTAs */}
-            <div className="pt-2 flex flex-wrap items-center gap-3 sm:gap-4">
+            <div className="pt-1 flex flex-wrap items-center gap-3 sm:gap-4">
               <Link
                 href="/tools"
                 id="hero-explore-tools"
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-colors flex items-center gap-2 cursor-pointer min-h-[44px]"
+                className="group saarvi-btn-primary px-6 py-3 text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer min-h-[46px]"
               >
                 <span>Explore Tools</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
               </Link>
 
               <a
                 href="#how-it-works"
                 id="hero-see-how-works"
-                className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 shadow-2xs transition-colors cursor-pointer min-h-[44px] flex items-center gap-2"
+                className="saarvi-btn-secondary px-5 py-3 text-slate-700 hover:text-blue-600 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200/90 shadow-2xs transition-all cursor-pointer min-h-[46px] flex items-center gap-2"
               >
                 <Info className="w-4 h-4 text-slate-400" />
                 <span>See how it works</span>
               </a>
             </div>
 
-            {/* Micro Trust Indicators (Accurate & Grounded) */}
-            <div className="pt-2 flex flex-wrap items-center gap-4 sm:gap-6 text-xs text-slate-500">
-              <span className="flex items-center gap-1.5 font-medium">
-                <Lock className="w-3.5 h-3.5 text-emerald-600" />
-                Local processing
-              </span>
-              <span className="flex items-center gap-1.5 font-medium">
-                <Zap className="w-3.5 h-3.5 text-amber-500" />
-                Fast in-browser execution
-              </span>
-              <span className="flex items-center gap-1.5 font-medium">
-                <Download className="w-3.5 h-3.5 text-blue-600" />
-                Automatic download
-              </span>
-              <span className="flex items-center gap-1.5 font-medium">
-                <UserCheck className="w-3.5 h-3.5 text-slate-500" />
-                No account required
-              </span>
+            {/* Feature Highlights: 4 Mini Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
+              <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 hover:border-blue-200 hover:bg-blue-50/30 transition-all duration-200 flex items-start gap-2.5 group">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
+                  <Lock className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-slate-800 block group-hover:text-blue-700 transition-colors">Local processing</span>
+                  <span className="text-[11px] text-slate-500 leading-tight block">Your files stay in your browser when supported.</span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 hover:border-blue-200 hover:bg-blue-50/30 transition-all duration-200 flex items-start gap-2.5 group">
+                <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-100">
+                  <Zap className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-slate-800 block group-hover:text-blue-700 transition-colors">Fast execution</span>
+                  <span className="text-[11px] text-slate-500 leading-tight block">Process supported tools quickly in your browser.</span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 hover:border-blue-200 hover:bg-blue-50/30 transition-all duration-200 flex items-start gap-2.5 group">
+                <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+                  <Download className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-slate-800 block group-hover:text-blue-700 transition-colors">Automatic download</span>
+                  <span className="text-[11px] text-slate-500 leading-tight block">Get your output immediately upon completion.</span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 hover:border-blue-200 hover:bg-blue-50/30 transition-all duration-200 flex items-start gap-2.5 group">
+                <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100">
+                  <UserCheck className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-slate-800 block group-hover:text-blue-700 transition-colors">No account required</span>
+                  <span className="text-[11px] text-slate-500 leading-tight block">Use supported tools without signing up.</span>
+                </div>
+              </div>
             </div>
 
             {/* Honest Privacy Architecture Statement */}
             <div className="pt-1">
-              <p className="text-xs text-slate-500 leading-relaxed max-w-lg">
+              <p className="text-[11px] text-slate-500 leading-relaxed max-w-lg">
                 Many Saarvi tools process files locally in your browser. Tools that require server-side functionality clearly indicate when data is sent to our servers.
               </p>
             </div>
           </div>
 
           {/* Right Column: Realistic Saarvi Workspace Composition (Zero Fake Latencies) */}
-          <div className="lg:col-span-6 relative hidden lg:block">
-            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-lg overflow-hidden">
+          <div className="lg:col-span-6 relative hidden lg:block animate-float-subtle">
+            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden">
 
               {/* Window Title Bar */}
-              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div className="px-4 py-3 bg-slate-50/90 border-b border-slate-200 flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-400 inline-block" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" />
                 </div>
                 <span className="text-xs font-semibold text-slate-600">
                   Saarvi Interactive Workspace
                 </span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                  Active
-                </span>
+                <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Active Workspace</span>
+                </div>
               </div>
 
               {/* Workspace Layout: Compact Sidebar + Main Work Area */}
@@ -139,10 +172,11 @@ export default function HeroSection() {
                   <button
                     type="button"
                     onClick={() => setActiveTab("tools")}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition cursor-pointer ${activeTab === "tools"
-                      ? "bg-white text-blue-600 shadow-2xs border border-slate-200/80"
-                      : "text-slate-600 hover:text-slate-900"
-                      }`}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2.5 transition-all cursor-pointer ${
+                      activeTab === "tools"
+                        ? "bg-white text-blue-600 shadow-2xs border border-blue-200/80 font-bold"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                    }`}
                   >
                     <FileText className="w-3.5 h-3.5 text-blue-600" />
                     <span>Tools</span>
@@ -151,10 +185,11 @@ export default function HeroSection() {
                   <button
                     type="button"
                     onClick={() => setActiveTab("study")}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition cursor-pointer ${activeTab === "study"
-                      ? "bg-white text-blue-600 shadow-2xs border border-slate-200/80"
-                      : "text-slate-600 hover:text-slate-900"
-                      }`}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2.5 transition-all cursor-pointer ${
+                      activeTab === "study"
+                        ? "bg-white text-purple-700 shadow-2xs border border-purple-200/80 font-bold"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                    }`}
                   >
                     <GraduationCap className="w-3.5 h-3.5 text-purple-600" />
                     <span>Study</span>
@@ -163,10 +198,11 @@ export default function HeroSection() {
                   <button
                     type="button"
                     onClick={() => setActiveTab("career")}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition cursor-pointer ${activeTab === "career"
-                      ? "bg-white text-blue-600 shadow-2xs border border-slate-200/80"
-                      : "text-slate-600 hover:text-slate-900"
-                      }`}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2.5 transition-all cursor-pointer ${
+                      activeTab === "career"
+                        ? "bg-white text-emerald-700 shadow-2xs border border-emerald-200/80 font-bold"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                    }`}
                   >
                     <Search className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Career</span>
@@ -175,12 +211,13 @@ export default function HeroSection() {
                   <button
                     type="button"
                     onClick={() => setActiveTab("resume")}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition cursor-pointer ${activeTab === "resume"
-                      ? "bg-white text-blue-600 shadow-2xs border border-slate-200/80"
-                      : "text-slate-600 hover:text-slate-900"
-                      }`}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2.5 transition-all cursor-pointer ${
+                      activeTab === "resume"
+                        ? "bg-white text-blue-700 shadow-2xs border border-blue-200/80 font-bold"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                    }`}
                   >
-                    <Briefcase className="w-3.5 h-3.5 text-amber-600" />
+                    <Briefcase className="w-3.5 h-3.5 text-blue-600" />
                     <span>Resume</span>
                   </button>
                 </div>

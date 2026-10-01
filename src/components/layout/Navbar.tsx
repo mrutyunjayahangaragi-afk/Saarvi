@@ -319,7 +319,7 @@ export default function Navbar() {
     setMobileMenuOpen(false);
   }
 
-  // Global Cmd+K / Ctrl+K keyboard shortcut
+  // Global Cmd+K / Ctrl+K keyboard shortcut and Mobile Bottom Nav search trigger
   useEffect(() => {
     const handleKeyDown = (e: globalThis.KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -332,8 +332,16 @@ export default function Navbar() {
       }
     };
 
+    const handleOpenSearchEvent = () => {
+      setSearchOpen(true);
+    };
+
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("saarvi:open-global-search", handleOpenSearchEvent);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("saarvi:open-global-search", handleOpenSearchEvent);
+    };
   }, []);
 
   // Robust Pointer-Intent Hover Management (60ms intent delay, 280ms safe diagonal transit buffer)
@@ -428,7 +436,7 @@ export default function Navbar() {
 
                 // ── TOOLS: Master Mega Menu launcher ─────────────────────────────
                 if (item.key === 'tools') {
-                  const isToolsActive = activeCategory === 'tools' || pathname === '/tools';
+                  const isToolsActive = activeCategory === 'tools' || pathname === '/tools' || pathname?.startsWith('/tools/');
                   return (
                     <div
                       key={item.id}
@@ -453,17 +461,17 @@ export default function Navbar() {
                             setActiveCategory(activeCategory === 'tools' ? null : 'tools');
                           }
                         }}
-                        className={`px-3.5 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
+                        className={`group px-3.5 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
                           isToolsActive
-                            ? 'text-blue-600 font-bold bg-blue-50'
-                            : 'hover:text-slate-900 hover:bg-slate-100/70 text-slate-700'
+                            ? 'text-blue-600 font-bold bg-blue-50/90 border border-blue-200/70 shadow-2xs'
+                            : 'hover:text-blue-600 hover:bg-slate-100/80 text-slate-700 border border-transparent'
                         }`}
                       >
-                        <LayoutGrid className="w-3.5 h-3.5 text-blue-600" />
+                        <LayoutGrid className="w-3.5 h-3.5 text-blue-600 transition-transform duration-200 group-hover:scale-110" />
                         <span>{item.label}</span>
                         <ChevronDown
                           className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                            activeCategory === 'tools' ? 'rotate-180 text-blue-600' : 'text-slate-400'
+                            activeCategory === 'tools' ? 'rotate-180 text-blue-600' : 'text-slate-400 group-hover:text-blue-600'
                           }`}
                         />
                       </Link>
@@ -500,17 +508,17 @@ export default function Navbar() {
                             setActiveCategory(activeCategory === 'student' ? null : 'student');
                           }
                         }}
-                        className={`px-3 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
+                        className={`group px-3 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
                           isStudentActive
-                            ? 'text-indigo-600 bg-indigo-50 font-bold'
-                            : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/70'
+                            ? 'text-blue-600 bg-blue-50/90 border border-blue-200/70 font-bold shadow-2xs'
+                            : 'text-slate-700 hover:text-blue-600 hover:bg-slate-100/80 border border-transparent'
                         }`}
                       >
-                        <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
+                        <GraduationCap className="w-3.5 h-3.5 text-indigo-600 transition-transform duration-200 group-hover:scale-110" />
                         <span>{item.label}</span>
                         <ChevronDown
                           className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                            activeCategory === 'student' ? 'rotate-180 text-indigo-600' : 'text-slate-400'
+                            activeCategory === 'student' ? 'rotate-180 text-blue-600' : 'text-slate-400 group-hover:text-blue-600'
                           }`}
                         />
                       </Link>
@@ -521,18 +529,19 @@ export default function Navbar() {
                 // ── JOBS: Feature-flagged career link ─────────────────────────────
                 if (item.key === 'jobs') {
                   if (!jobsNavbarVisible) return null;
+                  const isJobsActive = pathname?.startsWith('/jobs') || pathname?.startsWith('/internships');
                   return (
                     <div key={item.id} className="relative py-2">
                       <Link
                         href={item.route}
                         onClick={() => setActiveCategory(null)}
-                        className={`px-3 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
-                          pathname?.startsWith('/jobs')
-                            ? 'text-blue-600 bg-blue-50 font-bold'
-                            : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/70'
+                        className={`group px-3 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
+                          isJobsActive
+                            ? 'text-blue-600 bg-blue-50/90 border border-blue-200/70 font-bold shadow-2xs'
+                            : 'text-slate-700 hover:text-blue-600 hover:bg-slate-100/80 border border-transparent'
                         }`}
                       >
-                        <Briefcase className="w-3.5 h-3.5 text-blue-600" />
+                        <Briefcase className="w-3.5 h-3.5 text-blue-600 transition-transform duration-200 group-hover:scale-110" />
                         <span>{item.label}</span>
                         {item.badge && (
                           <span className="ml-0.5 px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-blue-100 text-blue-700 border border-blue-200">
@@ -556,13 +565,13 @@ export default function Navbar() {
                       target={item.open_behavior === 'new_tab' || isExternal ? '_blank' : undefined}
                       rel={isExternal ? 'noopener noreferrer' : undefined}
                       onClick={() => setActiveCategory(null)}
-                      className={`px-3 py-1.5 rounded-xl transition-all duration-150 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
+                      className={`group px-3 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
                         isActive
-                          ? 'text-blue-600 bg-blue-50 font-bold'
-                          : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/70'
+                          ? 'text-blue-600 bg-blue-50/90 border border-blue-200/70 font-bold shadow-2xs'
+                          : 'text-slate-700 hover:text-blue-600 hover:bg-slate-100/80 border border-transparent'
                       }`}
                     >
-                      <ItemIcon className="w-3.5 h-3.5 text-blue-600" />
+                      <ItemIcon className="w-3.5 h-3.5 text-blue-600 transition-transform duration-200 group-hover:scale-110" />
                       <span>{item.label}</span>
                       {item.badge && (
                         <span className="ml-0.5 px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-blue-100 text-blue-700 border border-blue-200">
@@ -577,34 +586,36 @@ export default function Navbar() {
           </nav>
 
           {/* RIGHT: Search Trigger Button & Login */}
-          <div className="flex items-center gap-3">
-            {/* Global Search Button */}
-            <button
-              type="button"
-              onClick={() => setSearchOpen(true)}
-              className="flex items-center gap-2.5 px-3 py-1.5 min-h-[38px] text-xs text-slate-500 hover:text-slate-800 bg-slate-100/80 hover:bg-slate-200/70 rounded-xl transition-all border border-slate-200/80 shadow-2xs cursor-pointer"
-              aria-label="Search tools"
-              title={isMac ? "Search tools (Cmd+K)" : "Search tools (Ctrl+K)"}
-            >
-              <Search className="w-3.5 h-3.5 text-slate-400" />
-              <span className="hidden sm:inline font-medium">Search tools...</span>
-              <kbd className="hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] text-slate-400 font-semibold shadow-2xs">
-                {isMac ? (
-                  <>
-                    <Command className="w-2.5 h-2.5" />
-                    <span>K</span>
-                  </>
-                ) : (
-                  <span>Ctrl+K</span>
-                )}
-              </kbd>
-            </button>
+          <div className="flex items-center gap-2.5">
+            {/* Signature Rotating Conic Gradient Search Box */}
+            <div className="saarvi-navbar-search-wrapper">
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                className="saarvi-navbar-search-inner group flex items-center gap-2.5 px-3.5 py-1.5 min-h-[38px] text-xs text-slate-500 hover:text-blue-600 bg-white dark:bg-[#111c38] rounded-[13px] transition-all duration-200 cursor-pointer focus-visible:outline-none"
+                aria-label="Search tools"
+                title={isMac ? "Search tools (Cmd+K)" : "Search tools (Ctrl+K)"}
+              >
+                <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
+                <span className="hidden sm:inline font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Search tools...</span>
+                <kbd className="hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] text-slate-500 dark:text-slate-400 font-semibold shadow-2xs group-hover:border-blue-300 group-hover:text-blue-600 transition-colors">
+                  {isMac ? (
+                    <>
+                      <Command className="w-2.5 h-2.5" />
+                      <span>K</span>
+                    </>
+                  ) : (
+                    <span>Ctrl+K</span>
+                  )}
+                </kbd>
+              </button>
+            </div>
 
             {/* Notification Bell with Dynamic Unread Badge */}
             {!isLoading && user && (
               <Link
                 href="/notifications"
-                className="relative p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 transition-colors shadow-2xs flex items-center justify-center min-w-[38px] min-h-[38px] cursor-pointer"
+                className="relative p-2 rounded-xl border border-slate-200/90 bg-white hover:bg-blue-50/40 hover:border-blue-200 text-slate-700 hover:text-blue-600 transition-all shadow-2xs hover:shadow-xs flex items-center justify-center min-w-[38px] min-h-[38px] cursor-pointer"
                 title="Saarvi Notification Center"
                 aria-label={
                   unreadNotifications > 0
@@ -627,7 +638,7 @@ export default function Navbar() {
                 <button
                   type="button"
                   onClick={() => setAccountMenuOpen(!accountMenuOpen)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold shadow-xs hover:shadow transition-all cursor-pointer"
+                  className="flex items-center gap-2 px-3 py-1.5 min-h-[38px] rounded-xl border border-slate-200/90 bg-white hover:bg-blue-50/40 hover:border-blue-200 text-slate-800 text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
                   aria-expanded={accountMenuOpen}
                   aria-haspopup="true"
                 >
@@ -791,13 +802,13 @@ export default function Navbar() {
               <div className="flex items-center gap-2">
                 <Link
                   href="/login"
-                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100/90 hover:bg-slate-200/80 rounded-xl transition-all duration-150 border border-slate-200 shadow-xs hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0 active:scale-95 cursor-pointer"
+                  className="px-3.5 py-1.5 min-h-[38px] inline-flex items-center justify-center text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-300 rounded-xl transition-all duration-150 border border-slate-200/90 shadow-2xs hover:shadow-xs hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
                 >
                   Login
                 </Link>
                 <Link
                   href="/signup"
-                  className="px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all duration-150 shadow-xs hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0 active:scale-95 cursor-pointer"
+                  className="saarvi-btn-primary px-4 py-1.5 min-h-[38px] text-xs font-semibold shadow-2xs hover:shadow-xs cursor-pointer"
                 >
                   Create account
                 </Link>

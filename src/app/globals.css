@@ -90,52 +90,119 @@
   --btn-height-lg: 52px;
   --input-height: 44px;
   --touch-target-min: 44px;
+
+  /* Global Design System Tokens */
+  --saarvi-radius-card: 18px;
+  --saarvi-radius-btn: 12px;
+  --saarvi-radius-pill: 9999px;
+  --saarvi-transition: 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  --saarvi-shadow-card: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.05);
+  --saarvi-shadow-card-hover: 0 12px 24px -4px rgba(37, 99, 235, 0.08), 0 4px 8px -2px rgba(15, 23, 42, 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    /* Dark Surface & Background */
+    --canvas-bg: #0b1329;
+    --canvas-grid: rgba(255, 255, 255, 0.05);
+    --surface-base: #111c38;
+    --surface-elevated: #162244;
+    --surface-hover: #1c2b54;
+    --surface-subtle: #0f1934;
+    --surface-glass: rgba(17, 28, 56, 0.88);
+
+    /* Typography Colors */
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --text-subtle: #64748b;
+
+    /* Borders & Dividers */
+    --border-subtle: #1e2e50;
+    --border-medium: #2a3d66;
+    --border-focus: #3b82f6;
+
+    /* Brand Accents */
+    --accent-primary: #3b82f6;
+    --accent-primary-hover: #60a5fa;
+    --accent-primary-subtle: rgba(59, 130, 246, 0.15);
+    --accent-primary-border: #2563eb;
+
+    /* Saarvi Adaptive Career Design Tokens */
+    --saarvi-primary: #3b82f6;
+    --saarvi-primary-hover: #60a5fa;
+    --saarvi-primary-soft: rgba(59, 130, 246, 0.15);
+    --saarvi-text: #f8fafc;
+    --saarvi-muted: #94a3b8;
+    --saarvi-border: #1e2e50;
+    --saarvi-surface: #111c38;
+
+    /* Elevation Shadows */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.4), 0 2px 6px -1px rgba(0, 0, 0, 0.2);
+    --shadow-lg: 0 12px 28px -4px rgba(0, 0, 0, 0.5), 0 4px 12px -2px rgba(0, 0, 0, 0.3);
+    --shadow-3d-card: 0 20px 35px -8px rgba(0, 0, 0, 0.6), 0 0 15px rgba(59, 130, 246, 0.12);
+
+    --saarvi-shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.35);
+    --saarvi-shadow-card-hover: 0 12px 24px -4px rgba(0, 0, 0, 0.5), 0 0 12px rgba(59, 130, 246, 0.15);
+  }
 }
 
 .dark {
-  /* Enforce Light First as per Phase 5 Requirements */
-  --canvas-bg: #f8fafc;
-  --canvas-grid: rgba(148, 163, 184, 0.12);
-  --surface-base: #ffffff;
-  --surface-elevated: #ffffff;
-  --surface-hover: #f1f5f9;
-  --surface-subtle: #f8fafc;
-  --surface-glass: rgba(255, 255, 255, 0.9);
+  /* Dark Surface & Background */
+  --canvas-bg: #0b1329;
+  --canvas-grid: rgba(255, 255, 255, 0.05);
+  --surface-base: #111c38;
+  --surface-elevated: #162244;
+  --surface-hover: #1c2b54;
+  --surface-subtle: #0f1934;
+  --surface-glass: rgba(17, 28, 56, 0.88);
 
   /* Typography Colors */
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --text-subtle: #94a3b8;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-subtle: #64748b;
 
   /* Borders & Dividers */
-  --border-subtle: #e2e8f0;
-  --border-medium: #cbd5e1;
-  --border-focus: #2563eb;
+  --border-subtle: #1e2e50;
+  --border-medium: #2a3d66;
+  --border-focus: #3b82f6;
 
   /* Brand Accents */
-  --accent-primary: #2563eb;
-  --accent-primary-hover: #1d4ed8;
-  --accent-primary-subtle: #eff6ff;
-  --accent-primary-border: #bfdbfe;
+  --accent-primary: #3b82f6;
+  --accent-primary-hover: #60a5fa;
+  --accent-primary-subtle: rgba(59, 130, 246, 0.15);
+  --accent-primary-border: #2563eb;
+
+  /* Saarvi Adaptive Career Design Tokens */
+  --saarvi-primary: #3b82f6;
+  --saarvi-primary-hover: #60a5fa;
+  --saarvi-primary-soft: rgba(59, 130, 246, 0.15);
+  --saarvi-text: #f8fafc;
+  --saarvi-muted: #94a3b8;
+  --saarvi-border: #1e2e50;
+  --saarvi-surface: #111c38;
 
   /* Status Colors */
-  --success-text: #047857;
-  --success-bg: #ecfdf5;
-  --success-border: #a7f3d0;
+  --success-text: #34d399;
+  --success-bg: rgba(16, 185, 129, 0.15);
+  --success-border: #059669;
 
-  --warning-text: #b45309;
-  --warning-bg: #fffbeb;
-  --warning-border: #fde68a;
+  --warning-text: #fbbf24;
+  --warning-bg: rgba(245, 158, 11, 0.15);
+  --warning-border: #d97706;
 
-  --error-text: #b91c1c;
-  --error-bg: #fef2f2;
-  --error-border: #fecaca;
+  --error-text: #f87171;
+  --error-bg: rgba(239, 68, 68, 0.15);
+  --error-border: #dc2626;
 
   /* Elevation Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
-  --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
-  --shadow-lg: 0 12px 28px -4px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.06);
-  --shadow-3d-card: 0 20px 35px -8px rgba(37, 99, 235, 0.12), 0 10px 15px -3px rgba(15, 23, 42, 0.06);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.4), 0 2px 6px -1px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 12px 28px -4px rgba(0, 0, 0, 0.5), 0 4px 12px -2px rgba(0, 0, 0, 0.3);
+  --shadow-3d-card: 0 20px 35px -8px rgba(0, 0, 0, 0.6), 0 0 15px rgba(59, 130, 246, 0.12);
+
+  --saarvi-shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.35);
+  --saarvi-shadow-card-hover: 0 12px 24px -4px rgba(0, 0, 0, 0.5), 0 0 12px rgba(59, 130, 246, 0.15);
 }
 
 body {
@@ -286,6 +353,285 @@ body {
   background-size: 36px 36px;
 }
 
+/* Subtle Floating Animation for Hero Workspace Preview */
+@keyframes floatSubtle {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.animate-float-subtle {
+  animation: floatSubtle 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Skeleton Loading Shimmer */
+@keyframes skeletonShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.8s infinite;
+}
+
+/* Standardized Saarvi Design System Classes */
+.saarvi-btn-primary {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: var(--saarvi-radius-btn);
+  box-shadow: 0 1px 3px 0 rgba(37, 99, 235, 0.25);
+  transition: all var(--saarvi-transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.saarvi-btn-primary:hover {
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 16px -2px rgba(37, 99, 235, 0.35);
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+}
+
+.saarvi-btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px 0 rgba(37, 99, 235, 0.2);
+}
+
+.saarvi-btn-secondary {
+  background: var(--saarvi-surface);
+  color: var(--saarvi-primary);
+  font-weight: 600;
+  border: 1px solid var(--saarvi-border);
+  border-radius: var(--saarvi-radius-btn);
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  transition: all var(--saarvi-transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.saarvi-btn-secondary:hover {
+  background: var(--saarvi-primary-soft);
+  border-color: var(--saarvi-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px -1px rgba(37, 99, 235, 0.12);
+}
+
+.saarvi-btn-secondary:active {
+  transform: translateY(0);
+}
+
+.saarvi-btn-ghost {
+  background: transparent;
+  color: var(--saarvi-muted);
+  font-weight: 500;
+  border-radius: var(--saarvi-radius-btn);
+  transition: all var(--saarvi-transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.saarvi-btn-ghost:hover {
+  background: var(--surface-hover);
+  color: var(--saarvi-text);
+}
+
+/* Card System */
+.saarvi-card {
+  background: var(--saarvi-surface);
+  border: 1px solid var(--saarvi-border);
+  border-radius: var(--saarvi-radius-card);
+  box-shadow: var(--saarvi-shadow-card);
+  transition: transform var(--saarvi-transition), box-shadow var(--saarvi-transition), border-color var(--saarvi-transition);
+}
+
+.saarvi-card-interactive {
+  cursor: pointer;
+}
+
+.saarvi-card-interactive:hover {
+  transform: translateY(-3px);
+  border-color: var(--saarvi-primary);
+  box-shadow: var(--saarvi-shadow-card-hover);
+}
+
+/* Standardized Input */
+.saarvi-input {
+  background: var(--saarvi-surface);
+  border: 1px solid var(--saarvi-border);
+  border-radius: var(--saarvi-radius-btn);
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  color: var(--saarvi-text);
+  outline: none;
+  transition: all var(--saarvi-transition);
+}
+
+.saarvi-input:hover {
+  border-color: var(--border-medium);
+}
+
+.saarvi-input:focus {
+  border-color: var(--saarvi-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SAARVI SIGNATURE SEARCH BAR — CSS ROTATING CONIC GRADIENT
+   Blue → Purple → Cyan → Blue → Purple
+   ═══════════════════════════════════════════════════════════ */
+@keyframes saarvi-search-border {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Large / Hero & Tools Search Container */
+.saarvi-search-wrapper {
+  position: relative;
+  border-radius: var(--saarvi-radius-card);
+  padding: 1.5px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms ease;
+  background: var(--saarvi-surface);
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.06);
+}
+
+.saarvi-search-wrapper::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(
+    from 0deg,
+    #2563eb,
+    #7c3aed,
+    #06b6d4,
+    #2563eb,
+    #7c3aed
+  );
+  animation: saarvi-search-border 4.5s linear infinite;
+  opacity: 0.38;
+  transition: opacity 250ms ease, filter 250ms ease;
+  pointer-events: none;
+}
+
+.saarvi-search-wrapper:hover {
+  transform: scale(1.01);
+  box-shadow: 0 4px 16px -2px rgba(37, 99, 235, 0.22);
+}
+
+.saarvi-search-wrapper:hover::before {
+  opacity: 0.85;
+  filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.4));
+}
+
+.saarvi-search-wrapper:focus-within,
+.saarvi-search-wrapper.is-focused {
+  transform: scale(1.01);
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3), 0 8px 24px -4px rgba(37, 99, 235, 0.3);
+}
+
+.saarvi-search-wrapper:focus-within::before,
+.saarvi-search-wrapper.is-focused::before {
+  opacity: 1;
+  filter: drop-shadow(0 0 10px rgba(124, 58, 237, 0.5));
+}
+
+.saarvi-search-inner {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  border-radius: calc(var(--saarvi-radius-card) - 1.5px);
+  background: var(--saarvi-surface);
+  display: flex;
+  align-items: center;
+}
+
+/* Compact Navbar Search Trigger Container */
+.saarvi-navbar-search-wrapper {
+  position: relative;
+  border-radius: 14px;
+  padding: 1.5px;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms ease;
+  background: var(--saarvi-surface);
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+}
+
+.saarvi-navbar-search-wrapper::before {
+  content: "";
+  position: absolute;
+  top: -75%;
+  left: -75%;
+  width: 250%;
+  height: 250%;
+  background: conic-gradient(
+    from 0deg,
+    #2563eb,
+    #7c3aed,
+    #06b6d4,
+    #2563eb,
+    #7c3aed
+  );
+  animation: saarvi-search-border 4.5s linear infinite;
+  opacity: 0.4;
+  transition: opacity 250ms ease, filter 250ms ease;
+  pointer-events: none;
+}
+
+.saarvi-navbar-search-wrapper:hover {
+  transform: scale(1.01);
+  box-shadow: 0 4px 14px -2px rgba(37, 99, 235, 0.25);
+}
+
+.saarvi-navbar-search-wrapper:hover::before {
+  opacity: 0.9;
+  filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.45));
+}
+
+.saarvi-navbar-search-wrapper:focus-within {
+  transform: scale(1.01);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35), 0 6px 18px -2px rgba(37, 99, 235, 0.3);
+}
+
+.saarvi-navbar-search-wrapper:focus-within::before {
+  opacity: 1;
+  filter: drop-shadow(0 0 8px rgba(124, 58, 237, 0.5));
+}
+
+.saarvi-navbar-search-inner {
+  position: relative;
+  z-index: 1;
+  border-radius: calc(14px - 1.5px);
+  background: var(--saarvi-surface);
+}
+
 /* Prefer Reduced Motion Overrides */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -298,18 +644,38 @@ body {
   }
   
   .animate-float-3d,
+  .animate-float-subtle,
   .animate-ring-3d,
   .animate-spin,
   .animate-pulse,
-  .animate-check-pop {
+  .animate-check-pop,
+  .skeleton-shimmer {
     animation: none !important;
+  }
+
+  .saarvi-search-wrapper::before,
+  .saarvi-navbar-search-wrapper::before {
+    animation: none !important;
+    transform: none !important;
+    background: linear-gradient(90deg, #2563eb, #7c3aed, #06b6d4) !important;
+    opacity: 0.6 !important;
+  }
+
+  .saarvi-search-wrapper:hover,
+  .saarvi-navbar-search-wrapper:hover {
+    transform: none !important;
   }
 
   .animate-float-3d {
     transform: translateY(0) rotateX(6deg) rotateY(-8deg) !important;
   }
 
-  .hover-3d-lift:hover {
+  .animate-float-subtle {
+    transform: none !important;
+  }
+
+  .hover-3d-lift:hover,
+  .saarvi-card-interactive:hover {
     transform: none !important;
   }
 }

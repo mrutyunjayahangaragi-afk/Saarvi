@@ -14,44 +14,62 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("light");
+  const [theme, setThemeState] = useState<Theme>("system");
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
-  const [, startTransition] = useTransition();
 
-  // Initialize theme: strictly default to light-first
   useEffect(() => {
     try {
       const stored = localStorage.getItem("doc_ease_theme") as Theme | null;
-      const activeTheme: Theme = stored === "dark" ? "light" : (stored || "light");
-      
-      startTransition(() => {
-        setThemeState(activeTheme);
-        setResolvedTheme("light");
-      });
+      const initialTheme: Theme = stored || "system";
+      setThemeState(initialTheme);
 
-      // Ensure dark class is removed
-      document.documentElement.classList.remove("dark");
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+      const applyTheme = (t: Theme) => {
+        const isDark =
+          t === "dark" || (t === "system" && mediaQuery.matches);
+        const resolved: "light" | "dark" = isDark ? "dark" : "light";
+        setResolvedTheme(resolved);
+        if (resolved === "dark") {
+          document.documentElement.classList.add("dark");
+        } else {
+          document.documentElement.classList.remove("dark");
+        }
+      };
+
+      applyTheme(initialTheme);
+
+      // Listen for system theme changes in real time
+      const handleSystemChange = () => {
+        const currentStored = localStorage.getItem("doc_ease_theme") as Theme | null;
+        if (!currentStored || currentStored === "system") {
+          applyTheme("system");
+        }
+      };
+
+      mediaQuery.addEventListener("change", handleSystemChange);
+      return () => mediaQuery.removeEventListener("change", handleSystemChange);
     } catch {
-      // Ignore in non-browser environments
+      // Non-browser or SSR fallback
     }
   }, []);
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
     try {
-      localStorage.setItem("doc_ease_theme", newTheme);
-    } catch {
-      // Storage might be restricted
-    }
+      if (newTheme === "system") {
+        localStorage.removeItem("doc_ease_theme");
+      } else {
+        localStorage.setItem("doc_ease_theme", newTheme);
+      }
+    } catch {}
 
-    let nextResolved: "light" | "dark";
-    if (newTheme === "system") {
-      nextResolved = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    } else {
-      nextResolved = newTheme;
-    }
-
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const isDark =
+      newTheme === "dark" || (newTheme === "system" && mediaQuery.matches);
+    const nextResolved: "light" | "dark" = isDark ? "dark" : "light";
     setResolvedTheme(nextResolved);
+
     if (nextResolved === "dark") {
       document.documentElement.classList.add("dark");
     } else {

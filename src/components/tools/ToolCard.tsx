@@ -110,20 +110,25 @@ export default function ToolCard({ tool, featured = false, onSelect }: ToolCardP
     <Link
       href={tool.route}
       onClick={handleClick}
-      className={`group relative flex flex-col justify-between p-5 sm:p-6 rounded-2xl border transition-all duration-200 focus-visible:outline-2 focus-visible:outline-blue-600 hover-3d-lift cursor-pointer ${
+      className={`group relative flex flex-col justify-between p-5 sm:p-6 rounded-2xl border transition-all duration-200 focus-visible:outline-2 focus-visible:outline-blue-600 cursor-pointer ${
         featured
-          ? "bg-white border-blue-200 shadow-xs hover:border-blue-400 hover:shadow-md"
-          : "bg-white border-slate-200 hover:border-slate-300 shadow-xs hover:shadow-md"
+          ? "bg-white border-blue-200/90 shadow-2xs hover:border-blue-400 hover:shadow-lg hover:-translate-y-1"
+          : "bg-white border-slate-200/90 hover:border-blue-300 shadow-2xs hover:shadow-md hover:-translate-y-1"
       }`}
     >
       <div className="space-y-3.5">
         {/* Top: Icon + Access & Processing Badges */}
         <div className="flex items-center justify-between">
-          <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white group-hover:-translate-y-0.5 transition-all duration-200 shadow-2xs">
-            <IconComponent className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center group-hover:bg-gradient-to-br group-hover:from-blue-600 group-hover:to-indigo-600 group-hover:text-white group-hover:-translate-y-0.5 transition-all duration-200 shadow-2xs group-hover:shadow-xs">
+            <IconComponent className="w-5 h-5 transition-transform duration-200 group-hover:scale-105" />
           </div>
 
           <div className="flex items-center gap-1.5">
+            {featured && (
+              <span className="px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-[10px] font-bold text-blue-700">
+                Popular
+              </span>
+            )}
             {renderAccessBadge()}
             {isLocal && (
               <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-semibold text-emerald-700">
@@ -166,9 +171,9 @@ export default function ToolCard({ tool, featured = false, onSelect }: ToolCardP
             Coming soon
           </span>
         ) : (
-          <span className="flex items-center gap-1 text-blue-600 font-semibold group-hover:translate-x-1 transition-transform">
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 group-hover:text-blue-700">
             <span>Open</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
           </span>
         )}
       </div>

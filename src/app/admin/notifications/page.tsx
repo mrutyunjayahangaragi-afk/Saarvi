@@ -94,14 +94,20 @@ export default function AdminNotificationsPage() {
     message: string;
   } | null>(null);
 
-  // Composer State
-  const [category, setCategory] = useState<NotificationCategory>("ANNOUNCEMENT");
-  const [priority, setPriority] = useState<NotificationPriority>("NORMAL");
-  const [title, setTitle] = useState("");
-  const [subtitle, setSubtitle] = useState("");
-  const [body, setBody] = useState("");
-  const [ctaText, setCtaText] = useState("");
-  const [ctaUrl, setCtaUrl] = useState("");
+  // Composer State — Defaulted to Official Jobs + Internships + Training Feature Launch
+  const [category, setCategory] = useState<NotificationCategory>("FEATURE_UPDATE");
+  const [priority, setPriority] = useState<NotificationPriority>("HIGH");
+  const [title, setTitle] = useState("New Jobs, Internships & Training Are Now Live 🚀");
+  const [subtitle, setSubtitle] = useState("Discover opportunities that fit your goals and take the next step in your career.");
+  const [body, setBody] = useState(
+    "Saarvi's new Career Opportunities experience is now live.\n\n" +
+    "You can now explore jobs, internships, and training opportunities using one focused search experience.\n\n" +
+    "Choose what you're looking for by role, branch, domain, location, experience, work mode, and other relevant preferences — even without typing a search query.\n\n" +
+    "Saarvi brings relevant opportunities into one organized workspace, with clear source information and streamlined discovery.\n\n" +
+    "Start exploring and find what comes next."
+  );
+  const [ctaText, setCtaText] = useState("Explore Opportunities");
+  const [ctaUrl, setCtaUrl] = useState("/jobs");
   const [channels, setChannels] = useState<NotificationDeliveryChannel[]>(["in_app", "email"]);
   const [audienceType, setAudienceType] = useState<NotificationAudienceType>("ALL_USERS");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
@@ -568,7 +574,36 @@ export default function AdminNotificationsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Form: Broadcast Settings */}
           <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-4">
-            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Broadcast Composer</h2>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
+              <div>
+                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Campaign & Broadcast Composer</h2>
+                <p className="text-[11px] text-slate-500">Configure, target, preview, and dispatch authoritative platform broadcasts.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCategory("FEATURE_UPDATE");
+                  setPriority("HIGH");
+                  setTitle("New Jobs, Internships & Training Are Now Live 🚀");
+                  setSubtitle("Discover opportunities that fit your goals and take the next step in your career.");
+                  setBody(
+                    "Saarvi's new Career Opportunities experience is now live.\n\n" +
+                    "You can now explore jobs, internships, and training opportunities using one focused search experience.\n\n" +
+                    "Choose what you're looking for by role, branch, domain, location, experience, work mode, and other relevant preferences — even without typing a search query.\n\n" +
+                    "Saarvi brings relevant opportunities into one organized workspace, with clear source information and streamlined discovery.\n\n" +
+                    "Start exploring and find what comes next."
+                  );
+                  setCtaText("Explore Opportunities");
+                  setCtaUrl("/jobs");
+                  setChannels(["in_app", "email"]);
+                  setAudienceType("ALL_USERS");
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs transition border border-blue-200 cursor-pointer shadow-2xs"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                <span>Load Career Launch Preset</span>
+              </button>
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -770,15 +805,30 @@ export default function AdminNotificationsPage() {
             </div>
 
             {/* Action Bar */}
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => handleExecuteSend(true)}
-                disabled={isSubmitting || !title.trim()}
-                className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
-              >
-                Save as Draft
-              </button>
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTestEmailRecipient(user?.email || "");
+                    setIsTestEmailOpen(true);
+                  }}
+                  disabled={isSubmitting || !title.trim() || !body.trim()}
+                  className="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Mail className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Send Test Email</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleExecuteSend(true)}
+                  disabled={isSubmitting || !title.trim()}
+                  className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                >
+                  Save as Draft
+                </button>
+              </div>
 
               <button
                 type="button"
@@ -787,7 +837,7 @@ export default function AdminNotificationsPage() {
                 className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>Send Broadcast</span>
+                <span>Send Announcement</span>
               </button>
             </div>
           </div>
@@ -1116,23 +1166,24 @@ export default function AdminNotificationsPage() {
             </div>
 
             <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 text-xs space-y-2">
-              <div><strong>Title:</strong> {title}</div>
+              <div><strong>Message:</strong> {title}</div>
               <div><strong>Category:</strong> {category} ({priority} priority)</div>
-              <div><strong>Target Audience:</strong> {audienceType}</div>
+              <div><strong>CTA:</strong> {ctaText || "Explore Opportunities"} &rarr; <span className="font-mono text-blue-600">{ctaUrl || "/jobs"}</span></div>
+              <div><strong>Target Audience:</strong> {audienceType === "ALL_USERS" ? "All Active Registered Users" : audienceType}</div>
               <div className="flex items-center justify-between text-blue-700 font-bold bg-blue-50/70 p-2 rounded-lg border border-blue-100">
                 <span>Matched Recipients:</span>
-                <span>{estimatedRecipients.toLocaleString()} Users</span>
+                <span>{estimatedRecipients.toLocaleString()} Active Users</span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
                 <div><strong>In-App:</strong> {channels.includes("in_app") ? "YES" : "NO"}</div>
                 <div><strong>Email:</strong> {channels.includes("email") ? "YES" : "NO"}</div>
                 <div><strong>Estimated Batches:</strong> {Math.max(1, Math.ceil(estimatedRecipients / 50))}</div>
-                <div><strong>Idempotency:</strong> Guaranteed</div>
+                <div><strong>Idempotency:</strong> Guaranteed (campaign:user:channel)</div>
               </div>
             </div>
 
-            <p className="text-xs text-slate-500 leading-relaxed">
-              This message will be dispatched immediately in bounded batches to all {estimatedRecipients.toLocaleString()} matched users. Successful deliveries are tracked idempotently.
+            <p className="text-xs text-slate-600 leading-relaxed">
+              You&apos;re about to send this announcement to <strong>{estimatedRecipients.toLocaleString()} active registered users</strong> across {channels.join(" & ")}. Deliveries are processed in rate-limited batches with independent channel retry.
             </p>
 
             <div className="flex items-center justify-end gap-2 pt-2">

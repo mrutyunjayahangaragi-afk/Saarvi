@@ -3,6 +3,7 @@ import { providerFactory } from '../notifications/providers/provider-factory';
 import { getSupabaseAdminClient } from '../supabase/admin';
 import { isSupabaseConfigured } from '../supabase/config';
 import { NotificationAudienceService, AuthoritativeUserRecipient } from './notification-audience-service';
+import { JobsFeatureControl } from '../jobs/feature-control';
 import {
   generateSaarviEmailHtml,
   generateSaarviEmailPlainText,
@@ -152,12 +153,42 @@ export class NotificationCenterService {
       throw new Error('Forbidden: Administrative privileges required.');
     }
 
-    // 2. Validate URL safety (Prevent javascript:, data:, and open redirects)
+    // 2. Validate URL safety (Prevent javascript:, data:, and open redirects; enforce internal / or https://)
     if (payload.cta_url) {
-      const url = payload.cta_url.trim().toLowerCase();
-      if (url.startsWith('javascript:') || url.startsWith('data:') || url.startsWith('vbscript:')) {
+      const url = payload.cta_url.trim();
+      const lower = url.toLowerCase();
+      if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('vbscript:')) {
         throw new Error('Invalid CTA URL: Dangerous scheme detected.');
       }
+      if (!url.startsWith('/') && !url.startsWith('https://')) {
+        throw new Error('Invalid CTA URL: Must be an internal path (/) or secure HTTPS URL (https://).');
+      }
+    }
+
+    // 2b. Feature Flag Check for Career / Jobs announcements
+    const isCareerAnnouncement =
+      (payload.cta_url && payload.cta_url.includes('/jobs')) ||
+      (payload.title && (payload.title.includes('Jobs') || payload.title.includes('Internships') || payload.title.includes('Career')));
+
+    if (isCareerAnnouncement) {
+      const jobsSettings = JobsFeatureControl.getSettings();
+      if (jobsSettings.mode === 'DISABLED' || !jobsSettings.enabled) {
+        throw new Error(
+          'Jobs & Internships is not currently enabled. Enable the feature before publishing this announcement.'
+        );
+      }
+    }
+
+    // 2c. Duplicate Campaign Protection
+    const existing = MockStorageProvider.getNotifications();
+    const isDuplicate = existing.some(
+      (n) =>
+        (n.status === 'SENT' || n.status === 'PROCESSING') &&
+        ((payload.type && n.type === payload.type) ||
+          n.title.trim().toLowerCase() === payload.title.trim().toLowerCase())
+    );
+    if (isDuplicate && !payload.isDraft && !(payload as any).allowDuplicate) {
+      throw new Error('This announcement has already been published.');
     }
 
     // 3. Check System Settings

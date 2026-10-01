@@ -303,11 +303,11 @@ export default function GlobalSearchModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-150 flex flex-col max-h-[85vh]"
+        className="w-full max-w-2xl bg-white dark:bg-[#111c38] rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-700/80 overflow-hidden animate-in zoom-in-95 duration-150 flex flex-col max-h-[85vh] relative ring-1 ring-blue-500/15"
       >
         {/* Search Header Bar */}
-        <div className="relative flex items-center border-b border-slate-100 p-4 sm:p-5">
-          <Search className="w-5 h-5 text-slate-400 shrink-0 mr-3" />
+        <div className="relative flex items-center border-b border-slate-100 dark:border-slate-800 p-4 sm:p-5 bg-gradient-to-b from-blue-50/30 to-white dark:from-blue-950/20 dark:to-[#111c38]">
+          <Search className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mr-3" />
           <input
             ref={inputRef}
             type="text"
@@ -322,7 +322,7 @@ export default function GlobalSearchModal({
             }}
             onKeyDown={handleKeyDown}
             placeholder="Search tools, SGPA, resume builder, mock interview, guides..."
-            className="w-full bg-transparent text-slate-900 placeholder:text-slate-400 text-sm sm:text-base font-normal outline-none"
+            className="w-full bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-sm sm:text-base font-normal outline-none"
           />
 
           {query && (
@@ -332,24 +332,24 @@ export default function GlobalSearchModal({
                 setQuery("");
                 inputRef.current?.focus();
               }}
-              className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors mr-2 cursor-pointer"
+              className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors mr-2 cursor-pointer"
               aria-label="Clear search query"
             >
               <X className="w-4 h-4" />
             </button>
           )}
 
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-[11px] text-slate-500 font-semibold shadow-2xs">
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 font-semibold shadow-2xs">
             {isMac ? "Cmd + K" : "Ctrl + K"}
           </kbd>
         </div>
 
         {/* Recent Searches (shown when query is empty and recent searches exist) */}
         {!query && recentSearches.length > 0 && (
-          <div className="p-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-xs">
+          <div className="p-3.5 bg-slate-50 dark:bg-[#0b1329] border-b border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
             <div className="flex items-center gap-2 overflow-x-auto py-0.5">
               <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <span className="text-[11px] font-bold text-slate-500 shrink-0">Recent:</span>
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">Recent:</span>
               {recentSearches.map((term, i) => (
                 <button
                   key={i}
@@ -358,7 +358,7 @@ export default function GlobalSearchModal({
                     setQuery(term);
                     setSelectedIndex(0);
                   }}
-                  className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors shrink-0 font-medium text-xs cursor-pointer"
+                  className="px-2 py-0.5 rounded-md bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-950/60 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-200 dark:hover:border-blue-800 transition-colors shrink-0 font-medium text-xs cursor-pointer"
                 >
                   {term}
                 </button>
@@ -378,12 +378,12 @@ export default function GlobalSearchModal({
         )}
 
         {/* Results List */}
-        <div id="search-results-list" role="listbox" className="flex-1 overflow-y-auto p-2 divide-y divide-slate-50">
+        <div id="search-results-list" role="listbox" className="flex-1 overflow-y-auto p-2 divide-y divide-slate-50 dark:divide-slate-800/60">
           {totalItems === 0 ? (
-            <div className="p-12 text-center text-slate-500">
-              <Search className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-              <p className="text-sm font-bold text-slate-800">No matching results</p>
-              <p className="text-xs text-slate-400 mt-1">
+            <div className="p-12 text-center text-slate-500 dark:text-slate-400">
+              <Search className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+              <p className="text-sm font-bold text-slate-800 dark:text-slate-200">No matching results</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                 Try searching for “SGPA”, “Resume”, “PDF to JPG”, “Mock Interview”, or “ACID”.
               </p>
             </div>
@@ -401,8 +401,8 @@ export default function GlobalSearchModal({
                   onMouseEnter={() => setSelectedIndex(index)}
                   className={`min-h-[44px] p-3 rounded-2xl flex items-center justify-between gap-3 cursor-pointer transition-colors ${
                     isSelected
-                      ? "bg-blue-50/80 border border-blue-200 shadow-xs"
-                      : "hover:bg-slate-50 border border-transparent"
+                      ? "bg-blue-50/80 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 shadow-xs"
+                      : "hover:bg-slate-50 dark:hover:bg-slate-800/40 border border-transparent"
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -410,7 +410,7 @@ export default function GlobalSearchModal({
                       className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                         isSelected
                           ? "bg-blue-600 text-white"
-                          : "bg-slate-100 text-slate-600"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
                       }`}
                     >
                       <IconComponent className="w-4 h-4" />
@@ -418,16 +418,16 @@ export default function GlobalSearchModal({
 
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                        <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
                           {item.title}
                         </span>
                         {item.badge && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 shrink-0">
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 shrink-0">
                             {item.badge}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 truncate mt-0.5">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
                         {item.description}
                       </p>
                     </div>
@@ -435,9 +435,9 @@ export default function GlobalSearchModal({
 
                   <div className="shrink-0 text-slate-400">
                     {isSelected ? (
-                      <CornerDownLeft className="w-4 h-4 text-blue-600" />
+                      <CornerDownLeft className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     ) : (
-                      <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
+                      <ArrowRight className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600" />
                     )}
                   </div>
                 </div>
@@ -447,7 +447,7 @@ export default function GlobalSearchModal({
         </div>
 
         {/* Footer Navigation Hints */}
-        <div className="p-3 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between text-[11px] text-slate-500">
+        <div className="p-3 bg-slate-50 dark:bg-[#0b1329] border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-3">
             <span>
               Press <kbd className="px-1 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono">↑</kbd> <kbd className="px-1 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono">↓</kbd> to navigate

@@ -137,7 +137,7 @@ export default function PlatformInteractiveShowcase() {
               <div className="pt-3">
                 <Link
                   href="/student/sgpa-calculator"
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all"
+                  className="saarvi-btn-primary px-5 py-3 text-xs font-bold shadow-xs hover:shadow-md transition-all gap-2"
                 >
                   <span>Open Full SGPA Calculator</span>
                   <ArrowRight className="w-4 h-4" />
@@ -267,7 +267,7 @@ export default function PlatformInteractiveShowcase() {
               <div className="pt-3">
                 <Link
                   href="/tools"
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all"
+                  className="saarvi-btn-primary px-5 py-3 text-xs font-bold shadow-xs hover:shadow-md transition-all gap-2"
                 >
                   <span>Explore Document Tools</span>
                   <ArrowRight className="w-4 h-4" />
@@ -349,7 +349,7 @@ export default function PlatformInteractiveShowcase() {
               <div className="pt-3">
                 <Link
                   href="/student/resume"
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all"
+                  className="saarvi-btn-primary px-5 py-3 text-xs font-bold shadow-xs hover:shadow-md transition-all gap-2"
                 >
                   <span>Launch Resume Builder 2.0</span>
                   <ArrowRight className="w-4 h-4" />

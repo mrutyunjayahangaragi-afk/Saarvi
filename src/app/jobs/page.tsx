@@ -1139,7 +1139,7 @@ function JobsContent() {
     return (
       <div
         key={job.id}
-        className="group bg-white rounded-2xl border border-slate-200/90 hover:border-slate-300 hover:shadow-md transition-all p-5 flex flex-col justify-between space-y-4 relative"
+        className="group bg-white rounded-2xl border border-slate-200/90 hover:border-blue-300 shadow-2xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 p-5 sm:p-6 flex flex-col justify-between space-y-4 relative"
       >
         <div className="space-y-3">
           {/* Header Row: Company Logo/Initials, Role, Badges, Save Button */}
@@ -1157,7 +1157,7 @@ function JobsContent() {
                     }}
                   />
                 ) : (
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-600 text-xs">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50/80 border border-blue-100 flex items-center justify-center font-bold text-blue-700 text-xs">
                     {job.companyName ? job.companyName.slice(0, 2).toUpperCase() : "JB"}
                   </div>
                 )}
@@ -1329,16 +1329,16 @@ function JobsContent() {
 
             <Link
               href={`/jobs/${job.id}`}
-              className="px-3 py-1.5 rounded-xl border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50 transition"
+              className="px-3.5 py-1.5 rounded-xl border border-slate-200/90 font-semibold text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all text-xs shadow-2xs"
             >
-              View
+              View Opportunity
             </Link>
 
             <a
               href={job.applyUrl}
               target="_blank"
               rel="noreferrer noopener"
-              className={`px-3.5 py-1.5 rounded-xl font-bold transition flex items-center gap-1 shadow-2xs ${activeTheme.primary.btnClass}`}
+              className={`saarvi-btn-primary px-4 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 shadow-2xs text-xs`}
             >
               <span>Apply</span>
               <ExternalLink className="w-3.5 h-3.5" />
@@ -1370,13 +1370,13 @@ function JobsContent() {
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 mb-2">
                 <Briefcase className="w-3.5 h-3.5 text-blue-600" />
-                Career Search
+                <span>Career &amp; Internships Dashboard</span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+              <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
                 Find opportunities that fit you
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl">
-                Choose what you&apos;re looking for and Saarvi will find relevant opportunities.
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl leading-relaxed">
+                Discover internships, jobs, and opportunities built for students and early-career developers. Choose what you&apos;re looking for and Saarvi will find relevant opportunities.
               </p>
             </div>
 
@@ -1424,6 +1424,81 @@ function JobsContent() {
                 <span>Tracker</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </Link>
+            </div>
+          </div>
+
+          {/* SECTION 11: Real-Data Opportunity Summary Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+            <div className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/90 shadow-2xs hover:border-teal-200 hover:bg-teal-50/20 transition-all flex flex-col justify-between">
+              <span className="text-[11px] font-bold text-teal-700 uppercase tracking-wider flex items-center gap-1.5">
+                <GraduationCap className="w-3.5 h-3.5" /> Internships
+              </span>
+              <div className="mt-2">
+                {hasSearched ? (
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-xl font-black text-slate-900">
+                      {jobs.filter((j) => j.isInternship || j.employmentType === "internship").length}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">available</span>
+                  </div>
+                ) : (
+                  <span className="text-xs font-semibold text-slate-600 block">Summer &amp; semester roles</span>
+                )}
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/90 shadow-2xs hover:border-blue-200 hover:bg-blue-50/20 transition-all flex flex-col justify-between">
+              <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Briefcase className="w-3.5 h-3.5" /> Full-Time Jobs
+              </span>
+              <div className="mt-2">
+                {hasSearched ? (
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-xl font-black text-slate-900">
+                      {jobs.filter((j) => !j.isInternship && j.employmentType !== "internship").length}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">available</span>
+                  </div>
+                ) : (
+                  <span className="text-xs font-semibold text-slate-600 block">Entry-level &amp; fresher roles</span>
+                )}
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/90 shadow-2xs hover:border-emerald-200 hover:bg-emerald-50/20 transition-all flex flex-col justify-between">
+              <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5" /> Remote Opportunities
+              </span>
+              <div className="mt-2">
+                {hasSearched ? (
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-xl font-black text-slate-900">
+                      {jobs.filter((j) => j.remoteType === "remote").length}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">available</span>
+                  </div>
+                ) : (
+                  <span className="text-xs font-semibold text-slate-600 block">Work from home / anywhere</span>
+                )}
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/90 shadow-2xs hover:border-purple-200 hover:bg-purple-50/20 transition-all flex flex-col justify-between">
+              <span className="text-[11px] font-bold text-purple-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" /> Verified Listings
+              </span>
+              <div className="mt-2">
+                {hasSearched ? (
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-xl font-black text-slate-900">
+                      {verifiedJobs.length || jobs.filter((j) => j.verificationTier === "SAARVI_VERIFIED" || j.verifiedStatus === "verified").length}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">vetted</span>
+                  </div>
+                ) : (
+                  <span className="text-xs font-semibold text-slate-600 block">Saarvi verified criteria</span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -2358,10 +2433,22 @@ function JobsContent() {
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[1, 2, 3, 4].map((n) => (
-                  <div key={n} className="p-6 bg-white border border-slate-200 rounded-2xl space-y-4 animate-pulse">
-                    <div className="h-5 w-3/4 bg-slate-200 rounded" />
-                    <div className="h-3 w-1/2 bg-slate-200 rounded" />
-                    <div className="h-10 w-full bg-slate-100 rounded" />
+                  <div key={n} className="p-6 bg-white border border-slate-200/90 rounded-2xl space-y-4 shadow-2xs">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl skeleton-shimmer shrink-0" />
+                      <div className="space-y-1.5 flex-1">
+                        <div className="h-4 w-3/4 skeleton-shimmer rounded-md" />
+                        <div className="h-3 w-1/3 skeleton-shimmer rounded-md" />
+                      </div>
+                    </div>
+                    <div className="space-y-2 pt-1">
+                      <div className="h-3 w-full skeleton-shimmer rounded-md" />
+                      <div className="h-3 w-4/5 skeleton-shimmer rounded-md" />
+                    </div>
+                    <div className="pt-2 flex items-center justify-between border-t border-slate-100">
+                      <div className="h-3 w-1/4 skeleton-shimmer rounded-md" />
+                      <div className="h-8 w-24 skeleton-shimmer rounded-xl" />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -2373,8 +2460,10 @@ function JobsContent() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 p-8 space-y-3">
-                  <GraduationCap className="w-10 h-10 text-slate-300 mx-auto" />
+                <div className="text-center py-12 bg-white rounded-2xl border border-slate-200/90 p-8 space-y-3 shadow-2xs">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mx-auto border border-purple-100">
+                    <GraduationCap className="w-6 h-6" />
+                  </div>
                   <h3 className="text-sm font-bold text-slate-800">No training programs match your criteria</h3>
                   <p className="text-xs text-slate-500 max-w-sm mx-auto">
                     Try adjusting your filters or search keywords.
@@ -2383,8 +2472,10 @@ function JobsContent() {
               )
             ) : jobs.length === 0 ? (
               /* Differentiated Empty State */
-              <div className="text-center py-14 bg-white rounded-2xl border border-slate-200 p-8 space-y-4">
-                <Briefcase className="w-10 h-10 text-slate-300 mx-auto" />
+              <div className="text-center py-14 bg-white rounded-2xl border border-slate-200/90 p-8 space-y-4 shadow-2xs">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto border border-blue-100">
+                  <Briefcase className="w-6 h-6" />
+                </div>
 
                 {appliedFilters.length > 0 ? (
                   /* Case B: Filter Mismatch */
@@ -2395,7 +2486,7 @@ function JobsContent() {
                     <p className="text-xs text-slate-500 leading-relaxed">
                       {liveCount && liveCount > 0
                         ? `There are ${liveCount} live opportunities in the platform. Try broadening your criteria or removing one of your filters.`
-                        : "Try removing a filter or adjusting your search query to see all available opportunities."}
+                        : "Try adjusting your filters or search terms to see all available opportunities."}
                     </p>
                     <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
                       {appliedFilters.map((chip) => (
@@ -2403,7 +2494,7 @@ function JobsContent() {
                           key={chip.key}
                           type="button"
                           onClick={chip.onRemove}
-                          className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition cursor-pointer"
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition cursor-pointer"
                         >
                           Remove {chip.label} ×
                         </button>
@@ -2411,7 +2502,7 @@ function JobsContent() {
                       <button
                         type="button"
                         onClick={handleClearAllFilters}
-                        className="px-4 py-1 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition cursor-pointer"
+                        className="saarvi-btn-primary px-4 py-1.5 text-xs font-semibold shadow-2xs cursor-pointer"
                       >
                         Clear All Filters
                       </button>
