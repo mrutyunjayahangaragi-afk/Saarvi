@@ -360,6 +360,7 @@ export default function SettingsPage() {
         >
           Go to Profile → Delete Account
         </a>
+      </div>
     </div>
   );
 }
