@@ -101,9 +101,9 @@ export default function AdminSearchModal({ isOpen, onClose }: AdminSearchModalPr
       role="dialog"
       aria-modal="true"
     >
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-xl w-full overflow-hidden flex flex-col max-h-[80vh]">
+      <div className="bg-white dark:bg-[#111c38] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-xl w-full overflow-hidden flex flex-col max-h-[80vh]">
         {/* Search Input */}
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-200">
+        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-200 dark:border-slate-800">
           <Search className="w-5 h-5 text-slate-400 shrink-0" />
           <input
             ref={inputRef}
@@ -111,28 +111,28 @@ export default function AdminSearchModal({ isOpen, onClose }: AdminSearchModalPr
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search tools, curriculum, users, announcements, errors, settings..."
-            className="flex-1 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
+            className="flex-1 bg-transparent text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
           />
           {query && (
             <button
               onClick={() => setQuery('')}
-              className="text-xs text-slate-400 hover:text-slate-600 p-1"
+              className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
             >
               Clear
             </button>
           )}
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+            className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Search Results */}
-        <div className="overflow-y-auto p-2 divide-y divide-slate-100">
+        <div className="overflow-y-auto p-2 divide-y divide-slate-100 dark:divide-slate-800">
           {filtered.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-500">
+            <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400">
               No matching administrative resources found for &quot;{query}&quot;.
             </div>
           ) : (
@@ -142,20 +142,20 @@ export default function AdminSearchModal({ isOpen, onClose }: AdminSearchModalPr
                 <button
                   key={item.id}
                   onClick={() => handleSelect(item.route)}
-                  className="w-full text-left flex items-center justify-between p-3 rounded-xl hover:bg-blue-50/60 hover:text-blue-900 transition-colors group cursor-pointer"
+                  className="w-full text-left flex items-center justify-between p-3 rounded-xl hover:bg-blue-50/60 dark:hover:bg-blue-950/40 hover:text-blue-900 dark:hover:text-blue-200 transition-colors group cursor-pointer"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-blue-100 group-hover:text-blue-600 text-slate-600 flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/60 group-hover:text-blue-600 dark:group-hover:text-blue-400 text-slate-600 dark:text-slate-400 flex items-center justify-center shrink-0">
                       <Icon className="w-4 h-4" />
                     </div>
                     <div className="truncate">
-                      <div className="text-xs font-semibold text-slate-800 group-hover:text-blue-700 truncate">
+                      <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-blue-700 dark:group-hover:text-blue-300 truncate">
                         {item.title}
                       </div>
-                      <div className="text-[11px] text-slate-500">{item.category}</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">{item.category}</div>
                     </div>
                   </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-600 shrink-0 ml-2" />
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 group-hover:text-blue-600 dark:group-hover:text-blue-400 shrink-0 ml-2" />
                 </button>
               );
             })
@@ -163,9 +163,9 @@ export default function AdminSearchModal({ isOpen, onClose }: AdminSearchModalPr
         </div>
 
         {/* Footer info */}
-        <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 flex items-center justify-between">
+        <div className="px-4 py-2 bg-slate-50 dark:bg-[#0b1329]/80 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
           <span>Esc to close</span>
-          <span className="text-emerald-700 font-medium">Privacy Safe: User local workspace data is never indexed</span>
+          <span className="text-emerald-700 dark:text-emerald-400 font-medium">Privacy Safe: User local workspace data is never indexed</span>
         </div>
       </div>
     </div>

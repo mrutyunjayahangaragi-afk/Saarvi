@@ -159,8 +159,8 @@ export default function SmartFileUpload({
         data-saarvi-target="upload-box"
         className={`relative cursor-pointer rounded-3xl border-2 border-dashed p-8 sm:p-12 text-center transition-all duration-200 hover-3d-lift ${
           isDragging
-            ? "border-blue-600 bg-blue-50/80 shadow-lg scale-[1.01]"
-            : "border-slate-300 hover:border-blue-400 bg-white hover:bg-slate-50 shadow-xs"
+            ? "border-blue-600 bg-blue-50/80 dark:bg-blue-950/40 shadow-lg scale-[1.01]"
+            : "border-slate-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 bg-white dark:bg-[#111c38] hover:bg-slate-50 dark:hover:bg-[#162244] shadow-xs"
         }`}
       >
         <input
@@ -178,22 +178,22 @@ export default function SmartFileUpload({
             className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-xs transition-transform duration-200 ${
               isDragging
                 ? "bg-blue-600 text-white scale-110"
-                : "bg-blue-50 text-blue-600 border border-blue-100"
+                : "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800"
             }`}
           >
             <Upload className="w-7 h-7" />
           </div>
 
           <div className="space-y-1">
-            <p className="text-base sm:text-lg font-bold text-slate-800">
+            <p className="text-base sm:text-lg font-bold text-slate-800 dark:text-white">
               {isDragging ? (
-                <span className="text-blue-600">Drop files here</span>
+                <span className="text-blue-600 dark:text-blue-400">Drop files here</span>
               ) : (
                 label || <span>Drop your {allowsMultiple ? "files" : "file"} here</span>
               )}
             </p>
 
-            <p className="text-xs text-slate-400 font-medium">
+            <p className="text-xs text-slate-400 dark:text-slate-400 font-medium">
               {sublabel || "or click to choose from your device"}
             </p>
 
@@ -206,13 +206,13 @@ export default function SmartFileUpload({
             )}
           </div>
 
-          <div className="pt-2 flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-            <Lock className="w-3.5 h-3.5 text-emerald-600" />
+          <div className="pt-2 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+            <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             <span>100% Private · Processed locally in browser</span>
           </div>
 
           {supportedFormats.length > 0 && (
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">
               Supported: {supportedFormats.join(", ")} · Max {maxSizeMB}MB
             </p>
           )}
@@ -226,9 +226,9 @@ export default function SmartFileUpload({
           data-saarvi-target="tool-error"
           role="alert"
           tabIndex={-1}
-          className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-3 animate-in fade-in"
+          className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 text-rose-800 dark:text-rose-200 text-xs flex items-center gap-3 animate-in fade-in"
         >
-          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
           <span className="font-medium">{errorMessage}</span>
         </div>
       )}

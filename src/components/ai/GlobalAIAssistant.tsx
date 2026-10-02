@@ -260,7 +260,7 @@ export default function GlobalAIAssistant() {
         <div
           role="dialog"
           aria-label="Saarvi AI Assistant"
-          className="w-[360px] sm:w-[420px] max-w-[calc(100vw-32px)] h-[580px] max-h-[min(600px,calc(100vh-100px))] flex flex-col bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200 select-none"
+          className="w-[360px] sm:w-[420px] max-w-[calc(100vw-32px)] h-[580px] max-h-[min(600px,calc(100vh-100px))] flex flex-col bg-white dark:bg-[#111c38] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200 select-none"
         >
           {/* Header */}
           <div className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-between shrink-0 shadow-sm">
@@ -304,7 +304,7 @@ export default function GlobalAIAssistant() {
           </div>
 
           {/* Messages Container */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50 dark:bg-[#0b1329]/70">
             {messages.map((msg) => (
               <div
                 key={msg.id}
@@ -317,15 +317,15 @@ export default function GlobalAIAssistant() {
                     msg.sender === 'user'
                       ? 'bg-blue-600 text-white rounded-br-sm'
                       : msg.isError
-                      ? 'bg-red-50 text-red-800 border border-red-200 rounded-bl-sm'
-                      : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-sm'
+                      ? 'bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800 rounded-bl-sm'
+                      : 'bg-white dark:bg-[#162244] text-slate-800 dark:text-slate-100 border border-slate-200/80 dark:border-slate-700 rounded-bl-sm'
                   }`}
                 >
                   <div className="whitespace-pre-wrap">{msg.text}</div>
 
                   {/* Copy button for assistant responses */}
                   {msg.sender === 'assistant' && !msg.isError && (
-                    <div className="mt-2 pt-1.5 flex justify-end border-t border-slate-100">
+                    <div className="mt-2 pt-1.5 flex justify-end border-t border-slate-100 dark:border-slate-800">
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(msg.text);
@@ -334,12 +334,12 @@ export default function GlobalAIAssistant() {
                         }}
                         aria-label="Copy response"
                         title="Copy response"
-                        className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors cursor-pointer"
                       >
                         {copiedMessageId === msg.id ? (
                           <>
-                            <Check className="w-3 h-3 text-emerald-600" />
-                            <span className="text-emerald-600 font-medium">Copied</span>
+                            <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                            <span className="text-emerald-600 dark:text-emerald-400 font-medium">Copied</span>
                           </>
                         ) : (
                           <>
@@ -353,7 +353,7 @@ export default function GlobalAIAssistant() {
 
                   {/* Retry action for error state */}
                   {msg.isError && lastUserPrompt && (
-                    <div className="mt-2.5 pt-2 border-t border-red-200/60 flex justify-end">
+                    <div className="mt-2.5 pt-2 border-t border-red-200/60 dark:border-red-900/60 flex justify-end">
                       <button
                         onClick={handleRetry}
                         disabled={isSearching}
@@ -367,35 +367,35 @@ export default function GlobalAIAssistant() {
 
                   {/* Tool Discovery Cards */}
                   {msg.result && msg.result.tools && msg.result.tools.length > 0 && (
-                    <div className="mt-3 space-y-2 pt-2 border-t border-slate-100">
+                    <div className="mt-3 space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                       {msg.result.tools.map((tool) => (
                         <div
                           key={tool.key}
-                          className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 hover:border-blue-200 transition-colors"
+                          className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-700 transition-colors"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <div className="font-bold text-slate-900 text-xs truncate">
+                              <div className="font-bold text-slate-900 dark:text-white text-xs truncate">
                                 {tool.name}
                               </div>
-                              <div className="text-[10px] text-blue-600 font-medium">
+                              <div className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
                                 {tool.categoryName}
                               </div>
                             </div>
 
                             {tool.requiresPro && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 shrink-0">
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 shrink-0">
                                 PRO
                               </span>
                             )}
                             {tool.isDisabled && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-200 text-slate-700 shrink-0">
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 shrink-0">
                                 UNAVAILABLE
                               </span>
                             )}
                           </div>
 
-                          <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
                             {tool.description}
                           </p>
 
@@ -430,10 +430,10 @@ export default function GlobalAIAssistant() {
 
                   {/* Category Route Button */}
                   {msg.result && msg.result.categoryRoute && (
-                    <div className="mt-2 pt-2 border-t border-slate-100 flex justify-end">
+                    <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
                       <button
                         onClick={() => handleNavigate(msg.result!.categoryRoute!)}
-                        className="min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold cursor-pointer"
+                        className="min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white text-[11px] font-bold cursor-pointer"
                       >
                         Open {msg.result.categoryName || 'Category'}
                         <ArrowRight className="w-3 h-3" />
@@ -458,12 +458,12 @@ export default function GlobalAIAssistant() {
           </div>
 
           {/* Suggested Prompts Chips */}
-          <div className="px-3 py-2 bg-white border-t border-slate-100 overflow-x-auto flex items-center gap-1.5 no-scrollbar shrink-0">
+          <div className="px-3 py-2 bg-white dark:bg-[#111c38] border-t border-slate-100 dark:border-slate-800 overflow-x-auto flex items-center gap-1.5 no-scrollbar shrink-0">
             {QUICK_PROMPTS.map((prompt, idx) => (
               <button
                 key={idx}
                 onClick={() => handleSendMessage(prompt)}
-                className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[11px] font-medium transition-colors shrink-0 cursor-pointer"
+                className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-700 dark:hover:text-blue-300 text-slate-600 dark:text-slate-300 text-[11px] font-medium transition-colors shrink-0 cursor-pointer"
               >
                 {prompt}
               </button>
@@ -476,7 +476,7 @@ export default function GlobalAIAssistant() {
               e.preventDefault();
               handleSendMessage();
             }}
-            className="p-3 bg-white border-t border-slate-200 flex items-center gap-2 shrink-0"
+            className="p-3 bg-white dark:bg-[#111c38] border-t border-slate-200 dark:border-slate-800 flex items-center gap-2 shrink-0"
           >
             <input
               ref={inputFieldRef}
@@ -484,7 +484,7 @@ export default function GlobalAIAssistant() {
               placeholder="Ask Saarvi AI..."
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder:text-slate-400 text-slate-800"
+              className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-800 dark:text-slate-100"
             />
             <button
               type="submit"

@@ -114,8 +114,8 @@ export default function FileDropzone({
         onClick={() => inputRef.current?.click()}
         className={`relative flex flex-col items-center justify-center p-8 sm:p-12 border-2 border-dashed rounded-2xl cursor-pointer text-center transition-colors ${
           isDragging
-            ? "border-blue-500 bg-blue-50/50"
-            : "border-slate-300 hover:border-slate-400 bg-slate-50/50 hover:bg-slate-50"
+            ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/40"
+            : "border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 bg-slate-50/50 dark:bg-[#111c38]/50 hover:bg-slate-50 dark:hover:bg-[#111c38]"
         }`}
       >
         <input
@@ -127,14 +127,14 @@ export default function FileDropzone({
           accept={supportedFormats.map((f) => `.${f.toLowerCase()}`).join(",")}
         />
 
-        <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 shadow-xs flex items-center justify-center text-blue-600 mb-3">
+        <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs flex items-center justify-center text-blue-600 dark:text-blue-400 mb-3">
           <Upload className="w-6 h-6" />
         </div>
 
-        <h3 className="text-base font-semibold text-slate-800 mb-1">
+        <h3 className="text-base font-semibold text-slate-800 dark:text-white mb-1">
           Drag & drop your {supportedFormats.join(" / ")} here
         </h3>
-        <p className="text-xs text-slate-500 mb-4">or choose a file from your device</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">or choose a file from your device</p>
 
         <button
           type="button"
@@ -143,7 +143,7 @@ export default function FileDropzone({
           Choose File
         </button>
 
-        <div className="mt-4 text-[11px] text-slate-400 font-medium">
+        <div className="mt-4 text-[11px] text-slate-400 dark:text-slate-500 font-medium">
           Supported: {supportedFormats.join(", ")} • Max size: {maxSizeMB}MB
         </div>
       </div>
@@ -154,7 +154,7 @@ export default function FileDropzone({
           id="dropzone-error"
           data-saarvi-target="tool-error"
           tabIndex={-1}
-          className="scroll-mt-24 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2 outline-hidden"
+          className="scroll-mt-24 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl text-xs text-red-700 dark:text-red-300 flex items-center gap-2 outline-hidden"
         >
           <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
           <span>{errorMessage}</span>
@@ -167,25 +167,25 @@ export default function FileDropzone({
           id="dropzone-selected-files"
           data-saarvi-target="selected-file"
           tabIndex={-1}
-          className="scroll-mt-24 p-4 bg-white border border-slate-200 rounded-2xl space-y-4 outline-hidden"
+          className="scroll-mt-24 p-4 bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-800 rounded-2xl space-y-4 outline-hidden"
         >
-          <div className="text-xs font-semibold text-slate-700">Selected File</div>
+          <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">Selected File</div>
 
           <div className="space-y-2">
             {files.map((file, idx) => (
               <div
                 key={`${file.name}-${idx}`}
-                className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-xs"
+                className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700 text-xs"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-600 shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 shrink-0">
                     <FileIcon className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <div className="font-semibold text-slate-800 truncate" title={file.name}>
+                    <div className="font-semibold text-slate-800 dark:text-white truncate" title={file.name}>
                       {file.name}
                     </div>
-                    <div className="text-[11px] text-slate-400">
+                    <div className="text-[11px] text-slate-400 dark:text-slate-500">
                       {formatBytes(file.size)} • {file.type || "Document"}
                     </div>
                   </div>
@@ -197,7 +197,7 @@ export default function FileDropzone({
                     e.stopPropagation();
                     removeFile(idx);
                   }}
-                  className="p-1 text-slate-400 hover:text-red-600 rounded-lg hover:bg-white"
+                  className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-white dark:hover:bg-slate-700 transition-colors"
                   title="Remove file"
                   aria-label="Remove file"
                 >
@@ -212,17 +212,17 @@ export default function FileDropzone({
             <button
               type="button"
               onClick={handleActionClick}
-              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               {actionLabel}
             </button>
 
             {showPhaseNotice && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 flex items-start gap-2 animate-in fade-in">
-                <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl text-xs text-blue-800 dark:text-blue-200 flex items-start gap-2 animate-in fade-in">
+                <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                 <div>
                   <div className="font-semibold">Phase 1 UI Foundation Mode</div>
-                  <div className="text-[11px] text-blue-700 mt-0.5">
+                  <div className="text-[11px] text-blue-700 dark:text-blue-300 mt-0.5">
                     File selection and UI verification are fully functional. Production file processing engines are scheduled for Phase 2.
                   </div>
                 </div>

@@ -149,7 +149,7 @@ export default async function ToolPage({ params }: PageProps) {
   const faqSchema = tool.faq && tool.faq.length > 0 ? generateFaqSchema(tool.faq) : null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900">
+    <div className="min-h-screen flex flex-col bg-[#f8fafc] dark:bg-[#0b1329] text-slate-900 dark:text-white">
       {/* Search Engine Structured Data */}
       <script
         type="application/ld+json"
@@ -170,7 +170,7 @@ export default async function ToolPage({ params }: PageProps) {
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 space-y-10">
         {/* Breadcrumb Navigation */}
-        <nav className="flex items-center gap-1.5 text-xs text-slate-500" aria-label="Breadcrumb">
+        <nav className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400" aria-label="Breadcrumb">
           <Link href="/" className="hover:text-blue-600 transition-colors">
             Home
           </Link>
@@ -179,20 +179,20 @@ export default async function ToolPage({ params }: PageProps) {
             Tools
           </Link>
           <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-          <span className="font-semibold text-slate-800">{tool.name}</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200">{tool.name}</span>
         </nav>
 
         {/* TOOL PAGE HERO: Immediate tool presence, H1, value proposition, and privacy badge */}
         <div className="text-center space-y-3.5 max-w-2xl mx-auto">
-          <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 mx-auto shadow-xs hover-3d-lift">
+          <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 mx-auto shadow-xs hover-3d-lift">
             <IconComponent className="w-7 h-7" />
           </div>
 
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
             {seo.h1}
           </h1>
 
-          <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-normal">
+          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed font-normal">
             {seo.valueProposition}
           </p>
 
@@ -204,13 +204,13 @@ export default async function ToolPage({ params }: PageProps) {
           <div className="flex flex-wrap items-center justify-center gap-2 pt-2 text-xs">
             <span className="font-semibold text-slate-500">Input:</span>
             {seo.supportedInputs.map((fmt, i) => (
-              <span key={i} className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium border border-slate-200">
+              <span key={i} className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium border border-slate-200 dark:border-slate-700">
                 {fmt}
               </span>
             ))}
             <span className="font-semibold text-slate-500 ml-2">Output:</span>
             {seo.supportedOutputs.map((fmt, i) => (
-              <span key={i} className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium border border-blue-200">
+              <span key={i} className="px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-medium border border-blue-200 dark:border-blue-800">
                 {fmt}
               </span>
             ))}
@@ -225,17 +225,17 @@ export default async function ToolPage({ params }: PageProps) {
                 <Lock className="w-6 h-6" />
               </div>
               <div className="space-y-1 max-w-md mx-auto">
-                <h3 className="text-base font-bold text-slate-800">
+                <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
                   {tool.name} is Temporarily Unavailable
                 </h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
+                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                   This tool has been temporarily disabled by platform administrators. Please check back soon or explore our other available tools.
                 </p>
               </div>
               <div className="pt-2">
                 <Link
                   href="/tools"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs hover-3d-lift"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#162244] transition-colors shadow-xs hover-3d-lift"
                 >
                   <span>Explore Other Tools</span>
                   <ChevronRight className="w-3.5 h-3.5" />
@@ -248,17 +248,17 @@ export default async function ToolPage({ params }: PageProps) {
                 <RefreshCw className="w-6 h-6 animate-spin" />
               </div>
               <div className="space-y-1 max-w-md mx-auto">
-                <h3 className="text-base font-bold text-slate-800">
+                <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
                   {tool.name} Under Maintenance
                 </h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
+                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                   We are currently performing scheduled maintenance on this tool. It will be back online shortly.
                 </p>
               </div>
               <div className="pt-2">
                 <Link
                   href="/tools"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs hover-3d-lift"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#162244] transition-colors shadow-xs hover-3d-lift"
                 >
                   <span>Browse Available Tools</span>
                   <ChevronRight className="w-3.5 h-3.5" />
@@ -273,17 +273,17 @@ export default async function ToolPage({ params }: PageProps) {
                 <Sparkles className="w-6 h-6" />
               </div>
               <div className="space-y-1 max-w-md mx-auto">
-                <h3 className="text-base font-bold text-slate-800">
+                <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
                   {tool.name} is Coming Soon
                 </h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
+                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                   We are actively building this utility to run smoothly and privately in your browser.
                 </p>
               </div>
               <div className="pt-2">
                 <Link
                   href="/tools"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs hover-3d-lift"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#162244] transition-colors shadow-xs hover-3d-lift"
                 >
                   Explore available tools
                 </Link>
@@ -293,54 +293,54 @@ export default async function ToolPage({ params }: PageProps) {
         </section>
 
         {/* Tool Information & Specifications */}
-        <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 border-t border-slate-200/80">
-          <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-1 hover-3d-lift">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+        <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 border-t border-slate-200/80 dark:border-slate-800">
+          <div className="p-4 bg-white dark:bg-[#111c38] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-1 hover-3d-lift">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400">
               <Cpu className="w-3.5 h-3.5 text-blue-600" />
               Processing
             </div>
-            <p className="text-xs font-bold text-slate-900">In your browser</p>
+            <p className="text-xs font-bold text-slate-900 dark:text-white">In your browser</p>
           </div>
 
-          <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-1 hover-3d-lift">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+          <div className="p-4 bg-white dark:bg-[#111c38] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-1 hover-3d-lift">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400">
               <Lock className="w-3.5 h-3.5 text-emerald-600" />
               Privacy
             </div>
-            <p className="text-xs font-bold text-slate-900">No server upload</p>
+            <p className="text-xs font-bold text-slate-900 dark:text-white">No server upload</p>
           </div>
 
-          <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-1 hover-3d-lift">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+          <div className="p-4 bg-white dark:bg-[#111c38] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-1 hover-3d-lift">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400">
               <UserCheck className="w-3.5 h-3.5 text-purple-600" />
               Account
             </div>
-            <p className="text-xs font-bold text-slate-900">Not required</p>
+            <p className="text-xs font-bold text-slate-900 dark:text-white">Not required</p>
           </div>
 
-          <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-1 hover-3d-lift">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+          <div className="p-4 bg-white dark:bg-[#111c38] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-1 hover-3d-lift">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400">
               <Tag className="w-3.5 h-3.5 text-amber-600" />
               Cost
             </div>
-            <p className="text-xs font-bold text-slate-900">Free</p>
+            <p className="text-xs font-bold text-slate-900 dark:text-white">Free</p>
           </div>
         </section>
 
         {/* How It Works Section */}
         {tool.howItWorks && tool.howItWorks.length > 0 && (
-          <section className="space-y-4 pt-4 border-t border-slate-200/80">
-            <h2 className="text-lg font-bold text-slate-900">How to use {tool.name}</h2>
+          <section className="space-y-4 pt-4 border-t border-slate-200/80 dark:border-slate-800">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">How to use {tool.name}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
               {tool.howItWorks.map((step, idx) => (
                 <div
                   key={idx}
-                  className="p-5 bg-white border border-slate-200/80 rounded-2xl space-y-2.5 shadow-xs hover-3d-lift"
+                  className="p-5 bg-white dark:bg-[#111c38] border border-slate-200/80 dark:border-slate-800 rounded-2xl space-y-2.5 shadow-xs hover-3d-lift"
                 >
-                  <div className="w-7 h-7 rounded-xl bg-blue-50 text-blue-600 font-bold flex items-center justify-center text-xs border border-blue-200/60">
+                  <div className="w-7 h-7 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold flex items-center justify-center text-xs border border-blue-200/60 dark:border-blue-800">
                     {idx + 1}
                   </div>
-                  <p className="text-slate-600 leading-relaxed font-medium">{step}</p>
+                  <p className="text-slate-600 dark:text-slate-300 leading-relaxed font-medium">{step}</p>
                 </div>
               ))}
             </div>
@@ -350,20 +350,20 @@ export default async function ToolPage({ params }: PageProps) {
         {/* Unique In-Depth Educational & Technical Content (Phase 4 & 7) */}
         <section className="space-y-6 pt-6 border-t border-slate-200/80">
           <div className="space-y-3">
-            <h2 className="text-xl font-bold text-slate-900">About {seo.h1} & How It Works</h2>
-            <p className="text-sm text-slate-600 leading-relaxed font-normal">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">About {seo.h1} & How It Works</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-normal">
               {seo.overview}
             </p>
           </div>
 
           {/* When to use */}
           {seo.whenToUse && seo.whenToUse.length > 0 && (
-            <div className="space-y-3 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <div className="space-y-3 bg-white dark:bg-[#111c38] p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 When to use {tool.name}
               </h3>
-              <ul className="space-y-2 text-xs text-slate-600">
+              <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
                 {seo.whenToUse.map((useCase, idx) => (
                   <li key={idx} className="flex items-start gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-600 mt-1.5 shrink-0" />
@@ -376,12 +376,12 @@ export default async function ToolPage({ params }: PageProps) {
 
           {/* Technical highlights */}
           {seo.technicalHighlights && seo.technicalHighlights.length > 0 && (
-            <div className="space-y-3 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <div className="space-y-3 bg-white dark:bg-[#111c38] p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Cpu className="w-4 h-4 text-blue-600" />
                 Technical Capabilities
               </h3>
-              <ul className="space-y-2 text-xs text-slate-600">
+              <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
                 {seo.technicalHighlights.map((hl, idx) => (
                   <li key={idx} className="flex items-start gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 mt-1.5 shrink-0" />
@@ -394,19 +394,19 @@ export default async function ToolPage({ params }: PageProps) {
 
           {/* Educational Articles / FAQs */}
           {seo.educationalSections && seo.educationalSections.map((sec, idx) => (
-            <div key={idx} className="space-y-2 bg-slate-50/80 p-5 rounded-2xl border border-slate-200 text-xs">
-              <h4 className="font-bold text-slate-900 text-sm">{sec.title}</h4>
-              <p className="text-slate-600 leading-relaxed">{sec.content}</p>
+            <div key={idx} className="space-y-2 bg-slate-50/80 dark:bg-[#162244]/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs">
+              <h4 className="font-bold text-slate-900 dark:text-white text-sm">{sec.title}</h4>
+              <p className="text-slate-600 dark:text-slate-300 leading-relaxed">{sec.content}</p>
             </div>
           ))}
 
           {/* Privacy & Local Processing Guarantee */}
-          <div className="p-5 rounded-2xl bg-emerald-50/50 border border-emerald-200 space-y-2 text-xs text-emerald-900">
-            <div className="flex items-center gap-2 font-bold text-emerald-800 text-sm">
+          <div className="p-5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 space-y-2 text-xs text-emerald-900 dark:text-emerald-200">
+            <div className="flex items-center gap-2 font-bold text-emerald-800 dark:text-emerald-300 text-sm">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
               Privacy & Local Processing Guarantee
             </div>
-            <p className="leading-relaxed text-emerald-800/90 font-normal">
+            <p className="leading-relaxed text-emerald-800/90 dark:text-emerald-200/90 font-normal">
               {seo.privacyDetails}
             </p>
           </div>
@@ -414,25 +414,25 @@ export default async function ToolPage({ params }: PageProps) {
 
         {/* Genuinely Related Tools with Descriptive Anchor Text (Phase 9) */}
         {relatedTools.length > 0 && (
-          <section className="space-y-4 pt-6 border-t border-slate-200/80">
-            <h2 className="text-xl font-bold text-slate-900">Complementary Document & Image Tools</h2>
+          <section className="space-y-4 pt-6 border-t border-slate-200/80 dark:border-slate-800">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Complementary Document & Image Tools</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {relatedTools.slice(0, 3).map((rt) => (
                 <Link
                   key={rt.id}
                   href={rt.route}
-                  className="group p-5 bg-white border border-slate-200/80 rounded-2xl space-y-3 shadow-xs hover-3d-lift transition-all block"
+                  className="group p-5 bg-white dark:bg-[#111c38] border border-slate-200/80 dark:border-slate-800 rounded-2xl space-y-3 shadow-xs hover-3d-lift transition-all block hover:border-blue-300 dark:hover:border-blue-700"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-300 uppercase tracking-wider">
                       {rt.category}
                     </span>
                     <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
                   </div>
-                  <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                     {rt.name}
                   </h3>
-                  <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
                     {rt.description}
                   </p>
                   <div className="pt-1 text-xs font-semibold text-blue-600 flex items-center gap-1">

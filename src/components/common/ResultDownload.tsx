@@ -179,38 +179,37 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
       id="tool-result"
       data-saarvi-target="tool-result"
       tabIndex={-1}
-      className="w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs transition-all saarvi-destination-target outline-hidden"
+      className="w-full bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs transition-all saarvi-destination-target outline-hidden"
     >
       
       {/* SUCCESS HEADER: Checkmark drawing animation + headline */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-emerald-600 shadow-2xs animate-check-pop shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-2xs animate-check-pop shrink-0">
             <CheckCircle2 className="w-7 h-7" />
           </div>
 
           <div>
             <h3
               tabIndex={-1}
-              className="text-xl font-bold text-slate-900 tracking-tight outline-hidden"
+              className="text-xl font-bold text-slate-900 dark:text-white tracking-tight outline-hidden"
             >
               Your file is ready
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               100% processed in your browser • Ready for secure download
             </p>
           </div>
         </div>
 
-
         {/* Auto-download preference switch */}
         <div className="flex items-center gap-2 self-start sm:self-center">
-          <label className="text-xs text-slate-600 flex items-center gap-2 cursor-pointer select-none">
+          <label className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-2 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={autoDownloadEnabled}
               onChange={toggleAutoDownload}
-              className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500"
             />
             <span className="font-medium text-[11px]">Auto-download</span>
           </label>
@@ -222,17 +221,17 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
         <div
           role="status"
           aria-live="polite"
-          className="p-4 rounded-2xl bg-blue-50/90 border border-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200 shadow-2xs"
+          className="p-4 rounded-2xl bg-blue-50/90 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200 shadow-2xs"
         >
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
               {secondsRemaining}
             </div>
             <div>
-              <p className="text-sm font-semibold text-blue-950">
+              <p className="text-sm font-semibold text-blue-950 dark:text-blue-100">
                 Download starts in {secondsRemaining} second{secondsRemaining !== 1 ? "s" : ""}
               </p>
-              <p className="text-xs text-blue-700">
+              <p className="text-xs text-blue-700 dark:text-blue-300">
                 Click Download Now to save instantly, or Cancel to pause.
               </p>
             </div>
@@ -249,7 +248,7 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
             <button
               type="button"
               onClick={cancelAutoDownload}
-              className="px-3.5 py-2 sm:py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-xl border border-slate-200 transition-colors cursor-pointer min-h-[38px] sm:min-h-0 inline-flex items-center justify-center"
+              className="px-3.5 py-2 sm:py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer min-h-[38px] sm:min-h-0 inline-flex items-center justify-center"
             >
               Cancel
             </button>
@@ -259,7 +258,7 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
 
       {/* Status when downloading */}
       {autoStatus === "DOWNLOADING" && (
-        <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200 flex items-center gap-3 text-blue-900 text-xs font-semibold">
+        <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 flex items-center gap-3 text-blue-900 dark:text-blue-200 text-xs font-semibold">
           <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
           <span>Starting browser download...</span>
         </div>
@@ -267,15 +266,15 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
 
       {/* Status when completed */}
       {autoStatus === "COMPLETED" && (
-        <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-2 text-emerald-900 text-xs">
+        <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-2 text-emerald-900 dark:text-emerald-200 text-xs">
           <span className="flex items-center gap-2 font-medium">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             File downloaded successfully to your device.
           </span>
           <button
             type="button"
             onClick={downloadAgain}
-            className="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
+            className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:underline cursor-pointer"
           >
             Download again
           </button>
@@ -286,17 +285,17 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
       <div className="relative group">
         {/* Layered paper background shadows */}
         <div
-          className="absolute inset-0 rounded-2xl bg-slate-100 border border-slate-200 translate-y-1.5 scale-[0.98] -z-10 transition-transform group-hover:translate-y-2"
+          className="absolute inset-0 rounded-2xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 translate-y-1.5 scale-[0.98] -z-10 transition-transform group-hover:translate-y-2"
           aria-hidden="true"
         />
 
-        <div className="p-5 sm:p-6 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-4">
+        <div className="p-5 sm:p-6 bg-white dark:bg-[#0e172e] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             
             {/* File info with thumbnail/icon */}
             <div className="flex items-center gap-4 min-w-0">
               {imagePreviewUrl ? (
-                <div className="relative w-16 h-16 rounded-xl border border-slate-200 overflow-hidden bg-slate-50 shrink-0 shadow-xs">
+                <div className="relative w-16 h-16 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-slate-50 dark:bg-slate-800 shrink-0 shadow-xs">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={imagePreviewUrl}
@@ -305,28 +304,28 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
                   />
                 </div>
               ) : (
-                <div className="w-14 h-14 rounded-xl bg-blue-50 border border-blue-200/80 text-blue-600 flex items-center justify-center shrink-0 shadow-xs">
+                <div className="w-14 h-14 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200/80 dark:border-blue-900 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-xs">
                   {isZip ? <FileArchive className="w-7 h-7" /> : <FileIcon className="w-7 h-7" />}
                 </div>
               )}
 
               <div className="min-w-0 space-y-1">
-                <p className="text-sm sm:text-base font-bold text-slate-900 truncate">
+                <p className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
                   {targetFilename}
                 </p>
-                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
                   <span className="font-mono">{formatBytes(newBytes)}</span>
                   {byteDiff > 0 && originalBytes > 0 && (
-                    <span className="text-emerald-600 font-medium">
+                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">
                       ({percentSaved}% smaller)
                     </span>
                   )}
                   {byteDiff < 0 && originalBytes > 0 && (
-                    <span className="text-slate-400">
+                    <span className="text-slate-400 dark:text-slate-500">
                       (Original: {formatBytes(originalBytes)})
                     </span>
                   )}
-                  <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold uppercase">
+                  <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold uppercase">
                     {isZip ? "ZIP Archive" : targetFilename.split(".").pop()}
                   </span>
                 </div>
@@ -339,10 +338,10 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
                 <button
                   type="button"
                   onClick={() => setShowPreviewModal(true)}
-                  className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl border border-emerald-200 transition-all duration-150 flex items-center gap-1.5 shadow-2xs hover:shadow-xs min-h-[44px] cursor-pointer"
+                  className="px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-xs font-semibold rounded-xl border border-emerald-200 dark:border-emerald-800 transition-all duration-150 flex items-center gap-1.5 shadow-2xs hover:shadow-xs min-h-[44px] cursor-pointer"
                   title="Preview extracted sheets, rows, and columns"
                 >
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>Preview Data</span>
                 </button>
               )}
@@ -360,29 +359,29 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
 
           {/* CONVERSION QUALITY REPORT */}
           {isSingle && result.details && (
-            <div className="pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               {result.details["Document Type"] && (
-                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-[11px] text-slate-400 font-medium block">Document Type</span>
-                  <span className="font-semibold text-slate-800">{String(result.details["Document Type"])}</span>
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium block">Document Type</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">{String(result.details["Document Type"])}</span>
                 </div>
               )}
               {result.details["OCR Used"] && (
-                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-[11px] text-slate-400 font-medium block">OCR</span>
-                  <span className="font-semibold text-slate-800">{String(result.details["OCR Used"])}</span>
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium block">OCR</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">{String(result.details["OCR Used"])}</span>
                 </div>
               )}
               {result.details["Formatting"] && (
-                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-[11px] text-slate-400 font-medium block">Formatting</span>
-                  <span className="font-semibold text-emerald-700">{String(result.details["Formatting"])}</span>
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium block">Formatting</span>
+                  <span className="font-semibold text-emerald-700 dark:text-emerald-400">{String(result.details["Formatting"])}</span>
                 </div>
               )}
               {result.details["Quality State"] && (
-                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-[11px] text-slate-400 font-medium block">Quality State</span>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium block">Quality State</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300">
                     {String(result.details["Quality State"])}
                   </span>
                 </div>
@@ -394,14 +393,14 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
 
       {/* GUEST POST-DOWNLOAD ACCOUNT PROMOTION BANNER (NON-INTRUSIVE) */}
       {!user && !dismissPrompt && (
-        <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs animate-in fade-in duration-200 shadow-2xs">
+        <div className="p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs animate-in fade-in duration-200 shadow-2xs">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <p className="font-bold text-slate-900">Want to keep track of your work?</p>
-              <p className="text-slate-500">Create a free account to save conversion history and resume drafts.</p>
+              <p className="font-bold text-slate-900 dark:text-white">Want to keep track of your work?</p>
+              <p className="text-slate-500 dark:text-slate-400">Create a free account to save conversion history and resume drafts.</p>
             </div>
           </div>
 
@@ -415,7 +414,7 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
             <button
               type="button"
               onClick={() => setDismissPrompt(true)}
-              className="px-2.5 py-1.5 text-slate-500 hover:text-slate-800 font-medium rounded-xl text-xs hover:bg-slate-100 transition-colors cursor-pointer"
+              className="px-2.5 py-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white font-medium rounded-xl text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               Not now
             </button>
@@ -427,10 +426,10 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
       {!feedbackDismissed && (
         <div
           data-testid="temporary-feedback-prompt"
-          className="p-4 rounded-2xl bg-slate-50/90 border border-slate-200/80 flex flex-col gap-3 text-xs shadow-2xs transition-all"
+          className="p-4 rounded-2xl bg-slate-50/90 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 flex flex-col gap-3 text-xs shadow-2xs transition-all"
         >
           {feedbackSubmitted ? (
-            <div className="flex items-center gap-2 text-emerald-700 font-semibold py-1">
+            <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-semibold py-1">
               <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
               <span>Thank you! Your feedback helps us make Saarvi faster and simpler.</span>
             </div>
@@ -438,8 +437,8 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
             <>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2" title="Was this result helpful?">
-                  <span className="font-bold text-slate-800 text-xs sm:text-sm">Was this tool helpful?</span>
-                  <span className="text-[11px] text-slate-400">• Optional rating</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200 text-xs sm:text-sm">Was this tool helpful?</span>
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500">• Optional rating</span>
                 </div>
                 <div className="flex items-center gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -449,14 +448,14 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
                       onClick={() => setFeedbackRating(star)}
                       onMouseEnter={() => setFeedbackHover(star)}
                       onMouseLeave={() => setFeedbackHover(0)}
-                      className="p-1 text-slate-300 hover:text-amber-400 transition-colors cursor-pointer"
+                      className="p-1 text-slate-300 dark:text-slate-600 hover:text-amber-400 transition-colors cursor-pointer"
                       aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
                     >
                       <Star
                         className={`w-4 h-4 ${
                           (feedbackHover || feedbackRating) >= star
                             ? 'fill-amber-400 text-amber-400'
-                            : 'text-slate-300'
+                            : 'text-slate-300 dark:text-slate-600'
                         }`}
                       />
                     </button>
@@ -470,7 +469,7 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
                     <select
                       value={feedbackCategory}
                       onChange={(e) => setFeedbackCategory(e.target.value)}
-                      className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-hidden focus:ring-1 focus:ring-blue-500 cursor-pointer shrink-0"
+                      className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-blue-500 cursor-pointer shrink-0"
                       aria-label="Feedback Category"
                     >
                       <option value="General">General</option>
@@ -489,7 +488,7 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
                       onChange={(e) => setFeedbackComment(e.target.value)}
                       placeholder="What could we improve?"
                       maxLength={300}
-                      className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+                      className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
 
@@ -497,7 +496,7 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
                     <button
                       type="button"
                       onClick={handleDismissFeedback}
-                      className="px-2.5 py-1 text-slate-500 hover:text-slate-700 font-medium rounded-lg text-xs cursor-pointer"
+                      className="px-2.5 py-1 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-medium rounded-lg text-xs cursor-pointer"
                     >
                       Not Now
                     </button>
@@ -519,14 +518,14 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
       )}
 
       {/* RESULT FOOTER CONTROLS */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={downloadAgain}
-            className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-1.5 font-medium cursor-pointer"
+            className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 font-medium cursor-pointer"
           >
-            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
             <span>Download Again</span>
           </button>
         </div>
@@ -534,7 +533,7 @@ export default function ResultDownload({ result, onReset }: ResultDownloadProps)
         <button
           type="button"
           onClick={onReset}
-          className="px-4 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-800 transition-colors flex items-center gap-1.5 font-semibold cursor-pointer"
+          className="px-4 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition-colors flex items-center gap-1.5 font-semibold cursor-pointer"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           <span>Convert another</span>

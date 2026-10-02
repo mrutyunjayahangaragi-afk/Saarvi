@@ -16,21 +16,21 @@ export default function GlobalError({
 
   return (
     <html lang="en">
-      <body className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans antialiased text-slate-900">
-        <div className="max-w-md w-full text-center space-y-6 bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-red-50 text-red-600 ring-8 ring-red-50/50">
+      <body className="min-h-screen bg-[#f8fafc] dark:bg-[#0b1329] flex items-center justify-center p-4 font-sans antialiased text-slate-900 dark:text-white">
+        <div className="max-w-md w-full text-center space-y-6 bg-white dark:bg-[#111c38] p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400 ring-8 ring-red-50/50 dark:ring-red-900/30">
             <AlertOctagon className="w-8 h-8" />
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-slate-900">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
               Application Error
             </h1>
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               A critical layout error occurred. You can reload the page or reset the application state.
             </p>
             {error.digest && (
-              <p className="text-xs font-mono text-slate-400">
+              <p className="text-xs font-mono text-slate-400 dark:text-slate-500">
                 Digest: {error.digest}
               </p>
             )}

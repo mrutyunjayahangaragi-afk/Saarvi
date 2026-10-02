@@ -27,8 +27,8 @@ export default function AdminLineChart({
   if (!data || data.length === 0) {
     return (
       <div className="h-[200px] flex flex-col items-center justify-center text-center p-4">
-        <p className="text-xs text-slate-400 font-medium">{emptyMessage}</p>
-        <span className="text-[11px] text-slate-300 mt-1">Real zero-count data</span>
+        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{emptyMessage}</p>
+        <span className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Real zero-count data</span>
       </div>
     );
   }
@@ -112,7 +112,7 @@ export default function AdminLineChart({
               y1={line.y}
               x2={svgWidth - paddingX}
               y2={line.y}
-              stroke="#f1f5f9"
+              className="stroke-slate-200 dark:stroke-slate-800"
               strokeDasharray="4 4"
               strokeWidth="1"
             />
@@ -120,7 +120,7 @@ export default function AdminLineChart({
               x={paddingX - 8}
               y={line.y + 3}
               textAnchor="end"
-              className="text-[9px] fill-slate-400 font-mono font-medium"
+              className="text-[9px] fill-slate-400 dark:fill-slate-500 font-mono font-medium"
             >
               {line.val}
             </text>
@@ -157,10 +157,10 @@ export default function AdminLineChart({
                 cx={p.x}
                 cy={p.y}
                 r={isHovered ? 5 : 3}
-                fill="#ffffff"
+                fill="currentColor"
                 stroke={strokeColor}
                 strokeWidth={isHovered ? 3 : 2}
-                className="transition-all duration-150"
+                className="text-white dark:text-slate-900 transition-all duration-150"
               />
             </g>
           );
@@ -168,7 +168,7 @@ export default function AdminLineChart({
 
         {/* X-axis date labels (start, middle, end) */}
         {points.length > 0 && (
-          <g className="text-[10px] fill-slate-400 font-medium">
+          <g className="text-[10px] fill-slate-400 dark:fill-slate-500 font-medium">
             <text x={points[0].x} y={svgHeight - 4} textAnchor="start">
               {points[0].label}
             </text>
@@ -191,7 +191,7 @@ export default function AdminLineChart({
       {/* Floating Tooltip Popover */}
       {hoveredPoint && (
         <div
-          className="absolute z-20 pointer-events-none -translate-x-1/2 -translate-y-full mb-2 bg-slate-900 text-white rounded-lg px-2.5 py-1.5 text-xs shadow-lg border border-slate-800 space-y-0.5 transition-transform"
+          className="absolute z-20 pointer-events-none -translate-x-1/2 -translate-y-full mb-2 bg-slate-900 dark:bg-slate-950 text-white rounded-lg px-2.5 py-1.5 text-xs shadow-lg border border-slate-800 dark:border-slate-700 space-y-0.5 transition-transform"
           style={{
             left: `${(hoveredPoint.x / svgWidth) * 100}%`,
             top: `${(hoveredPoint.y / svgHeight) * 100}%`,

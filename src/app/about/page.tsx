@@ -23,26 +23,26 @@ export const metadata: Metadata = createMetadata({
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8fafc]">
+    <div className="min-h-screen flex flex-col bg-[#f8fafc] dark:bg-[#0b1329] text-slate-900 dark:text-white">
       <Navbar />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
 
         {/* Hero */}
         <section className="text-center max-w-3xl mx-auto space-y-4">
-          <div className="mx-auto w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200/70 text-blue-600 flex items-center justify-center">
+          <div className="mx-auto w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200/70 dark:border-blue-800 text-blue-600 dark:text-blue-400 flex items-center justify-center">
             <FileText className="w-6 h-6" />
           </div>
 
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight">
             About {SITE_CONFIG.name}
           </h1>
 
-          <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
+          <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
             {SITE_CONFIG.tagline}
           </p>
 
-          <p className="text-sm text-slate-500 leading-relaxed max-w-2xl mx-auto">
+          <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed max-w-2xl mx-auto">
             Simple, fast, and accessible document utilities designed for
             students, job seekers, developers, and everyday users.
           </p>
@@ -51,16 +51,16 @@ export default function AboutPage() {
         {/* Mission */}
         <section className="mt-16 max-w-4xl mx-auto space-y-5">
           <div className="space-y-2">
-            <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+            <p className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
               Our Mission
             </p>
 
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
               Document tasks should be simple.
             </h2>
           </div>
 
-          <div className="space-y-4 text-sm sm:text-base text-slate-600 leading-relaxed">
+          <div className="space-y-4 text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
             <p>
               Every day, students, job seekers, and everyday internet users
               need to perform basic document tasks — convert an image to PDF,
@@ -78,7 +78,7 @@ export default function AboutPage() {
 
             <p>
               Our goal is simple:{" "}
-              <span className="font-semibold text-slate-800">
+              <span className="font-semibold text-slate-800 dark:text-slate-200">
                 give you the tool you need, let you complete your task, and get
                 out of your way.
               </span>
@@ -91,17 +91,17 @@ export default function AboutPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
 
             {/* Privacy */}
-            <div className="p-6 bg-white border border-slate-200/80 rounded-3xl space-y-4 shadow-sm hover-3d-lift">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200/60 text-blue-600 flex items-center justify-center">
+            <div className="p-6 bg-white dark:bg-[#111c38] border border-slate-200/80 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm hover-3d-lift">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200/60 dark:border-blue-800 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                 <Shield className="w-5 h-5" />
               </div>
 
               <div className="space-y-2">
-                <h3 className="font-bold text-slate-900 text-sm">
+                <h3 className="font-bold text-slate-900 dark:text-white text-sm">
                   Privacy-Conscious
                 </h3>
 
-                <p className="text-xs text-slate-500 leading-relaxed">
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                   Whenever practical, files are processed locally in your
                   browser to help keep personal documents private.
                 </p>
@@ -109,17 +109,17 @@ export default function AboutPage() {
             </div>
 
             {/* Guest Friendly */}
-            <div className="p-6 bg-white border border-slate-200/80 rounded-3xl space-y-4 shadow-sm hover-3d-lift">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200/60 text-blue-600 flex items-center justify-center">
+            <div className="p-6 bg-white dark:bg-[#111c38] border border-slate-200/80 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm hover-3d-lift">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200/60 dark:border-blue-800 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
 
               <div className="space-y-2">
-                <h3 className="font-bold text-slate-900 text-sm">
+                <h3 className="font-bold text-slate-900 dark:text-white text-sm">
                   Guest Friendly
                 </h3>
 
-                <p className="text-xs text-slate-500 leading-relaxed">
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                   Basic document tools are designed to work without forcing
                   users through unnecessary login or registration steps.
                 </p>
@@ -127,17 +127,17 @@ export default function AboutPage() {
             </div>
 
             {/* Student Focused */}
-            <div className="p-6 bg-white border border-slate-200/80 rounded-3xl space-y-4 shadow-sm hover-3d-lift">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200/60 text-blue-600 flex items-center justify-center">
+            <div className="p-6 bg-white dark:bg-[#111c38] border border-slate-200/80 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm hover-3d-lift">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200/60 dark:border-blue-800 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                 <HeartHandshake className="w-5 h-5" />
               </div>
 
               <div className="space-y-2">
-                <h3 className="font-bold text-slate-900 text-sm">
+                <h3 className="font-bold text-slate-900 dark:text-white text-sm">
                   Student-Focused
                 </h3>
 
-                <p className="text-xs text-slate-500 leading-relaxed">
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                   Built around practical document needs such as assignments,
                   certificates, resumes, applications, and academic work.
                 </p>
@@ -150,15 +150,15 @@ export default function AboutPage() {
         {/* What You Can Do */}
         <section className="mt-16">
           <div className="space-y-2 mb-6">
-            <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+            <p className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
               What You Can Do
             </p>
 
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
               Practical tools for everyday files.
             </h2>
 
-            <p className="text-sm text-slate-500 max-w-2xl leading-relaxed">
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
               Saarvi focuses on useful document operations without adding
               unnecessary complexity.
             </p>
@@ -175,10 +175,10 @@ export default function AboutPage() {
             ].map((tool) => (
               <div
                 key={tool}
-                className="flex items-center gap-3 p-4 bg-white border border-slate-200/80 rounded-2xl"
+                className="flex items-center gap-3 p-4 bg-white dark:bg-[#111c38] border border-slate-200/80 dark:border-slate-800 rounded-2xl"
               >
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span className="text-sm font-medium text-slate-700">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
                   {tool}
                 </span>
               </div>
@@ -188,7 +188,7 @@ export default function AboutPage() {
           <div className="mt-6">
             <Link
               href="/tools"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
             >
               Explore all tools
               <Zap className="w-4 h-4" />
@@ -197,24 +197,24 @@ export default function AboutPage() {
         </section>
 
         {/* Built By */}
-        <section className="mt-16 p-7 sm:p-9 bg-white border border-slate-200/80 rounded-3xl shadow-sm">
+        <section className="mt-16 p-7 sm:p-9 bg-white dark:bg-[#111c38] border border-slate-200/80 dark:border-slate-800 rounded-3xl shadow-sm">
           <div className="space-y-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+            <p className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
               Built by a Developer
             </p>
 
-            <h2 className="text-2xl font-bold text-slate-900">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
               Created by Mrutyunjaya Hangaragi
             </h2>
 
-            <p className="text-sm sm:text-base text-slate-600 leading-relaxed max-w-3xl">
+            <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed max-w-3xl">
               Saarvi is an independent project created by Mrutyunjaya
               Hangaragi, a Computer Science Engineering student and developer
               interested in building practical web applications and solving
               real-world problems through technology.
             </p>
 
-            <p className="text-sm text-slate-500 leading-relaxed max-w-3xl">
+            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed max-w-3xl">
               The project is built around a simple principle: create useful
               software that people can understand and use immediately.
             </p>
@@ -223,7 +223,7 @@ export default function AboutPage() {
               href="https://mrutyunjaya-portfolio.vercel.app/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-semibold hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
             >
               Visit Portfolio
               <ExternalLink className="w-4 h-4" />
@@ -234,22 +234,22 @@ export default function AboutPage() {
         {/* Contact */}
         <section
           id="contact"
-          className="mt-16 pt-8 border-t border-slate-200/80"
+          className="mt-16 pt-8 border-t border-slate-200/80 dark:border-slate-800"
         >
           <div className="space-y-3">
-            <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+            <p className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
               Contact
             </p>
 
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
               Have a question or suggestion?
             </h2>
 
-            <p className="text-sm text-slate-500 leading-relaxed">
+            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
               We&apos;d love to hear your feedback. Contact us at{" "}
               <a
                 href="mailto:saarvinotifications@gmail.com"
-                className="font-semibold text-slate-700 hover:text-blue-600 transition-colors"
+                className="font-semibold text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               >
                 saarvinotifications@gmail.com
               </a>

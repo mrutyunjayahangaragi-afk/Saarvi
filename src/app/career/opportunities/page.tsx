@@ -194,14 +194,14 @@ export default function CareerOpportunitiesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col text-slate-800">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0b1329] flex flex-col text-slate-800 dark:text-white">
       <Navbar />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-slate-200">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
               <Link href="/student" className="hover:text-blue-600">Career Hub</Link>
               <span>/</span>
               <span className="text-blue-600">Opportunity Discovery</span>
@@ -211,10 +211,10 @@ export default function CareerOpportunitiesPage() {
                 <Briefcase className="w-5 h-5" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                   Verified Opportunities
                 </h1>
-                <p className="text-xs sm:text-sm text-slate-500">
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                   Real internships and fresher jobs discovered from verified sources. Zero fake listings.
                 </p>
               </div>
@@ -231,7 +231,7 @@ export default function CareerOpportunitiesPage() {
             </Link>
             <Link
               href="/student/applications"
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-xs transition"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-[#111c38] hover:bg-slate-50 dark:hover:bg-[#162244] border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs transition"
             >
               <Bookmark className="w-3.5 h-3.5" />
               Application Tracker
@@ -246,8 +246,8 @@ export default function CareerOpportunitiesPage() {
               <Zap className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-900">Looking for Real-Time External Jobs & Internships?</h2>
-              <p className="text-xs text-slate-600 mt-0.5">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Looking for Real-Time External Jobs & Internships?</h2>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
                 Search thousands of live employer openings worldwide with our high-speed SerpApi discovery engine & resume matcher.
               </p>
             </div>
@@ -262,7 +262,7 @@ export default function CareerOpportunitiesPage() {
         </div>
 
         {notice && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 flex items-center justify-between shadow-xs">
+          <div className="p-3 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-xl text-xs text-blue-900 dark:text-blue-200 flex items-center justify-between shadow-xs">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-blue-600 flex-shrink-0" />
               <span>{notice}</span>
@@ -274,20 +274,20 @@ export default function CareerOpportunitiesPage() {
         )}
 
         {/* Search & Filter Bar */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex-1 flex items-center gap-3 bg-slate-50 px-3.5 py-2.5 rounded-xl border border-slate-200/80">
+        <div className="bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex-1 flex items-center gap-3 bg-slate-50 dark:bg-[#162244] px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700">
             <Search className="w-4 h-4 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by role, company (e.g. Google, Microsoft), or tech stack (React, Python)..."
-              className="w-full text-xs sm:text-sm bg-transparent border-none focus:outline-hidden"
+              className="w-full text-xs sm:text-sm bg-transparent border-none focus:outline-hidden text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
             />
           </div>
 
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+            <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={remoteOnly}
@@ -317,12 +317,12 @@ export default function CareerOpportunitiesPage() {
               className={`px-4 py-2 rounded-xl transition whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === tab.key
                   ? "bg-blue-600 text-white shadow-xs"
-                  : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+                  : "bg-white dark:bg-[#111c38] text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#162244] border border-slate-200 dark:border-slate-700"
               }`}
             >
               <span>{tab.label}</span>
               {"badge" in tab && (
-                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTab === tab.key ? "bg-white/20 text-white" : "bg-blue-50 text-blue-700"}`}>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTab === tab.key ? "bg-white/20 text-white" : "bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300"}`}>
                   {tab.badge}
                 </span>
               )}
@@ -332,13 +332,13 @@ export default function CareerOpportunitiesPage() {
 
         {/* Opportunities Feed List */}
         {!user ? (
-          <div className="bg-white border border-slate-200/90 rounded-3xl p-8 sm:p-10 shadow-xs text-center space-y-4 max-w-xl mx-auto my-6">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 mx-auto">
+          <div className="bg-white dark:bg-[#111c38] border border-slate-200/90 dark:border-slate-800 rounded-3xl p-8 sm:p-10 shadow-xs text-center space-y-4 max-w-xl mx-auto my-6">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 mx-auto">
               <Lock className="w-6 h-6" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-xl font-extrabold text-slate-900">Member-Exclusive Opportunities</h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+              <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">Member-Exclusive Opportunities</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
                 Sign up to view verified jobs, access direct employer application portals, and get personalized ATS matching.
               </p>
             </div>
@@ -351,7 +351,7 @@ export default function CareerOpportunitiesPage() {
               </Link>
               <Link
                 href="/login?next=/career/opportunities"
-                className="w-full sm:w-auto px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl border border-slate-200 transition"
+                className="w-full sm:w-auto px-6 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl border border-slate-200 dark:border-slate-700 transition"
               >
                 Log in
               </Link>
@@ -367,23 +367,23 @@ export default function CareerOpportunitiesPage() {
             return (
               <div
                 key={opp.id}
-                className="bg-white border border-slate-200 hover:border-blue-300 rounded-2xl p-5 sm:p-6 shadow-xs transition space-y-4"
+                className="bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 rounded-2xl p-5 sm:p-6 shadow-xs transition space-y-4"
               >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div className="space-y-1.5">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-extrabold text-blue-700 uppercase tracking-wider">
+                      <span className="text-xs font-extrabold text-blue-700 dark:text-blue-300 uppercase tracking-wider">
                         {opp.companyName}
                       </span>
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                         <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                         Verified by Saarvi
                       </span>
-                      <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                      <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
                         {opp.category}
                       </span>
                       {opp.remoteType === "remote" && (
-                        <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800">
                           Remote
                         </span>
                       )}
@@ -395,7 +395,7 @@ export default function CareerOpportunitiesPage() {
                       </h3>
                     </Link>
 
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       {opp.location} • {opp.employmentType} • Experience: {opp.experienceLevel}
                     </p>
                   </div>
@@ -441,8 +441,8 @@ export default function CareerOpportunitiesPage() {
                         key={skill}
                         className={`text-xs px-2.5 py-0.5 rounded-md font-medium ${
                           isMatched
-                            ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
-                            : "bg-slate-50 border border-slate-200 text-slate-600"
+                            ? "bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300"
+                            : "bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400"
                         }`}
                       >
                         {isMatched ? `✓ ${skill}` : skill}
@@ -471,7 +471,7 @@ export default function CareerOpportunitiesPage() {
                           ? "bg-emerald-50 border-emerald-200 text-emerald-700"
                           : isSaved
                           ? "bg-blue-50 border-blue-200 text-blue-700"
-                          : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                          : "bg-white dark:bg-[#111c38] border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#162244]"
                       }`}
                     >
                       {isApplied ? "Applied ✓" : isSaved ? "Tracked ✓" : "Track Application"}
@@ -493,17 +493,17 @@ export default function CareerOpportunitiesPage() {
           })}
 
           {displayedOpportunities.length === 0 && !loading && (
-            <div className="text-center py-20 bg-white border border-slate-200 rounded-3xl text-slate-400 space-y-2">
+            <div className="text-center py-20 bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-800 rounded-3xl text-slate-400 dark:text-slate-500 space-y-2">
               <Briefcase className="w-10 h-10 mx-auto opacity-40 text-slate-500" />
-              <h3 className="text-base font-bold text-slate-800">
+              <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
                 No verified opportunities match your current filter.
               </h3>
-              <p className="text-xs text-slate-500 max-w-md mx-auto">
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
                 Saarvi strictly displays administrator-verified listings and official opportunities. Check back shortly as newly verified listings are approved.
               </p>
               <button
                 onClick={() => { setActiveTab("ALL"); setSearchQuery(""); setRemoteOnly(false); }}
-                className="mt-2 px-4 py-2 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition"
+                className="mt-2 px-4 py-2 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-950 rounded-xl transition"
               >
                 Clear Filters
               </button>
@@ -516,13 +516,13 @@ export default function CareerOpportunitiesPage() {
       {/* 7-Factor Explainable Match Modal */}
       {selectedOppForMatch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div className="bg-white dark:bg-[#111c38] rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                   Explainable Match Breakdown
                 </span>
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
                   {selectedOppForMatch.report.overallMatchScore}% Resume Match
                 </h3>
               </div>
@@ -534,7 +534,7 @@ export default function CareerOpportunitiesPage() {
               </button>
             </div>
 
-            <div className="text-xs text-slate-600">
+            <div className="text-xs text-slate-600 dark:text-slate-300">
               Match score calculated deterministically for <strong>{selectedOppForMatch.opp.title}</strong> at <strong>{selectedOppForMatch.opp.companyName}</strong>.
             </div>
 
@@ -542,11 +542,11 @@ export default function CareerOpportunitiesPage() {
             <div className="space-y-2">
               {selectedOppForMatch.report.factors.map((f) => (
                 <div key={f.name} className="text-xs">
-                  <div className="flex items-center justify-between text-slate-700 mb-1">
+                  <div className="flex items-center justify-between text-slate-700 dark:text-slate-300 mb-1">
                     <span>{f.name}</span>
-                    <span className="font-bold text-slate-900">{f.earned} / {f.weight} pts</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{f.earned} / {f.weight} pts</span>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                  <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
                     <div
                       className="bg-blue-600 h-full rounded-full transition-all"
                       style={{ width: `${f.percentage}%` }}
@@ -557,27 +557,27 @@ export default function CareerOpportunitiesPage() {
             </div>
 
             {/* Matched vs Missing Skills */}
-            <div className="pt-2 border-t border-slate-100 space-y-2 text-xs">
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2 text-xs">
               <div>
-                <span className="font-bold text-emerald-700">✓ Detected Skills: </span>
-                <span className="text-slate-700">
+                <span className="font-bold text-emerald-700 dark:text-emerald-400">✓ Detected Skills: </span>
+                <span className="text-slate-700 dark:text-slate-300">
                   {selectedOppForMatch.report.matchedSkills.join(", ") || "None"}
                 </span>
               </div>
               {selectedOppForMatch.report.missingSkills.length > 0 && (
                 <div>
-                  <span className="font-bold text-amber-700">• Potential Skill Gaps: </span>
-                  <span className="text-slate-700">
+                  <span className="font-bold text-amber-700 dark:text-amber-400">• Potential Skill Gaps: </span>
+                  <span className="text-slate-700 dark:text-slate-300">
                     {selectedOppForMatch.report.missingSkills.join(", ")}
                   </span>
                 </div>
               )}
             </div>
 
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
               <button
                 onClick={() => setSelectedOppForMatch(null)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
               >
                 Close
               </button>

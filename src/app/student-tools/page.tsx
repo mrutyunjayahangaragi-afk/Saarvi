@@ -28,7 +28,7 @@ export default function StudentToolsCategoryPage() {
   ]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50/60 text-slate-900 transition-colors duration-200">
+    <div className="min-h-screen flex flex-col bg-slate-50/60 dark:bg-[#0b1329] text-slate-900 dark:text-slate-100 transition-colors duration-200">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}

@@ -197,10 +197,10 @@ export default function HomePage() {
                 </p>
               </div>
 
-              <div className="pt-3 border-t border-slate-100">
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
                 <Link
                   href="/student"
-                  className="text-xs font-semibold text-purple-600 hover:text-purple-700 flex items-center gap-1.5"
+                  className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 flex items-center gap-1.5"
                 >
                   <span>Explore student utilities</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
@@ -223,10 +223,10 @@ export default function HomePage() {
                 </p>
               </div>
 
-              <div className="pt-3 border-t border-slate-100">
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
                 <Link
                   href="/tools"
-                  className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1.5"
+                  className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1.5"
                 >
                   <span>Explore document utilities</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
@@ -249,10 +249,10 @@ export default function HomePage() {
                 </p>
               </div>
 
-              <div className="pt-3 border-t border-slate-100">
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
                 <Link
                   href="/jobs"
-                  className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1.5"
+                  className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 flex items-center gap-1.5"
                 >
                   <span>Explore career search</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
@@ -315,7 +315,7 @@ export default function HomePage() {
 
         {/* 7. FEATURED CAPABILITIES ("Start with a tool") */}
         <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" /> Instant Launch
@@ -326,7 +326,7 @@ export default function HomePage() {
             </div>
             <Link
               href="/tools"
-              className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 self-start sm:self-auto cursor-pointer"
+              className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 self-start sm:self-auto cursor-pointer"
             >
               <span>Explore all {CANONICAL_TOOL_REGISTRY.length} tools</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -351,7 +351,7 @@ export default function HomePage() {
                         {tool.badge}
                       </span>
                     </div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {tool.name}
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">
@@ -359,7 +359,7 @@ export default function HomePage() {
                     </p>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-blue-600 group-hover:text-blue-700">
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300">
                     <span>Open utility</span>
                     <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                   </div>
@@ -373,7 +373,7 @@ export default function HomePage() {
         <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="p-8 sm:p-10 bg-white dark:bg-[#111c38] border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-2xs space-y-6">
             <div className="max-w-xl space-y-1.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200 inline-block">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800 inline-block">
                 Privacy Architecture
               </span>
               <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white">
@@ -387,7 +387,7 @@ export default function HomePage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">Local-First Operations</h3>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
@@ -397,7 +397,7 @@ export default function HomePage() {
 
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-blue-600 shrink-0" />
+                  <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">Ephemeral Server Tasks</h3>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
@@ -407,7 +407,7 @@ export default function HomePage() {
 
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <UserCheck className="w-4 h-4 text-purple-600 shrink-0" />
+                  <UserCheck className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">Account Preferences Only</h3>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
@@ -422,7 +422,7 @@ export default function HomePage() {
         <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div className="space-y-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-blue-600">
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
                 Career Intelligence
               </span>
               <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
@@ -434,7 +434,7 @@ export default function HomePage() {
             </div>
             <Link
               href="/jobs"
-              className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 self-start sm:self-auto cursor-pointer"
+              className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 self-start sm:self-auto cursor-pointer"
             >
               <span>Explore Career Search</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -443,13 +443,13 @@ export default function HomePage() {
 
           {/* Multi-Source Deduplication & Unified Discovery Visual */}
           <div className="bg-white dark:bg-[#111c38] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-6 shadow-2xs space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2 text-xs">
                 <span className="font-semibold text-slate-500 dark:text-slate-400">Search intent:</span>
-                <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold border border-blue-200">
+                <span className="px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-semibold border border-blue-200 dark:border-blue-800">
                   Frontend internship
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold border border-slate-200">
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold border border-slate-200 dark:border-slate-700">
                   Bengaluru
                 </span>
               </div>
@@ -494,7 +494,7 @@ export default function HomePage() {
                     Internship
                   </span>
                   <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                     <span>Saarvi Verified</span>
                   </span>
                 </div>
@@ -510,7 +510,7 @@ export default function HomePage() {
                   <span>Sources: Company Careers, Greenhouse, Google Jobs</span>
                   <Link
                     href="/jobs"
-                    className="text-blue-600 font-bold hover:underline"
+                    className="text-blue-600 dark:text-blue-400 font-bold hover:underline"
                   >
                     View
                   </Link>
@@ -531,12 +531,12 @@ export default function HomePage() {
 
         {/* 11. FINAL CALL TO ACTION (Requirement 77) */}
         <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-          <div className="rounded-2xl bg-slate-900 p-8 sm:p-12 text-white text-center space-y-5 shadow-md">
+          <div className="rounded-2xl bg-slate-900 dark:bg-[#111c38] border border-slate-800 p-8 sm:p-12 text-white text-center space-y-5 shadow-md">
             <div className="max-w-xl mx-auto space-y-2">
               <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
                 One workspace. Less friction.
               </h2>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-300 dark:text-slate-400 leading-relaxed">
                 Study smarter. Get work done. Find what comes next.
               </p>
             </div>
@@ -550,7 +550,7 @@ export default function HomePage() {
               </Link>
               <Link
                 href="/jobs"
-                className="px-5 py-3 rounded-xl bg-slate-800 text-slate-200 font-semibold hover:bg-slate-700 transition border border-slate-700 text-xs sm:text-sm"
+                className="px-5 py-3 rounded-xl bg-slate-800 dark:bg-slate-800/80 text-slate-200 font-semibold hover:bg-slate-700 dark:hover:bg-slate-700/80 transition border border-slate-700 text-xs sm:text-sm"
               >
                 Explore Career Search
               </Link>

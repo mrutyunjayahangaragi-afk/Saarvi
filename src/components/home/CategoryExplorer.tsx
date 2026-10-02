@@ -32,7 +32,7 @@ export default function CategoryExplorer({ tools }: CategoryExplorerProps) {
         <div
           role="tablist"
           aria-label="Filter tools by category"
-          className="inline-flex p-1.5 rounded-2xl bg-slate-100 border border-slate-200/80 shadow-2xs"
+          className="inline-flex p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 shadow-2xs"
         >
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
@@ -46,8 +46,8 @@ export default function CategoryExplorer({ tools }: CategoryExplorerProps) {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer ${
                   isActive
-                    ? "bg-white text-blue-600 border border-slate-200 shadow-xs scale-[1.02]"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                    ? "bg-white dark:bg-[#111c38] text-blue-600 dark:text-blue-400 border border-slate-200 dark:border-slate-700 shadow-xs scale-[1.02]"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-700/50"
                 }`}
               >
                 <Icon className="w-4 h-4" />

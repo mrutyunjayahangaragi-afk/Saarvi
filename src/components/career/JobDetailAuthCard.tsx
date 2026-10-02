@@ -42,40 +42,40 @@ export default function JobDetailAuthCard({
   };
 
   return (
-    <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 text-center">
+    <div className="bg-white dark:bg-[#111c38] border border-slate-200/90 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 text-center">
       {/* Lock Icon */}
-      <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 mx-auto shadow-2xs">
+      <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 mx-auto shadow-2xs">
         <Lock className="w-7 h-7" />
       </div>
 
       <div className="space-y-2">
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-bold uppercase tracking-wider">
-          <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-bold uppercase tracking-wider">
+          <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
           {isInternship ? "Verified Internship" : "Verified Opportunity"}
         </span>
-        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+        <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
           Create an account to view this opportunity
         </h1>
-        <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+        <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
           Sign up to view full job specifications, company insights, and direct application links.
         </p>
       </div>
 
       {/* Teaser pill (no secrets/applyUrl leaked) */}
-      <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-left flex items-center justify-between">
+      <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700 rounded-2xl p-4 text-left flex items-center justify-between">
         <div>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{companyName}</p>
-          <p className="text-base font-extrabold text-slate-900">{title}</p>
-          <p className="text-xs text-slate-500 mt-0.5">{location} • {employmentType}</p>
+          <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{companyName}</p>
+          <p className="text-base font-extrabold text-slate-900 dark:text-white">{title}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{location} • {employmentType}</p>
         </div>
-        <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">
+        <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 rounded-lg">
           Member Access
         </span>
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2 text-left">
-          <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+        <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl text-xs text-red-700 dark:text-red-300 flex items-center gap-2 text-left">
+          <AlertCircle className="w-4 h-4 shrink-0 text-red-500 dark:text-red-400" />
           <span>{error}</span>
         </div>
       )}
@@ -97,10 +97,10 @@ export default function JobDetailAuthCard({
         />
 
         <div className="text-center pt-2">
-          <span className="text-xs text-slate-500">Already have an account? </span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">Already have an account? </span>
           <Link
             href={loginUrl}
-            className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+            className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline cursor-pointer"
           >
             Log in
           </Link>

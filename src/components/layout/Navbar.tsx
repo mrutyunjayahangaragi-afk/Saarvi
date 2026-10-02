@@ -40,6 +40,7 @@ import MegaMenu, { ActiveMenuCategory, dedupeToolsByKey } from "./MegaMenu";
 import GlobalSearchModal from "@/components/tools/GlobalSearchModal";
 import AnnouncementBanner from "./AnnouncementBanner";
 import MobileProfileSheet from "./MobileProfileSheet";
+import ThemeToggle from "@/components/theme/ThemeToggle";
 import { DEFAULT_NAVIGATION_ITEMS } from "@/lib/navigation/navigation-service";
 import { hasPrimarySearchOnPage, focusHeroSearch } from "@/lib/search/search-surface-resolver";
 
@@ -441,8 +442,8 @@ export default function Navbar() {
       <header
         ref={headerRef}
         className={`sticky top-0 z-40 w-full transition-all duration-200 ${isScrolled
-            ? "bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-xs"
-            : "bg-white/90 backdrop-blur-xs border-b border-slate-100"
+            ? "bg-white/95 dark:bg-[#0c1322]/95 backdrop-blur-md border-b border-slate-200/90 dark:border-slate-800 shadow-xs"
+            : "bg-white/90 dark:bg-[#0c1322]/90 backdrop-blur-xs border-b border-slate-100 dark:border-slate-800/80"
           }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4 relative">
@@ -458,7 +459,7 @@ export default function Navbar() {
 
           {/* CENTER: Desktop Navigation — Fully Config-Driven from Published Navigation Registry */}
           <nav
-            className="hidden md:flex items-center gap-1 text-sm font-medium text-slate-600"
+            className="hidden md:flex items-center gap-1 text-sm font-medium text-slate-600 dark:text-slate-300"
             aria-label="Main Navigation"
           >
             {dynamicNavItems
@@ -496,14 +497,14 @@ export default function Navbar() {
                           }
                         }}
                         className={`group px-3.5 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${isToolsActive
-                            ? 'text-blue-600 font-bold bg-blue-50/90 border border-blue-200/70 shadow-2xs'
-                            : 'hover:text-blue-600 hover:bg-slate-100/80 text-slate-700 border border-transparent'
+                            ? 'text-blue-600 dark:text-blue-400 font-bold bg-blue-50/90 dark:bg-blue-950/60 border border-blue-200/70 dark:border-blue-800/70 shadow-2xs'
+                            : 'hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-transparent'
                           }`}
                       >
-                        <LayoutGrid className="w-3.5 h-3.5 text-blue-600 transition-transform duration-200 group-hover:scale-110" />
+                        <LayoutGrid className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 transition-transform duration-200 group-hover:scale-110" />
                         <span>{item.label}</span>
                         <ChevronDown
-                          className={`w-3.5 h-3.5 transition-transform duration-200 ${activeCategory === 'tools' ? 'rotate-180 text-blue-600' : 'text-slate-400 group-hover:text-blue-600'
+                          className={`w-3.5 h-3.5 transition-transform duration-200 ${activeCategory === 'tools' ? 'rotate-180 text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400'
                             }`}
                         />
                       </Link>
@@ -541,14 +542,14 @@ export default function Navbar() {
                           }
                         }}
                         className={`group px-3 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${isStudentActive
-                            ? 'text-blue-600 bg-blue-50/90 border border-blue-200/70 font-bold shadow-2xs'
-                            : 'text-slate-700 hover:text-blue-600 hover:bg-slate-100/80 border border-transparent'
+                            ? 'text-blue-600 dark:text-blue-400 bg-blue-50/90 dark:bg-blue-950/60 border border-blue-200/70 dark:border-blue-800/70 font-bold shadow-2xs'
+                            : 'text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 border border-transparent'
                           }`}
                       >
-                        <GraduationCap className="w-3.5 h-3.5 text-indigo-600 transition-transform duration-200 group-hover:scale-110" />
+                        <GraduationCap className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 transition-transform duration-200 group-hover:scale-110" />
                         <span>{item.label}</span>
                         <ChevronDown
-                          className={`w-3.5 h-3.5 transition-transform duration-200 ${activeCategory === 'student' ? 'rotate-180 text-blue-600' : 'text-slate-400 group-hover:text-blue-600'
+                          className={`w-3.5 h-3.5 transition-transform duration-200 ${activeCategory === 'student' ? 'rotate-180 text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400'
                             }`}
                         />
                       </Link>
@@ -566,14 +567,14 @@ export default function Navbar() {
                         href={item.route}
                         onClick={() => setActiveCategory(null)}
                         className={`group px-3 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${isJobsActive
-                            ? 'text-blue-600 bg-blue-50/90 border border-blue-200/70 font-bold shadow-2xs'
-                            : 'text-slate-700 hover:text-blue-600 hover:bg-slate-100/80 border border-transparent'
+                            ? 'text-blue-600 dark:text-blue-400 bg-blue-50/90 dark:bg-blue-950/60 border border-blue-200/70 dark:border-blue-800/70 font-bold shadow-2xs'
+                            : 'text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 border border-transparent'
                           }`}
                       >
-                        <Briefcase className="w-3.5 h-3.5 text-blue-600 transition-transform duration-200 group-hover:scale-110" />
+                        <Briefcase className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 transition-transform duration-200 group-hover:scale-110" />
                         <span>{item.label}</span>
                         {item.badge && (
-                          <span className="ml-0.5 px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+                          <span className="ml-0.5 px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                             {item.badge}
                           </span>
                         )}
@@ -595,18 +596,18 @@ export default function Navbar() {
                       rel={isExternal ? 'noopener noreferrer' : undefined}
                       onClick={() => setActiveCategory(null)}
                       className={`group px-3 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${isActive
-                          ? 'text-blue-600 bg-blue-50/90 border border-blue-200/70 font-bold shadow-2xs'
-                          : 'text-slate-700 hover:text-blue-600 hover:bg-slate-100/80 border border-transparent'
+                          ? 'text-blue-600 dark:text-blue-400 bg-blue-50/90 dark:bg-blue-950/60 border border-blue-200/70 dark:border-blue-800/70 font-bold shadow-2xs'
+                          : 'text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 border border-transparent'
                         }`}
                     >
-                      <ItemIcon className="w-3.5 h-3.5 text-blue-600 transition-transform duration-200 group-hover:scale-110" />
+                      <ItemIcon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 transition-transform duration-200 group-hover:scale-110" />
                       <span>{item.label}</span>
                       {item.badge && (
-                        <span className="ml-0.5 px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+                        <span className="ml-0.5 px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                           {item.badge}
                         </span>
                       )}
-                      {isExternal && <ExternalLink className="w-2.5 h-2.5 text-slate-400" />}
+                      {isExternal && <ExternalLink className="w-2.5 h-2.5 text-slate-400 dark:text-slate-500" />}
                     </Link>
                   </div>
                 );
@@ -687,6 +688,11 @@ export default function Navbar() {
             </div>
 
 
+            {/* Desktop Theme Toggle */}
+            <div className="hidden sm:flex items-center">
+              <ThemeToggle />
+            </div>
+
             {/* Notification Bell with Dynamic Unread Badge */}
             {!isLoading && user && (
               <Link
@@ -756,12 +762,12 @@ export default function Navbar() {
 
                 {/* Compact Account Menu (Desktop) */}
                 {accountMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-200 rounded-2xl shadow-xl py-1.5 z-50 text-xs animate-in fade-in duration-100 divide-y divide-slate-100">
+                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-[#111c38] border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-xl py-1.5 z-50 text-xs animate-in fade-in duration-100 divide-y divide-slate-100 dark:divide-slate-800">
                     <div className="px-3.5 py-2">
-                      <p className="font-bold text-slate-900 truncate">
+                      <p className="font-bold text-slate-900 dark:text-white truncate">
                         {profile?.fullName || user.fullName || "User"}
                       </p>
-                      <p className="text-[11px] text-slate-400 truncate">{user.email}</p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{user.email}</p>
                     </div>
 
                     <div className="py-1">
@@ -769,23 +775,23 @@ export default function Navbar() {
                         <Link
                           href="/admin"
                           onClick={() => setAccountMenuOpen(false)}
-                          className="flex items-center gap-2.5 px-3.5 py-2 text-purple-700 hover:bg-purple-50 transition-colors font-bold border-b border-slate-100"
+                          className="flex items-center gap-2.5 px-3.5 py-2 text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/50 transition-colors font-bold border-b border-slate-100 dark:border-slate-800"
                         >
-                          <Shield className="w-3.5 h-3.5 text-purple-600" />
+                          <Shield className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                           <span>Admin Control Center</span>
                         </Link>
                       )}
                       <Link
                         href="/notifications"
                         onClick={() => setAccountMenuOpen(false)}
-                        className="flex items-center justify-between px-3.5 py-2 text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors font-medium"
+                        className="flex items-center justify-between px-3.5 py-2 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors font-medium"
                       >
                         <div className="flex items-center gap-2.5">
-                          <Bell className="w-3.5 h-3.5 text-slate-400" />
+                          <Bell className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                           <span>Notifications</span>
                         </div>
                         {unreadNotifications > 0 && (
-                          <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-red-100 text-red-700">
+                          <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-red-100 dark:bg-red-950/80 text-red-700 dark:text-red-400">
                             {unreadNotifications > 99 ? "99+" : unreadNotifications}
                           </span>
                         )}
@@ -793,61 +799,61 @@ export default function Navbar() {
                       <Link
                         href="/dashboard"
                         onClick={() => setAccountMenuOpen(false)}
-                        className="flex items-center gap-2.5 px-3.5 py-2 text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors font-medium"
+                        className="flex items-center gap-2.5 px-3.5 py-2 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors font-medium"
                       >
-                        <LayoutDashboard className="w-3.5 h-3.5 text-slate-400" />
+                        <LayoutDashboard className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                         <span>Dashboard</span>
                       </Link>
                       <Link
                         href="/dashboard/history"
                         onClick={() => setAccountMenuOpen(false)}
-                        className="flex items-center gap-2.5 px-3.5 py-2 text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors font-medium"
+                        className="flex items-center gap-2.5 px-3.5 py-2 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors font-medium"
                       >
-                        <History className="w-3.5 h-3.5 text-slate-400" />
+                        <History className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                         <span>History</span>
                       </Link>
                       <Link
                         href="/dashboard/resumes"
                         onClick={() => setAccountMenuOpen(false)}
-                        className="flex items-center gap-2.5 px-3.5 py-2 text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors font-medium"
+                        className="flex items-center gap-2.5 px-3.5 py-2 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors font-medium"
                       >
-                        <FileText className="w-3.5 h-3.5 text-slate-400" />
+                        <FileText className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                         <span>Saved Resumes</span>
                       </Link>
                       <Link
                         href="/dashboard/conversations"
                         onClick={() => setAccountMenuOpen(false)}
-                        className="flex items-center gap-2.5 px-3.5 py-2 text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors font-medium"
+                        className="flex items-center gap-2.5 px-3.5 py-2 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors font-medium"
                       >
-                        <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
+                        <MessageSquare className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                         <span>Conversations</span>
                       </Link>
                       <Link
                         href="/dashboard/settings"
                         onClick={() => setAccountMenuOpen(false)}
-                        className="flex items-center gap-2.5 px-3.5 py-2 text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors font-medium"
+                        className="flex items-center gap-2.5 px-3.5 py-2 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors font-medium"
                       >
-                        <Settings className="w-3.5 h-3.5 text-slate-400" />
+                        <Settings className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                         <span>Settings</span>
                       </Link>
                       <Link
                         href="/dashboard/profile"
                         onClick={() => setAccountMenuOpen(false)}
-                        className="flex items-center gap-2.5 px-3.5 py-2 text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors font-medium"
+                        className="flex items-center gap-2.5 px-3.5 py-2 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors font-medium"
                       >
-                        <User className="w-3.5 h-3.5 text-slate-400" />
+                        <User className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                         <span>Profile</span>
                       </Link>
                       <Link
                         href="/pricing"
                         onClick={() => setAccountMenuOpen(false)}
-                        className="flex items-center justify-between px-3.5 py-2 text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors font-medium border-t border-slate-100"
+                        className="flex items-center justify-between px-3.5 py-2 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors font-medium border-t border-slate-100 dark:border-slate-800"
                       >
                         <div className="flex items-center gap-2.5">
                           <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                           <span>Plans & Features</span>
                         </div>
-                        <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200/60">
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
                           {profile?.role === 'ADMIN' || profile?.role === 'SUPER_ADMIN' ? 'Admin' : 'Free'}
                         </span>
                       </Link>
@@ -860,9 +866,9 @@ export default function Navbar() {
                           setAccountMenuOpen(false);
                           openFeedback();
                         }}
-                        className="w-full flex items-center gap-2.5 px-3.5 py-2 text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition-colors font-medium text-left cursor-pointer border-b border-slate-100"
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors font-medium text-left cursor-pointer border-b border-slate-100 dark:border-slate-800"
                       >
-                        <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
+                        <MessageSquare className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                         <span>Share Feedback</span>
                       </button>
                       <button
@@ -872,9 +878,9 @@ export default function Navbar() {
                           await signOut();
                           router.push("/");
                         }}
-                        className="w-full flex items-center gap-2.5 px-3.5 py-2 text-red-600 hover:bg-red-50 transition-colors font-medium text-left cursor-pointer"
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors font-medium text-left cursor-pointer"
                       >
-                        <LogOut className="w-3.5 h-3.5 text-red-500" />
+                        <LogOut className="w-3.5 h-3.5 text-red-500 dark:text-red-400" />
                         <span>Logout</span>
                       </button>
                     </div>
@@ -890,7 +896,7 @@ export default function Navbar() {
                     window.dispatchEvent(new CustomEvent("saarvi:close-navigation-overlays"));
                     setMobileProfileSheetOpen(true);
                   }}
-                  className="md:hidden flex items-center justify-center min-w-[44px] min-h-[44px] rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111c38] hover:bg-slate-50 text-slate-700 dark:text-slate-300 hover:text-blue-600 transition shadow-2xs cursor-pointer"
+                  className="md:hidden flex items-center justify-center min-w-[44px] min-h-[44px] rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111c38] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-blue-600 transition shadow-2xs cursor-pointer"
                   aria-label="Account and Profile"
                 >
                   <User className="w-5 h-5 text-slate-600 dark:text-slate-300" />
@@ -899,7 +905,7 @@ export default function Navbar() {
                 <div className="hidden md:flex items-center gap-2">
                   <Link
                     href="/login"
-                    className="px-3.5 py-1.5 min-h-[38px] inline-flex items-center justify-center text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-300 rounded-xl transition-all duration-150 border border-slate-200/90 shadow-2xs hover:shadow-xs hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                    className="px-3.5 py-1.5 min-h-[38px] inline-flex items-center justify-center text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-[#111c38] hover:bg-slate-50 dark:hover:bg-[#162244] hover:border-slate-300 dark:hover:border-slate-700 rounded-xl transition-all duration-150 border border-slate-200/90 dark:border-slate-800 shadow-2xs hover:shadow-xs hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
                   >
                     Login
                   </Link>
@@ -930,7 +936,7 @@ export default function Navbar() {
 
         {/* Mobile Navigation Drawer with Accordions */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-b border-slate-200 bg-white/98 backdrop-blur-md px-4 pt-3 pb-6 space-y-3 animate-in slide-in-from-top-2 duration-150">
+          <div className="md:hidden border-b border-slate-200 dark:border-slate-800 bg-white/98 dark:bg-[#0c1322]/98 backdrop-blur-md px-4 pt-3 pb-6 space-y-3 animate-in slide-in-from-top-2 duration-150">
 
             {/* Quick Search on Mobile */}
             <button
@@ -939,28 +945,28 @@ export default function Navbar() {
                 setMobileMenuOpen(false);
                 setSearchOpen(true);
               }}
-              className="w-full flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-600"
+              className="w-full flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-600 dark:text-slate-300"
             >
               <span className="flex items-center gap-2">
                 <Search className="w-4 h-4 text-slate-400" />
                 <span>Search all tools...</span>
               </span>
-              <kbd className="px-2 py-0.5 rounded bg-white border border-slate-200 text-[10px] text-slate-400">
+              <kbd className="px-2 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] text-slate-400">
                 Cmd+K
               </kbd>
             </button>
 
             {/* Mobile Essential Daily Tools Section */}
-            <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 space-y-2">
+            <div className="bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3 space-y-2">
               <div className="flex items-center justify-between px-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                   <Zap className="w-3 h-3 text-amber-500" />
                   Essential Daily Tools
                 </span>
                 <Link
                   href="/tools"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="text-[10px] font-semibold text-blue-600 hover:text-blue-700"
+                  className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                 >
                   View All
                 </Link>
@@ -976,7 +982,7 @@ export default function Navbar() {
                         setMobileMenuOpen(false);
                         handleToolClick(tool.key, tool.category);
                       }}
-                      className="flex items-center gap-2 p-2 rounded-xl bg-white border border-slate-200/70 hover:border-blue-300 hover:bg-blue-50/40 text-xs font-semibold text-slate-800 transition-colors shadow-2xs"
+                      className="flex items-center gap-2 p-2 rounded-xl bg-white dark:bg-[#111c38] border border-slate-200/70 dark:border-slate-700/70 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50/40 dark:hover:bg-[#162244] text-xs font-semibold text-slate-800 dark:text-slate-200 transition-colors shadow-2xs"
                     >
                       <IconComponent className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                       <span className="truncate">{tool.name}</span>
@@ -987,27 +993,27 @@ export default function Navbar() {
             </div>
 
             {/* Mobile Accordion 1: PDF Tools */}
-            <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">
+            <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden bg-slate-50/50 dark:bg-slate-800/30">
               <button
                 type="button"
                 onClick={() => toggleMobileSection("pdf")}
-                className="w-full p-3.5 text-left font-bold text-xs text-slate-800 flex items-center justify-between"
+                className="w-full p-3.5 text-left font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center justify-between"
               >
                 <span className="flex items-center gap-2">
                   <FileText className="w-4 h-4 text-red-500" />
                   PDF Tools
                 </span>
                 <ChevronDown
-                  className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpandedSection === "pdf" ? "rotate-180 text-blue-600" : ""
+                  className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpandedSection === "pdf" ? "rotate-180 text-blue-600 dark:text-blue-400" : ""
                     }`}
                 />
               </button>
               {mobileExpandedSection === "pdf" && (
-                <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs max-h-80 overflow-y-auto">
+                <div className="p-3 border-t border-slate-200/60 dark:border-slate-800 bg-white dark:bg-[#0f172a] space-y-1 text-xs max-h-80 overflow-y-auto">
                   <Link
                     href="/pdf"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50 mb-1"
+                    className="block p-2 rounded-xl text-blue-600 dark:text-blue-400 font-semibold hover:bg-blue-50 dark:hover:bg-blue-950/40 mb-1"
                   >
                     View All PDF Tools →
                   </Link>
@@ -1050,7 +1056,7 @@ export default function Navbar() {
                         handleToolClick(tool.key, "pdf");
                         setMobileMenuOpen(false);
                       }}
-                      className="flex items-center justify-between p-2 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors"
+                      className="flex items-center justify-between p-2 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
                     >
                       <span className="font-medium truncate">{tool.name}</span>
                       {tool.isFeatured ? (
@@ -1067,27 +1073,27 @@ export default function Navbar() {
             </div>
 
             {/* Mobile Accordion 2: Image Tools */}
-            <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">
+            <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden bg-slate-50/50 dark:bg-slate-800/30">
               <button
                 type="button"
                 onClick={() => toggleMobileSection("images")}
-                className="w-full p-3.5 text-left font-bold text-xs text-slate-800 flex items-center justify-between"
+                className="w-full p-3.5 text-left font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center justify-between"
               >
                 <span className="flex items-center gap-2">
                   <FileImage className="w-4 h-4 text-blue-500" />
                   Image Tools
                 </span>
                 <ChevronDown
-                  className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpandedSection === "images" ? "rotate-180 text-blue-600" : ""
+                  className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpandedSection === "images" ? "rotate-180 text-blue-600 dark:text-blue-400" : ""
                     }`}
                 />
               </button>
               {mobileExpandedSection === "images" && (
-                <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs max-h-80 overflow-y-auto">
+                <div className="p-3 border-t border-slate-200/60 dark:border-slate-800 bg-white dark:bg-[#0f172a] space-y-1 text-xs max-h-80 overflow-y-auto">
                   <Link
                     href="/images"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50 mb-1"
+                    className="block p-2 rounded-xl text-blue-600 dark:text-blue-400 font-semibold hover:bg-blue-50 dark:hover:bg-blue-950/40 mb-1"
                   >
                     View All Image Tools →
                   </Link>
@@ -1117,7 +1123,7 @@ export default function Navbar() {
                         handleToolClick(tool.key, "images");
                         setMobileMenuOpen(false);
                       }}
-                      className="flex items-center justify-between p-2 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors"
+                      className="flex items-center justify-between p-2 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
                     >
                       <span className="font-medium truncate">{tool.name}</span>
                       {tool.isFeatured ? (
@@ -1134,24 +1140,24 @@ export default function Navbar() {
             </div>
 
             {/* Mobile Accordion 3: Student Tools */}
-            <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">
+            <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden bg-slate-50/50 dark:bg-slate-800/30">
               <button
                 type="button"
                 onClick={() => toggleMobileSection("student")}
-                className="w-full p-3.5 text-left font-bold text-xs text-slate-800 flex items-center justify-between"
+                className="w-full p-3.5 text-left font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center justify-between"
               >
                 <span className="flex items-center gap-2">
                   <GraduationCap className="w-4 h-4 text-indigo-600" />
                   Student Tools
                 </span>
                 <ChevronDown
-                  className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpandedSection === "student" ? "rotate-180 text-blue-600" : ""
+                  className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpandedSection === "student" ? "rotate-180 text-blue-600 dark:text-blue-400" : ""
                     }`}
                 />
               </button>
               {mobileExpandedSection === "student" && (
-                <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs max-h-80 overflow-y-auto">
-                  <Link href="/student-tools" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50 mb-1">
+                <div className="p-3 border-t border-slate-200/60 dark:border-slate-800 bg-white dark:bg-[#0f172a] space-y-1 text-xs max-h-80 overflow-y-auto">
+                  <Link href="/student-tools" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-blue-600 dark:text-blue-400 font-semibold hover:bg-blue-50 dark:hover:bg-blue-950/40 mb-1">
                     View All Student Tools →
                   </Link>
                   {dedupeToolsByKey(
@@ -1180,7 +1186,7 @@ export default function Navbar() {
                         handleToolClick(tool.key, "student");
                         setMobileMenuOpen(false);
                       }}
-                      className="flex items-center justify-between p-2 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors"
+                      className="flex items-center justify-between p-2 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
                     >
                       <span className="font-medium truncate">{tool.name}</span>
                       {tool.isFeatured ? (
@@ -1197,24 +1203,24 @@ export default function Navbar() {
             </div>
 
             {/* Mobile Accordion 4: Career Tools */}
-            <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">
+            <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden bg-slate-50/50 dark:bg-slate-800/30">
               <button
                 type="button"
                 onClick={() => toggleMobileSection("career")}
-                className="w-full p-3.5 text-left font-bold text-xs text-slate-800 flex items-center justify-between"
+                className="w-full p-3.5 text-left font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center justify-between"
               >
                 <span className="flex items-center gap-2">
                   <Briefcase className="w-4 h-4 text-emerald-600" />
                   Career Tools
                 </span>
                 <ChevronDown
-                  className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpandedSection === "career" ? "rotate-180 text-blue-600" : ""
+                  className={`w-4 h-4 text-slate-400 transition-transform ${mobileExpandedSection === "career" ? "rotate-180 text-blue-600 dark:text-blue-400" : ""
                     }`}
                 />
               </button>
               {mobileExpandedSection === "career" && (
-                <div className="p-3 border-t border-slate-200/60 bg-white space-y-1 text-xs max-h-80 overflow-y-auto">
-                  <Link href="/jobs" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-blue-600 font-semibold hover:bg-blue-50 mb-1">
+                <div className="p-3 border-t border-slate-200/60 dark:border-slate-800 bg-white dark:bg-[#0f172a] space-y-1 text-xs max-h-80 overflow-y-auto">
+                  <Link href="/jobs" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-blue-600 dark:text-blue-400 font-semibold hover:bg-blue-50 dark:hover:bg-blue-950/40 mb-1">
                     Jobs &amp; Internships Platform →
                   </Link>
                   {dedupeToolsByKey(
@@ -1236,7 +1242,7 @@ export default function Navbar() {
                         handleToolClick(tool.key, "career");
                         setMobileMenuOpen(false);
                       }}
-                      className="flex items-center justify-between p-2 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors"
+                      className="flex items-center justify-between p-2 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
                     >
                       <span className="font-medium truncate">{tool.name}</span>
                       {tool.requiresPro ? (
@@ -1249,11 +1255,11 @@ export default function Navbar() {
             </div>
 
             {/* Mobile Accordion 6: AI & OCR Tools */}
-            <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-purple-50/30 border-purple-200/60">
+            <div className="border border-purple-200/60 dark:border-purple-900/60 rounded-2xl overflow-hidden bg-purple-50/30 dark:bg-purple-950/20">
               <button
                 type="button"
                 onClick={() => toggleMobileSection("ai")}
-                className="w-full p-3.5 text-left font-bold text-xs text-purple-900 flex items-center justify-between"
+                className="w-full p-3.5 text-left font-bold text-xs text-purple-900 dark:text-purple-200 flex items-center justify-between"
               >
                 <span className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-purple-600" />
@@ -1265,8 +1271,8 @@ export default function Navbar() {
                 />
               </button>
               {mobileExpandedSection === "ai" && (
-                <div className="p-3 border-t border-purple-100 bg-white space-y-1 text-xs max-h-80 overflow-y-auto">
-                  <Link href="/tools?category=ai" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-purple-600 font-semibold hover:bg-purple-50 mb-1">
+                <div className="p-3 border-t border-purple-100 dark:border-purple-900/60 bg-white dark:bg-[#0f172a] space-y-1 text-xs max-h-80 overflow-y-auto">
+                  <Link href="/tools?category=ai" onClick={() => setMobileMenuOpen(false)} className="block p-2 rounded-xl text-purple-600 dark:text-purple-400 font-semibold hover:bg-purple-50 dark:hover:bg-purple-950/40 mb-1">
                     View All AI Tools →
                   </Link>
                   {dedupeToolsByKey(
@@ -1288,7 +1294,7 @@ export default function Navbar() {
                         handleToolClick(tool.key, "ai");
                         setMobileMenuOpen(false);
                       }}
-                      className="flex items-center justify-between p-2 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors"
+                      className="flex items-center justify-between p-2 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
                     >
                       <span className="font-medium truncate">{tool.name}</span>
                       {tool.isFeatured ? (
@@ -1322,8 +1328,8 @@ export default function Navbar() {
                         href={item.route}
                         onClick={() => setMobileMenuOpen(false)}
                         className={`flex items-center justify-between p-3.5 rounded-2xl font-bold text-xs border transition-colors ${isActive
-                            ? 'bg-blue-50 text-blue-700 border-blue-200'
-                            : 'bg-slate-50/70 text-slate-800 border-slate-200/80 hover:bg-slate-100'
+                            ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                            : 'bg-slate-50/70 dark:bg-slate-800/40 text-slate-800 dark:text-slate-200 border-slate-200/80 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/70'
                           }`}
                       >
                         <div className="flex items-center gap-2">
@@ -1331,7 +1337,7 @@ export default function Navbar() {
                           <span>{item.label}</span>
                         </div>
                         {item.badge && (
-                          <span className="px-2 py-0.5 text-[10px] font-bold text-blue-700 bg-blue-100/80 rounded-full">
+                          <span className="px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:text-blue-300 bg-blue-100/80 dark:bg-blue-950 rounded-full">
                             {item.badge}
                           </span>
                         )}
@@ -1349,8 +1355,8 @@ export default function Navbar() {
                         href={item.route}
                         onClick={() => setMobileMenuOpen(false)}
                         className={`flex items-center justify-between p-3.5 rounded-2xl font-bold text-xs border transition-colors ${isActive
-                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                            : 'bg-slate-50/70 text-slate-800 border-slate-200/80 hover:bg-slate-100'
+                            ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
+                            : 'bg-slate-50/70 dark:bg-slate-800/40 text-slate-800 dark:text-slate-200 border-slate-200/80 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/70'
                           }`}
                       >
                         <div className="flex items-center gap-2">
@@ -1358,7 +1364,7 @@ export default function Navbar() {
                           <span>{item.label}</span>
                         </div>
                         {item.badge && (
-                          <span className="px-2 py-0.5 text-[10px] font-bold text-indigo-700 bg-indigo-100/80 rounded-full">
+                          <span className="px-2 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-100/80 dark:bg-indigo-950 rounded-full">
                             {item.badge}
                           </span>
                         )}
@@ -1374,13 +1380,13 @@ export default function Navbar() {
                       <Link
                         href={item.route}
                         onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center justify-between p-3 rounded-2xl bg-blue-50/60 hover:bg-blue-50 text-slate-800 font-semibold text-sm border border-blue-100 transition-colors"
+                        className="flex items-center justify-between p-3 rounded-2xl bg-blue-50/60 dark:bg-blue-950/40 hover:bg-blue-50 dark:hover:bg-blue-950/60 text-slate-800 dark:text-slate-200 font-semibold text-sm border border-blue-100 dark:border-blue-900 transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           <Sparkles className="w-4 h-4 text-amber-500" />
                           <span>{item.label}</span>
                         </div>
-                        <span className="px-2 py-0.5 text-[10px] font-bold text-blue-700 bg-blue-100/80 rounded-full">
+                        <span className="px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:text-blue-300 bg-blue-100/80 dark:bg-blue-900/80 rounded-full">
                           Free / Pro
                         </span>
                       </Link>
@@ -1398,8 +1404,8 @@ export default function Navbar() {
                       rel={isExternal ? 'noopener noreferrer' : undefined}
                       onClick={() => setMobileMenuOpen(false)}
                       className={`flex items-center justify-between p-3.5 rounded-2xl font-bold text-xs border transition-colors ${isActive
-                          ? 'bg-blue-50 text-blue-700 border-blue-200'
-                          : 'bg-slate-50/70 text-slate-800 border-slate-200/80 hover:bg-slate-100'
+                          ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                          : 'bg-slate-50/70 dark:bg-slate-800/40 text-slate-800 dark:text-slate-200 border-slate-200/80 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/70'
                         }`}
                     >
                       <div className="flex items-center gap-2">
@@ -1407,7 +1413,7 @@ export default function Navbar() {
                         <span>{item.label}</span>
                       </div>
                       {item.badge && (
-                        <span className="px-2 py-0.5 text-[10px] font-bold text-blue-700 bg-blue-100/80 rounded-full">
+                        <span className="px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:text-blue-300 bg-blue-100/80 dark:bg-blue-950 rounded-full">
                           {item.badge}
                         </span>
                       )}
@@ -1417,15 +1423,15 @@ export default function Navbar() {
               })}
 
             {/* Account Links in Mobile Drawer */}
-            <div className="pt-3 border-t border-slate-200/80 space-y-2">
+            <div className="pt-3 border-t border-slate-200/80 dark:border-slate-800 space-y-2">
               {!isLoading && user ? (
-                <div className="space-y-1 bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                  <div className="flex items-center gap-2 pb-2 border-b border-slate-200 text-xs font-bold text-slate-800">
+                <div className="space-y-1 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center gap-2 pb-2 border-b border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200">
                     {userAvatar ? (
                       <img
                         src={userAvatar}
                         alt={profile?.fullName || user.fullName || "User"}
-                        className="w-6 h-6 rounded-full object-cover shrink-0 ring-1 ring-slate-200"
+                        className="w-6 h-6 rounded-full object-cover shrink-0 ring-1 ring-slate-200 dark:ring-slate-700"
                         onError={(e) => {
                           (e.target as HTMLElement).style.display = "none";
                           const fallback = (e.target as HTMLElement).nextElementSibling as HTMLElement;
@@ -1446,44 +1452,44 @@ export default function Navbar() {
                       <Link
                         href="/admin"
                         onClick={() => setMobileMenuOpen(false)}
-                        className="p-2 text-purple-700 hover:text-purple-900 font-bold col-span-2 bg-purple-50 rounded-lg flex items-center gap-1.5"
+                        className="p-2 text-purple-700 dark:text-purple-400 hover:text-purple-900 dark:hover:text-purple-300 font-bold col-span-2 bg-purple-50 dark:bg-purple-950/40 rounded-lg flex items-center gap-1.5"
                       >
-                        <Shield className="w-3.5 h-3.5 text-purple-600" />
+                        <Shield className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                         <span>Admin Control Center</span>
                       </Link>
                     )}
                     <Link
                       href="/dashboard"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="p-2 text-slate-700 hover:text-blue-600 font-medium"
+                      className="p-2 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 font-medium"
                     >
                       Dashboard
                     </Link>
                     <Link
                       href="/dashboard/history"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="p-2 text-slate-700 hover:text-blue-600 font-medium"
+                      className="p-2 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 font-medium"
                     >
                       History
                     </Link>
                     <Link
                       href="/dashboard/resumes"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="p-2 text-slate-700 hover:text-blue-600 font-medium"
+                      className="p-2 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 font-medium"
                     >
                       Resumes
                     </Link>
                     <Link
                       href="/dashboard/settings"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="p-2 text-slate-700 hover:text-blue-600 font-medium"
+                      className="p-2 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 font-medium"
                     >
                       Settings
                     </Link>
                     <Link
                       href="/dashboard/profile"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="p-2 text-slate-700 hover:text-blue-600 font-medium"
+                      className="p-2 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 font-medium"
                     >
                       Profile
                     </Link>
@@ -1494,7 +1500,7 @@ export default function Navbar() {
                         await signOut();
                         router.push("/");
                       }}
-                      className="p-2 text-red-600 font-medium text-left"
+                      className="p-2 text-red-600 dark:text-red-400 font-medium text-left"
                     >
                       Logout
                     </button>
@@ -1505,14 +1511,14 @@ export default function Navbar() {
                   <Link
                     href="/login"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="flex-1 py-2.5 bg-blue-600 text-white font-semibold text-xs rounded-xl text-center shadow-xs"
+                    className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl text-center shadow-xs"
                   >
                     Login
                   </Link>
                   <Link
                     href="/signup"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs rounded-xl text-center border border-slate-200"
+                    className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs rounded-xl text-center border border-slate-200 dark:border-slate-700"
                   >
                     Create Account
                   </Link>
@@ -1521,25 +1527,25 @@ export default function Navbar() {
             </div>
 
             {/* Static Nav Links */}
-            <div className="pt-2 flex items-center justify-between text-xs font-semibold text-slate-600 px-2">
+            <div className="pt-2 flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-400 px-2">
               <Link
                 href="/about"
                 onClick={() => setMobileMenuOpen(false)}
-                className="hover:text-blue-600 py-1"
+                className="hover:text-blue-600 dark:hover:text-blue-400 py-1"
               >
                 About
               </Link>
               <Link
                 href="/about#contact"
                 onClick={() => setMobileMenuOpen(false)}
-                className="hover:text-blue-600 py-1"
+                className="hover:text-blue-600 dark:hover:text-blue-400 py-1"
               >
                 Contact
               </Link>
               <Link
                 href="/privacy"
                 onClick={() => setMobileMenuOpen(false)}
-                className="hover:text-blue-600 py-1"
+                className="hover:text-blue-600 dark:hover:text-blue-400 py-1"
               >
                 Privacy
               </Link>

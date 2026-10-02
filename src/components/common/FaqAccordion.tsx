@@ -93,17 +93,17 @@ export default function FaqAccordion({
       {(eyebrow || title || description) && (
         <div className="text-center space-y-2">
           {eyebrow && (
-            <span className="text-[11px] sm:text-xs font-bold tracking-widest text-blue-600 uppercase">
+            <span className="text-[11px] sm:text-xs font-bold tracking-widest text-blue-600 dark:text-blue-400 uppercase">
               {eyebrow}
             </span>
           )}
           {title && (
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               {title}
             </h2>
           )}
           {description && (
-            <p className="text-sm text-slate-500 max-w-md mx-auto">
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
               {description}
             </p>
           )}
@@ -120,7 +120,7 @@ export default function FaqAccordion({
             <div
               key={index}
               id={`faq-item-${index}`}
-              className="border border-slate-200/80 rounded-2xl bg-white shadow-2xs transition-all overflow-hidden saarvi-destination-target"
+              className="border border-slate-200/80 dark:border-slate-800 rounded-2xl bg-white dark:bg-[#111c38] shadow-2xs transition-all overflow-hidden saarvi-destination-target"
             >
 
               <button
@@ -130,12 +130,12 @@ export default function FaqAccordion({
                 onKeyDown={(e) => handleKeyDown(e, index)}
                 aria-expanded={isOpen}
                 aria-controls={contentId}
-                className="w-full px-5 py-4 text-left font-semibold text-sm sm:text-base text-slate-800 flex items-center justify-between gap-4 hover:text-blue-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 rounded-2xl transition-colors cursor-pointer"
+                className="w-full px-5 py-4 text-left font-semibold text-sm sm:text-base text-slate-800 dark:text-slate-200 flex items-center justify-between gap-4 hover:text-blue-600 dark:hover:text-blue-400 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 rounded-2xl transition-colors cursor-pointer"
               >
                 <span>{item.question}</span>
                 <ChevronDown
                   className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 motion-reduce:transition-none ${
-                    isOpen ? "rotate-180 text-blue-600" : ""
+                    isOpen ? "rotate-180 text-blue-600 dark:text-blue-400" : ""
                   }`}
                   aria-hidden="true"
                 />
@@ -146,7 +146,7 @@ export default function FaqAccordion({
                   id={contentId}
                   role="region"
                   aria-labelledby={buttonId}
-                  className="px-5 pb-4 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 pt-3 animate-in fade-in duration-150 motion-reduce:animate-none"
+                  className="px-5 pb-4 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-800 pt-3 animate-in fade-in duration-150 motion-reduce:animate-none"
                 >
                   {item.answer}
                 </div>

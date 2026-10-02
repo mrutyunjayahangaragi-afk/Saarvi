@@ -143,16 +143,16 @@ function SelectedFileItem({
   }, [previewUrl]);
 
   return (
-    <div className="flex items-center justify-between p-3 sm:p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 transition-all hover:border-slate-300">
+    <div className="flex items-center justify-between p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 transition-all hover:border-slate-300 dark:hover:border-slate-700">
       <div className="flex items-center gap-3.5 min-w-0 pr-2">
         {/* Preview: Thumbnail for image, icon for PDF / Word / Excel / PPTX / Code */}
         {previewUrl ? (
-          <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-slate-200 bg-white shrink-0 shadow-xs">
+          <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0 shadow-xs">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={previewUrl} alt={file.name} className="w-full h-full object-cover" />
           </div>
         ) : (
-          <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200/60 text-blue-600 flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200/60 dark:border-blue-900 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
             {isPdf ? (
               <FileText className="w-6 h-6 text-red-500" />
             ) : isDocx ? (
@@ -173,19 +173,19 @@ function SelectedFileItem({
 
         <div className="min-w-0 space-y-0.5">
           <div className="flex items-center gap-1.5">
-            <span className="text-emerald-600 font-bold text-xs">✓</span>
-            <p className="text-xs sm:text-sm font-semibold text-slate-900 truncate">
+            <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xs">✓</span>
+            <p className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white truncate">
               {file.name}
             </p>
           </div>
-          <div className="flex items-center gap-2 text-[11px] text-slate-500">
+          <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
             <span className="font-mono">{formatBytes(file.size)}</span>
             <span>•</span>
             <span className="uppercase font-medium">{file.name.split(".").pop() || "File"}</span>
             {docSummary && (
               <>
                 <span>•</span>
-                <span className="text-slate-600 font-medium">{docSummary}</span>
+                <span className="text-slate-600 dark:text-slate-300 font-medium">{docSummary}</span>
               </>
             )}
           </div>
@@ -199,7 +199,7 @@ function SelectedFileItem({
               type="button"
               disabled={index === 0}
               onClick={onMoveUp}
-              className="p-1.5 text-slate-400 hover:text-slate-700 disabled:opacity-20 rounded-lg hover:bg-slate-200 transition-colors"
+              className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-20 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
               title="Move Up"
             >
               <ArrowUp className="w-3.5 h-3.5" />
@@ -208,7 +208,7 @@ function SelectedFileItem({
               type="button"
               disabled={index === totalFiles - 1}
               onClick={onMoveDown}
-              className="p-1.5 text-slate-400 hover:text-slate-700 disabled:opacity-20 rounded-lg hover:bg-slate-200 transition-colors"
+              className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-20 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
               title="Move Down"
             >
               <ArrowDown className="w-3.5 h-3.5" />
@@ -219,7 +219,7 @@ function SelectedFileItem({
         <button
           type="button"
           onClick={onRemove}
-          className="px-2.5 py-1 text-xs text-slate-500 hover:text-red-600 font-medium rounded-lg hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors cursor-pointer"
+          className="px-2.5 py-1 text-xs text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 font-medium rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 border border-transparent hover:border-red-200 dark:hover:border-red-900 transition-colors cursor-pointer"
         >
           Remove
         </button>
@@ -1025,7 +1025,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
         <div className="pt-2">
           <Link
             href="/tools"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-xs"
           >
             Explore available tools
           </Link>
@@ -1037,22 +1037,22 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
   // If tool is in MAINTENANCE by admin (Section 17)
   if (runtimeStatus === "maintenance" || (!entitlement.allowed && entitlement.reason === "maintenance")) {
     return (
-      <div className="p-8 rounded-3xl border-2 border-dashed border-amber-300 bg-amber-50/50 text-center space-y-4 shadow-xs">
-        <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+      <div className="p-8 rounded-3xl border-2 border-dashed border-amber-300 dark:border-amber-800/80 bg-amber-50/50 dark:bg-amber-950/40 text-center space-y-4 shadow-xs">
+        <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center mx-auto">
           <AlertCircle className="w-6 h-6" />
         </div>
         <div className="space-y-1 max-w-md mx-auto">
-          <h3 className="text-base font-bold text-slate-800">
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
             This tool is temporarily unavailable while we improve it.
           </h3>
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
             We are performing scheduled maintenance on this specific tool. Unrelated tools continue working normally.
           </p>
         </div>
         <div className="pt-2">
           <Link
             href="/tools"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-xs"
           >
             Explore available tools
           </Link>
@@ -1067,18 +1067,18 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
     (betaBlocked || (serverAccess && !serverAccess.isAllowed && serverAccess.reason === "beta_limit_reached"))
   ) {
     return (
-      <div className="p-8 rounded-3xl border-2 border-dashed border-amber-300 bg-amber-50/80 text-center space-y-4 shadow-xs">
-        <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto">
+      <div className="p-8 rounded-3xl border-2 border-dashed border-amber-300 dark:border-amber-800/80 bg-amber-50/80 dark:bg-amber-950/40 text-center space-y-4 shadow-xs">
+        <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
           <Lock className="w-6 h-6" />
         </div>
         <div className="space-y-1.5 max-w-md mx-auto">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900 mb-1">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 mb-1">
             Beta Limit Reached
           </div>
-          <h3 className="text-base font-bold text-slate-800">
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
             You've used all {serverAccess?.freeLimit || 10} free Beta runs for {tool.name}.
           </h3>
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
             Upgrade to Saarvi Pro to continue using this tool with unlimited runs and priority processing.
           </p>
         </div>
@@ -1092,7 +1092,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           </Link>
           <Link
             href="/pricing"
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-xs"
           >
             View Plans
           </Link>
@@ -1105,9 +1105,9 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
     return (
       <ToolResultPanel state={state} targetId="tool-result">
         {serverAccess?.isBeta && !serverAccess?.isPro && serverAccess.remainingUses === 0 && (
-          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-amber-900">
+          <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200">
             <div className="flex items-center gap-2">
-              <span className="font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-950 text-[10px] uppercase tracking-wider">
+              <span className="font-bold px-2 py-0.5 rounded-full bg-amber-200 dark:bg-amber-900/60 text-amber-950 dark:text-amber-200 text-[10px] uppercase tracking-wider">
                 Beta Limit Reached
               </span>
               <span>You've used all {serverAccess.freeLimit} free Beta runs for this tool. Your generated result is ready below!</span>
@@ -1132,11 +1132,11 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
       {serverAccess?.isBeta && !serverAccess?.isPro && (
         <div className={`p-3 sm:p-3.5 rounded-2xl border text-xs flex items-center justify-between gap-3 ${
           serverAccess.remainingUses <= 2
-            ? 'bg-amber-50 border-amber-200/90 text-amber-900 shadow-xs'
-            : 'bg-blue-50/80 border-blue-200/80 text-blue-900 shadow-xs'
+            ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200/90 dark:border-amber-800/80 text-amber-900 dark:text-amber-200 shadow-xs'
+            : 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-200/80 dark:border-blue-900 text-blue-900 dark:text-blue-200 shadow-xs'
         }`}>
           <div className="flex items-center gap-2.5">
-            <span className="px-2 py-0.5 rounded-md font-bold text-[10px] uppercase bg-white border border-current tracking-wide">
+            <span className="px-2 py-0.5 rounded-md font-bold text-[10px] uppercase bg-white dark:bg-slate-800 border border-current tracking-wide">
               Beta Access
             </span>
             <span className="font-medium">
@@ -1190,8 +1190,8 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           onClick={() => fileInputRef.current?.click()}
           className={`relative cursor-pointer rounded-3xl border-2 border-dashed p-10 sm:p-12 text-center transition-all duration-200 hover-3d-lift ${
             isDragging
-              ? "border-blue-600 bg-blue-50/80 shadow-lg scale-[1.01]"
-              : "border-slate-300 hover:border-blue-400 bg-white hover:bg-slate-50 shadow-xs"
+              ? "border-blue-600 bg-blue-50/80 dark:bg-blue-950/40 shadow-lg scale-[1.01]"
+              : "border-slate-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 bg-white dark:bg-[#111c38] hover:bg-slate-50 dark:hover:bg-slate-900/60 shadow-xs"
           }`}
         >
           <input
@@ -1217,16 +1217,16 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
               className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-200 shadow-xs ${
                 isDragging
                   ? "bg-blue-600 text-white scale-110 shadow-md"
-                  : "bg-blue-50 text-blue-600 border border-blue-200/60"
+                  : "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-900"
               }`}
             >
               <Upload className="w-7 h-7" />
             </div>
 
             <div className="space-y-2">
-              <p className="text-base sm:text-lg font-bold text-slate-800">
+              <p className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
                 {isDragging ? (
-                  <span className="text-blue-600">Drop it here</span>
+                  <span className="text-blue-600 dark:text-blue-400">Drop it here</span>
                 ) : (
                   <span>Drop your {allowsMultiple ? "files" : "file"} here</span>
                 )}
@@ -1234,7 +1234,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
               {!isDragging && (
                 <>
-                  <p className="text-xs text-slate-400 font-medium">or</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">or</p>
                   <div className="pt-1">
                     <span className="inline-block px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs hover:shadow transition-all">
                       Choose File
@@ -1245,8 +1245,8 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
             </div>
 
             {/* Privacy indicator inside dropzone */}
-            <div className="pt-2 flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-              <Lock className="w-3.5 h-3.5 text-emerald-600" />
+            <div className="pt-2 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+              <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Processed in browser</span>
             </div>
           </div>
@@ -1254,20 +1254,20 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
       )}
 
       {/* Trust & Privacy Highlights */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1 text-xs text-slate-600">
-        <div className="flex items-center gap-2 p-3 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
-          <Lock className="w-4 h-4 text-emerald-600 shrink-0" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1 text-xs text-slate-600 dark:text-slate-300">
+        <div className="flex items-center gap-2 p-3 rounded-2xl bg-white dark:bg-[#111c38] border border-slate-200/80 dark:border-slate-800 shadow-xs">
+          <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <span className="font-semibold text-[11px] sm:text-xs">Private processing</span>
         </div>
-        <div className="flex items-center gap-2 p-3 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+        <div className="flex items-center gap-2 p-3 rounded-2xl bg-white dark:bg-[#111c38] border border-slate-200/80 dark:border-slate-800 shadow-xs">
           <Zap className="w-4 h-4 text-amber-500 shrink-0" />
           <span className="font-semibold text-[11px] sm:text-xs">Fast browser processing</span>
         </div>
-        <div className="flex items-center gap-2 p-3 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+        <div className="flex items-center gap-2 p-3 rounded-2xl bg-white dark:bg-[#111c38] border border-slate-200/80 dark:border-slate-800 shadow-xs">
           <DownloadIcon className="w-4 h-4 text-blue-600 shrink-0" />
           <span className="font-semibold text-[11px] sm:text-xs">Automatic download</span>
         </div>
-        <div className="flex items-center gap-2 p-3 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+        <div className="flex items-center gap-2 p-3 rounded-2xl bg-white dark:bg-[#111c38] border border-slate-200/80 dark:border-slate-800 shadow-xs">
           <UserCheck className="w-4 h-4 text-purple-600 shrink-0" />
           <span className="font-semibold text-[11px] sm:text-xs">No account required</span>
         </div>
@@ -1282,8 +1282,8 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           role="alert"
           className={`p-5 rounded-3xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs animate-in fade-in saarvi-destination-target outline-hidden ${
             errorMessage.includes("OCR is required")
-              ? "bg-amber-50/90 border-amber-200/90 text-amber-900"
-              : "bg-red-50 border-red-200 text-red-800"
+              ? "bg-amber-50/90 dark:bg-amber-950/40 border-amber-200/90 dark:border-amber-800 text-amber-900 dark:text-amber-200"
+              : "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200"
           }`}
         >
           <div className="flex items-start gap-3">
@@ -1295,7 +1295,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
             <div className="space-y-1">
               <p className="font-semibold text-xs leading-relaxed">{errorMessage}</p>
               {errorMessage.includes("OCR is required") && (
-                <p className="text-[11px] text-amber-700/90">
+                <p className="text-[11px] text-amber-700/90 dark:text-amber-300/90">
                   Saarvi includes a dedicated OCR tool that recognizes and extracts text from scanned documents and images.
                 </p>
               )}
@@ -1313,7 +1313,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
               <button
                 type="button"
                 onClick={resetAll}
-                className="px-3 py-2 rounded-xl bg-white border border-amber-300 text-xs font-medium text-amber-900 hover:bg-amber-100/60 transition-colors cursor-pointer"
+                className="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700 text-xs font-medium text-amber-900 dark:text-amber-200 hover:bg-amber-100/60 dark:hover:bg-amber-900/40 transition-colors cursor-pointer"
               >
                 Try another file
               </button>
@@ -1328,12 +1328,12 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           id="selected-file-section"
           data-saarvi-target="selected-file"
           tabIndex={-1}
-          className="scroll-mt-24 bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs outline-hidden"
+          className="scroll-mt-24 bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs outline-hidden"
         >
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              <h4 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">
                 Selected {allowsMultiple ? `Files (${files.length})` : "File"}
               </h4>
             </div>
@@ -1341,7 +1341,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer"
+                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
               >
                 + Add more files
               </button>
@@ -1371,23 +1371,23 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           id="tool-options"
           data-saarvi-target="tool-options"
           tabIndex={-1}
-          className="scroll-mt-24 bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4 outline-hidden"
+          className="scroll-mt-24 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4 outline-hidden"
         >
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 uppercase tracking-wider">
-            <Settings className="w-4 h-4 text-blue-600" />
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-white uppercase tracking-wider">
+            <Settings className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             Conversion Options
           </div>
 
           {/* PNG to JPG Options */}
           {tool.slug === "png-to-jpg" && (
             <div className="space-y-3">
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800">
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
                 Notice: Transparent background areas will automatically fill with solid white.
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-700 flex justify-between">
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300 flex justify-between">
                   <span>JPEG Quality</span>
-                  <span className="font-semibold text-blue-600">{quality}%</span>
+                  <span className="font-semibold text-blue-600 dark:text-blue-400">{quality}%</span>
                 </label>
                 <input
                   type="range"
@@ -1403,7 +1403,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
           {/* JPG to PNG Options */}
           {tool.slug === "jpg-to-png" && (
-            <p className="text-xs text-slate-600">
+            <p className="text-xs text-slate-600 dark:text-slate-400">
               Lossless export: Preserves exact pixel fidelity and prevents re-compression artifacts.
             </p>
           )}
@@ -1414,11 +1414,11 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
             tool.slug === "multiple-images-to-pdf") && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Page Size</label>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Page Size</label>
                 <select
                   value={pageSize}
                   onChange={(e) => setPageSize(e.target.value as "a4" | "letter" | "fit")}
-                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800 focus:border-blue-600 focus:outline-none"
+                  className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:border-blue-600 focus:outline-none"
                 >
                   <option value="a4">A4 (210 × 297 mm)</option>
                   <option value="letter">US Letter (8.5 × 11 in)</option>
@@ -1427,11 +1427,11 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Margins</label>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Margins</label>
                 <select
                   value={margin}
                   onChange={(e) => setMargin(e.target.value as "none" | "small" | "normal")}
-                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800 focus:border-blue-600 focus:outline-none"
+                  className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:border-blue-600 focus:outline-none"
                 >
                   <option value="none">No Margin (Border to border)</option>
                   <option value="small">Small Margin (20pt)</option>
@@ -1440,11 +1440,11 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Orientation</label>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Orientation</label>
                 <select
                   value={orientation}
                   onChange={(e) => setOrientation(e.target.value as "auto" | "portrait" | "landscape")}
-                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800 focus:border-blue-600 focus:outline-none"
+                  className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:border-blue-600 focus:outline-none"
                 >
                   <option value="auto">Auto (Match Image)</option>
                   <option value="portrait">Portrait</option>
@@ -1458,9 +1458,9 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           {tool.slug === "image-resize" && (
             <div className="space-y-4">
               {origDimensions && (
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-slate-500 dark:text-slate-400">
                   Original dimensions:{" "}
-                  <span className="font-semibold text-slate-700">
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">
                     {origDimensions.width} × {origDimensions.height} px
                   </span>
                 </div>
@@ -1468,7 +1468,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Width (px)</label>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Width (px)</label>
                   <input
                     type="number"
                     min="1"
@@ -1481,12 +1481,12 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                         setTargetHeight(Math.round(w * ratio));
                       }
                     }}
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Height (px)</label>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Height (px)</label>
                   <input
                     type="number"
                     min="1"
@@ -1499,24 +1499,24 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                         setTargetWidth(Math.round(h * ratio));
                       }
                     }}
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   />
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                <label className="inline-flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                <label className="inline-flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={maintainAspect}
                     onChange={(e) => setMaintainAspect(e.target.checked)}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500"
                   />
                   <span>Lock Aspect Ratio</span>
                 </label>
 
                 <div className="flex items-center gap-1.5 text-xs">
-                  <span className="text-slate-500">Scale:</span>
+                  <span className="text-slate-500 dark:text-slate-400">Scale:</span>
                   {[25, 50, 75, 100].map((pct) => (
                     <button
                       key={pct}
@@ -1527,7 +1527,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                           setTargetHeight(Math.round(origDimensions.height * (pct / 100)));
                         }
                       }}
-                      className="px-2 py-1 rounded bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-medium"
+                      className="px-2 py-1 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium"
                     >
                       {pct}%
                     </button>
@@ -1537,13 +1537,13 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
               <div className="grid grid-cols-2 gap-4 pt-2">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Output Format</label>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Output Format</label>
                   <select
                     value={resizeFormat}
                     onChange={(e) =>
                       setResizeFormat(e.target.value as "image/jpeg" | "image/png" | "image/webp")
                     }
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   >
                     <option value="image/jpeg">JPEG (.jpg)</option>
                     <option value="image/png">PNG (.png)</option>
@@ -1553,7 +1553,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
                 {resizeFormat !== "image/png" && (
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                       Quality ({quality}%)
                     </label>
                     <input
@@ -1574,11 +1574,11 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           {tool.slug === "pdf-to-jpg" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Resolution Scale</label>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Resolution Scale</label>
                 <select
                   value={pdfScale}
                   onChange={(e) => setPdfScale(Number(e.target.value))}
-                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                 >
                   <option value={1.0}>Standard (72-96 DPI, Faster)</option>
                   <option value={1.5}>Medium (150 DPI, Recommended)</option>
@@ -1587,7 +1587,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Pages to Render (optional)
                 </label>
                 <input
@@ -1595,7 +1595,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                   placeholder="Leave empty for all pages, or e.g. 1, 3, 5"
                   value={pdfJpgPages}
                   onChange={(e) => setPdfJpgPages(e.target.value)}
-                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                 />
               </div>
             </div>
@@ -1611,7 +1611,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                   className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${
                     splitMode === "range"
                       ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-slate-700 border-slate-200"
+                      : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
                   }`}
                 >
                   Extract Page Range
@@ -1622,7 +1622,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                   className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${
                     splitMode === "all"
                       ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-slate-700 border-slate-200"
+                      : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
                   }`}
                 >
                   Separate Every Page (ZIP)
@@ -1631,14 +1631,14 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
               {splitMode === "range" && (
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Page Range (e.g. 1-3, 5)
                   </label>
                   <input
                     type="text"
                     value={splitRange}
                     onChange={(e) => setSplitRange(e.target.value)}
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                     placeholder="1-3, 5"
                   />
                 </div>
@@ -1649,14 +1649,14 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           {/* Extract PDF Pages Options */}
           {tool.slug === "extract-pdf-pages" && (
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Pages to Extract (e.g. 2, 5, 8-10)
               </label>
               <input
                 type="text"
                 value={extractRange}
                 onChange={(e) => setExtractRange(e.target.value)}
-                className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                 placeholder="2, 5, 8-10"
               />
             </div>
@@ -1666,7 +1666,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           {tool.slug === "rotate-pdf" && (
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-2">Rotation Angle</label>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">Rotation Angle</label>
                 <div className="flex gap-2">
                   {[
                     { angle: 90, label: "90° Clockwise" },
@@ -1680,7 +1680,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                       className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${
                         rotateAngle === item.angle
                           ? "bg-blue-600 text-white border-blue-600"
-                          : "bg-white text-slate-700 border-slate-200"
+                          : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
                       }`}
                     >
                       {item.label}
@@ -1691,11 +1691,11 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Apply To</label>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Apply To</label>
                   <select
                     value={rotateScope}
                     onChange={(e) => setRotateScope(e.target.value as "all" | "selected")}
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   >
                     <option value="all">All Pages</option>
                     <option value="selected">Selected Pages</option>
@@ -1704,14 +1704,14 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
                 {rotateScope === "selected" && (
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                       Page Numbers (e.g. 1, 3-5)
                     </label>
                     <input
                       type="text"
                       value={rotateRange}
                       onChange={(e) => setRotateRange(e.target.value)}
-                      className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                      className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                       placeholder="1, 3-5"
                     />
                   </div>
@@ -1723,7 +1723,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           {/* Compress PDF Options */}
           {tool.slug === "compress-pdf" && (
             <div className="space-y-3">
-              <label className="block text-xs font-medium text-slate-700">Compression Preset</label>
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">Compression Preset</label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   {
@@ -1748,16 +1748,16 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                     onClick={() => setCompressPreset(preset.id as "low" | "balanced" | "high")}
                     className={`p-3 text-left rounded-xl border transition-all ${
                       compressPreset === preset.id
-                        ? "bg-blue-50/70 border-blue-600 shadow-sm"
-                        : "bg-white border-slate-200 hover:border-slate-300"
+                        ? "bg-blue-50/70 dark:bg-blue-950/60 border-blue-600 shadow-sm"
+                        : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
                     }`}
                   >
-                    <div className="text-xs font-bold text-slate-900">{preset.name}</div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">{preset.desc}</div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">{preset.name}</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{preset.desc}</div>
                   </button>
                 ))}
               </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                 Note: Client-side compression optimizes embedded raster images. Vector-only documents may experience smaller percentage changes.
               </p>
             </div>
@@ -1767,7 +1767,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           {tool.slug === "protect-pdf" && (
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Document Password (Required to Open)
                 </label>
                 <input
@@ -1775,12 +1775,12 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                   value={protectPassword}
                   onChange={(e) => setProtectPassword(e.target.value)}
                   placeholder="Enter a strong password"
-                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Owner Password (Optional, for permissions)
                 </label>
                 <input
@@ -1788,41 +1788,41 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                   value={protectOwnerPassword}
                   onChange={(e) => setProtectOwnerPassword(e.target.value)}
                   placeholder="Optional permissions password"
-                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-2">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
                   Document Permissions
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <label className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 text-xs">
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 text-xs">
                     <input
                       type="checkbox"
                       checked={protectAllowPrinting}
                       onChange={(e) => setProtectAllowPrinting(e.target.checked)}
                       className="rounded text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="text-slate-800 font-medium">Allow Printing</span>
+                    <span className="text-slate-800 dark:text-slate-200 font-medium">Allow Printing</span>
                   </label>
-                  <label className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 text-xs">
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 text-xs">
                     <input
                       type="checkbox"
                       checked={protectAllowCopying}
                       onChange={(e) => setProtectAllowCopying(e.target.checked)}
                       className="rounded text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="text-slate-800 font-medium">Allow Copying</span>
+                    <span className="text-slate-800 dark:text-slate-200 font-medium">Allow Copying</span>
                   </label>
-                  <label className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 text-xs">
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 text-xs">
                     <input
                       type="checkbox"
                       checked={protectAllowModifying}
                       onChange={(e) => setProtectAllowModifying(e.target.checked)}
                       className="rounded text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="text-slate-800 font-medium">Allow Modifying</span>
+                    <span className="text-slate-800 dark:text-slate-200 font-medium">Allow Modifying</span>
                   </label>
                 </div>
               </div>
@@ -1832,11 +1832,11 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           {/* Phase 34: Unlock PDF */}
           {tool.slug === "unlock-pdf" && (
             <div className="space-y-3">
-              <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-xs text-blue-800 leading-relaxed">
+              <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
                 If this document is locked with an open password, enter it below to decrypt and remove restrictions. If it only has print/copy restrictions, leave blank to strip restrictions instantly.
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Document Password (If required to open)
                 </label>
                 <input
@@ -1844,7 +1844,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                   value={unlockPassword}
                   onChange={(e) => setUnlockPassword(e.target.value)}
                   placeholder="Leave empty if file opens without password"
-                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -1854,23 +1854,23 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           {tool.slug === "watermark-pdf" && (
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Watermark Text</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Watermark Text</label>
                 <input
                   type="text"
                   value={watermarkText}
                   onChange={(e) => setWatermarkText(e.target.value)}
                   placeholder="e.g. CONFIDENTIAL, DRAFT, DO NOT COPY"
-                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Position</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Position</label>
                   <select
                     value={watermarkPosition}
                     onChange={(e) => setWatermarkPosition(e.target.value as any)}
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   >
                     <option value="diagonal">Center (Diagonal 45°)</option>
                     <option value="center">Center (Horizontal)</option>
@@ -1879,7 +1879,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Font Size ({watermarkFontSize}px)</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Font Size ({watermarkFontSize}px)</label>
                   <input
                     type="range"
                     min="16"
@@ -1890,7 +1890,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Opacity ({Math.round(watermarkOpacity * 100)}%)</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Opacity ({Math.round(watermarkOpacity * 100)}%)</label>
                   <input
                     type="range"
                     min="10"
@@ -1904,30 +1904,30 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Watermark Color</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Watermark Color</label>
                   <div className="flex items-center gap-2">
                     <input
                       type="color"
                       value={watermarkColor}
                       onChange={(e) => setWatermarkColor(e.target.value)}
-                      className="w-9 h-9 rounded-lg border border-slate-300 cursor-pointer p-0.5"
+                      className="w-9 h-9 rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer p-0.5 bg-white dark:bg-slate-800"
                     />
                     <input
                       type="text"
                       value={watermarkColor}
                       onChange={(e) => setWatermarkColor(e.target.value)}
-                      className="flex-1 text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                      className="flex-1 text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Page Range</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Page Range</label>
                   <input
                     type="text"
                     value={watermarkPageRange}
                     onChange={(e) => setWatermarkPageRange(e.target.value)}
                     placeholder="all or 1-3, 5"
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   />
                 </div>
               </div>
@@ -1939,11 +1939,11 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
             <div className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Numbering Format</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Numbering Format</label>
                   <select
                     value={pageNumberFormat}
                     onChange={(e) => setPageNumberFormat(e.target.value as any)}
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   >
                     <option value="Page {page} of {total}">Page &#123;page&#125; of &#123;total&#125; (e.g. Page 1 of 5)</option>
                     <option value="Page {page}">Page &#123;page&#125; (e.g. Page 1)</option>
@@ -1951,11 +1951,11 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Placement Position</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Placement Position</label>
                   <select
                     value={pageNumberPosition}
                     onChange={(e) => setPageNumberPosition(e.target.value as any)}
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   >
                     <option value="bottom-center">Bottom Center</option>
                     <option value="bottom-right">Bottom Right</option>
@@ -1969,23 +1969,23 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Start Number</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Start Number</label>
                   <input
                     type="number"
                     min="1"
                     value={pageNumberStart}
                     onChange={(e) => setPageNumberStart(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Pages to Number</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Pages to Number</label>
                   <input
                     type="text"
                     value={pageNumberRange}
                     onChange={(e) => setPageNumberRange(e.target.value)}
                     placeholder="all or 2- (skip cover)"
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   />
                 </div>
               </div>
@@ -1997,21 +1997,21 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
             <div className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Header Text (Optional)</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Header Text (Optional)</label>
                   <input
                     type="text"
                     value={headerText}
                     onChange={(e) => setHeaderText(e.target.value)}
                     placeholder="Document Title or Subject"
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Header Alignment</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Header Alignment</label>
                   <select
                     value={headerPosition}
                     onChange={(e) => setHeaderPosition(e.target.value as any)}
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   >
                     <option value="center">Center</option>
                     <option value="left">Left</option>
@@ -2022,21 +2022,21 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Footer Text (Supports &#123;page&#125; and &#123;total&#125;)</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Footer Text (Supports &#123;page&#125; and &#123;total&#125;)</label>
                   <input
                     type="text"
                     value={footerText}
                     onChange={(e) => setFooterText(e.target.value)}
                     placeholder="Page {page} of {total}"
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Footer Alignment</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Footer Alignment</label>
                   <select
                     value={footerPosition}
                     onChange={(e) => setFooterPosition(e.target.value as any)}
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   >
                     <option value="center">Center</option>
                     <option value="left">Left</option>
@@ -2046,13 +2046,13 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Page Range</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Page Range</label>
                 <input
                   type="text"
                   value={headerFooterRange}
                   onChange={(e) => setHeaderFooterRange(e.target.value)}
                   placeholder="all or 1-5"
-                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                 />
               </div>
             </div>
@@ -2063,97 +2063,97 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
             <div className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Document Title</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Document Title</label>
                   <input
                     type="text"
                     value={metadataTitle}
                     onChange={(e) => setMetadataTitle(e.target.value)}
                     placeholder="Document title"
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Author Name</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Author Name</label>
                   <input
                     type="text"
                     value={metadataAuthor}
                     onChange={(e) => setMetadataAuthor(e.target.value)}
                     placeholder="Author name"
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Subject</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Subject</label>
                   <input
                     type="text"
                     value={metadataSubject}
                     onChange={(e) => setMetadataSubject(e.target.value)}
                     placeholder="Subject or category"
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Keywords (Comma-separated)</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Keywords (Comma-separated)</label>
                   <input
                     type="text"
                     value={metadataKeywords}
                     onChange={(e) => setMetadataKeywords(e.target.value)}
                     placeholder="report, finance, 2026"
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   />
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 p-2.5 rounded-lg border border-amber-200 bg-amber-50 cursor-pointer hover:bg-amber-100/70 text-xs">
+              <label className="flex items-center gap-2 p-2.5 rounded-lg border border-amber-200 dark:border-amber-800/80 bg-amber-50 dark:bg-amber-950/40 cursor-pointer hover:bg-amber-100/70 dark:hover:bg-amber-900/60 text-xs">
                 <input
                   type="checkbox"
                   checked={metadataClearAll}
                   onChange={(e) => setMetadataClearAll(e.target.checked)}
                   className="rounded text-amber-600 focus:ring-amber-500"
                 />
-                <span className="text-amber-900 font-semibold">Strip all metadata (Sanitize personal identifiable info)</span>
+                <span className="text-amber-900 dark:text-amber-200 font-semibold">Strip all metadata (Sanitize personal identifiable info)</span>
               </label>
             </div>
           )}
 
           {/* Phase 34: Flatten PDF */}
           {tool.slug === "flatten-pdf" && (
-            <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-xs text-blue-900 leading-relaxed">
+            <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl text-xs text-blue-900 dark:text-blue-200 leading-relaxed">
               <strong>Interactive Form Flattening:</strong> Converts all interactive AcroForms, form fields, checkboxes, and text inputs into permanent static vector graphics. The resulting document is read-only and prints identically on all devices.
             </div>
           )}
 
           {/* Phase 34: PDF Info */}
           {tool.slug === "pdf-info" && (
-            <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-xs text-blue-900 leading-relaxed">
+            <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl text-xs text-blue-900 dark:text-blue-200 leading-relaxed">
               <strong>Client-Side Technical Inspection:</strong> Inspects page counts, physical paper dimensions (A4, Letter), embedded metadata, and encryption status locally in your browser memory without uploading.
             </div>
           )}
 
           {/* Phase 35: Document Scanner / Scan to PDF / Photo to Document */}
           {(tool.slug === "document-scanner" || tool.slug === "scan-to-pdf" || tool.slug === "photo-to-document") && (
-            <div className="space-y-4 p-4 rounded-xl border border-slate-200 bg-slate-50/50">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+            <div className="space-y-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+                <span className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">
                   Scan & Document Settings
                 </span>
-                <span className="text-[11px] font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                <span className="text-[11px] font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-900">
                   100% Client-Side
                 </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">
+                  <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
                     Document Filter
                   </label>
                   <select
                     value={scanFilterMode}
                     onChange={(e) => setScanFilterMode(e.target.value as any)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   >
                     <option value="clean_bw">Clean B&W (High Contrast Document)</option>
                     <option value="grayscale">Grayscale (Smooth Text & Diagrams)</option>
@@ -2162,13 +2162,13 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                 </div>
 
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">
+                  <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
                     Output Page Layout
                   </label>
                   <select
                     value={scanPageSize}
                     onChange={(e) => setScanPageSize(e.target.value as any)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   >
                     <option value="A4">Standard A4 (Print-Ready Aligned)</option>
                     <option value="FIT">Fit Exact Image Dimensions</option>
@@ -2176,7 +2176,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                 </div>
               </div>
 
-              <p className="text-[11px] text-slate-500 italic">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
                 Camera feed and photos are processed directly in browser canvas memory. Zero frames or document photos are sent to any external server.
               </p>
             </div>
@@ -2185,13 +2185,13 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           {/* WebP to JPG Options */}
           {tool.slug === "webp-to-jpg" && (
             <div className="space-y-3">
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800">
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
                 Notice: Transparent background areas will automatically fill with solid white.
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-700 flex justify-between">
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300 flex justify-between">
                   <span>JPEG Quality</span>
-                  <span className="font-semibold text-blue-600">{quality}%</span>
+                  <span className="font-semibold text-blue-600 dark:text-blue-400">{quality}%</span>
                 </label>
                 <input
                   type="range"
@@ -2207,7 +2207,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
           {/* WebP to PNG Options */}
           {tool.slug === "webp-to-png" && (
-            <p className="text-xs text-slate-600">
+            <p className="text-xs text-slate-600 dark:text-slate-400">
               Lossless export: Preserves transparent alpha channel and pixel-perfect fidelity.
             </p>
           )}
@@ -2216,16 +2216,16 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           {tool.slug === "crop-image" && (
             <div className="space-y-4">
               {origDimensions && (
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-slate-500 dark:text-slate-400">
                   Image dimensions:{" "}
-                  <span className="font-semibold text-slate-700">
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">
                     {origDimensions.width} × {origDimensions.height} px
                   </span>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1.5">Aspect Ratio Preset</label>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">Aspect Ratio Preset</label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {(
                     [
@@ -2242,7 +2242,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                       className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${
                         cropAspectPreset === preset.id
                           ? "bg-blue-600 text-white border-blue-600 shadow-xs"
-                          : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+                          : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
                       }`}
                     >
                       {preset.label}
@@ -2253,56 +2253,56 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">X Offset (px)</label>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">X Offset (px)</label>
                   <input
                     type="number"
                     min="0"
                     value={cropX}
                     onChange={(e) => setCropX(Math.max(0, Number(e.target.value)))}
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Y Offset (px)</label>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Y Offset (px)</label>
                   <input
                     type="number"
                     min="0"
                     value={cropY}
                     onChange={(e) => setCropY(Math.max(0, Number(e.target.value)))}
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Width (px)</label>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Width (px)</label>
                   <input
                     type="number"
                     min="1"
                     value={cropWidth}
                     onChange={(e) => setCropWidth(Math.max(1, Number(e.target.value)))}
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Height (px)</label>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Height (px)</label>
                   <input
                     type="number"
                     min="1"
                     value={cropHeight}
                     onChange={(e) => setCropHeight(Math.max(1, Number(e.target.value)))}
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Output Format</label>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Output Format</label>
                   <select
                     value={cropFormat}
                     onChange={(e) =>
                       setCropFormat(e.target.value as "image/jpeg" | "image/png" | "image/webp")
                     }
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   >
                     <option value="image/jpeg">JPEG (.jpg)</option>
                     <option value="image/png">PNG (.png, preserves alpha)</option>
@@ -2312,7 +2312,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
                 {cropFormat !== "image/png" && (
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                       Quality ({cropQuality}%)
                     </label>
                     <input
@@ -2333,7 +2333,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           {tool.slug === "rotate-image" && (
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1.5">Rotation Angle</label>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">Rotation Angle</label>
                 <div className="grid grid-cols-3 gap-2">
                   {(
                     [
@@ -2349,7 +2349,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                       className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${
                         imgRotateAngle === item.angle
                           ? "bg-blue-600 text-white border-blue-600 shadow-xs"
-                          : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+                          : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
                       }`}
                     >
                       {item.label}
@@ -2359,7 +2359,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1.5">Mirror / Flip</label>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">Mirror / Flip</label>
                 <div className="grid grid-cols-3 gap-2">
                   {(
                     [
@@ -2375,7 +2375,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                       className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${
                         imgFlipAxis === item.flip
                           ? "bg-blue-600 text-white border-blue-600 shadow-xs"
-                          : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+                          : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
                       }`}
                     >
                       {item.label}
@@ -2386,13 +2386,13 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Output Format</label>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Output Format</label>
                   <select
                     value={imgRotateFormat}
                     onChange={(e) =>
                       setImgRotateFormat(e.target.value as "image/jpeg" | "image/png" | "image/webp")
                     }
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   >
                     <option value="image/jpeg">JPEG (.jpg)</option>
                     <option value="image/png">PNG (.png, preserves alpha)</option>
@@ -2402,7 +2402,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
 
                 {imgRotateFormat !== "image/png" && (
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                       Quality ({imgRotateQuality}%)
                     </label>
                     <input
@@ -2424,13 +2424,13 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Target Format</label>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Target Format</label>
                   <select
                     value={imgCompressFormat}
                     onChange={(e) =>
                       setImgCompressFormat(e.target.value as "image/jpeg" | "image/webp" | "image/png")
                     }
-                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                    className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   >
                     <option value="image/jpeg">JPEG (.jpg, Best Compression)</option>
                     <option value="image/webp">WebP (.webp, High Efficiency)</option>
@@ -2439,9 +2439,9 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-slate-700 flex justify-between mb-1">
+                  <label className="text-xs font-medium text-slate-700 dark:text-slate-300 flex justify-between mb-1">
                     <span>Compression Quality</span>
-                    <span className="font-semibold text-blue-600">{imgCompressQuality}%</span>
+                    <span className="font-semibold text-blue-600 dark:text-blue-400">{imgCompressQuality}%</span>
                   </label>
                   <input
                     type="range"
@@ -2451,13 +2451,13 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                     onChange={(e) => setImgCompressQuality(Number(e.target.value))}
                     className="w-full accent-blue-600 mt-2"
                   />
-                  <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                  <div className="flex justify-between text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
                     <span>Smaller File (10%)</span>
                     <span>High Clarity (95%)</span>
                   </div>
                 </div>
               </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                 Notice: All image processing runs locally in your browser. Actual byte savings will be measured and displayed after compression.
               </p>
             </div>
@@ -2467,11 +2467,11 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           {tool.slug === "pdf-to-png" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Resolution Scale</label>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Resolution Scale</label>
                 <select
                   value={pdfPngScale}
                   onChange={(e) => setPdfPngScale(Number(e.target.value))}
-                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                 >
                   <option value={1.0}>Standard (72-96 DPI, Faster)</option>
                   <option value={1.5}>Medium (150 DPI, Recommended)</option>
@@ -2480,7 +2480,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Pages to Render (optional)
                 </label>
                 <input
@@ -2488,7 +2488,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
                   placeholder="Leave empty for all pages, or e.g. 1, 3, 5"
                   value={pdfPngPages}
                   onChange={(e) => setPdfPngPages(e.target.value)}
-                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                  className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                 />
               </div>
             </div>
@@ -2497,17 +2497,17 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           {/* Delete PDF Pages Options */}
           {tool.slug === "delete-pdf-pages" && (
             <div className="space-y-2">
-              <label className="block text-xs font-medium text-slate-700">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
                 Pages to Remove (e.g. 2, 5, 8-10)
               </label>
               <input
                 type="text"
                 value={deletePagesRange}
                 onChange={(e) => setDeletePagesRange(e.target.value)}
-                className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                 placeholder="2, 5, 8-10"
               />
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Original document remains untouched. A new PDF excluding these pages will be created.
               </p>
             </div>
@@ -2516,17 +2516,17 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
           {/* Reorder PDF Pages Options */}
           {tool.slug === "reorder-pdf-pages" && (
             <div className="space-y-2">
-              <label className="block text-xs font-medium text-slate-700">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
                 New Page Sequence (e.g. 3, 1, 2)
               </label>
               <input
                 type="text"
                 value={reorderPagesString}
                 onChange={(e) => setReorderPagesString(e.target.value)}
-                className="w-full text-xs rounded-xl border border-slate-300 p-2.5 bg-white text-slate-800"
+                className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                 placeholder="e.g. 3, 1, 2"
               />
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Specify all page numbers in your preferred order, separated by commas.
               </p>
             </div>

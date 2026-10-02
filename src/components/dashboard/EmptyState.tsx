@@ -23,12 +23,12 @@ export default function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className="py-14 text-center flex flex-col items-center gap-3 px-4">
-      <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200/80 flex items-center justify-center">
-        <Icon className="w-7 h-7 text-slate-400" aria-hidden="true" />
+      <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center">
+        <Icon className="w-7 h-7 text-slate-400 dark:text-slate-500" aria-hidden="true" />
       </div>
       <div className="space-y-1 max-w-xs">
-        <h3 className="text-sm font-bold text-slate-800">{title}</h3>
-        <p className="text-xs text-slate-500 leading-relaxed">{description}</p>
+        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">{title}</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{description}</p>
       </div>
       {ctaLabel && ctaHref && (
         <Link

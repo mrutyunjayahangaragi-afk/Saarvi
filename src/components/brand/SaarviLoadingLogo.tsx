@@ -220,7 +220,7 @@ export function SaarviLoadingLogo({
       {message && (
         <p
           className={`text-xs font-medium tracking-tight text-center max-w-xs transition-opacity duration-200 ${
-            isError ? "text-rose-600 font-semibold" : "text-slate-500"
+            isError ? "text-rose-600 dark:text-rose-400 font-semibold" : "text-slate-500 dark:text-slate-400"
           }`}
         >
           {message}
@@ -364,7 +364,7 @@ export function SaarviLoadingLogo({
 
   if (fullscreen) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/90 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/90 dark:bg-[#0b1329]/90 backdrop-blur-sm">
         {content}
       </div>
     );

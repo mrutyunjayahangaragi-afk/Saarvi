@@ -60,7 +60,7 @@ export default function FriendlyAccessModal({
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
     >
       <div
-        className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-7 relative overflow-hidden space-y-6 animate-in zoom-in-95 duration-200"
+        className="w-full max-w-md bg-white dark:bg-[#111c38] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-7 relative overflow-hidden space-y-6 animate-in zoom-in-95 duration-200"
       >
         {/* Top Accent Gradient Bar */}
         <div
@@ -75,7 +75,7 @@ export default function FriendlyAccessModal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-5 right-5 p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+          className="absolute top-5 right-5 p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
           aria-label="Close dialog"
         >
           <X className="w-5 h-5" />
@@ -86,8 +86,8 @@ export default function FriendlyAccessModal({
           <div
             className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-xs ${
               isPro
-                ? "bg-amber-50 border border-amber-200 text-amber-600"
-                : "bg-blue-50 border border-blue-200 text-blue-600"
+                ? "bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400"
+                : "bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400"
             }`}
           >
             {isPro ? <Sparkles className="w-6 h-6" /> : <Lock className="w-6 h-6" />}
@@ -97,8 +97,8 @@ export default function FriendlyAccessModal({
             <span
               className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
                 isPro
-                  ? "bg-amber-50 border-amber-200 text-amber-700"
-                  : "bg-blue-50 border border-blue-200 text-blue-700"
+                  ? "bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300"
+                  : "bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300"
               }`}
             >
               {isPro ? "Saarvi Pro Required" : "Free Account Feature"}
@@ -106,14 +106,14 @@ export default function FriendlyAccessModal({
 
             <h3
               id="access-modal-title"
-              className="text-xl font-extrabold text-slate-900 tracking-tight mt-2"
+              className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-2"
             >
               {isPro
                 ? `Upgrade to use ${toolName}`
                 : `Create a free account to use ${toolName}`}
             </h3>
 
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mt-1.5">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed mt-1.5">
               {benefitDescription || defaultBenefit}
             </p>
           </div>
@@ -143,7 +143,7 @@ export default function FriendlyAccessModal({
               {/* Already have an account */}
               <Link
                 href={`/login?redirect=${encodedReturn}`}
-                className="w-full py-2.5 px-4 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 border border-slate-200 transition cursor-pointer min-h-[44px]"
+                className="w-full py-2.5 px-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center justify-center gap-1.5 border border-slate-200 dark:border-slate-700 transition cursor-pointer min-h-[44px]"
               >
                 <span>Already have an account? Sign In</span>
               </Link>
@@ -154,15 +154,15 @@ export default function FriendlyAccessModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2 text-center text-xs font-semibold text-slate-500 hover:text-slate-800 transition cursor-pointer min-h-[36px]"
+            className="w-full py-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition cursor-pointer min-h-[36px]"
           >
             Not now
           </button>
         </div>
 
         {/* Privacy reassurance */}
-        <div className="pt-2 border-t border-slate-100 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
-          <Shield className="w-3.5 h-3.5 text-emerald-600" />
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
+          <Shield className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
           <span>Your files and data remain strictly private by design.</span>
         </div>
       </div>

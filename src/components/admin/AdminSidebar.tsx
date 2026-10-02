@@ -126,19 +126,19 @@ export default function AdminSidebar({
   ];
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-white border-r border-slate-200/90 w-64 select-none">
+    <div className="flex flex-col h-full bg-white dark:bg-[#111c38] border-r border-slate-200/90 dark:border-slate-800 w-64 select-none">
       {/* Platform Branding Header */}
-      <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+      <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
         <Link href="/admin" className="flex items-center gap-2 group">
           <SaarviNavbarLogo className="h-8 w-auto object-contain group-hover:opacity-90 transition-opacity" />
-          <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 font-semibold border border-blue-100 shrink-0">
+          <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-semibold border border-blue-100 dark:border-blue-800 shrink-0">
             Admin
           </span>
         </Link>
         {mobileOpen && (
           <button
             onClick={onCloseMobile}
-            className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 lg:hidden"
+            className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 lg:hidden cursor-pointer"
             aria-label="Close menu"
           >
             <X className="w-5 h-5" />
@@ -150,7 +150,7 @@ export default function AdminSidebar({
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-4 text-xs">
         {navSections.map((section) => (
           <div key={section.title} className="space-y-1">
-            <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               {section.title}
             </div>
             {section.items.map((item) => {
@@ -164,14 +164,14 @@ export default function AdminSidebar({
                   onClick={onCloseMobile}
                   className={`flex items-center justify-between px-3 py-1.5 rounded-xl font-medium transition-all ${
                     isActive
-                      ? 'bg-blue-50 text-blue-700 font-semibold shadow-xs'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-semibold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   <div className="flex items-center gap-2.5 truncate">
                     <Icon
                       className={`w-4 h-4 shrink-0 ${
-                        isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'
+                        isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'
                       }`}
                     />
                     <span className="truncate">{item.label}</span>
@@ -180,7 +180,7 @@ export default function AdminSidebar({
                   {item.badge && (
                     <span
                       className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                        item.badgeColor || 'bg-slate-100 text-slate-600'
+                        item.badgeColor || 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
                       }`}
                     >
                       {item.badge}
@@ -194,12 +194,12 @@ export default function AdminSidebar({
       </nav>
 
       {/* Sidebar Footer: Privacy Badge Indicator */}
-      <div className="p-3.5 border-t border-slate-100 bg-slate-50/70 text-[11px] text-slate-500 space-y-1">
-        <div className="flex items-center gap-1.5 font-semibold text-emerald-700">
+      <div className="p-3.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-[#0b1329]/60 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
+        <div className="flex items-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-400">
           <Sparkles className="w-3.5 h-3.5" />
           <span>Local Workspace Privacy</span>
         </div>
-        <p className="text-[10px] text-slate-500 leading-normal">
+        <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-normal">
           User documents, marks & resumes remain isolated on student devices.
         </p>
       </div>

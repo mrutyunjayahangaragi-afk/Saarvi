@@ -35,27 +35,27 @@ export default function ReminderConfigFields({
   const isGuest = !user || !user.email;
 
   return (
-    <div className="mt-4 pt-4 border-t border-slate-200/80 space-y-3">
+    <div className="mt-4 pt-4 border-t border-slate-200/80 dark:border-slate-800 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Bell className="w-4 h-4 text-blue-600" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-700">
+          <Bell className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
             Smart Planning Reminders
           </span>
         </div>
-        <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+        <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
           Email is Free
         </span>
       </div>
 
       {isGuest ? (
         /* Guest Registration Requirement Notice */
-        <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50/70 to-indigo-50/40 p-3.5 text-xs text-slate-700 space-y-2.5">
+        <div className="rounded-xl border border-blue-100 dark:border-blue-900/50 bg-gradient-to-br from-blue-50/70 to-indigo-50/40 dark:from-blue-950/40 dark:to-indigo-950/30 p-3.5 text-xs text-slate-700 dark:text-slate-300 space-y-2.5">
           <div className="flex items-start gap-2.5">
-            <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+            <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
             <div>
-              <p className="font-semibold text-slate-900">Your plan is saved locally.</p>
-              <p className="text-slate-600 mt-0.5 text-[11.5px] leading-relaxed">
+              <p className="font-semibold text-slate-900 dark:text-white">Your plan is saved locally.</p>
+              <p className="text-slate-600 dark:text-slate-300 mt-0.5 text-[11.5px] leading-relaxed">
                 Create a free Saarvi account to receive email reminders. WhatsApp reminders are optional.
                 Local planning is always free and never blocked.
               </p>
@@ -74,7 +74,7 @@ export default function ReminderConfigFields({
             <Link
               href="/login"
               target="_blank"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-[#162244] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
             >
               <LogIn className="w-3.5 h-3.5" />
               Sign in
@@ -83,7 +83,7 @@ export default function ReminderConfigFields({
         </div>
       ) : (
         /* Authenticated User Notification Options */
-        <div className="space-y-3 bg-slate-50/80 rounded-xl p-3 border border-slate-200/60">
+        <div className="space-y-3 bg-slate-50/80 dark:bg-[#0b1329]/60 rounded-xl p-3 border border-slate-200/60 dark:border-slate-800">
           {/* Email Option (Free & Default) */}
           <div className="flex items-start justify-between gap-2">
             <label className="flex items-start gap-2.5 cursor-pointer select-none">
@@ -96,20 +96,20 @@ export default function ReminderConfigFields({
               <div>
                 <div className="flex items-center gap-1.5">
                   <Mail className="w-3.5 h-3.5 text-blue-600" />
-                  <span className="text-xs font-semibold text-slate-800">Email Reminder</span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-100">
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">Email Reminder</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.2 rounded border border-blue-100 dark:border-blue-800">
                     Free
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Delivered to your registered email: <span className="font-medium text-slate-700">{user.email}</span>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Delivered to your registered email: <span className="font-medium text-slate-700 dark:text-slate-300">{user.email}</span>
                 </p>
               </div>
             </label>
           </div>
 
           {/* WhatsApp Option (Optional & Independent) */}
-          <div className="pt-2 border-t border-slate-200/60">
+          <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800">
             <label className="flex items-start gap-2.5 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -120,12 +120,12 @@ export default function ReminderConfigFields({
               <div className="flex-1">
                 <div className="flex items-center gap-1.5">
                   <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="text-xs font-semibold text-slate-800">WhatsApp Reminder</span>
-                  <span className="text-[10px] font-medium text-slate-500 bg-slate-200/60 px-1.5 py-0.2 rounded">
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">WhatsApp Reminder</span>
+                  <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-1.5 py-0.2 rounded">
                     Optional
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                   Optional channel. Email works completely independently even if WhatsApp is disabled.
                 </p>
               </div>
@@ -133,7 +133,7 @@ export default function ReminderConfigFields({
 
             {whatsappReminder && (
               <div className="mt-2.5 pl-6">
-                <label className="block text-[11px] font-medium text-slate-700 mb-1">
+                <label className="block text-[11px] font-medium text-slate-700 dark:text-slate-300 mb-1">
                   WhatsApp Phone Number (with country code):
                 </label>
                 <input
@@ -141,9 +141,9 @@ export default function ReminderConfigFields({
                   value={phoneOverride || ""}
                   onChange={(e) => setPhoneOverride?.(e.target.value)}
                   placeholder="e.g. +91 9876543210"
-                  className="w-full text-xs px-3 py-1.5 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full text-xs px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#162244] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
-                <p className="text-[10px] text-slate-500 mt-1">
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
                   Requires valid number with country code. Official WhatsApp Cloud API provider.
                 </p>
               </div>
@@ -152,14 +152,14 @@ export default function ReminderConfigFields({
 
           {/* Timing Dropdown */}
           {(emailReminder || whatsappReminder) && (
-            <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between gap-4">
-              <label className="text-xs font-medium text-slate-700 whitespace-nowrap">
+            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between gap-4">
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
                 Remind me:
               </label>
               <select
                 value={reminderTiming}
                 onChange={(e) => setReminderTiming(e.target.value as ReminderTiming)}
-                className="text-xs px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="text-xs px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#162244] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="same_day">Same day (Default)</option>
                 <option value="1_day_before">1 day before</option>
@@ -172,14 +172,14 @@ export default function ReminderConfigFields({
 
           {reminderTiming === "custom" && (emailReminder || whatsappReminder) && setCustomMinutes && (
             <div className="flex items-center justify-between gap-4 pl-2">
-              <label className="text-[11px] text-slate-600">Minutes before:</label>
+              <label className="text-[11px] text-slate-600 dark:text-slate-400">Minutes before:</label>
               <input
                 type="number"
                 min={5}
                 max={10080}
                 value={customMinutes || 30}
                 onChange={(e) => setCustomMinutes(Math.max(5, parseInt(e.target.value, 10) || 30))}
-                className="w-24 text-xs px-2 py-1 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none"
+                className="w-24 text-xs px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#162244] text-slate-800 dark:text-slate-100 focus:outline-none"
               />
             </div>
           )}
@@ -187,8 +187,8 @@ export default function ReminderConfigFields({
       )}
 
       {/* Privacy Guarantee Footer */}
-      <div className="flex items-center gap-1.5 text-[10.5px] text-slate-500 pt-0.5">
-        <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+      <div className="flex items-center gap-1.5 text-[10.5px] text-slate-500 dark:text-slate-400 pt-0.5">
+        <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
         <span>Privacy: Reminders transmit only title, date, and time. Notes & marks remain strictly local.</span>
       </div>
     </div>

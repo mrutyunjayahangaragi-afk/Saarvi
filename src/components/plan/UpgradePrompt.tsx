@@ -25,17 +25,17 @@ export default function UpgradePrompt({
   if (reason === 'login_required') {
     return (
       <div
-        className={`p-6 sm:p-8 rounded-3xl border border-blue-200 bg-gradient-to-b from-blue-50/60 to-white text-center space-y-4 shadow-xs ${className}`}
+        className={`p-6 sm:p-8 rounded-3xl border border-blue-200 dark:border-blue-900/60 bg-gradient-to-b from-blue-50/60 to-white dark:from-blue-950/30 dark:to-[#111c38] text-center space-y-4 shadow-xs ${className}`}
       >
-        <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center mx-auto border border-blue-200">
+        <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center mx-auto border border-blue-200 dark:border-blue-800">
           <LogIn className="w-6 h-6" />
         </div>
 
         <div className="space-y-1.5 max-w-md mx-auto">
-          <h3 className="text-base sm:text-lg font-bold text-slate-900">
+          <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
             Sign In to Continue
           </h3>
-          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
             {customMessage || (feature ? `An account is required to access ${feature.name}.` : 'Create a free account or sign in to save your personal preferences and workspace.')}
           </p>
         </div>
@@ -50,14 +50,14 @@ export default function UpgradePrompt({
           </Link>
           <Link
             href="/login"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 transition-colors"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white dark:bg-[#162244] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
           >
             <span>Sign In</span>
           </Link>
         </div>
 
-        <div className="pt-2 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+        <div className="pt-2 flex items-center justify-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
           <span>Free forever. Zero file tracking.</span>
         </div>
       </div>
@@ -67,23 +67,23 @@ export default function UpgradePrompt({
   // Reason is 'pro_required' or 'coming_soon'
   return (
     <div
-      className={`p-6 sm:p-8 rounded-3xl border border-purple-200 bg-gradient-to-b from-purple-50/40 via-indigo-50/20 to-white text-center space-y-4 shadow-xs ${className}`}
+      className={`p-6 sm:p-8 rounded-3xl border border-purple-200 dark:border-purple-900/60 bg-gradient-to-b from-purple-50/40 via-indigo-50/20 to-white dark:from-purple-950/30 dark:via-indigo-950/20 dark:to-[#111c38] text-center space-y-4 shadow-xs ${className}`}
     >
       <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center mx-auto shadow-xs">
         <Sparkles className="w-6 h-6" />
       </div>
 
       <div className="space-y-1.5 max-w-md mx-auto">
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 text-[11px] font-bold tracking-wide uppercase">
-          <Clock className="w-3 h-3 text-purple-600" />
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 text-[11px] font-bold tracking-wide uppercase">
+          <Clock className="w-3 h-3 text-purple-600 dark:text-purple-400" />
           <span>Planned Pro Feature</span>
         </div>
 
-        <h3 className="text-base sm:text-lg font-bold text-slate-900">
+        <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
           {feature?.name ? `${feature.name} is Coming Soon` : 'This feature will be available with Saarvi Pro'}
         </h3>
 
-        <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
           {customMessage ||
             feature?.proNotice ||
             'Saarvi Pro is in active architectural development. It will introduce advanced batch queues, higher file limits, and optical document enhancements.'}
@@ -100,14 +100,14 @@ export default function UpgradePrompt({
         </Link>
         <Link
           href="/tools"
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 transition-colors"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white dark:bg-[#162244] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
         >
           <span>Back to Free Tools</span>
         </Link>
       </div>
 
-      <div className="pt-2 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
-        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+      <div className="pt-2 flex items-center justify-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
+        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
         <span>No subscriptions active at this stage. 100% free basic tools.</span>
       </div>
     </div>

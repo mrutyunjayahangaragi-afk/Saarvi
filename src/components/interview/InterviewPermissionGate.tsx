@@ -503,39 +503,39 @@ export default function InterviewPermissionGate({
   // =========================================================================
   if (!setupStarted) {
     return (
-      <div className="w-full max-w-2xl mx-auto bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 shadow-sm space-y-6">
+      <div className="w-full max-w-2xl mx-auto bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-10 shadow-sm space-y-6">
         <div className="text-center space-y-3">
-          <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
+          <div className="w-14 h-14 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
             <ShieldCheck className="w-7 h-7" />
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
             Mock Interview 2.0 Preflight Setup
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 max-w-lg mx-auto leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-lg mx-auto leading-relaxed">
             Before entering the evaluation room, we will verify your camera, microphone, and browser environment to ensure a seamless session.
           </p>
         </div>
 
         {/* Requirements Summary */}
-        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3 text-xs">
-          <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px] block">
+        <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700 rounded-2xl p-4 space-y-3 text-xs">
+          <span className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px] block">
             What will be checked:
           </span>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <div className="flex items-center gap-2 text-slate-700">
-              <Camera className="w-4 h-4 text-blue-600 shrink-0" />
+            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+              <Camera className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
               <span>Camera Video Feed (Privacy Controlled)</span>
             </div>
-            <div className="flex items-center gap-2 text-slate-700">
-              <Mic className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+              <Mic className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span>Microphone & Audio Input Levels</span>
             </div>
-            <div className="flex items-center gap-2 text-slate-700">
-              <Lock className="w-4 h-4 text-indigo-600 shrink-0" />
+            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+              <Lock className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
               <span>Secure Browser Context (HTTPS)</span>
             </div>
-            <div className="flex items-center gap-2 text-slate-700">
-              <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+              <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
               <span>Anti-Tab Switch Proctoring Guidelines</span>
             </div>
           </div>
@@ -543,9 +543,9 @@ export default function InterviewPermissionGate({
 
         {/* Fallback Notice for Text MCQ */}
         {onSwitchToTextMode && allowTextFallback && (
-          <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-100 flex items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2 text-blue-900">
-              <Info className="w-4 h-4 text-blue-600 shrink-0" />
+          <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900 flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-blue-900 dark:text-blue-200">
+              <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
               <span>No camera or microphone available on this device?</span>
             </div>
             <button
@@ -564,7 +564,7 @@ export default function InterviewPermissionGate({
             <button
               type="button"
               onClick={handleCancel}
-              className="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold transition-colors cursor-pointer"
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
             >
               [ Not Now ]
             </button>
@@ -588,18 +588,18 @@ export default function InterviewPermissionGate({
   // VIEW 2: ACTIVE HARDWARE PREFLIGHT CHECKLIST
   // =========================================================================
   return (
-    <div className="w-full max-w-3xl mx-auto bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+    <div className="w-full max-w-3xl mx-auto bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-blue-600 mb-1">
+          <div className="flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1">
             <ShieldCheck className="w-4 h-4" />
             <span>Interview Readiness & Permission Gate</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
             Hardware, Device & Privacy Verification
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Complete the required device checks below before entering the active interview room.
           </p>
         </div>
@@ -607,18 +607,18 @@ export default function InterviewPermissionGate({
         <span
           className={`self-start text-xs font-bold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
             allChecksPassed
-              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-              : "bg-amber-50 text-amber-700 border-amber-200"
+              ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+              : "bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
           }`}
         >
           {allChecksPassed ? (
             <>
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Ready to Enter</span>
             </>
           ) : (
             <>
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               <span>Checks Incomplete</span>
             </>
           )}
@@ -627,8 +627,8 @@ export default function InterviewPermissionGate({
 
       {/* Insecure Context Warning */}
       {!isSecureContext && (
-        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3 text-xs text-amber-900">
-          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-start gap-3 text-xs text-amber-900 dark:text-amber-200">
+          <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div>
             <span className="font-bold block">Insecure Context Detected</span>
             <p className="leading-relaxed mt-0.5">
@@ -640,19 +640,19 @@ export default function InterviewPermissionGate({
 
       {/* Error alert if any permission is denied */}
       {errorMessage && (
-        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 space-y-3 text-xs text-red-700">
+        <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 space-y-3 text-xs text-red-700 dark:text-red-300">
           <div className="flex items-start gap-3">
-            <ShieldAlert className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+            <ShieldAlert className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
             <div className="flex-1 space-y-1">
-              <p className="font-semibold text-red-900">Permission Action Required</p>
+              <p className="font-semibold text-red-900 dark:text-red-200">Permission Action Required</p>
               <p className="leading-relaxed">{errorMessage}</p>
             </div>
           </div>
 
           {/* Step-by-step browser unblock guide */}
-          <div className="p-3 bg-white rounded-xl border border-red-200/80 text-slate-700 space-y-1.5 text-[11px]">
-            <span className="font-bold text-slate-900 block">How to unblock in your browser:</span>
-            <ol className="list-decimal list-inside space-y-1 text-slate-600">
+          <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-red-200/80 dark:border-red-900/60 text-slate-700 dark:text-slate-300 space-y-1.5 text-[11px]">
+            <span className="font-bold text-slate-900 dark:text-white block">How to unblock in your browser:</span>
+            <ol className="list-decimal list-inside space-y-1 text-slate-600 dark:text-slate-400">
               <li>Click the <strong>Lock / Tune icon</strong> in your browser&apos;s address bar.</li>
               <li>Toggle <strong>Camera</strong> and <strong>Microphone</strong> permissions to <strong>Allow</strong>.</li>
               <li>Click <strong>&quot;Try Again&quot;</strong> below or refresh the page.</li>
@@ -660,7 +660,7 @@ export default function InterviewPermissionGate({
           </div>
 
           {/* Practice & Simulation Quick Actions */}
-          <div className="pt-2 border-t border-red-200/80 flex flex-wrap items-center gap-2.5">
+          <div className="pt-2 border-t border-red-200/80 dark:border-red-900/60 flex flex-wrap items-center gap-2.5">
             {onSwitchToTextMode && (
               <button
                 type="button"
@@ -674,9 +674,9 @@ export default function InterviewPermissionGate({
             <button
               type="button"
               onClick={handleEnableSimulatedHardware}
-              className="px-3.5 py-2 bg-white hover:bg-slate-100 active:bg-slate-200 border border-slate-300 text-slate-800 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Enable Simulated Practice Mode (For Restricted Devices)</span>
             </button>
           </div>
@@ -687,19 +687,19 @@ export default function InterviewPermissionGate({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* 1. Camera Card */}
         {requireCamera && (
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Camera className="w-4 h-4 text-slate-700" />
-                <span className="text-xs font-bold text-slate-800">Camera Check</span>
+                <Camera className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Camera Check</span>
               </div>
               <span
                 className={`text-[11px] font-bold px-2 py-0.5 rounded ${
                   permissions.camera === "granted"
-                    ? "bg-emerald-100 text-emerald-800"
+                    ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300"
                     : permissions.camera === "denied"
-                    ? "bg-red-100 text-red-800"
-                    : "bg-slate-200 text-slate-700"
+                    ? "bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300"
+                    : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
                 }`}
               >
                 {permissions.camera === "granted"
@@ -712,7 +712,7 @@ export default function InterviewPermissionGate({
 
             {/* Device Switcher Dropdown */}
             {videoDevices.length > 1 && (
-              <div className="flex items-center gap-1.5 text-xs text-slate-600">
+              <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
                 <Settings2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <select
                   value={selectedCameraId}
@@ -721,7 +721,7 @@ export default function InterviewPermissionGate({
                     setSelectedCameraId(devId);
                     verifyCamera(devId);
                   }}
-                  className="w-full text-[11px] bg-white border border-slate-200 rounded-lg px-2 py-1 truncate focus:ring-1 focus:ring-blue-500"
+                  className="w-full text-[11px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 truncate focus:ring-1 focus:ring-blue-500 text-slate-800 dark:text-slate-200"
                 >
                   {videoDevices.map((d, i) => (
                     <option key={d.deviceId || i} value={d.deviceId}>
@@ -733,7 +733,7 @@ export default function InterviewPermissionGate({
             )}
 
             {/* Video Preview */}
-            <div className="relative aspect-video bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center border border-slate-300">
+            <div className="relative aspect-video bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center border border-slate-300 dark:border-slate-700">
               <video
                 ref={videoPreviewRef}
                 autoPlay
@@ -761,7 +761,7 @@ export default function InterviewPermissionGate({
                   type="button"
                   onClick={() => verifyCamera()}
                   disabled={isCheckingCamera}
-                  className="w-full min-h-[38px] px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                  className="w-full min-h-[38px] px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
                 >
                   {isCheckingCamera ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -774,7 +774,7 @@ export default function InterviewPermissionGate({
                   <button
                     type="button"
                     onClick={handleEnableSimulatedHardware}
-                    className="w-full px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold rounded-xl transition-colors cursor-pointer"
+                    className="w-full px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-semibold rounded-xl transition-colors cursor-pointer"
                   >
                     Use Simulated Camera for Practice
                   </button>
@@ -786,20 +786,20 @@ export default function InterviewPermissionGate({
 
         {/* 2. Microphone Card */}
         {requireMicrophone && (
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 flex flex-col justify-between">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-3 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Mic className="w-4 h-4 text-slate-700" />
-                  <span className="text-xs font-bold text-slate-800">Microphone & Audio</span>
+                  <Mic className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Microphone & Audio</span>
                 </div>
                 <span
                   className={`text-[11px] font-bold px-2 py-0.5 rounded ${
                     permissions.microphone === "granted"
-                      ? "bg-emerald-100 text-emerald-800"
+                      ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300"
                       : permissions.microphone === "denied"
-                      ? "bg-red-100 text-red-800"
-                      : "bg-slate-200 text-slate-700"
+                      ? "bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300"
+                      : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
                   }`}
                 >
                   {permissions.microphone === "granted"
@@ -812,7 +812,7 @@ export default function InterviewPermissionGate({
 
               {/* Audio Device Switcher */}
               {audioDevices.length > 1 && (
-                <div className="flex items-center gap-1.5 text-xs text-slate-600 mb-3">
+                <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 mb-3">
                   <Settings2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <select
                     value={selectedMicId}
@@ -821,7 +821,7 @@ export default function InterviewPermissionGate({
                       setSelectedMicId(devId);
                       verifyMicrophone(devId);
                     }}
-                    className="w-full text-[11px] bg-white border border-slate-200 rounded-lg px-2 py-1 truncate focus:ring-1 focus:ring-blue-500"
+                    className="w-full text-[11px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 truncate focus:ring-1 focus:ring-blue-500 text-slate-800 dark:text-slate-200"
                   >
                     {audioDevices.map((d, i) => (
                       <option key={d.deviceId || i} value={d.deviceId}>
@@ -832,17 +832,17 @@ export default function InterviewPermissionGate({
                 </div>
               )}
 
-              <p className="text-xs text-slate-500 mb-3">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
                 Speak to test input audio levels. The green meter confirms sound detection via real Web Audio analysis.
               </p>
 
               {/* Audio Volume Bar */}
               <div className="space-y-1">
-                <div className="flex justify-between text-[10px] text-slate-500 font-semibold">
+                <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
                   <span>Input Signal:</span>
                   <span>{permissions.microphone === "granted" ? `${micLevel}%` : "0%"}</span>
                 </div>
-                <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
+                <div className="w-full h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-emerald-500 transition-all duration-75"
                     style={{ width: `${micLevel}%` }}
@@ -857,7 +857,7 @@ export default function InterviewPermissionGate({
                   type="button"
                   onClick={() => verifyMicrophone()}
                   disabled={isCheckingMic}
-                  className="w-full min-h-[38px] px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                  className="w-full min-h-[38px] px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
                 >
                   {isCheckingMic ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -870,7 +870,7 @@ export default function InterviewPermissionGate({
                   <button
                     type="button"
                     onClick={handleEnableSimulatedHardware}
-                    className="w-full px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold rounded-xl transition-colors cursor-pointer"
+                    className="w-full px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-semibold rounded-xl transition-colors cursor-pointer"
                   >
                     Use Simulated Audio for Practice
                   </button>
@@ -882,19 +882,19 @@ export default function InterviewPermissionGate({
 
         {/* 3. Location Card (Only when enabled by policy) */}
         {requireLocation && (
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-blue-600" />
-                <span className="text-xs font-bold text-slate-800">Assessment Center Location</span>
+                <MapPin className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Assessment Center Location</span>
               </div>
               <span
                 className={`text-[11px] font-bold px-2 py-0.5 rounded ${
                   permissions.location === "granted"
-                    ? "bg-emerald-100 text-emerald-800"
+                    ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300"
                     : permissions.location === "denied"
-                    ? "bg-red-100 text-red-800"
-                    : "bg-slate-200 text-slate-700"
+                    ? "bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300"
+                    : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
                 }`}
               >
                 {permissions.location === "granted"
@@ -905,9 +905,9 @@ export default function InterviewPermissionGate({
               </span>
             </div>
 
-            <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-xs text-blue-900 space-y-1">
+            <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl text-xs text-blue-900 dark:text-blue-200 space-y-1">
               <p className="font-bold flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5 text-blue-600" />
+                <Info className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 Center Policy Notice:
               </p>
               <p className="text-[11px] leading-relaxed">
@@ -918,7 +918,7 @@ export default function InterviewPermissionGate({
             </div>
 
             {locationCoordinates && (
-              <p className="text-[10px] text-slate-500 font-mono">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
                 Coordinates: {locationCoordinates.latitude.toFixed(4)}°,{" "}
                 {locationCoordinates.longitude.toFixed(4)}° (±{locationCoordinates.accuracy.toFixed(0)}m)
               </p>
@@ -929,7 +929,7 @@ export default function InterviewPermissionGate({
                 type="button"
                 onClick={verifyLocation}
                 disabled={isCheckingLocation}
-                className="w-full min-h-[38px] px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                className="w-full min-h-[38px] px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
               >
                 {isCheckingLocation ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -944,19 +944,19 @@ export default function InterviewPermissionGate({
 
         {/* 4. Screen-Share Card (If required) */}
         {requireScreenShare && (
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Monitor className="w-4 h-4 text-purple-600" />
-                <span className="text-xs font-bold text-slate-800">Screen Share Capability</span>
+                <Monitor className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Screen Share Capability</span>
               </div>
               <span
                 className={`text-[11px] font-bold px-2 py-0.5 rounded ${
                   permissions.screen === "granted"
-                    ? "bg-emerald-100 text-emerald-800"
+                    ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300"
                     : permissions.screen === "denied"
-                    ? "bg-red-100 text-red-800"
-                    : "bg-slate-200 text-slate-700"
+                    ? "bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300"
+                    : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
                 }`}
               >
                 {permissions.screen === "granted"
@@ -967,7 +967,7 @@ export default function InterviewPermissionGate({
               </span>
             </div>
 
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Your interview policy specifies live screen sharing for technical walkthroughs.
             </p>
 
@@ -976,7 +976,7 @@ export default function InterviewPermissionGate({
                 type="button"
                 onClick={verifyScreenShare}
                 disabled={isCheckingScreen}
-                className="w-full min-h-[38px] px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                className="w-full min-h-[38px] px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
               >
                 {isCheckingScreen ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -991,18 +991,18 @@ export default function InterviewPermissionGate({
       </div>
 
       {/* Candidate Video Privacy Mode Selection */}
-      <div className="p-4 sm:p-5 bg-slate-50/80 border border-slate-200 rounded-2xl space-y-3">
+      <div className="p-4 sm:p-5 bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Lock className="w-4 h-4 text-slate-700" />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+            <Lock className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+            <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
               Candidate Video Privacy Mode
             </h3>
           </div>
-          <span className="text-[10px] text-slate-500 font-semibold">Privacy First</span>
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Privacy First</span>
         </div>
 
-        <p className="text-xs text-slate-600 leading-relaxed">
+        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
           Choose how your video is displayed to interviewers during the session. We respect candidate privacy: zero emotion profiling, zero facial analysis, and zero secret recording.
         </p>
 
@@ -1012,19 +1012,19 @@ export default function InterviewPermissionGate({
             onClick={() => setPrivacyMode("FULL_VIDEO")}
             className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
               privacyMode === "FULL_VIDEO"
-                ? "bg-white border-blue-600 shadow-xs ring-1 ring-blue-600"
-                : "bg-white/60 border-slate-200 hover:border-slate-300"
+                ? "bg-white dark:bg-[#162244] border-blue-600 dark:border-blue-500 shadow-xs ring-1 ring-blue-600 dark:ring-blue-500"
+                : "bg-white/60 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
             }`}
           >
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <Eye className="w-3.5 h-3.5 text-blue-600" /> Full Video
+              <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Eye className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Full Video
               </span>
               {privacyMode === "FULL_VIDEO" && (
-                <Check className="w-3.5 h-3.5 text-blue-600" />
+                <Check className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               )}
             </div>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
               Clear video displayed to verified interviewer.
             </p>
           </button>
@@ -1034,19 +1034,19 @@ export default function InterviewPermissionGate({
             onClick={() => setPrivacyMode("BLURRED_CANDIDATE_VIDEO")}
             className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
               privacyMode === "BLURRED_CANDIDATE_VIDEO"
-                ? "bg-white border-blue-600 shadow-xs ring-1 ring-blue-600"
-                : "bg-white/60 border-slate-200 hover:border-slate-300"
+                ? "bg-white dark:bg-[#162244] border-blue-600 dark:border-blue-500 shadow-xs ring-1 ring-blue-600 dark:ring-blue-500"
+                : "bg-white/60 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
             }`}
           >
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <EyeOff className="w-3.5 h-3.5 text-indigo-600" /> Blurred Video
+              <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <EyeOff className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Blurred Video
               </span>
               {privacyMode === "BLURRED_CANDIDATE_VIDEO" && (
-                <Check className="w-3.5 h-3.5 text-blue-600" />
+                <Check className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               )}
             </div>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
               Deliberately blurred video to protect personal environment.
             </p>
           </button>
@@ -1056,19 +1056,19 @@ export default function InterviewPermissionGate({
             onClick={() => setPrivacyMode("NO_CANDIDATE_VIDEO")}
             className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
               privacyMode === "NO_CANDIDATE_VIDEO"
-                ? "bg-white border-blue-600 shadow-xs ring-1 ring-blue-600"
-                : "bg-white/60 border-slate-200 hover:border-slate-300"
+                ? "bg-white dark:bg-[#162244] border-blue-600 dark:border-blue-500 shadow-xs ring-1 ring-blue-600 dark:ring-blue-500"
+                : "bg-white/60 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
             }`}
           >
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <CameraOff className="w-3.5 h-3.5 text-slate-600" /> Audio Only
+              <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <CameraOff className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" /> Audio Only
               </span>
               {privacyMode === "NO_CANDIDATE_VIDEO" && (
-                <Check className="w-3.5 h-3.5 text-blue-600" />
+                <Check className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               )}
             </div>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
               Video feed hidden after device readiness check.
             </p>
           </button>
@@ -1077,36 +1077,36 @@ export default function InterviewPermissionGate({
 
       {/* Session Recording & Institutional Access Policy */}
       {recordingPolicy !== "DISABLED" && (
-        <div className="p-4 bg-slate-50/90 border border-slate-200 rounded-2xl space-y-3">
+        <div className="p-4 bg-slate-50/90 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-indigo-600" />
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+              <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                 Session Recording & Privacy Policy
               </h3>
             </div>
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
               {recordingPolicy === "MANDATORY" ? "Mandatory for this Center" : "Optional Consent"}
             </span>
           </div>
 
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
             {recordingNotice ||
               "Recordings are securely stored in private institutional storage with a 90-day retention window. Only you and verified institution reviewers can access playback via signed temporary links. Zero facial emotion or biometric scoring is performed."}
           </p>
 
           {recordingPolicy === "MANDATORY" ? (
-            <div className="text-[11px] text-amber-700 font-medium bg-amber-50 border border-amber-200 p-2.5 rounded-xl flex items-center gap-2">
-              <Info className="w-4 h-4 text-amber-600 shrink-0" />
+            <div className="text-[11px] text-amber-700 dark:text-amber-300 font-medium bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-2.5 rounded-xl flex items-center gap-2">
+              <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
               <span>Institutional assessment policy requires this interview session to be recorded for candidate review.</span>
             </div>
           ) : (
-            <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-slate-700 pt-1">
+            <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 pt-1">
               <input
                 type="checkbox"
                 checked={recordingConsentChecked}
                 onChange={(e) => setRecordingConsentChecked(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
               />
               <span>I consent to session video/audio recording for playback review and evaluation feedback</span>
             </label>
@@ -1115,13 +1115,13 @@ export default function InterviewPermissionGate({
       )}
 
       {/* Terms, Proctoring Policy & Consent */}
-      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-        <label className="flex items-start gap-3 cursor-pointer text-xs text-slate-700">
+      <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+        <label className="flex items-start gap-3 cursor-pointer text-xs text-slate-700 dark:text-slate-300">
           <input
             type="checkbox"
             checked={termsAccepted}
             onChange={(e) => setTermsAccepted(e.target.checked)}
-            className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+            className="mt-0.5 w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
           />
           <span className="leading-relaxed">
             I agree to the <strong>Mock Interview Proctoring Guidelines</strong>: I understand that window blur and tab switching are monitored (4 warnings maximum before session termination), and all evaluation criteria are applied fairly without biometric profiling.
@@ -1135,7 +1135,7 @@ export default function InterviewPermissionGate({
           <button
             type="button"
             onClick={handleCancel}
-            className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-semibold cursor-pointer transition-colors"
+            className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold cursor-pointer transition-colors"
           >
             Cancel & Return
           </button>
@@ -1152,8 +1152,8 @@ export default function InterviewPermissionGate({
               aria-label="Start Interview Without Recording"
               className={`w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
                 allChecksPassed
-                  ? "border-slate-300 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer"
-                  : "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
+                  ? "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 cursor-pointer"
+                  : "border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/40 text-slate-400 dark:text-slate-600 cursor-not-allowed"
               }`}
             >
               <span>[ Start Interview Without Recording ]</span>
@@ -1176,7 +1176,7 @@ export default function InterviewPermissionGate({
             className={`w-full sm:w-auto min-h-[44px] px-6 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-all ${
               allChecksPassed
                 ? "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer hover:shadow"
-                : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                : "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed"
             }`}
           >
             <span>

@@ -1174,18 +1174,18 @@ function JobsContent() {
   // Feature Gated Intercept
   if (featureGated && featureGated.status === "DISABLED") {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col justify-between font-sans">
+      <div className="min-h-screen bg-slate-50 dark:bg-[#0b1329] flex flex-col justify-between font-sans">
         <Navbar />
         <main className="flex-1 max-w-3xl mx-auto px-4 py-16 flex flex-col items-center justify-center text-center space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center justify-center">
             <Lock className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">This feature is currently unavailable.</h1>
-          <p className="text-sm text-slate-600 max-w-md">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">This feature is currently unavailable.</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md">
             {featureGated.maintenanceMessage ||
               "Jobs & Internships is undergoing scheduled platform maintenance. Please check back later."}
           </p>
-          <p className="text-xs text-slate-400">Please check back later.</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500">Please check back later.</p>
           <Link
             href="/tools"
             className="mt-4 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition"
@@ -1207,7 +1207,7 @@ function JobsContent() {
     return (
       <div
         key={job.id}
-        className="group bg-white rounded-2xl border border-slate-200/90 hover:border-blue-300 shadow-2xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 p-5 sm:p-6 flex flex-col justify-between space-y-4 relative"
+        className="group bg-white dark:bg-[#111c38] rounded-2xl border border-slate-200/90 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 shadow-2xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 p-5 sm:p-6 flex flex-col justify-between space-y-4 relative"
       >
         <div className="space-y-3">
           {/* Header Row: Company Logo/Initials, Role, Badges, Save Button */}
@@ -1219,13 +1219,13 @@ function JobsContent() {
                   <img
                     src={job.companyLogoUrl}
                     alt={job.companyName}
-                    className="w-10 h-10 rounded-xl object-contain border border-slate-100 bg-white p-1"
+                    className="w-10 h-10 rounded-xl object-contain border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-1"
                     onError={(e) => {
                       e.currentTarget.style.display = "none";
                     }}
                   />
                 ) : (
-                  <div className="w-10 h-10 rounded-xl bg-blue-50/80 border border-blue-100 flex items-center justify-center font-bold text-blue-700 text-xs">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50/80 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-800 flex items-center justify-center font-bold text-blue-700 dark:text-blue-300 text-xs">
                     {job.companyName ? job.companyName.slice(0, 2).toUpperCase() : "JB"}
                   </div>
                 )}
@@ -1237,8 +1237,8 @@ function JobsContent() {
                   <span
                     className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
                       job.isInternship
-                        ? "bg-teal-50 text-teal-800 border border-teal-200"
-                        : "bg-blue-50 text-blue-800 border border-blue-200"
+                        ? "bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800"
+                        : "bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
                     }`}
                   >
                     {job.isInternship ? "Internship" : "Job"}
@@ -1246,15 +1246,15 @@ function JobsContent() {
 
                   {isVerified ? (
                     <span
-                      className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200"
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800"
                       title="Reviewed and approved for publication by Saarvi."
                     >
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                       <span>Saarvi Verified</span>
                     </span>
                   ) : (
                     <span
-                      className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200"
+                      className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700"
                       title="Imported from an external job source. Verify details on the employer's official page."
                     >
                       <span>Source Listing</span>
@@ -1262,7 +1262,7 @@ function JobsContent() {
                   )}
 
                   {job.experienceLevel === "fresher" && (
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                       Fresher
                     </span>
                   )}
@@ -1271,13 +1271,13 @@ function JobsContent() {
                 {/* Role Title */}
                 <Link
                   href={`/jobs/${job.id}`}
-                  className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1"
+                  className="text-base font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-1"
                 >
                   {job.title}
                 </Link>
 
                 {/* Company Name */}
-                <div className="text-xs text-slate-500 font-medium">{job.companyName}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">{job.companyName}</div>
               </div>
             </div>
 
@@ -1287,10 +1287,10 @@ function JobsContent() {
                 <button
                   type="button"
                   onClick={() => setSelectedMatchJob({ job, match })}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition cursor-pointer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition cursor-pointer"
                   title="Click to view explainable ATS score breakdown"
                 >
-                  <Sparkles className="w-3 h-3 text-blue-600" />
+                  <Sparkles className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                   <span>{match.matchScore}%</span>
                 </button>
               )}
@@ -1299,7 +1299,7 @@ function JobsContent() {
                 type="button"
                 onClick={() => handleSaveJob(job)}
                 className={`p-2 rounded-xl transition cursor-pointer ${
-                  isSaved ? "text-blue-600 bg-blue-50" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                  isSaved ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
                 }`}
                 title={isSaved ? "Saved in Tracker" : "Save Job"}
                 aria-label={isSaved ? "Saved" : "Save Job"}
@@ -1310,9 +1310,9 @@ function JobsContent() {
           </div>
 
           {/* Metadata Row: Location · Work Mode · Experience · Salary */}
-          <div className="flex flex-wrap items-center gap-y-1 gap-x-2.5 text-xs text-slate-500">
+          <div className="flex flex-wrap items-center gap-y-1 gap-x-2.5 text-xs text-slate-500 dark:text-slate-400">
             <span className="flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <MapPin className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
               <span>{job.location}</span>
             </span>
             <span>·</span>
@@ -1326,13 +1326,13 @@ function JobsContent() {
             {job.salary && job.salary !== "Salary not disclosed" && (
               <>
                 <span>·</span>
-                <span className="font-semibold text-slate-700">{job.salary}</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{job.salary}</span>
               </>
             )}
           </div>
 
           {/* Description Excerpt */}
-          <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+          <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
             {job.description}
           </p>
 
@@ -1342,13 +1342,13 @@ function JobsContent() {
               {job.skills.slice(0, 4).map((sk) => (
                 <span
                   key={sk}
-                  className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-600 border border-slate-200/70"
+                  className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200/70 dark:border-slate-700"
                 >
                   {sk}
                 </span>
               ))}
               {job.skills.length > 4 && (
-                <span className="text-[10px] text-slate-400 font-medium self-center">
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium self-center">
                   +{job.skills.length - 4} more
                 </span>
               )}
@@ -1358,11 +1358,11 @@ function JobsContent() {
           {/* Explainable Match Reasons (Requirement 38) */}
           {matchReasonsMap[job.id] && matchReasonsMap[job.id].length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
-              <span className="font-semibold text-slate-400">Match signals:</span>
+              <span className="font-semibold text-slate-400 dark:text-slate-500">Match signals:</span>
               {matchReasonsMap[job.id].map((reason, idx) => (
                 <span
                   key={idx}
-                  className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium"
+                  className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-medium"
                 >
                   ✓ {reason}
                 </span>
@@ -1372,11 +1372,11 @@ function JobsContent() {
         </div>
 
         {/* Footer: Source / Deadline & View/Apply Actions */}
-        <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2 text-slate-400 text-[11px]">
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-[11px]">
             {job.applicationDeadline && job.applicationDeadline !== "Deadline not provided" ? (
-              <span className="flex items-center gap-1 text-slate-500">
-                <Clock className="w-3 h-3 text-slate-400" />
+              <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                <Clock className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                 <span>Deadline: {job.applicationDeadline}</span>
               </span>
             ) : (
@@ -1388,7 +1388,7 @@ function JobsContent() {
             <button
               type="button"
               onClick={() => setReportingJob(job)}
-              className="p-1 text-slate-300 hover:text-rose-600 rounded transition"
+              className="p-1 text-slate-300 dark:text-slate-600 hover:text-rose-600 dark:hover:text-rose-400 rounded transition"
               title="Report listing"
               aria-label="Report listing"
             >
@@ -1397,7 +1397,7 @@ function JobsContent() {
 
             <Link
               href={`/jobs/${job.id}`}
-              className="px-3.5 py-1.5 rounded-xl border border-slate-200/90 font-semibold text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all text-xs shadow-2xs"
+              className="px-3.5 py-1.5 rounded-xl border border-slate-200/90 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-[#111c38] hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all text-xs shadow-2xs"
             >
               View Opportunity
             </Link>
@@ -1418,7 +1418,7 @@ function JobsContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/60 text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50/60 dark:bg-[#0b1329] text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
       <Navbar />
 
       {notice && (
@@ -1430,27 +1430,27 @@ function JobsContent() {
       {/* ========================================================================= */}
       {/* SECTION 1: GUIDED CAREER SEARCH HEADER WITH PRE-SEARCH SELECTORS          */}
       {/* ========================================================================= */}
-      <header className="bg-white border-b border-slate-200/90 pt-8 pb-8 px-4 sm:px-6 lg:px-8">
+      <header className="bg-white dark:bg-[#111c38] border-b border-slate-200/90 dark:border-slate-800 pt-8 pb-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto space-y-6">
           
           {/* Modern Eyebrow, Title, Description, and Secondary Controls */}
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
             <div className="space-y-1.5 max-w-2xl">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wider uppercase bg-blue-50 text-blue-700 border border-blue-200/90 shadow-2xs">
-                <Briefcase className="w-3.5 h-3.5 text-blue-600" />
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wider uppercase bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/90 dark:border-blue-800 shadow-2xs">
+                <Briefcase className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 <span>CAREER &amp; INTERNSHIPS</span>
               </div>
-              <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+              <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
                 Find opportunities that fit you
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                 Discover jobs, internships, and training through one focused career search. Choose what you&apos;re looking for and Saarvi will find relevant opportunities.
               </p>
             </div>
 
             {/* Secondary Controls: Theme Mode & Application Tracker */}
             <div className="flex items-center gap-2 self-start md:self-auto shrink-0 pt-1">
-              <div className="inline-flex items-center gap-1 p-1 bg-slate-100/90 border border-slate-200/70 rounded-xl text-[11px] font-semibold shadow-2xs">
+              <div className="inline-flex items-center gap-1 p-1 bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700 rounded-xl text-[11px] font-semibold shadow-2xs">
                 <button
                   type="button"
                   onClick={() => {
@@ -1459,12 +1459,12 @@ function JobsContent() {
                   }}
                   className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
                     themeMode === "adaptive"
-                      ? "bg-white text-slate-900 shadow-2xs font-bold"
-                      : "text-slate-500 hover:text-slate-800"
+                      ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-2xs font-bold"
+                      : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                   }`}
                   title="Theme adapts intelligently to Job, Internship, or Training context"
                 >
-                  <Palette className="w-3 h-3 text-teal-600" />
+                  <Palette className="w-3 h-3 text-teal-600 dark:text-teal-400" />
                   <span>Adaptive</span>
                 </button>
                 <button
@@ -1475,19 +1475,19 @@ function JobsContent() {
                   }}
                   className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
                     themeMode === "saarvi-blue"
-                      ? "bg-white text-blue-700 shadow-2xs font-bold"
-                      : "text-slate-500 hover:text-slate-800"
+                      ? "bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-2xs font-bold"
+                      : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                   }`}
                   title="Locks visual accent to standard Saarvi Blue"
                 >
-                  <span className="w-2 h-2 rounded-full bg-blue-600" />
+                  <span className="w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400" />
                   <span>Saarvi Blue</span>
                 </button>
               </div>
 
               <Link
                 href={user ? "/student/applications" : `/login?next=${encodeURIComponent("/student/applications")}`}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100/90 hover:bg-slate-200 border border-slate-200/70 text-slate-700 transition shadow-2xs"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100/90 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200/70 dark:border-slate-700 text-slate-700 dark:text-slate-200 transition shadow-2xs"
               >
                 <span>Tracker</span>
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -1497,9 +1497,9 @@ function JobsContent() {
 
           {/* RETURN VISIT CONTINUATION BANNER (Harmless Memory) */}
           {previousSearch && !hasSearched && (
-            <div className="p-3 bg-blue-50/80 border border-blue-200/90 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs animate-in fade-in duration-150">
-              <div className="flex items-center gap-2 text-blue-900">
-                <RotateCcw className="w-4 h-4 text-blue-600 shrink-0" />
+            <div className="p-3 bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/90 dark:border-blue-900 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs animate-in fade-in duration-150">
+              <div className="flex items-center gap-2 text-blue-900 dark:text-blue-200">
+                <RotateCcw className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
                 <span>
                   <strong>Continue previous search:</strong>{" "}
                   {previousSearch.role || "Opportunities"} {previousSearch.location ? `in ${previousSearch.location}` : ""}
@@ -1527,7 +1527,7 @@ function JobsContent() {
                 <button
                   type="button"
                   onClick={() => setPreviousSearch(null)}
-                  className="text-slate-400 hover:text-slate-600 px-2 py-1"
+                  className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 px-2 py-1"
                 >
                   Dismiss
                 </button>
@@ -2013,17 +2013,17 @@ function JobsContent() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
                   {/* Opportunity Type Switcher */}
                   <div>
-                    <label htmlFor="career-scope-select" className="block text-[11px] font-bold text-slate-600 mb-1">
+                    <label htmlFor="career-scope-select" className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
                       Opportunity Type
                     </label>
                     <select
                       id="career-scope-select"
                       value={selectedOpportunityType}
                       onChange={(e) => handleOpportunityTypeChange(e.target.value)}
-                      className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white cursor-pointer shadow-2xs ${
+                      className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white dark:bg-[#111c38] text-slate-800 dark:text-slate-200 cursor-pointer shadow-2xs ${
                         selectedOpportunityType !== "any" && selectedOpportunityType !== ""
                           ? `${activeTheme.primary.borderClass} font-bold`
-                          : "border-slate-200 text-slate-700"
+                          : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
                       }`}
                       aria-label="Opportunity type"
                     >
@@ -2037,17 +2037,17 @@ function JobsContent() {
                   {/* Experience Level (Shown for Job and Any) */}
                   {(selectedOpportunityType === "job" || selectedOpportunityType === "any") && (
                     <div>
-                      <label htmlFor="career-exp-select" className="block text-[11px] font-bold text-slate-600 mb-1">
+                      <label htmlFor="career-exp-select" className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
                         Experience Level
                       </label>
                       <select
                         id="career-exp-select"
                         value={selectedExperience}
                         onChange={(e) => setSelectedExperience(e.target.value)}
-                        className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white cursor-pointer shadow-2xs ${
+                        className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white dark:bg-[#111c38] text-slate-800 dark:text-slate-200 cursor-pointer shadow-2xs ${
                           selectedExperience !== "all"
                             ? `${activeTheme.primary.borderClass} font-bold`
-                            : "border-slate-200 text-slate-700"
+                            : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
                         }`}
                         aria-label="Experience level"
                       >
@@ -2063,17 +2063,17 @@ function JobsContent() {
                   {/* Internship Duration (Primary for Internship) */}
                   {selectedOpportunityType === "internship" && (
                     <div>
-                      <label htmlFor="internship-duration-select" className="block text-[11px] font-bold text-slate-600 mb-1">
+                      <label htmlFor="internship-duration-select" className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
                         Duration
                       </label>
                       <select
                         id="internship-duration-select"
                         value={duration}
                         onChange={(e) => setDuration(e.target.value)}
-                        className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white cursor-pointer shadow-2xs ${
+                        className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white dark:bg-[#111c38] text-slate-800 dark:text-slate-200 cursor-pointer shadow-2xs ${
                           duration !== "all"
                             ? `${activeTheme.primary.borderClass} font-bold`
-                            : "border-slate-200 text-slate-700"
+                            : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
                         }`}
                         aria-label="Internship duration"
                       >
@@ -2088,17 +2088,17 @@ function JobsContent() {
                   {/* Work Mode (Shared: Job, Internship, Any) */}
                   {selectedOpportunityType !== "training" && (
                     <div>
-                      <label htmlFor="career-mode-select" className="block text-[11px] font-bold text-slate-600 mb-1">
+                      <label htmlFor="career-mode-select" className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
                         Work Mode
                       </label>
                       <select
                         id="career-mode-select"
                         value={selectedWorkMode}
                         onChange={(e) => setSelectedWorkMode(e.target.value)}
-                        className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white cursor-pointer shadow-2xs ${
+                        className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white dark:bg-[#111c38] text-slate-800 dark:text-slate-200 cursor-pointer shadow-2xs ${
                           selectedWorkMode !== "all"
                             ? `${activeTheme.primary.borderClass} font-bold`
-                            : "border-slate-200 text-slate-700"
+                            : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
                         }`}
                         aria-label="Work mode"
                       >
@@ -2113,7 +2113,7 @@ function JobsContent() {
 
                   {/* "More Filters" Progressive Disclosure Button */}
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
                       Additional Details
                     </label>
                     <button
@@ -2121,8 +2121,8 @@ function JobsContent() {
                       onClick={() => setMoreFiltersOpen(!moreFiltersOpen)}
                       className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border transition flex items-center justify-between cursor-pointer shadow-2xs ${
                         extraFiltersCount > 0 || moreFiltersOpen
-                          ? "bg-blue-50/40 border-blue-300 text-blue-800 font-bold"
-                          : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                          ? "bg-blue-50/40 dark:bg-blue-950/40 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-300 font-bold"
+                          : "bg-white dark:bg-[#111c38] border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
                       }`}
                     >
                       <div className="flex items-center gap-1.5 truncate">
@@ -2145,15 +2145,15 @@ function JobsContent() {
                 {/* STAGE 3: MORE FILTERS (Contextual to Selected Opportunity Type)    */}
                 {/* ----------------------------------------------------------------- */}
                 {moreFiltersOpen && (
-                  <div className="p-4 bg-white border border-slate-200 rounded-2xl grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in fade-in duration-150">
+                  <div className="p-4 bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-700 rounded-2xl grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in fade-in duration-150">
                     {/* JOB CONTEXTUAL: Salary Band */}
                     {selectedOpportunityType === "job" && (
                       <div>
-                        <label className="text-[11px] font-bold text-slate-600 block mb-1">Salary Range</label>
+                        <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">Salary Range</label>
                         <select
                           value={salary}
                           onChange={(e) => setSalary(e.target.value)}
-                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1329] text-slate-800 dark:text-slate-200"
                         >
                           <option value="all">Any Salary</option>
                           <option value="3-6-lpa">₹3 – 6 LPA</option>
@@ -2167,11 +2167,11 @@ function JobsContent() {
                     {/* JOB CONTEXTUAL: Employment Type */}
                     {selectedOpportunityType === "job" && (
                       <div>
-                        <label className="text-[11px] font-bold text-slate-600 block mb-1">Employment Type</label>
+                        <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">Employment Type</label>
                         <select
                           value={employmentType}
                           onChange={(e) => setEmploymentType(e.target.value)}
-                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1329] text-slate-800 dark:text-slate-200"
                         >
                           <option value="all">All Employment Types</option>
                           <option value="full-time">Full-time</option>
@@ -2184,13 +2184,13 @@ function JobsContent() {
                     {/* JOB CONTEXTUAL: Company */}
                     {selectedOpportunityType === "job" && (
                       <div>
-                        <label className="text-[11px] font-bold text-slate-600 block mb-1">Company</label>
+                        <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">Company</label>
                         <input
                           type="text"
                           value={company}
                           onChange={(e) => setCompany(e.target.value)}
                           placeholder="e.g. Google, Infosys"
-                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white focus:outline-hidden"
+                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1329] text-slate-800 dark:text-slate-200 focus:outline-hidden"
                         />
                       </div>
                     )}
@@ -2198,11 +2198,11 @@ function JobsContent() {
                     {/* INTERNSHIP CONTEXTUAL: Stipend Minimum */}
                     {selectedOpportunityType === "internship" && (
                       <div>
-                        <label className="text-[11px] font-bold text-slate-600 block mb-1">Stipend Minimum</label>
+                        <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">Stipend Minimum</label>
                         <select
                           value={stipend}
                           onChange={(e) => setStipend(e.target.value)}
-                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1329] text-slate-800 dark:text-slate-200"
                         >
                           <option value="all">Any Stipend</option>
                           <option value="paid">Paid Only</option>
@@ -2216,11 +2216,11 @@ function JobsContent() {
                     {/* INTERNSHIP CONTEXTUAL: Eligibility */}
                     {selectedOpportunityType === "internship" && (
                       <div>
-                        <label className="text-[11px] font-bold text-slate-600 block mb-1">Eligibility</label>
+                        <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">Eligibility</label>
                         <select
                           value={eligibility}
                           onChange={(e) => setEligibility(e.target.value)}
-                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1329] text-slate-800 dark:text-slate-200"
                         >
                           <option value="all">All Students &amp; Graduates</option>
                           <option value="students">Current Students Only</option>
@@ -2233,11 +2233,11 @@ function JobsContent() {
                     {/* INTERNSHIP CONTEXTUAL: Start Date */}
                     {selectedOpportunityType === "internship" && (
                       <div>
-                        <label className="text-[11px] font-bold text-slate-600 block mb-1">Start Date</label>
+                        <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">Start Date</label>
                         <select
                           value={startDate}
                           onChange={(e) => setStartDate(e.target.value)}
-                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1329] text-slate-800 dark:text-slate-200"
                         >
                           <option value="all">Flexible</option>
                           <option value="immediate">Immediately</option>
@@ -2251,11 +2251,11 @@ function JobsContent() {
                     {selectedOpportunityType === "training" && (
                       <>
                         <div>
-                          <label className="text-[11px] font-bold text-slate-600 block mb-1">Fee &amp; Certificate</label>
+                          <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">Fee &amp; Certificate</label>
                           <select
                             value={feeType}
                             onChange={(e) => setFeeType(e.target.value)}
-                            className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+                            className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1329] text-slate-800 dark:text-slate-200"
                           >
                             <option value="all">All Training</option>
                             <option value="free">Free / Sponsored</option>
@@ -2264,29 +2264,29 @@ function JobsContent() {
                           </select>
                         </div>
                         <div>
-                          <label className="text-[11px] font-bold text-slate-600 block mb-1">Provider</label>
+                          <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">Provider</label>
                           <input
                             type="text"
                             value={provider}
                             onChange={(e) => setProvider(e.target.value)}
                             placeholder="e.g. Coursera, NPTEL"
-                            className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-white focus:outline-hidden"
+                            className="w-full text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1329] text-slate-800 dark:text-slate-200 focus:outline-hidden"
                           />
                         </div>
                       </>
                     )}
 
                     {/* SHARED SKILLS MULTI-SELECT (Relevant across all opportunities) */}
-                    <div className="sm:col-span-3 space-y-1.5 pt-2 border-t border-slate-100">
+                    <div className="sm:col-span-3 space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
                       <div className="flex items-center justify-between">
-                        <label className="text-[11px] font-bold text-slate-600 block">
+                        <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block">
                           Skills &amp; Technologies
                         </label>
                         {selectedSkills.length > 0 && (
                           <button
                             type="button"
                             onClick={() => setSelectedSkills([])}
-                            className="text-[10px] text-blue-600 hover:underline font-semibold"
+                            className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline font-semibold"
                           >
                             Reset skills
                           </button>
@@ -2310,8 +2310,8 @@ function JobsContent() {
                                 active
                                   ? `${activeTheme.primary.btnClass} font-bold`
                                   : isRecommended
-                                  ? "bg-amber-50/70 text-slate-800 border-amber-300 font-semibold"
-                                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                  ? "bg-amber-50/70 dark:bg-amber-950/40 text-slate-800 dark:text-slate-200 border-amber-300 dark:border-amber-700 font-semibold"
+                                  : "bg-white dark:bg-[#0b1329] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
                               }`}
                             >
                               <span>{sk}</span>
@@ -2390,21 +2390,21 @@ function JobsContent() {
               }}
               className={`p-3.5 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between border shadow-2xs ${
                 selectedOpportunityType === "internship"
-                  ? "bg-teal-50/70 border-teal-400 ring-2 ring-teal-400/20 shadow-xs"
-                  : "bg-white hover:bg-teal-50/30 border-slate-200 hover:border-teal-300"
+                  ? "bg-teal-50/70 dark:bg-teal-950/40 border-teal-400 dark:border-teal-600 ring-2 ring-teal-400/20 shadow-xs"
+                  : "bg-white dark:bg-[#111c38] hover:bg-teal-50/30 dark:hover:bg-teal-950/20 border-slate-200 dark:border-slate-800 hover:border-teal-300 dark:hover:border-teal-700"
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-teal-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <GraduationCap className="w-4 h-4 text-teal-600" /> Internships
+                <span className="text-[11px] font-bold text-teal-700 dark:text-teal-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <GraduationCap className="w-4 h-4 text-teal-600 dark:text-teal-400" /> Internships
                 </span>
                 {selectedOpportunityType === "internship" && (
                   <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-teal-600 text-white">Active</span>
                 )}
               </div>
               <div className="mt-2.5">
-                <span className="text-xs font-semibold text-slate-800 block">Summer &amp; semester roles</span>
-                <span className="text-[11px] text-slate-500 mt-0.5 block">Explore paid and student opportunities</span>
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">Summer &amp; semester roles</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 block">Explore paid and student opportunities</span>
               </div>
             </button>
 
@@ -2417,21 +2417,21 @@ function JobsContent() {
               }}
               className={`p-3.5 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between border shadow-2xs ${
                 selectedOpportunityType === "job"
-                  ? "bg-blue-50/70 border-blue-400 ring-2 ring-blue-400/20 shadow-xs"
-                  : "bg-white hover:bg-blue-50/30 border-slate-200 hover:border-blue-300"
+                  ? "bg-blue-50/70 dark:bg-blue-950/40 border-blue-400 dark:border-blue-600 ring-2 ring-blue-400/20 shadow-xs"
+                  : "bg-white dark:bg-[#111c38] hover:bg-blue-50/30 dark:hover:bg-blue-950/20 border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700"
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Briefcase className="w-4 h-4 text-blue-600" /> Full-Time Jobs
+                <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Briefcase className="w-4 h-4 text-blue-600 dark:text-blue-400" /> Full-Time Jobs
                 </span>
                 {selectedOpportunityType === "job" && (
                   <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-blue-600 text-white">Active</span>
                 )}
               </div>
               <div className="mt-2.5">
-                <span className="text-xs font-semibold text-slate-800 block">Entry-level &amp; fresher roles</span>
-                <span className="text-[11px] text-slate-500 mt-0.5 block">Early career &amp; graduate opportunities</span>
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">Entry-level &amp; fresher roles</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 block">Early career &amp; graduate opportunities</span>
               </div>
             </button>
 
@@ -2444,21 +2444,21 @@ function JobsContent() {
               }}
               className={`p-3.5 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between border shadow-2xs ${
                 selectedWorkMode === "remote"
-                  ? "bg-emerald-50/70 border-emerald-400 ring-2 ring-emerald-400/20 shadow-xs"
-                  : "bg-white hover:bg-emerald-50/30 border-slate-200 hover:border-emerald-300"
+                  ? "bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-600 ring-2 ring-emerald-400/20 shadow-xs"
+                  : "bg-white dark:bg-[#111c38] hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700"
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-emerald-600" /> Remote Roles
+                <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Remote Roles
                 </span>
                 {selectedWorkMode === "remote" && (
                   <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-600 text-white">Active</span>
                 )}
               </div>
               <div className="mt-2.5">
-                <span className="text-xs font-semibold text-slate-800 block">Work from home / anywhere</span>
-                <span className="text-[11px] text-slate-500 mt-0.5 block">Distributed team opportunities</span>
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">Work from home / anywhere</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 block">Distributed team opportunities</span>
               </div>
             </button>
 
@@ -2470,21 +2470,21 @@ function JobsContent() {
               }}
               className={`p-3.5 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between border shadow-2xs ${
                 verifiedOnly
-                  ? "bg-purple-50/70 border-purple-400 ring-2 ring-purple-400/20 shadow-xs"
-                  : "bg-white hover:bg-purple-50/30 border-slate-200 hover:border-purple-300"
+                  ? "bg-purple-50/70 dark:bg-purple-950/40 border-purple-400 dark:border-purple-600 ring-2 ring-purple-400/20 shadow-xs"
+                  : "bg-white dark:bg-[#111c38] hover:bg-purple-50/30 dark:hover:bg-purple-950/20 border-slate-200 dark:border-slate-800 hover:border-purple-300 dark:hover:border-purple-700"
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-purple-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-purple-600" /> Verified Listings
+                <span className="text-[11px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" /> Verified Listings
                 </span>
                 {verifiedOnly && (
                   <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-purple-600 text-white">Active</span>
                 )}
               </div>
               <div className="mt-2.5">
-                <span className="text-xs font-semibold text-slate-800 block">Saarvi verified criteria</span>
-                <span className="text-[11px] text-slate-500 mt-0.5 block">Vetted credentials and safety</span>
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">Saarvi verified criteria</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 block">Vetted credentials and safety</span>
               </div>
             </button>
           </div>
@@ -2492,7 +2492,7 @@ function JobsContent() {
           {/* VISIBLE APPLIED FILTER CHIPS */}
           {appliedFilters.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
-              <span className="text-slate-400 font-medium">Searching for:</span>
+              <span className="text-slate-400 dark:text-slate-500 font-medium">Searching for:</span>
               {appliedFilters.map((chip) => (
                 <button
                   key={chip.key}
@@ -2501,13 +2501,13 @@ function JobsContent() {
                   className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold transition cursor-pointer border ${activeTheme.primary.badgeClass}`}
                 >
                   <span>{chip.label}</span>
-                  <X className="w-3 h-3 text-slate-500 hover:text-slate-800" />
+                  <X className="w-3 h-3 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200" />
                 </button>
               ))}
               <button
                 type="button"
                 onClick={handleClearAllFilters}
-                className="text-xs text-blue-600 hover:underline font-semibold ml-1 cursor-pointer"
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold ml-1 cursor-pointer"
               >
                 Clear all
               </button>
@@ -2515,8 +2515,8 @@ function JobsContent() {
           )}
 
           {/* QUICK SUGGESTIONS */}
-          <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-400 pt-1">
-            <span className="font-medium text-slate-500">Popular suggestions:</span>
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500 pt-1">
+            <span className="font-medium text-slate-500 dark:text-slate-400">Popular suggestions:</span>
             {SUGGESTED_SEARCHES.map((sug) => (
               <button
                 key={sug}
@@ -2525,7 +2525,7 @@ function JobsContent() {
                   setCustomQuery(sug);
                   executeSearch({ q: sug });
                 }}
-                className="px-2.5 py-0.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] transition cursor-pointer"
+                className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[11px] transition cursor-pointer"
               >
                 {sug}
               </button>
@@ -2542,13 +2542,13 @@ function JobsContent() {
         
         {/* PRE-SEARCH STATE (When user hasn't clicked search and no query in URL) */}
         {!hasSearched && jobs.length === 0 && !loading && (
-          <div className="bg-white border border-slate-200 rounded-2xl p-8 sm:p-12 text-center space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+          <div className="bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-800 rounded-2xl p-8 sm:p-12 text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto">
               <Search className="w-6 h-6" />
             </div>
             <div className="max-w-md mx-auto space-y-1">
-              <h2 className="text-lg font-bold text-slate-900">Tell us what you&apos;re looking for</h2>
-              <p className="text-xs text-slate-500 leading-relaxed">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Tell us what you&apos;re looking for</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                 Configure your job role, branch, domain, or location above and click Search Opportunities to view live positions.
               </p>
             </div>
@@ -2561,7 +2561,7 @@ function JobsContent() {
                   setSelectedLocation("Bengaluru");
                   executeSearch({ opportunityType: "internship", location: "Bengaluru" });
                 }}
-                className="px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 transition"
+                className="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 transition"
               >
                 Internships in Bengaluru
               </button>
@@ -2573,7 +2573,7 @@ function JobsContent() {
                   setSelectedExperience("fresher");
                   executeSearch({ role: "Software Developer", experience: "fresher" });
                 }}
-                className="px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 transition"
+                className="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 transition"
               >
                 Software Developer (Fresher)
               </button>
@@ -2585,7 +2585,7 @@ function JobsContent() {
                   setSelectedWorkMode("remote");
                   executeSearch({ opportunityType: "internship", workMode: "remote" });
                 }}
-                className="px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 transition"
+                className="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 transition"
               >
                 Remote Internships
               </button>
@@ -2603,15 +2603,15 @@ function JobsContent() {
           >
             {/* Partial Failure Notice (Requirement 44, 88) */}
             {partialFailureNotice && (
-              <div className="p-3.5 bg-amber-50/90 border border-amber-200/90 text-amber-900 rounded-2xl text-xs flex items-center justify-between gap-3 animate-in fade-in duration-150">
+              <div className="p-3.5 bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-900 text-amber-900 dark:text-amber-200 rounded-2xl text-xs flex items-center justify-between gap-3 animate-in fade-in duration-150">
                 <div className="flex items-center gap-2">
-                  <Info className="w-4 h-4 text-amber-600 shrink-0" />
+                  <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                   <span>{partialFailureNotice}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setPartialFailureNotice(null)}
-                  className="text-amber-800 font-bold hover:underline shrink-0 cursor-pointer"
+                  className="text-amber-800 dark:text-amber-300 font-bold hover:underline shrink-0 cursor-pointer"
                 >
                   Dismiss
                 </button>
@@ -2620,15 +2620,15 @@ function JobsContent() {
 
             {/* Controlled Relaxation Notice (Requirement 43) */}
             {relaxationExplanation && (
-              <div className="p-3.5 bg-blue-50/90 border border-blue-200/90 text-blue-900 rounded-2xl text-xs flex items-center justify-between gap-3 animate-in fade-in duration-150">
+              <div className="p-3.5 bg-blue-50/90 dark:bg-blue-950/40 border border-blue-200/90 dark:border-blue-900 text-blue-900 dark:text-blue-200 rounded-2xl text-xs flex items-center justify-between gap-3 animate-in fade-in duration-150">
                 <div className="flex items-center gap-2">
-                  <Info className="w-4 h-4 text-blue-600 shrink-0" />
+                  <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
                   <span>{relaxationExplanation}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setRelaxationExplanation(null)}
-                  className="text-blue-800 font-bold hover:underline shrink-0 cursor-pointer"
+                  className="text-blue-800 dark:text-blue-300 font-bold hover:underline shrink-0 cursor-pointer"
                 >
                   Dismiss
                 </button>
@@ -2636,18 +2636,18 @@ function JobsContent() {
             )}
 
             {/* Stream Header & Sorting */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                   {resultsStreamHeading}
                 </h2>
-                <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
                   {selectedOpportunityType === "training" ? trainingOpportunities.length : displayedJobs.length}
                 </span>
               </div>
 
               {/* Sort By Dropdown */}
-              <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
                 <span>Sort by:</span>
                 <select
                   value={sortBy}
@@ -2656,7 +2656,7 @@ function JobsContent() {
                     setSortBy(val);
                     executeSearch({ sortBy: val });
                   }}
-                  className="text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-hidden cursor-pointer"
+                  className="text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111c38] text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer"
                   aria-label="Sort opportunities"
                 >
                   <option value="relevant">Most Relevant</option>
@@ -2669,9 +2669,9 @@ function JobsContent() {
 
             {/* Optional Personalization Guidance Banner */}
             {!candidateProfile && (
-              <div className="p-4 bg-blue-50/80 border border-blue-200/90 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-blue-900">
+              <div className="p-4 bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/90 dark:border-blue-900 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-blue-900 dark:text-blue-200">
                 <div className="flex items-center gap-2.5">
-                  <Sparkles className="w-5 h-5 text-blue-600 shrink-0" />
+                  <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
                   <div>
                     <strong>Want personalized match scores?</strong> Add your career profile to calculate ATS alignment for every opportunity.
                   </div>
@@ -2690,7 +2690,7 @@ function JobsContent() {
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[1, 2, 3, 4].map((n) => (
-                  <div key={n} className="p-6 bg-white border border-slate-200/90 rounded-2xl space-y-4 shadow-2xs">
+                  <div key={n} className="p-6 bg-white dark:bg-[#111c38] border border-slate-200/90 dark:border-slate-800 rounded-2xl space-y-4 shadow-2xs">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl skeleton-shimmer shrink-0" />
                       <div className="space-y-1.5 flex-1">
@@ -2702,7 +2702,7 @@ function JobsContent() {
                       <div className="h-3 w-full skeleton-shimmer rounded-md" />
                       <div className="h-3 w-4/5 skeleton-shimmer rounded-md" />
                     </div>
-                    <div className="pt-2 flex items-center justify-between border-t border-slate-100">
+                    <div className="pt-2 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
                       <div className="h-3 w-1/4 skeleton-shimmer rounded-md" />
                       <div className="h-8 w-24 skeleton-shimmer rounded-xl" />
                     </div>
@@ -2717,30 +2717,30 @@ function JobsContent() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-12 bg-white rounded-2xl border border-slate-200/90 p-8 space-y-3 shadow-2xs">
-                  <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mx-auto border border-purple-100">
+                <div className="text-center py-12 bg-white dark:bg-[#111c38] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-8 space-y-3 shadow-2xs">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center mx-auto border border-purple-100 dark:border-purple-800">
                     <GraduationCap className="w-6 h-6" />
                   </div>
-                  <h3 className="text-sm font-bold text-slate-800">No training programs match your criteria</h3>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">No training programs match your criteria</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
                     Try adjusting your filters or search keywords.
                   </p>
                 </div>
               )
             ) : displayedJobs.length === 0 ? (
               /* Differentiated Empty State */
-              <div className="text-center py-14 bg-white rounded-2xl border border-slate-200/90 p-8 space-y-4 shadow-2xs">
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto border border-blue-100">
+              <div className="text-center py-14 bg-white dark:bg-[#111c38] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-8 space-y-4 shadow-2xs">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto border border-blue-100 dark:border-blue-800">
                   <Briefcase className="w-6 h-6" />
                 </div>
 
                 {appliedFilters.length > 0 ? (
                   /* Case B: Filter Mismatch */
                   <div className="space-y-3 max-w-md mx-auto">
-                    <h3 className="text-base font-bold text-slate-900">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
                       No opportunities match your current filters
                     </h3>
-                    <p className="text-xs text-slate-500 leading-relaxed">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                       {liveCount && liveCount > 0
                         ? `There are ${liveCount} live opportunities in the platform. Try broadening your criteria or removing one of your filters.`
                         : "Try adjusting your filters or search terms to see all available opportunities."}
@@ -2751,7 +2751,7 @@ function JobsContent() {
                           key={chip.key}
                           type="button"
                           onClick={chip.onRemove}
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition cursor-pointer"
+                          className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition cursor-pointer"
                         >
                           Remove {chip.label} ×
                         </button>
@@ -2768,10 +2768,10 @@ function JobsContent() {
                 ) : (
                   /* Case A: Truly No Live Opportunities */
                   <div className="space-y-2 max-w-md mx-auto">
-                    <h3 className="text-base font-bold text-slate-900">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
                       No live opportunities are currently available
                     </h3>
-                    <p className="text-xs text-slate-500 leading-relaxed">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                       Our team actively discovers, verifies, and publishes campus and fresher opportunities continuously. Check back soon!
                     </p>
                   </div>
@@ -2792,14 +2792,14 @@ function JobsContent() {
       {/* ========================================================================= */}
       {mobileDrawerOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex justify-end">
-          <div className="bg-white w-full max-w-sm h-full p-6 flex flex-col justify-between overflow-y-auto animate-in slide-in-from-right duration-200">
+          <div className="bg-white dark:bg-[#111c38] w-full max-w-sm h-full p-6 flex flex-col justify-between overflow-y-auto animate-in slide-in-from-right duration-200">
             <div className="space-y-6">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-                <h3 className="font-bold text-slate-900 text-base">Filter Opportunities</h3>
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                <h3 className="font-bold text-slate-900 dark:text-white text-base">Filter Opportunities</h3>
                 <button
                   type="button"
                   onClick={() => setMobileDrawerOpen(false)}
-                  className="text-slate-400 hover:text-slate-600"
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -2807,11 +2807,11 @@ function JobsContent() {
 
               {/* Opportunity Scope */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Opportunity Type</label>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Opportunity Type</label>
                 <select
                   value={selectedOpportunityType}
                   onChange={(e) => setSelectedOpportunityType(e.target.value)}
-                  className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-800"
+                  className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1329] text-slate-800 dark:text-slate-200"
                 >
                   <option value="any">Any opportunity</option>
                   <option value="job">Job</option>
@@ -2822,11 +2822,11 @@ function JobsContent() {
 
               {/* Work Mode */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Work Mode</label>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Work Mode</label>
                 <select
                   value={selectedWorkMode}
                   onChange={(e) => setSelectedWorkMode(e.target.value)}
-                  className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-800"
+                  className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1329] text-slate-800 dark:text-slate-200"
                 >
                   <option value="all">All Work Modes</option>
                   <option value="remote">Remote Only</option>
@@ -2837,11 +2837,11 @@ function JobsContent() {
 
               {/* Experience */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Experience Level</label>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Experience Level</label>
                 <select
                   value={selectedExperience}
                   onChange={(e) => setSelectedExperience(e.target.value)}
-                  className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-800"
+                  className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1329] text-slate-800 dark:text-slate-200"
                 >
                   <option value="all">All Experience Levels</option>
                   <option value="fresher">Fresher Roles</option>
@@ -2852,14 +2852,14 @@ function JobsContent() {
               </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => {
                   handleClearAllFilters();
                   setMobileDrawerOpen(false);
                 }}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
               >
                 Clear
               </button>
@@ -2923,16 +2923,16 @@ function JobsContent() {
       {/* ========================================================================= */}
       {selectedMatchJob && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 max-w-lg w-full p-6 space-y-4 shadow-xl animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div className="bg-white dark:bg-[#111c38] rounded-3xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-6 space-y-4 shadow-xl animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-blue-600" />
-                <h3 className="font-extrabold text-slate-900">Explainable Match Breakdown</h3>
+                <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <h3 className="font-extrabold text-slate-900 dark:text-white">Explainable Match Breakdown</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedMatchJob(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2940,23 +2940,23 @@ function JobsContent() {
 
             <div className="space-y-3 text-xs">
               <div>
-                <p className="font-bold text-slate-800">{selectedMatchJob.job.title}</p>
-                <p className="text-slate-500">{selectedMatchJob.job.companyName}</p>
+                <p className="font-bold text-slate-800 dark:text-slate-200">{selectedMatchJob.job.title}</p>
+                <p className="text-slate-500 dark:text-slate-400">{selectedMatchJob.job.companyName}</p>
               </div>
 
-              <div className="p-3 bg-blue-50 rounded-xl flex items-center justify-between">
-                <span className="font-bold text-blue-900">Overall ATS Match Score</span>
-                <span className="text-base font-extrabold text-blue-600">
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/60 rounded-xl flex items-center justify-between">
+                <span className="font-bold text-blue-900 dark:text-blue-200">Overall ATS Match Score</span>
+                <span className="text-base font-extrabold text-blue-600 dark:text-blue-400">
                   {selectedMatchJob.match.matchScore}%
                 </span>
               </div>
 
               <div>
-                <span className="font-bold text-slate-700 block mb-1">Matched Skills:</span>
+                <span className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Matched Skills:</span>
                 <div className="flex flex-wrap gap-1">
                   {selectedMatchJob.match.matchedSkills.length > 0 ? (
                     selectedMatchJob.match.matchedSkills.map((sk) => (
-                      <span key={sk} className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      <span key={sk} className="px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                         ✓ {sk}
                       </span>
                     ))
@@ -2967,11 +2967,11 @@ function JobsContent() {
               </div>
 
               <div>
-                <span className="font-bold text-slate-700 block mb-1">Missing Skills to Add:</span>
+                <span className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Missing Skills to Add:</span>
                 <div className="flex flex-wrap gap-1">
                   {selectedMatchJob.match.missingSkills.length > 0 ? (
                     selectedMatchJob.match.missingSkills.map((sk) => (
-                      <span key={sk} className="px-2 py-0.5 rounded bg-rose-50 text-rose-800 border border-rose-200">
+                      <span key={sk} className="px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
                         + {sk}
                       </span>
                     ))
@@ -2986,7 +2986,7 @@ function JobsContent() {
               <button
                 type="button"
                 onClick={() => setSelectedMatchJob(null)}
-                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 font-semibold text-slate-700 text-xs"
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 font-semibold text-slate-700 dark:text-slate-300 text-xs"
               >
                 Close
               </button>
@@ -3000,24 +3000,24 @@ function JobsContent() {
       {/* ========================================================================= */}
       {reportingJob && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 max-w-md w-full p-6 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-sm">Report Listing</h3>
+          <div className="bg-white dark:bg-[#111c38] rounded-3xl border border-slate-200 dark:border-slate-800 max-w-md w-full p-6 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="font-bold text-slate-900 dark:text-white text-sm">Report Listing</h3>
               <button
                 type="button"
                 onClick={() => setReportingJob(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleReportSubmit} className="space-y-4 text-xs">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Reason for Report</label>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Reason for Report</label>
                 <select
                   value={reportReason}
                   onChange={(e) => setReportReason(e.target.value as JobReportReason)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-white"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1329] text-slate-800 dark:text-slate-200"
                 >
                   <option value="MISLEADING_INFO">Misleading Information</option>
                   <option value="SUSPECTED_SCAM">Suspected Scam / Demanding Money</option>
@@ -3027,20 +3027,20 @@ function JobsContent() {
                 </select>
               </div>
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Additional Details (Optional)</label>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Additional Details (Optional)</label>
                 <textarea
                   rows={3}
                   value={reportNotes}
                   onChange={(e) => setReportNotes(e.target.value)}
                   placeholder="Provide context to help our Trust & Safety review..."
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1329] text-slate-900 dark:text-white placeholder:text-slate-400 text-xs"
                 />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setReportingJob(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-semibold"
+                  className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold"
                 >
                   Cancel
                 </button>
@@ -3062,27 +3062,27 @@ function JobsContent() {
       {/* ========================================================================= */}
       {showAlertModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 max-w-md w-full p-6 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-sm">Create Job Alert</h3>
+          <div className="bg-white dark:bg-[#111c38] rounded-3xl border border-slate-200 dark:border-slate-800 max-w-md w-full p-6 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="font-bold text-slate-900 dark:text-white text-sm">Create Job Alert</h3>
               <button
                 type="button"
                 onClick={() => setShowAlertModal(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleCreateAlert} className="space-y-4 text-xs">
-              <p className="text-slate-600">
+              <p className="text-slate-600 dark:text-slate-400">
                 Receive notifications when new opportunities matching &ldquo;{selectedRole || customQuery || "all roles"}&rdquo; {selectedLocation ? `in ${selectedLocation}` : ""} are published.
               </p>
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Notification Frequency</label>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Notification Frequency</label>
                 <select
                   value={alertFrequency}
                   onChange={(e) => setAlertFrequency(e.target.value as "daily" | "weekly")}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-white"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1329] text-slate-800 dark:text-slate-200"
                 >
                   <option value="daily">Daily Digest</option>
                   <option value="weekly">Weekly Summary</option>
@@ -3092,7 +3092,7 @@ function JobsContent() {
                 <button
                   type="button"
                   onClick={() => setShowAlertModal(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-semibold"
+                  className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold"
                 >
                   Cancel
                 </button>
@@ -3117,7 +3117,7 @@ export default function JobsPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="min-h-screen bg-slate-50 dark:bg-[#0b1329] flex items-center justify-center">
           <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
         </div>
       }

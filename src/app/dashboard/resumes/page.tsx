@@ -172,11 +172,11 @@ export default function ResumesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
-            <FileText className="w-7 h-7 text-blue-600" />
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
+            <FileText className="w-7 h-7 text-blue-600 dark:text-blue-400" />
             <span>Saved Resumes</span>
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             Store, duplicate, and edit ATS-friendly structured resume drafts
           </p>
         </div>
@@ -192,11 +192,11 @@ export default function ResumesPage() {
       </div>
 
       {/* PRIVACY NOTICE */}
-      <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200/70 flex items-start gap-3 text-xs text-blue-900">
-        <Shield className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" aria-hidden="true" />
+      <div className="p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/70 dark:border-blue-900 flex items-start gap-3 text-xs text-blue-900 dark:text-blue-200">
+        <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" aria-hidden="true" />
         <div>
           <p className="font-bold">Structured Data Privacy</p>
-          <p className="text-blue-800 leading-relaxed">
+          <p className="text-blue-800 dark:text-blue-300 leading-relaxed">
             Your resume data is protected by Row Level Security (RLS). Only your authenticated
             account can read, edit, or delete these records. No public URLs or remote file storage
             are used.
@@ -206,13 +206,13 @@ export default function ResumesPage() {
 
       {/* CREATE NEW RESUME PANEL */}
       {isCreating && (
-        <div className="p-6 bg-white border border-blue-200 rounded-3xl shadow-sm space-y-4 animate-in fade-in duration-200">
+        <div className="p-6 bg-white dark:bg-[#111c38] border border-blue-200 dark:border-blue-900/60 rounded-3xl shadow-sm space-y-4 animate-in fade-in duration-200">
           <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-slate-900">Create New Resume Draft</h3>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">Create New Resume Draft</h3>
             <button
               type="button"
               onClick={() => setIsCreating(false)}
-              className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
               aria-label="Close create resume panel"
             >
               <X className="w-4 h-4" />
@@ -221,7 +221,7 @@ export default function ResumesPage() {
 
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="space-y-1.5">
-              <label htmlFor="resume-title" className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+              <label htmlFor="resume-title" className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                 Resume Title
               </label>
               <input
@@ -231,12 +231,12 @@ export default function ResumesPage() {
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 placeholder="e.g. Software Engineering Resume 2026"
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white dark:focus:bg-slate-900"
               />
             </div>
 
             <div className="space-y-1.5">
-              <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                 Select Template Format
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" role="radiogroup" aria-label="Resume template">
@@ -249,12 +249,12 @@ export default function ResumesPage() {
                     onClick={() => setNewTemplate(tpl.id)}
                     className={`p-3 rounded-xl border text-left transition-all ${
                       newTemplate === tpl.id
-                        ? "border-blue-600 bg-blue-50/70 text-blue-900"
-                        : "border-slate-200 hover:border-slate-300 text-slate-700"
+                        ? "border-blue-600 bg-blue-50/70 dark:bg-blue-950/60 text-blue-900 dark:text-blue-200 dark:border-blue-500"
+                        : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300"
                     }`}
                   >
                     <p className="text-xs font-bold">{tpl.label}</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">{tpl.desc}</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{tpl.desc}</p>
                   </button>
                 ))}
               </div>
@@ -264,7 +264,7 @@ export default function ResumesPage() {
               <button
                 type="button"
                 onClick={() => setIsCreating(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer"
               >
                 Cancel
               </button>
@@ -289,7 +289,7 @@ export default function ResumesPage() {
             <SkeletonCard lines={4} />
           </>
         ) : resumes.length === 0 ? (
-          <div className="col-span-full bg-white border border-slate-200/90 rounded-3xl">
+          <div className="col-span-full bg-white dark:bg-[#111c38] border border-slate-200/90 dark:border-slate-800 rounded-3xl">
             <EmptyState
               icon={FileText}
               title="Create your first resume"
@@ -302,12 +302,12 @@ export default function ResumesPage() {
           resumes.map((resume) => (
             <div
               key={resume.id}
-              className="p-5 bg-white border border-slate-200/90 rounded-3xl shadow-xs hover:shadow-md transition-all hover-3d-lift flex flex-col justify-between space-y-4"
+              className="p-5 bg-white dark:bg-[#111c38] border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-xs hover:shadow-md transition-all hover-3d-lift flex flex-col justify-between space-y-4"
             >
               <div className="space-y-3">
                 {/* Template badge + actions */}
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-850">
                     {getTemplateName(resume.template)}
                   </span>
 
@@ -315,7 +315,7 @@ export default function ResumesPage() {
                     <button
                       type="button"
                       onClick={() => handleDuplicate(resume)}
-                      className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                      className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                       aria-label={`Duplicate "${resume.title}"`}
                     >
                       <Copy className="w-3.5 h-3.5" aria-hidden="true" />
@@ -323,7 +323,7 @@ export default function ResumesPage() {
                     <button
                       type="button"
                       onClick={() => setDeleteTarget(resume)}
-                      className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                      className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
                       aria-label={`Delete "${resume.title}"`}
                     >
                       <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
@@ -342,14 +342,14 @@ export default function ResumesPage() {
                         if (e.key === "Enter") handleRename(resume.id);
                         if (e.key === "Escape") setEditingId(null);
                       }}
-                      className="flex-1 px-2.5 py-1 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-600"
+                      className="flex-1 px-2.5 py-1 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-600"
                       autoFocus
                       aria-label="Edit resume title"
                     />
                     <button
                       type="button"
                       onClick={() => handleRename(resume.id)}
-                      className="p-1 text-emerald-600 hover:bg-emerald-50 rounded cursor-pointer"
+                      className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded cursor-pointer"
                       aria-label="Save new title"
                     >
                       <Check className="w-3.5 h-3.5" />
@@ -357,7 +357,7 @@ export default function ResumesPage() {
                     <button
                       type="button"
                       onClick={() => setEditingId(null)}
-                      className="p-1 text-slate-400 hover:bg-slate-100 rounded cursor-pointer"
+                      className="p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer"
                       aria-label="Cancel rename"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -365,7 +365,7 @@ export default function ResumesPage() {
                   </div>
                 ) : (
                   <div className="flex items-start justify-between gap-2 group/title">
-                    <h4 className="text-sm font-bold text-slate-900 leading-snug truncate">
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white leading-snug truncate">
                       {resume.title}
                     </h4>
                     <button
@@ -374,7 +374,7 @@ export default function ResumesPage() {
                         setEditingId(resume.id);
                         setEditTitle(resume.title);
                       }}
-                      className="opacity-0 group-hover/title:opacity-100 transition-opacity p-0.5 text-slate-400 hover:text-slate-700 shrink-0 cursor-pointer"
+                      className="opacity-0 group-hover/title:opacity-100 transition-opacity p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 shrink-0 cursor-pointer"
                       aria-label={`Rename "${resume.title}"`}
                     >
                       <Edit2 className="w-3 h-3" />
@@ -382,17 +382,17 @@ export default function ResumesPage() {
                   </div>
                 )}
 
-                <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
                   <Clock className="w-3 h-3" aria-hidden="true" />
                   <span>Updated {formatRelativeDate(resume.updatedAt)}</span>
                 </div>
               </div>
 
               {/* Bottom action: Edit in Resume Builder */}
-              <div className="pt-3 border-t border-slate-100">
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
                 <Link
                   href={`/student/resume`}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition-colors"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-500 text-white text-xs font-semibold rounded-xl transition-colors"
                   aria-label={`Edit "${resume.title}" in Resume Builder`}
                 >
                   <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />

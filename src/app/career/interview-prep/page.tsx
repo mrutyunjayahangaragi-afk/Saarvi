@@ -182,39 +182,39 @@ export default function InterviewPrepHubPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0b1329] text-slate-900 dark:text-white flex flex-col">
       <Navbar />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-10">
         {/* Banner */}
         <div className="mb-8">
-          <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
-            <Link href="/career/resume-builder" className="hover:text-blue-600 transition-colors">
+          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
+            <Link href="/career/resume-builder" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
               Career Workspace
             </Link>
             <span>/</span>
-            <span className="text-slate-800 font-semibold">Interview Preparation</span>
+            <span className="text-slate-800 dark:text-slate-200 font-semibold">Interview Preparation</span>
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                <Briefcase className="w-7 h-7 text-blue-600" />
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
+                <Briefcase className="w-7 h-7 text-blue-600 dark:text-blue-400" />
                 Technical & Behavioral Interview Hub
               </h1>
-              <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-2xl">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-2xl">
                 Structured, concept-grounded practice topics covering computer science fundamentals, design patterns, and engineering behavioral scenarios.
               </p>
             </div>
 
-            <span className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-200 font-semibold flex items-center gap-1.5 self-start">
+            <span className="text-xs bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 px-3 py-1.5 rounded-full border border-blue-200 dark:border-blue-800 font-semibold flex items-center gap-1.5 self-start">
               <Sparkles className="w-3.5 h-3.5" /> Practice Ground
             </span>
           </div>
         </div>
 
         {/* Filter bar */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-6 shadow-xs space-y-3">
+        <div className="bg-white dark:bg-[#111c38] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 mb-6 shadow-xs space-y-3">
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
@@ -222,7 +222,7 @@ export default function InterviewPrepHubPage() {
               placeholder="Search interview topics, algorithms, ACID, threads, HTTP..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+              className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-[#162244] border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-[#162244] transition-all"
             />
           </div>
 
@@ -231,10 +231,10 @@ export default function InterviewPrepHubPage() {
               <button
                 key={catKey}
                 onClick={() => setSelectedCat(catKey)}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                   selectedCat === catKey
                     ? "bg-blue-600 text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
                 }`}
               >
                 {catLabel}
@@ -246,10 +246,10 @@ export default function InterviewPrepHubPage() {
         {/* Questions list */}
         <div className="space-y-3">
           {filtered.length === 0 ? (
-            <div className="p-12 text-center bg-white rounded-2xl border border-slate-200">
+            <div className="p-12 text-center bg-white dark:bg-[#111c38] rounded-2xl border border-slate-200 dark:border-slate-800">
               <BookOpen className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-              <p className="text-sm font-bold text-slate-800">No questions found</p>
-              <p className="text-xs text-slate-500">Try adjusting your category or search keyword.</p>
+              <p className="text-sm font-bold text-slate-800 dark:text-slate-200">No questions found</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Try adjusting your category or search keyword.</p>
             </div>
           ) : (
             filtered.map((item) => {
@@ -259,8 +259,8 @@ export default function InterviewPrepHubPage() {
               return (
                 <div
                   key={item.id}
-                  className={`bg-white rounded-xl border transition-all ${
-                    isExpanded ? "border-blue-300 shadow-sm" : "border-slate-200 hover:border-slate-300"
+                  className={`bg-white dark:bg-[#111c38] rounded-xl border transition-all ${
+                    isExpanded ? "border-blue-300 dark:border-blue-700 shadow-sm" : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
                   }`}
                 >
                   <div
@@ -271,10 +271,10 @@ export default function InterviewPrepHubPage() {
                       <button
                         onClick={(e) => toggleReviewed(item.id, e)}
                         title={isReviewed ? "Mark as unreviewed" : "Mark as mastered"}
-                        className={`mt-0.5 p-1 rounded-full border transition-colors ${
+                        className={`mt-0.5 p-1 rounded-full border transition-colors cursor-pointer ${
                           isReviewed
                             ? "bg-emerald-500 border-emerald-500 text-white"
-                            : "border-slate-300 text-transparent hover:border-slate-400"
+                            : "border-slate-300 dark:border-slate-600 text-transparent hover:border-slate-400 dark:hover:border-slate-500"
                         }`}
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />
@@ -282,16 +282,16 @@ export default function InterviewPrepHubPage() {
 
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
                             {item.category}
                           </span>
                           {isReviewed && (
-                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                            <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
                               Mastered
                             </span>
                           )}
                         </div>
-                        <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-snug">
+                        <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-snug">
                           {item.question}
                         </h3>
                       </div>
@@ -299,7 +299,7 @@ export default function InterviewPrepHubPage() {
 
                     <div className="text-slate-400 pt-1">
                       {isExpanded ? (
-                        <ChevronDown className="w-4 h-4 text-blue-600" />
+                        <ChevronDown className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                       ) : (
                         <ChevronRight className="w-4 h-4" />
                       )}
@@ -307,19 +307,19 @@ export default function InterviewPrepHubPage() {
                   </div>
 
                   {isExpanded && (
-                    <div className="px-4 sm:px-5 pb-5 pt-1 border-t border-slate-100 bg-slate-50/50 rounded-b-xl space-y-3 text-xs">
+                    <div className="px-4 sm:px-5 pb-5 pt-1 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#162244]/40 rounded-b-xl space-y-3 text-xs">
                       <div>
-                        <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px] mb-2">
+                        <h4 className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px] mb-2">
                           Core Concepts & Key Points:
                         </h4>
-                        <ul className="space-y-1.5 list-disc pl-4 text-slate-700 leading-relaxed">
+                        <ul className="space-y-1.5 list-disc pl-4 text-slate-700 dark:text-slate-300 leading-relaxed">
                           {item.keyPoints.map((pt, i) => (
                             <li key={i}>{pt}</li>
                           ))}
                         </ul>
                       </div>
 
-                      <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-lg text-amber-900">
+                      <div className="p-3 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-900 dark:text-amber-200">
                         <strong className="block font-semibold mb-0.5">Common Follow-Up / Deep-Dive:</strong>
                         <span>{item.sampleFollowUp}</span>
                       </div>

@@ -46,15 +46,15 @@ export default function AdminConfirmModal({
   if (!isOpen) return null;
 
   const iconVariants = {
-    danger: <AlertCircle className="w-6 h-6 text-red-600" />,
-    warning: <AlertTriangle className="w-6 h-6 text-amber-600" />,
-    info: <Info className="w-6 h-6 text-blue-600" />,
+    danger: <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />,
+    warning: <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-400" />,
+    info: <Info className="w-6 h-6 text-blue-600 dark:text-blue-400" />,
   };
 
   const bgVariants = {
-    danger: 'bg-red-50 border-red-100',
-    warning: 'bg-amber-50 border-amber-100',
-    info: 'bg-blue-50 border-blue-100',
+    danger: 'bg-red-50 dark:bg-red-950/60 border-red-100 dark:border-red-900/50',
+    warning: 'bg-amber-50 dark:bg-amber-950/60 border-amber-100 dark:border-amber-900/50',
+    info: 'bg-blue-50 dark:bg-blue-950/60 border-blue-100 dark:border-blue-900/50',
   };
 
   const btnVariants = {
@@ -70,11 +70,11 @@ export default function AdminConfirmModal({
       aria-modal="true"
       aria-labelledby="confirm-modal-title"
     >
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4 relative">
+      <div className="bg-white dark:bg-[#111c38] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-md w-full p-6 space-y-4 relative">
         <button
           onClick={onClose}
           disabled={isLoading}
-          className="absolute top-4 right-4 p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+          className="absolute top-4 right-4 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           aria-label="Close dialog"
         >
           <X className="w-4 h-4" />
@@ -85,22 +85,22 @@ export default function AdminConfirmModal({
             {iconVariants[variant]}
           </div>
           <div className="space-y-1">
-            <h3 id="confirm-modal-title" className="text-base font-bold text-slate-900 leading-snug">
+            <h3 id="confirm-modal-title" className="text-base font-bold text-slate-900 dark:text-white leading-snug">
               {title}
             </h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
               {message}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
           <button
             ref={cancelBtnRef}
             type="button"
             onClick={onClose}
             disabled={isLoading}
-            className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+            className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-[#162244] border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             {cancelText}
           </button>

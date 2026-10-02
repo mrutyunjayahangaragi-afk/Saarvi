@@ -145,7 +145,7 @@ export function ResumeIntelligencePanel({
       )}
 
       {/* Upload Zone */}
-      <div className="bg-white border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-2xl p-6 sm:p-8 text-center transition group cursor-pointer relative">
+      <div className="bg-white dark:bg-[#111c38] border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 rounded-2xl p-6 sm:p-8 text-center transition group cursor-pointer relative">
         <input
           type="file"
           accept=".pdf,.docx,.txt,image/png,image/jpeg"
@@ -153,33 +153,33 @@ export function ResumeIntelligencePanel({
           disabled={parsing}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         />
-        <div className="w-12 h-12 rounded-2xl bg-blue-50 group-hover:bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-3 transition">
+        <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-3 transition">
           {parsing ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Upload className="w-6 h-6" />}
         </div>
-        <h3 className="text-sm font-bold text-slate-800">
+        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
           {parsing ? "Parsing Resume Locally..." : "Upload Existing Resume to Analyze"}
         </h3>
-        <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
           Drag & drop your <strong>PDF, DOCX, TXT, or Image</strong>. We detect contact info, skills, headings, and compute deterministic ATS compatibility.
         </p>
       </div>
 
       {/* Parsed Summary Card if available */}
       {parsedDoc && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs animate-in fade-in">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs animate-in fade-in">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
             <div>
-              <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">
+              <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
                 Parsed Document
               </span>
-              <h4 className="text-sm font-bold text-slate-900 mt-0.5">
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
                 {parsedDoc.extractedProfile.fullName || "Candidate Resume"}
               </h4>
             </div>
             {onApplyParsedProfile && (
               <button
                 onClick={handleApplyToProfile}
-                className="px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition"
+                className="px-3 py-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 rounded-lg transition cursor-pointer"
               >
                 Apply to My Profile
               </button>
@@ -187,31 +187,31 @@ export function ResumeIntelligencePanel({
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 text-xs">
-            <div className="p-2.5 bg-slate-50 rounded-xl">
-              <span className="text-slate-400 text-[10px] uppercase font-semibold">Format</span>
-              <p className="font-bold text-slate-700 uppercase mt-0.5">{parsedDoc.sourceType}</p>
+            <div className="p-2.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl">
+              <span className="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-semibold">Format</span>
+              <p className="font-bold text-slate-700 dark:text-slate-200 uppercase mt-0.5">{parsedDoc.sourceType}</p>
             </div>
-            <div className="p-2.5 bg-slate-50 rounded-xl">
-              <span className="text-slate-400 text-[10px] uppercase font-semibold">Text Layer</span>
-              <p className="font-bold text-slate-700 mt-0.5">
+            <div className="p-2.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl">
+              <span className="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-semibold">Text Layer</span>
+              <p className="font-bold text-slate-700 dark:text-slate-200 mt-0.5">
                 {parsedDoc.hasTextLayer ? "Direct Selectable" : "OCR Scanned"}
               </p>
             </div>
-            <div className="p-2.5 bg-slate-50 rounded-xl">
-              <span className="text-slate-400 text-[10px] uppercase font-semibold">Skills Detected</span>
-              <p className="font-bold text-slate-700 mt-0.5">
+            <div className="p-2.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl">
+              <span className="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-semibold">Skills Detected</span>
+              <p className="font-bold text-slate-700 dark:text-slate-200 mt-0.5">
                 {parsedDoc.extractedProfile.skills?.length || 0}
               </p>
             </div>
-            <div className="p-2.5 bg-slate-50 rounded-xl">
-              <span className="text-slate-400 text-[10px] uppercase font-semibold">Confidence</span>
-              <p className="font-bold text-emerald-600 mt-0.5">{parsedDoc.confidenceScore}%</p>
+            <div className="p-2.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl">
+              <span className="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-semibold">Confidence</span>
+              <p className="font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{parsedDoc.confidenceScore}%</p>
             </div>
           </div>
 
           {parsedDoc.lowConfidenceWarning && (
-            <div className="mt-3 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <div className="mt-3 p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
               <span>{parsedDoc.lowConfidenceWarning}</span>
             </div>
           )}
@@ -220,16 +220,16 @@ export function ResumeIntelligencePanel({
 
       {/* ATS Score & Category Breakdown */}
       {atsReport && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+        <div className="bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
             <div>
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 ATS Compatibility Report
               </span>
-              <h3 className="text-xl font-extrabold text-slate-900 mt-0.5">
+              <h3 className="text-xl font-extrabold text-slate-900 dark:text-white mt-0.5">
                 Deterministic ATS Score: {atsReport.overallScore}/100
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Calculated purely from standard ATS criteria without subjective AI estimation.
               </p>
             </div>
@@ -238,10 +238,10 @@ export function ResumeIntelligencePanel({
               <div
                 className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 ${
                   atsReport.overallScore >= 85
-                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
                     : atsReport.overallScore >= 70
-                    ? "bg-blue-50 text-blue-700 border border-blue-200"
-                    : "bg-amber-50 text-amber-700 border border-amber-200"
+                    ? "bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                    : "bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
                 }`}
               >
                 <span>{atsReport.scoreTier}</span>
@@ -252,18 +252,18 @@ export function ResumeIntelligencePanel({
           {/* 6 Explainable Category Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {atsReport.categories.map((cat) => (
-              <div key={cat.id} className="p-3.5 bg-slate-50/70 border border-slate-200/80 rounded-xl">
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1.5">
+              <div key={cat.id} className="p-3.5 bg-slate-50/70 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700 rounded-xl">
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   <span>{cat.name}</span>
-                  <span className="text-blue-600 font-bold">{cat.percentage}%</span>
+                  <span className="text-blue-600 dark:text-blue-400 font-bold">{cat.percentage}%</span>
                 </div>
-                <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-blue-600 rounded-full transition-all duration-500"
+                    className="h-full bg-blue-600 dark:bg-blue-500 rounded-full transition-all duration-500"
                     style={{ width: `${cat.percentage}%` }}
                   />
                 </div>
-                <div className="text-[10px] text-slate-500 mt-1.5">
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5">
                   {cat.score} / {cat.maxScore} points earned
                 </div>
               </div>
@@ -273,24 +273,24 @@ export function ResumeIntelligencePanel({
           {/* Actionable Recommendations */}
           {atsReport.recommendations.length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                 Actionable Resume Improvements
               </h4>
               <div className="space-y-1.5">
                 {atsReport.recommendations.map((rec) => (
                   <div
                     key={rec.id}
-                    className="p-3 bg-white border border-slate-200 rounded-xl text-xs flex items-start justify-between gap-3 shadow-2xs"
+                    className="p-3 bg-white dark:bg-[#0e172e] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs flex items-start justify-between gap-3 shadow-2xs"
                   >
                     <div>
-                      <span className="font-semibold text-slate-800">{rec.text}</span>
-                      <p className="text-[11px] text-slate-500 mt-0.5">{rec.category}</p>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{rec.text}</span>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{rec.category}</p>
                     </div>
                     <span
                       className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex-shrink-0 ${
                         rec.impact === "high"
-                          ? "bg-red-50 text-red-700 border border-red-200"
-                          : "bg-slate-100 text-slate-700"
+                          ? "bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
                       }`}
                     >
                       {rec.impact} impact
@@ -304,15 +304,15 @@ export function ResumeIntelligencePanel({
       )}
 
       {/* Job Description Specific Match Drawer */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
+      <div className="bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-4">
         <div>
-          <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">
+          <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
             Job-Specific Match Engine
           </span>
-          <h3 className="text-base font-bold text-slate-900 mt-0.5">
+          <h3 className="text-base font-bold text-slate-900 dark:text-white mt-0.5">
             Match Your Resume Against Any Job Description
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Paste a target role description to detect matching keywords and exact skill gaps via Set intersection.
           </p>
         </div>
@@ -323,38 +323,38 @@ export function ResumeIntelligencePanel({
             value={targetJd}
             onChange={(e) => setTargetJd(e.target.value)}
             placeholder="Paste job description or requirements section here (e.g. 'Looking for a Software Engineer proficient in React, TypeScript, Node.js, and SQL...')..."
-            className="w-full p-3 text-xs sm:text-sm border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+            className="w-full p-3 text-xs sm:text-sm bg-slate-50 dark:bg-slate-900/60 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <button
           onClick={handleRunJdMatch}
           disabled={!targetJd.trim()}
-          className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow-xs disabled:opacity-50"
+          className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow-xs disabled:opacity-50 cursor-pointer"
         >
           Calculate Job Match
         </button>
 
         {/* Job Match Result */}
         {jdMatchResult && (
-          <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3 animate-in fade-in">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-              <span className="text-xs font-bold text-slate-700">Skill & Keyword Overlap</span>
-              <span className="text-sm font-extrabold text-blue-600">
+          <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl space-y-3 animate-in fade-in">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Skill & Keyword Overlap</span>
+              <span className="text-sm font-extrabold text-blue-600 dark:text-blue-400">
                 {jdMatchResult.matchPercentage}% Resume Match
               </span>
             </div>
 
             {/* Matched Skills */}
             <div>
-              <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">
+              <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
                 ✓ Matched Skills ({jdMatchResult.matchedSkills.length})
               </span>
               <div className="flex flex-wrap gap-1.5 mt-1">
                 {jdMatchResult.matchedSkills.map((s) => (
                   <span
                     key={s}
-                    className="px-2 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold rounded-md"
+                    className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-semibold rounded-md"
                   >
                     ✓ {s}
                   </span>
@@ -365,14 +365,14 @@ export function ResumeIntelligencePanel({
             {/* Missing Skills */}
             {jdMatchResult.missingSkills.length > 0 && (
               <div>
-                <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">
+                <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">
                   • Skills in Job Description Not Detected on Resume ({jdMatchResult.missingSkills.length})
                 </span>
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {jdMatchResult.missingSkills.map((s) => (
                     <span
                       key={s}
-                      className="px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium rounded-md"
+                      className="px-2 py-0.5 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs font-medium rounded-md"
                     >
                       {s}
                     </span>
@@ -383,8 +383,8 @@ export function ResumeIntelligencePanel({
 
             {/* Suggestions */}
             {jdMatchResult.suggestions.length > 0 && (
-              <div className="text-xs text-slate-600 bg-white p-3 rounded-lg border border-slate-200">
-                <span className="font-semibold text-slate-800">Recommendation: </span>
+              <div className="text-xs text-slate-600 dark:text-slate-400 bg-white dark:bg-[#111c38] p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                <span className="font-semibold text-slate-800 dark:text-slate-200">Recommendation: </span>
                 {jdMatchResult.suggestions.join(" ")}
               </div>
             )}
@@ -394,32 +394,32 @@ export function ResumeIntelligencePanel({
 
       {/* Explicit AI Consent Modal */}
       {showAiConsentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 space-y-4">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#111c38] rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 AI / Optical Character Recognition Consent
               </h3>
-              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
                 This document appears to be an image or scanned document without a selectable text layer. To extract text, it will be securely processed by Saarvi OCR.
               </p>
-              <p className="text-xs text-slate-500 mt-2">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
                 Do you consent to sending this document for OCR text extraction?
               </p>
             </div>
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <button
                 onClick={() => handleConsentChoice(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleConsentChoice(true)}
-                className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow-xs"
+                className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow-xs cursor-pointer"
               >
                 Continue with OCR
               </button>

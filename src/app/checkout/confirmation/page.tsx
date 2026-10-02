@@ -130,14 +130,14 @@ function CheckoutConfirmationContent() {
   if (confirmationState === 'failed' || statusParam === 'cancelled') {
     return (
       <div className="max-w-xl mx-auto px-4 py-16 text-center space-y-6">
-        <div className="w-16 h-16 rounded-3xl bg-red-50 text-red-600 flex items-center justify-center mx-auto border border-red-200">
+        <div className="w-16 h-16 rounded-3xl bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto border border-red-200 dark:border-red-800">
           <XCircle className="w-8 h-8" />
         </div>
         <div className="space-y-2">
-          <h1 className="text-2xl font-extrabold text-slate-900">
+          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">
             Payment Failed
           </h1>
-          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
             Your Pro subscription was not activated. If amount was debited, your bank or UPI provider will automatically reverse the transaction according to standard RBI refund timelines.
           </p>
         </div>
@@ -150,7 +150,7 @@ function CheckoutConfirmationContent() {
           </Link>
           <Link
             href="/tools"
-            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all border border-slate-200"
+            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all border border-slate-200 dark:border-slate-700"
           >
             Continue with Free Tools
           </Link>
@@ -163,26 +163,26 @@ function CheckoutConfirmationContent() {
   if (confirmationState === 'active') {
     return (
       <div className="max-w-xl mx-auto px-4 py-16 space-y-8">
-        <div className="bg-white rounded-3xl border border-emerald-200 p-8 text-center space-y-6 shadow-sm">
-          <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-200">
+        <div className="bg-white dark:bg-[#111c38] rounded-3xl border border-emerald-200 dark:border-emerald-800/60 p-8 text-center space-y-6 shadow-sm">
+          <div className="w-16 h-16 rounded-3xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-200 dark:border-emerald-800">
             <CheckCircle2 className="w-8 h-8" />
           </div>
 
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
+            <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Payment verified</span>
             </div>
-            <h1 className="text-2xl font-extrabold text-slate-900">
+            <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">
               Your Pro subscription is active.
             </h1>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
               Your payment has been cryptographically confirmed. Your account is now entitled to 50-file batch processing, 100MB file capacities, 365-day history, and premium ATS resume templates.
             </p>
           </div>
 
-          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-left space-y-2 text-xs text-slate-600">
-            <div className="flex items-center justify-between font-bold text-slate-800">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 text-left space-y-2 text-xs text-slate-600 dark:text-slate-400">
+            <div className="flex items-center justify-between font-bold text-slate-800 dark:text-slate-200">
               <span>Account:</span>
               <span>{user?.email}</span>
             </div>
@@ -192,10 +192,10 @@ function CheckoutConfirmationContent() {
             </div>
             <div className="flex items-center justify-between">
               <span>Privacy Guarantee:</span>
-              <span className="text-emerald-700 font-semibold">100% In-Browser</span>
+              <span className="text-emerald-700 dark:text-emerald-400 font-semibold">100% In-Browser</span>
             </div>
             {paymentId && (
-              <div className="flex items-center justify-between font-mono text-[11px] text-slate-400">
+              <div className="flex items-center justify-between font-mono text-[11px] text-slate-400 dark:text-slate-500">
                 <span>Payment Reference:</span>
                 <span>{paymentId}</span>
               </div>
@@ -212,7 +212,7 @@ function CheckoutConfirmationContent() {
             </Link>
             <Link
               href="/dashboard/billing"
-              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all border border-slate-200"
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all border border-slate-200 dark:border-slate-700"
             >
               View Billing Details
             </Link>
@@ -226,23 +226,23 @@ function CheckoutConfirmationContent() {
   if (confirmationState === 'still_processing') {
     return (
       <div className="max-w-xl mx-auto px-4 py-16 space-y-8">
-        <div className="bg-white rounded-3xl border border-amber-200 p-8 text-center space-y-6 shadow-xs">
-          <div className="w-16 h-16 rounded-3xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
+        <div className="bg-white dark:bg-[#111c38] rounded-3xl border border-amber-200 dark:border-amber-800/60 p-8 text-center space-y-6 shadow-xs">
+          <div className="w-16 h-16 rounded-3xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800">
             <Clock className="w-8 h-8" />
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-2xl font-extrabold text-slate-900">
+            <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">
               Confirmation is taking longer than expected.
             </h1>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
               Payment received. We&apos;re still confirming your subscription with Razorpay.
             </p>
           </div>
 
-          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-500 space-y-1">
-            <p>Session ID: <span className="font-mono text-slate-700">{sessionId || 'active_session'}</span></p>
-            {paymentId && <p>Payment ID: <span className="font-mono text-slate-700">{paymentId}</span></p>}
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 space-y-1">
+            <p>Session ID: <span className="font-mono text-slate-700 dark:text-slate-300">{sessionId || 'active_session'}</span></p>
+            {paymentId && <p>Payment ID: <span className="font-mono text-slate-700 dark:text-slate-300">{paymentId}</span></p>}
           </div>
 
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -257,7 +257,7 @@ function CheckoutConfirmationContent() {
             </button>
             <Link
               href="/dashboard/billing"
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all border border-slate-200"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all border border-slate-200 dark:border-slate-700"
             >
               Go to Billing Portal
             </Link>
@@ -270,30 +270,30 @@ function CheckoutConfirmationContent() {
   // State 1: Confirming Payment (Initial & Bounded Polling state)
   return (
     <div className="max-w-xl mx-auto px-4 py-16 space-y-8">
-      <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center space-y-6 shadow-xs">
-        <div className="w-16 h-16 rounded-3xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto border border-blue-200 animate-pulse">
+      <div className="bg-white dark:bg-[#111c38] rounded-3xl border border-slate-200 dark:border-slate-800 p-8 text-center space-y-6 shadow-xs">
+        <div className="w-16 h-16 rounded-3xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto border border-blue-200 dark:border-blue-800 animate-pulse">
           <Clock className="w-8 h-8" />
         </div>
 
         <div className="space-y-2">
-          <h1 className="text-2xl font-extrabold text-slate-900">
+          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">
             Confirming your payment...
           </h1>
-          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
             Payment received. We&apos;re confirming your Pro subscription with Razorpay.
           </p>
         </div>
 
-        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-          <div className="flex items-center justify-center gap-2 text-xs text-slate-500 font-medium">
-            <RefreshCw className={`w-3.5 h-3.5 ${checking ? 'animate-spin text-blue-600' : ''}`} />
+        <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+          <div className="flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+            <RefreshCw className={`w-3.5 h-3.5 ${checking ? 'animate-spin text-blue-600 dark:text-blue-400' : ''}`} />
             <span>
               {checking ? 'Checking subscription status...' : `Verifying server state (attempt ${pollCount + 1}/${MAX_POLLS})...`}
             </span>
           </div>
           {paymentId && (
-            <p className="text-[11px] text-slate-400">
-              Payment Reference: <span className="font-mono text-slate-600">{paymentId}</span>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">
+              Payment Reference: <span className="font-mono text-slate-600 dark:text-slate-300">{paymentId}</span>
             </p>
           )}
         </div>
@@ -310,7 +310,7 @@ function CheckoutConfirmationContent() {
           </button>
           <Link
             href="/dashboard"
-            className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all border border-slate-200"
+            className="px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all border border-slate-200 dark:border-slate-700"
           >
             Go to Dashboard
           </Link>

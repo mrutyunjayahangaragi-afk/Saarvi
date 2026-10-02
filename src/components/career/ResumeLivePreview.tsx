@@ -140,19 +140,19 @@ export function ResumeLivePreview({
   const handleResetZoom = () => setZoomLevel(100);
 
   return (
-    <div className={`flex flex-col bg-slate-100 rounded-xl border border-slate-200 shadow-sm overflow-hidden ${className}`}>
+    <div className={`flex flex-col bg-slate-100 dark:bg-[#0b1329] rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden ${className}`}>
       {/* Top Preview Toolbar */}
-      <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-white border-b border-slate-200 gap-2">
+      <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-white dark:bg-[#111c38] border-b border-slate-200 dark:border-slate-800 gap-2">
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>Live A4 Preview</span>
           </div>
-          <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-600 border border-slate-200 capitalize">
+          <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 capitalize">
             {isAtsClassic ? "ATS Classic" : template.replace("-", " ")}
           </span>
           {profile.isSample && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-300 print:hidden">
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 print:hidden">
               Sample Preview
             </span>
           )}
@@ -160,18 +160,18 @@ export function ResumeLivePreview({
 
         <div className="flex items-center gap-2">
           {/* Zoom controls */}
-          <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg p-0.5 text-slate-600">
+          <div className="flex items-center bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 text-slate-600 dark:text-slate-400">
             <button
               onClick={handleZoomOut}
               disabled={zoomLevel <= 60}
-              className="p-1 rounded hover:bg-white hover:text-slate-900 disabled:opacity-40 transition-colors"
+              className="p-1 rounded hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-40 transition-colors cursor-pointer"
               title="Zoom out"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleResetZoom}
-              className="px-2 py-0.5 text-[11px] font-mono hover:bg-white hover:text-slate-900 rounded transition-colors"
+              className="px-2 py-0.5 text-[11px] font-mono hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white rounded transition-colors cursor-pointer"
               title="Reset Zoom"
             >
               {zoomLevel}%
@@ -179,7 +179,7 @@ export function ResumeLivePreview({
             <button
               onClick={handleZoomIn}
               disabled={zoomLevel >= 140}
-              className="p-1 rounded hover:bg-white hover:text-slate-900 disabled:opacity-40 transition-colors"
+              className="p-1 rounded hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-40 transition-colors cursor-pointer"
               title="Zoom in"
             >
               <ZoomIn className="w-3.5 h-3.5" />
@@ -189,10 +189,10 @@ export function ResumeLivePreview({
           {onPrint && (
             <button
               onClick={onPrint}
-              className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-xs"
+              className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-xs cursor-pointer"
               title="Print resume"
             >
-              <Printer className="w-3.5 h-3.5 mr-1 text-slate-500" />
+              <Printer className="w-3.5 h-3.5 mr-1 text-slate-500 dark:text-slate-400" />
               Print
             </button>
           )}
@@ -200,7 +200,7 @@ export function ResumeLivePreview({
           {onExportPdf && (
             <button
               onClick={onExportPdf}
-              className="inline-flex items-center px-3 py-1 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-xs"
+              className="inline-flex items-center px-3 py-1 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-xs cursor-pointer"
               title="Export PDF"
             >
               <FileDown className="w-3.5 h-3.5 mr-1" />
@@ -211,7 +211,7 @@ export function ResumeLivePreview({
       </div>
 
       {/* Main Preview Container with Zoom Canvas */}
-      <div className="p-4 sm:p-8 flex justify-center overflow-auto max-h-[850px]">
+      <div className="p-4 sm:p-8 flex justify-center overflow-auto max-h-[850px] bg-slate-100/70 dark:bg-[#080d1d]">
         <div
           style={{
             transform: `scale(${zoomLevel / 100})`,
@@ -222,7 +222,7 @@ export function ResumeLivePreview({
         >
           {/* Realistic A4 Paper Sheet */}
           <div
-            className="bg-white text-slate-900 shadow-2xl ring-1 ring-slate-900/10 rounded-sm p-8 sm:p-10 font-sans min-h-[1020px] transition-all"
+            className="bg-white text-slate-900 shadow-2xl ring-1 ring-slate-900/10 dark:ring-slate-700/50 rounded-sm p-8 sm:p-10 font-sans min-h-[1020px] transition-all"
             style={{
               fontSize: "12px",
               lineHeight: "1.45",

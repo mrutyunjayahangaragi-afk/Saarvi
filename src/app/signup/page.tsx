@@ -157,21 +157,21 @@ function SignupForm() {
 
   return (
     <div className="w-full max-w-md mx-auto">
-      <div className="bg-white border border-slate-200/90 rounded-3xl p-7 sm:p-9 shadow-sm space-y-6">
+      <div className="bg-white dark:bg-[#111c38] border border-slate-200/90 dark:border-slate-800 rounded-3xl p-7 sm:p-9 shadow-sm space-y-6">
 
             {/* 6-Digit Email Verification Screen */}
             {verificationPending ? (
               <div className="space-y-5 py-2">
                 <div className="text-center space-y-3">
-                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 border border-blue-200">
+                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
                     <Mail className="w-7 h-7" />
                   </div>
-                  <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                  <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                     Check your email
                   </h2>
-                  <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                     We sent a 6-digit verification code to{" "}
-                    <strong className="text-slate-800 break-all">{email}</strong>.
+                    <strong className="text-slate-800 dark:text-slate-200 break-all">{email}</strong>.
                     Enter the code below to verify your account.
                   </p>
                 </div>
@@ -179,7 +179,7 @@ function SignupForm() {
                 {otpError && (
                   <div
                     role="alert"
-                    className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-medium"
+                    className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-xs text-red-700 dark:text-red-300 font-medium"
                   >
                     {otpError}
                   </div>
@@ -188,7 +188,7 @@ function SignupForm() {
                 {resendNotice && (
                   <div
                     role="status"
-                    className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-medium"
+                    className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 font-medium"
                   >
                     {resendNotice}
                   </div>
@@ -198,7 +198,7 @@ function SignupForm() {
                   <div className="space-y-1.5">
                     <label
                       htmlFor="otp-code"
-                      className="block text-xs font-bold text-slate-700 uppercase tracking-wider text-center"
+                      className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider text-center"
                     >
                       Verification Code
                     </label>
@@ -215,7 +215,7 @@ function SignupForm() {
                         setOtpCode(val);
                       }}
                       placeholder="123456"
-                      className="w-full text-center tracking-[0.4em] font-mono text-2xl py-3 px-4 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none transition-all placeholder:text-slate-300 placeholder:tracking-normal"
+                      className="w-full text-center tracking-[0.4em] font-mono text-2xl py-3 px-4 bg-slate-50 dark:bg-[#0b1329] border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:bg-white dark:focus:bg-[#0b1329] focus:ring-2 focus:ring-blue-600 focus:outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 placeholder:tracking-normal"
                     />
                   </div>
 
@@ -238,19 +238,19 @@ function SignupForm() {
                   </button>
                 </form>
 
-                <div className="pt-2 flex flex-col gap-2.5 text-center text-xs text-slate-500">
+                <div className="pt-2 flex flex-col gap-2.5 text-center text-xs text-slate-500 dark:text-slate-400">
                   <button
                     type="button"
                     disabled={resendCooldown > 0 || otpLoading}
                     onClick={handleResendOtp}
-                    className="hover:text-blue-600 font-medium disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                    className="hover:text-blue-600 dark:hover:text-blue-400 font-medium disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                   >
                     {resendCooldown > 0
                       ? `Resend code in ${resendCooldown}s`
                       : "Didn't receive a code? Resend Code"}
                   </button>
 
-                  <div className="flex items-center justify-center gap-4 text-xs pt-1 border-t border-slate-100">
+                  <div className="flex items-center justify-center gap-4 text-xs pt-1 border-t border-slate-100 dark:border-slate-800">
                     <button
                       type="button"
                       onClick={() => {
@@ -258,14 +258,14 @@ function SignupForm() {
                         setOtpError(null);
                         setResendNotice(null);
                       }}
-                      className="text-slate-600 hover:text-slate-900 underline underline-offset-2"
+                      className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white underline underline-offset-2"
                     >
                       Change Email
                     </button>
                     <span>•</span>
                     <Link
                       href="/login"
-                      className="text-slate-600 hover:text-slate-900 underline underline-offset-2"
+                      className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white underline underline-offset-2"
                     >
                       Back to Login
                     </Link>
@@ -279,17 +279,17 @@ function SignupForm() {
                   <div className="inline-flex items-center justify-center mb-1">
                     <SaarviMark size={48} className="shadow-xs" />
                   </div>
-                  <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                     Create your free account
                   </h1>
-                  <p className="text-xs sm:text-sm text-slate-500">
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                     Unlock conversion history, saved resumes, and preferences
                   </p>
                 </div>
 
                 {/* Explicit Reassurance: Basic tools do not require an account */}
-                <div className="p-3 rounded-2xl bg-blue-50/70 border border-blue-200/70 flex items-start gap-2.5 text-xs text-blue-900">
-                  <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                <div className="p-3 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/70 dark:border-blue-900 flex items-start gap-2.5 text-xs text-blue-900 dark:text-blue-200">
+                  <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                   <span>
                     <strong>Good to know:</strong> Basic document tools do not require an account. You can use them directly without registering.
                   </span>
@@ -298,17 +298,17 @@ function SignupForm() {
                 {!isRegistrationEnabled && (
                   <div
                     role="alert"
-                    className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-xs text-amber-900 space-y-1.5"
+                    className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-900 text-xs text-amber-900 dark:text-amber-200 space-y-1.5"
                   >
-                    <div className="font-bold flex items-center gap-1.5 text-sm text-amber-800">
-                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                    <div className="font-bold flex items-center gap-1.5 text-sm text-amber-800 dark:text-amber-300">
+                      <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                       <span>Registration Paused</span>
                     </div>
-                    <p className="text-amber-700 leading-relaxed">
+                    <p className="text-amber-700 dark:text-amber-300 leading-relaxed">
                       New user registration has been temporarily paused by platform administrators. Existing members can continue to log in.
                     </p>
                     <div className="pt-1">
-                      <Link href="/login" className="inline-flex items-center gap-1 font-bold text-blue-600 hover:underline">
+                      <Link href="/login" className="inline-flex items-center gap-1 font-bold text-blue-600 dark:text-blue-400 hover:underline">
                         Sign in to existing account →
                       </Link>
                     </div>
@@ -318,7 +318,7 @@ function SignupForm() {
                 {error && (
                   <div
                     role="alert"
-                    className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-700 font-medium"
+                    className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-xs text-red-700 dark:text-red-300 font-medium"
                   >
                     {error}
                   </div>
@@ -327,7 +327,7 @@ function SignupForm() {
                 {/* Form Fields */}
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-1.5">
-                    <label htmlFor="fullName" className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <label htmlFor="fullName" className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                       Name
                     </label>
                     <input
@@ -338,12 +338,12 @@ function SignupForm() {
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       placeholder="Jane Doe"
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0b1329] border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white dark:focus:bg-[#0b1329] transition-all"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="email" className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <label htmlFor="email" className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                       Email
                     </label>
                     <input
@@ -354,12 +354,12 @@ function SignupForm() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="you@example.com"
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0b1329] border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white dark:focus:bg-[#0b1329] transition-all"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="password" className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <label htmlFor="password" className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                       Password
                     </label>
                     <div className="relative">
@@ -371,12 +371,12 @@ function SignupForm() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="At least 6 characters"
-                        className="w-full pl-4 pr-11 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
+                        className="w-full pl-4 pr-11 py-2.5 bg-slate-50 dark:bg-[#0b1329] border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white dark:focus:bg-[#0b1329] transition-all"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1.5 rounded-lg min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
                         title={showPassword ? "Hide password" : "Show password"}
                         aria-label={showPassword ? "Hide password" : "Show password"}
                       >
@@ -386,7 +386,7 @@ function SignupForm() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="confirmPassword" className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <label htmlFor="confirmPassword" className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                       Confirm Password
                     </label>
                     <input
@@ -397,7 +397,7 @@ function SignupForm() {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Repeat your password"
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#0b1329] border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white dark:focus:bg-[#0b1329] transition-all"
                     />
                   </div>
 
@@ -406,7 +406,7 @@ function SignupForm() {
                     disabled={loading || !isRegistrationEnabled}
                     className={`w-full py-3 min-h-[44px] font-semibold text-sm rounded-xl transition-all duration-150 flex items-center justify-center gap-2 shadow-sm ${
                       !isRegistrationEnabled
-                        ? "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300"
+                        ? "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-300 dark:border-slate-700"
                         : "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-70 text-white hover:shadow hover-3d-lift cursor-pointer"
                     }`}
                   >
@@ -427,10 +427,10 @@ function SignupForm() {
                 {/* Divider: OR */}
                 <div className="relative my-2">
                   <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                    <div className="w-full border-t border-slate-200" />
+                    <div className="w-full border-t border-slate-200 dark:border-slate-800" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white px-3 text-slate-400 font-semibold tracking-wider">
+                    <span className="bg-white dark:bg-[#111c38] px-3 text-slate-400 font-semibold tracking-wider">
                       Or
                     </span>
                   </div>
@@ -444,18 +444,18 @@ function SignupForm() {
                 />
 
                 {/* Footer Link */}
-                <div className="pt-4 border-t border-slate-100 text-center text-xs text-slate-500 space-y-2">
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400 space-y-2">
                   <div>
                     Already have an account?{" "}
                     <Link
                       href={safeNext !== "/dashboard" ? `/login?next=${encodeURIComponent(safeNext)}` : "/login"}
-                      className="text-blue-600 font-bold hover:underline"
+                      className="text-blue-600 dark:text-blue-400 font-bold hover:underline"
                     >
                       Login
                     </Link>
                   </div>
                   <div>
-                    <Link href="/tools" className="text-slate-400 hover:text-slate-700 font-medium hover:underline">
+                    <Link href="/tools" className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-medium hover:underline">
                       ← Continue as guest to tools
                     </Link>
                   </div>
@@ -470,7 +470,7 @@ function SignupForm() {
 
 export default function SignupPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8fafc]">
+    <div className="min-h-screen flex flex-col bg-[#f8fafc] dark:bg-[#0b1329]">
       <Navbar />
 
       <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12 sm:py-16">

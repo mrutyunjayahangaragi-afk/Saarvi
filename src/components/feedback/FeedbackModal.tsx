@@ -20,11 +20,11 @@ import {
 } from 'lucide-react';
 
 const CATEGORIES = [
-  { id: 'BUG', label: 'Bug Report', icon: Bug, color: 'text-rose-500 bg-rose-50 border-rose-200' },
-  { id: 'FEATURE', label: 'Feature Request', icon: Lightbulb, color: 'text-amber-500 bg-amber-50 border-amber-200' },
-  { id: 'PERFORMANCE', label: 'Performance', icon: Zap, color: 'text-blue-500 bg-blue-50 border-blue-200' },
-  { id: 'UX', label: 'Design & UX', icon: Palette, color: 'text-purple-500 bg-purple-50 border-purple-200' },
-  { id: 'OTHER', label: 'Other Feedback', icon: HelpCircle, color: 'text-slate-500 bg-slate-50 border-slate-200' },
+  { id: 'BUG', label: 'Bug Report', icon: Bug, color: 'text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-800' },
+  { id: 'FEATURE', label: 'Feature Request', icon: Lightbulb, color: 'text-amber-500 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-800' },
+  { id: 'PERFORMANCE', label: 'Performance', icon: Zap, color: 'text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800' },
+  { id: 'UX', label: 'Design & UX', icon: Palette, color: 'text-purple-500 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 border-purple-200 dark:border-purple-800' },
+  { id: 'OTHER', label: 'Other Feedback', icon: HelpCircle, color: 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700' },
 ] as const;
 
 const RATING_LABELS: Record<number, string> = {
@@ -163,26 +163,26 @@ export default function FeedbackModal() {
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
     >
       <div
-        className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]"
+        className="relative w-full max-w-lg bg-white dark:bg-[#111c38] rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+            <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <h2 id="feedback-title" className="text-base font-bold text-slate-900">
+              <h2 id="feedback-title" className="text-base font-bold text-slate-900 dark:text-white">
                 Share Your Feedback
               </h2>
-              <p className="text-xs text-slate-500">Help us make Saarvi faster, sharper, and better.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Help us make Saarvi faster, sharper, and better.</p>
             </div>
           </div>
           <button
             ref={closeBtnRef}
             onClick={closeFeedback}
-            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
             aria-label="Close feedback modal"
           >
             <X className="w-4 h-4" />
@@ -197,21 +197,21 @@ export default function FeedbackModal() {
             tabIndex={-1}
             className="p-8 text-center space-y-4 my-auto saarvi-destination-target outline-hidden"
           >
-            <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto animate-in zoom-in-50 duration-300">
+            <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-3xl flex items-center justify-center mx-auto animate-in zoom-in-50 duration-300">
               <CheckCircle2 className="w-7 h-7" />
             </div>
             <div className="space-y-1">
-              <h3 tabIndex={-1} className="text-lg font-bold text-slate-900 outline-hidden">
+              <h3 tabIndex={-1} className="text-lg font-bold text-slate-900 dark:text-white outline-hidden">
                 Thank You!
               </h3>
-              <p className="text-xs text-slate-600 max-w-sm mx-auto">
+              <p className="text-xs text-slate-600 dark:text-slate-300 max-w-sm mx-auto">
                 Your feedback has been recorded and delivered directly to the Saarvi engineering team.
               </p>
             </div>
             <button
               ref={successCloseBtnRef}
               onClick={closeFeedback}
-              className="px-5 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition cursor-pointer"
+              className="px-5 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-semibold hover:bg-slate-800 dark:hover:bg-slate-100 transition cursor-pointer"
             >
               Close
             </button>
@@ -220,7 +220,7 @@ export default function FeedbackModal() {
           /* Form State */
           <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
             {error && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{error}</span>
               </div>
@@ -228,7 +228,7 @@ export default function FeedbackModal() {
 
             {/* Star Rating */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-700 block">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block">
                 How would you rate your experience?
               </label>
               <div className="flex items-center gap-2">
@@ -248,13 +248,13 @@ export default function FeedbackModal() {
                         className={`w-7 h-7 transition-colors ${
                           active
                             ? 'text-amber-400 fill-amber-400'
-                            : 'text-slate-300 hover:text-amber-200'
+                            : 'text-slate-300 dark:text-slate-600 hover:text-amber-200'
                         }`}
                       />
                     </button>
                   );
                 })}
-                <span className="text-xs font-medium text-slate-600 ml-2">
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-400 ml-2">
                   {RATING_LABELS[hoverRating || rating]}
                 </span>
               </div>
@@ -262,7 +262,7 @@ export default function FeedbackModal() {
 
             {/* Category Selector */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-700 block">Category</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block">Category</label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {CATEGORIES.map((cat) => {
                   const Icon = cat.icon;
@@ -272,10 +272,10 @@ export default function FeedbackModal() {
                       key={cat.id}
                       type="button"
                       onClick={() => setCategory(cat.id as any)}
-                      className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-medium text-left transition-all ${
+                      className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-medium text-left transition-all cursor-pointer ${
                         isSelected
-                          ? 'border-blue-600 bg-blue-50/70 text-blue-900 ring-2 ring-blue-600/20 shadow-xs'
-                          : 'border-slate-200 hover:border-slate-300 text-slate-700 bg-white'
+                          ? 'border-blue-600 bg-blue-50/70 dark:bg-blue-950/60 text-blue-900 dark:text-blue-200 ring-2 ring-blue-600/20 shadow-xs'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 bg-white dark:bg-[#162244]'
                       }`}
                     >
                       <Icon className="w-4 h-4 shrink-0" />
@@ -288,14 +288,14 @@ export default function FeedbackModal() {
 
             {/* Tool Selection (Optional) */}
             <div className="space-y-1.5">
-              <label htmlFor="feedback-tool" className="text-xs font-semibold text-slate-700 block">
+              <label htmlFor="feedback-tool" className="text-xs font-semibold text-slate-700 dark:text-slate-200 block">
                 Related Tool (Optional)
               </label>
               <select
                 id="feedback-tool"
                 value={toolSlug}
                 onChange={(e) => setToolSlug(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-800"
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-[#162244] border border-slate-200 dark:border-slate-700 rounded-xl focus:bg-white dark:focus:bg-[#162244] focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-800 dark:text-slate-100"
               >
                 <option value="">General Platform Feedback</option>
                 {CANONICAL_TOOL_REGISTRY.map((t) => (
@@ -309,10 +309,10 @@ export default function FeedbackModal() {
             {/* Message Area */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label htmlFor="feedback-message" className="text-xs font-semibold text-slate-700">
+                <label htmlFor="feedback-message" className="text-xs font-semibold text-slate-700 dark:text-slate-200">
                   Your Message
                 </label>
-                <span className="text-[11px] text-slate-400">
+                <span className="text-[11px] text-slate-400 dark:text-slate-500">
                   {message.length} / 2000
                 </span>
               </div>
@@ -322,13 +322,13 @@ export default function FeedbackModal() {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="What went well? What could we improve or fix?"
-                className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-800 placeholder-slate-400 resize-none"
+                className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-[#162244] border border-slate-200 dark:border-slate-700 rounded-xl focus:bg-white dark:focus:bg-[#162244] focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 resize-none"
               />
             </div>
 
             {/* Email Contact (Optional) */}
             <div className="space-y-1.5">
-              <label htmlFor="feedback-email" className="text-xs font-semibold text-slate-700 block">
+              <label htmlFor="feedback-email" className="text-xs font-semibold text-slate-700 dark:text-slate-200 block">
                 Contact Email (Optional - if you'd like a follow up)
               </label>
               <input
@@ -337,13 +337,13 @@ export default function FeedbackModal() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-800 placeholder-slate-400"
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-[#162244] border border-slate-200 dark:border-slate-700 rounded-xl focus:bg-white dark:focus:bg-[#162244] focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"
               />
             </div>
 
             {/* Privacy Guarantee Note */}
-            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-[11px] text-slate-500">
-              <Shield className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-[#162244]/60 border border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400">
+              <Shield className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span>
                 Zero file retention: We never inspect, upload, or collect your document contents, marks, or personal files.
               </span>
@@ -355,14 +355,14 @@ export default function FeedbackModal() {
                 type="button"
                 onClick={closeFeedback}
                 disabled={loading}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors"
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading || message.trim().length < 10}
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white text-xs font-semibold shadow-xs transition-colors disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white text-xs font-semibold shadow-xs transition-colors disabled:cursor-not-allowed cursor-pointer"
               >
                 {loading ? (
                   <>

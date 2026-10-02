@@ -169,11 +169,11 @@ export default function AvatarUploadModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150 relative">
+      <div className="bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150 relative">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
+          className="absolute top-5 right-5 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           aria-label="Close modal"
         >
           <X className="w-5 h-5" />
@@ -181,12 +181,12 @@ export default function AvatarUploadModal({
 
         {/* Modal Header */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 shrink-0">
+          <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
             <Camera className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-slate-900">Profile Photo</h3>
-            <p className="text-xs text-slate-500">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Profile Photo</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Upload a 512×512 square photo (WebP, PNG, JPEG up to 5MB)
             </p>
           </div>
@@ -194,22 +194,22 @@ export default function AvatarUploadModal({
 
         {/* Alerts */}
         {errorMessage && (
-          <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+          <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900 text-xs text-red-700 dark:text-red-300 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0" />
             <span>{errorMessage}</span>
           </div>
         )}
 
         {successMessage && (
-          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2">
-            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-900 text-xs text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span>{successMessage}</span>
           </div>
         )}
 
         {/* Preview Circle */}
         <div className="flex flex-col items-center justify-center py-2">
-          <div className="relative w-32 h-32 rounded-full ring-4 ring-slate-100 shadow-md overflow-hidden bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-3xl font-extrabold select-none">
+          <div className="relative w-32 h-32 rounded-full ring-4 ring-slate-100 dark:ring-slate-800 shadow-md overflow-hidden bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-3xl font-extrabold select-none">
             {previewSrc ? (
               <img
                 src={previewSrc}
@@ -226,7 +226,7 @@ export default function AvatarUploadModal({
               <span>{initials}</span>
             )}
           </div>
-          <span className="text-[11px] text-slate-400 mt-2 font-medium">
+          <span className="text-[11px] text-slate-400 dark:text-slate-500 mt-2 font-medium">
             Square 1:1 auto-crop applied
           </span>
         </div>
@@ -248,9 +248,9 @@ export default function AvatarUploadModal({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="w-full py-3 px-4 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl text-xs font-semibold text-slate-700 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              className="w-full py-3 px-4 bg-slate-50 dark:bg-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-900 active:bg-slate-200 dark:active:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 rounded-2xl text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
-              <Upload className="w-4 h-4 text-blue-600" />
+              <Upload className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               <span>Choose Photo from Device</span>
             </button>
           ) : (
@@ -258,7 +258,7 @@ export default function AvatarUploadModal({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex-1 py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                className="flex-1 py-2.5 px-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
               >
                 Choose Different
               </button>
@@ -285,12 +285,12 @@ export default function AvatarUploadModal({
 
           {/* Delete current avatar if exists */}
           {currentAvatarUrl && !previewSrc && (
-            <div className="pt-2 border-t border-slate-100 flex justify-center">
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-center">
               <button
                 type="button"
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="text-xs text-red-600 hover:text-red-700 font-semibold flex items-center gap-1.5 py-1 px-2.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                className="text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-semibold flex items-center gap-1.5 py-1 px-2.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
               >
                 {isDeleting ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />

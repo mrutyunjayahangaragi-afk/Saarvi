@@ -26,8 +26,8 @@ export default function AdminDonutChart({
   if (!data || data.length === 0 || total === 0) {
     return (
       <div className="h-[200px] flex flex-col items-center justify-center text-center p-4">
-        <p className="text-xs text-slate-500 font-medium">{emptyMessage}</p>
-        <span className="text-[11px] text-slate-400 mt-1">0 entries</span>
+        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{emptyMessage}</p>
+        <span className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">0 entries</span>
       </div>
     );
   }
@@ -72,7 +72,7 @@ export default function AdminDonutChart({
             cy={size / 2}
             r={radius}
             fill="transparent"
-            stroke="#f1f5f9"
+            className="stroke-slate-100 dark:stroke-slate-800"
             strokeWidth={strokeWidth}
           />
 
@@ -100,10 +100,10 @@ export default function AdminDonutChart({
 
         {/* Center Text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none px-3">
-          <span className="text-xl font-extrabold text-slate-900 font-mono tracking-tight">
+          <span className="text-xl font-extrabold text-slate-900 dark:text-white font-mono tracking-tight">
             {activeItem ? activeItem.count : total}
           </span>
-          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider truncate max-w-[100px]">
+          <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate max-w-[100px]">
             {activeItem ? activeItem.label : centerLabel}
           </span>
         </div>
@@ -118,7 +118,7 @@ export default function AdminDonutChart({
             <div
               key={idx}
               className={`flex items-center justify-between gap-3 text-xs p-1.5 rounded-lg cursor-pointer transition-colors ${
-                isHovered ? 'bg-slate-100/80 font-semibold' : 'hover:bg-slate-50'
+                isHovered ? 'bg-slate-100/80 dark:bg-slate-800 font-semibold' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
               }`}
               onMouseEnter={() => setHoveredIdx(idx)}
               onMouseLeave={() => setHoveredIdx(null)}
@@ -128,11 +128,11 @@ export default function AdminDonutChart({
                   className="w-2.5 h-2.5 rounded-full shrink-0"
                   style={{ backgroundColor: item.color }}
                 ></span>
-                <span className="text-slate-700 truncate">{item.label}</span>
+                <span className="text-slate-700 dark:text-slate-300 truncate">{item.label}</span>
               </div>
               <div className="flex items-center gap-2 shrink-0 font-mono">
-                <span className="text-slate-900 font-bold">{item.count}</span>
-                <span className="text-[11px] text-slate-400">({pct}%)</span>
+                <span className="text-slate-900 dark:text-white font-bold">{item.count}</span>
+                <span className="text-[11px] text-slate-400 dark:text-slate-500">({pct}%)</span>
               </div>
             </div>
           );

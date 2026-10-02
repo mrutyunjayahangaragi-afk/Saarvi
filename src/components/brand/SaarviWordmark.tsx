@@ -117,6 +117,20 @@ export default function SaarviWordmark({
   const taglineSize =
     size === 'sm' ? 'text-[10px]' : size === 'lg' ? 'text-xs' : size === 'xl' ? 'text-sm' : 'text-[11px]';
 
+  const titleColor =
+    theme === 'dark'
+      ? 'text-white'
+      : theme === 'light'
+      ? 'text-slate-900'
+      : 'text-slate-900 dark:text-white';
+
+  const taglineColor =
+    theme === 'dark'
+      ? 'text-slate-400'
+      : theme === 'light'
+      ? 'text-slate-500'
+      : 'text-slate-500 dark:text-slate-400';
+
   // Variant Rendering
   if (variant === 'icon-only') {
     const icon = <EngineeredSingleSMark size={markSize} className={className} theme={theme} />;
@@ -136,11 +150,11 @@ export default function SaarviWordmark({
       <div className={`flex flex-col items-center text-center space-y-2 select-none ${className}`}>
         <EngineeredSingleSMark size={markSize * 1.25} theme={theme} />
         <div>
-          <span className={`font-extrabold tracking-tight text-slate-900 block leading-tight font-sans ${titleSize}`}>
+          <span className={`font-extrabold tracking-tight ${titleColor} block leading-tight font-sans ${titleSize}`}>
             Saarvi
           </span>
           {showTagline && (
-            <span className={`text-slate-500 font-medium tracking-wide block mt-0.5 ${taglineSize}`}>
+            <span className={`${taglineColor} font-medium tracking-wide block mt-0.5 ${taglineSize}`}>
               Study. Work. Grow.
             </span>
           )}
@@ -148,7 +162,7 @@ export default function SaarviWordmark({
       </div>
     );
 
-    if (asLink) {
+  if (asLink) {
       return (
         <Link href="/" className="group inline-flex focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded-2xl p-1 transition-transform hover:scale-[1.01]" aria-label="Saarvi Home">
           {stackedContent}
@@ -163,11 +177,11 @@ export default function SaarviWordmark({
     <div className={`inline-flex items-center gap-2.5 select-none ${className}`}>
       <EngineeredSingleSMark size={markSize} theme={theme} />
       <div className={`flex flex-col text-left ${variant === 'compact' ? 'hidden sm:flex' : 'flex'}`}>
-        <span className={`font-extrabold tracking-tight text-slate-900 leading-tight font-sans ${titleSize}`}>
+        <span className={`font-extrabold tracking-tight ${titleColor} leading-tight font-sans ${titleSize}`}>
           Saarvi
         </span>
         {showTagline && (
-          <span className={`text-slate-500 font-medium tracking-tight whitespace-nowrap ${taglineSize}`}>
+          <span className={`${taglineColor} font-medium tracking-tight whitespace-nowrap ${taglineSize}`}>
             Study. Work. Grow.
           </span>
         )}

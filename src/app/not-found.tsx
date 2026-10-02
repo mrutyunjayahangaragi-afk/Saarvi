@@ -16,23 +16,23 @@ export const metadata: Metadata = {
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900">
+    <div className="min-h-screen flex flex-col bg-[#f8fafc] dark:bg-[#0b1329] text-slate-900 dark:text-white">
       <Navbar />
 
       <main className="flex-1 flex items-center justify-center px-4 py-16 sm:py-24">
         <div className="max-w-lg w-full text-center space-y-6">
           <div className="flex flex-col items-center justify-center gap-3">
             <SaarviMark size={48} />
-            <div className="inline-flex items-center justify-center px-4 py-1.5 rounded-2xl bg-blue-50 text-blue-600 font-extrabold text-2xl ring-4 ring-blue-50/50 shadow-xs">
+            <div className="inline-flex items-center justify-center px-4 py-1.5 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-extrabold text-2xl ring-4 ring-blue-50/50 dark:ring-blue-900/30 shadow-xs">
               404
             </div>
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-4xl">
               Page not found
             </h1>
-            <p className="text-base text-slate-600 max-w-md mx-auto">
+            <p className="text-base text-slate-600 dark:text-slate-300 max-w-md mx-auto">
               Sorry, we couldn&apos;t find the page you&apos;re looking for. It may have been moved, deleted, or never existed.
             </p>
           </div>
@@ -40,53 +40,53 @@ export default function NotFound() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 text-left">
             <Link
               href="/"
-              className="flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 bg-white hover:border-blue-500 hover:shadow-sm transition-all group"
+              className="flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111c38] hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-sm transition-all group"
             >
-              <div className="p-2 rounded-lg bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+              <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                 <Home className="w-5 h-5" />
               </div>
               <div>
-                <div className="font-semibold text-sm text-slate-900">Home</div>
-                <div className="text-xs text-slate-500">Back to main page</div>
+                <div className="font-semibold text-sm text-slate-900 dark:text-white">Home</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">Back to main page</div>
               </div>
             </Link>
 
             <Link
               href="/tools"
-              className="flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 bg-white hover:border-blue-500 hover:shadow-sm transition-all group"
+              className="flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111c38] hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-sm transition-all group"
             >
-              <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+              <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                 <Wrench className="w-5 h-5" />
               </div>
               <div>
-                <div className="font-semibold text-sm text-slate-900">All Tools</div>
-                <div className="text-xs text-slate-500">PDF, images & utilities</div>
+                <div className="font-semibold text-sm text-slate-900 dark:text-white">All Tools</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">PDF, images & utilities</div>
               </div>
             </Link>
 
             <Link
               href="/student"
-              className="flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 bg-white hover:border-blue-500 hover:shadow-sm transition-all group"
+              className="flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111c38] hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-sm transition-all group"
             >
-              <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+              <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                 <GraduationCap className="w-5 h-5" />
               </div>
               <div>
-                <div className="font-semibold text-sm text-slate-900">Student Hub</div>
-                <div className="text-xs text-slate-500">CGPA, tasks, timetable</div>
+                <div className="font-semibold text-sm text-slate-900 dark:text-white">Student Hub</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">CGPA, tasks, timetable</div>
               </div>
             </Link>
 
             <Link
               href="/dashboard"
-              className="flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 bg-white hover:border-blue-500 hover:shadow-sm transition-all group"
+              className="flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111c38] hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-sm transition-all group"
             >
-              <div className="p-2 rounded-lg bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+              <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 group-hover:bg-amber-600 group-hover:text-white transition-colors">
                 <LayoutDashboard className="w-5 h-5" />
               </div>
               <div>
-                <div className="font-semibold text-sm text-slate-900">Dashboard</div>
-                <div className="text-xs text-slate-500">Your profile & usage</div>
+                <div className="font-semibold text-sm text-slate-900 dark:text-white">Dashboard</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">Your profile & usage</div>
               </div>
             </Link>
           </div>
@@ -94,7 +94,7 @@ export default function NotFound() {
           <div className="pt-2">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               Back to safe territory

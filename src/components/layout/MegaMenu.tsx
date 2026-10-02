@@ -318,15 +318,15 @@ export function SmartToolCard({ tool, onClick, compact = false }: SmartToolCardP
       onClick={handleClick}
       id={`nav-tool-${tool.key}`}
       className={`group flex items-start gap-2 rounded-lg transition-all duration-150 relative cursor-pointer ${compact
-        ? "p-1.5 hover:bg-slate-50"
-        : "p-2 hover:bg-slate-100/80 rounded-xl"
+        ? "p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+        : "p-2 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 rounded-xl"
         }`}
     >
       {/* 20px Icon container */}
       <div
         className={`rounded-md flex items-center justify-center shrink-0 transition-colors shadow-xs mt-0.5 ${compact
-          ? "w-5 h-5 bg-slate-100 group-hover:bg-blue-600 text-slate-600 group-hover:text-white"
-          : "w-7 h-7 bg-slate-100 group-hover:bg-blue-600 text-slate-500 group-hover:text-white rounded-lg"
+          ? "w-5 h-5 bg-slate-100 dark:bg-slate-800 group-hover:bg-blue-600 text-slate-600 dark:text-slate-300 group-hover:text-white"
+          : "w-7 h-7 bg-slate-100 dark:bg-slate-800 group-hover:bg-blue-600 text-slate-500 dark:text-slate-400 group-hover:text-white rounded-lg"
           }`}
       >
         <IconComponent
@@ -339,20 +339,20 @@ export function SmartToolCard({ tool, onClick, compact = false }: SmartToolCardP
       <div className="min-w-0 flex-1 space-y-0.5">
         <div className="flex items-center gap-1 flex-wrap">
           <span
-            className={`font-medium text-slate-800 group-hover:text-blue-600 transition-colors truncate ${compact ? "text-[12.5px]" : "text-xs font-semibold"
+            className={`font-medium text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate ${compact ? "text-[12.5px]" : "text-xs font-semibold"
               }`}
           >
             {tool.name}
           </span>
 
           {isFeatured && (
-            <span className="text-[8.5px] font-bold tracking-tight px-1 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200/80 flex items-center gap-0.5 shrink-0">
+            <span className="text-[8.5px] font-bold tracking-tight px-1 py-0.2 rounded bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800 flex items-center gap-0.5 shrink-0">
               <Star className="w-2 h-2 fill-purple-600 text-purple-600" />
               <span>Featured</span>
             </span>
           )}
           {!isFeatured && isMostUsed && (
-            <span className="text-[8.5px] font-bold tracking-tight px-1 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center gap-0.5 shrink-0">
+            <span className="text-[8.5px] font-bold tracking-tight px-1 py-0.2 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800 flex items-center gap-0.5 shrink-0">
               <Flame className="w-2 h-2 fill-emerald-600 text-emerald-600" />
               <span>Most Used</span>
             </span>
@@ -363,19 +363,19 @@ export function SmartToolCard({ tool, onClick, compact = false }: SmartToolCardP
             </span>
           )}
           {isBeta && !requiresPro && (
-            <span className="text-[8.5px] font-semibold uppercase px-1 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+            <span className="text-[8.5px] font-semibold uppercase px-1 py-0.2 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
               Beta
             </span>
           )}
           {isComingSoon && (
-            <span className="text-[8.5px] font-semibold uppercase px-1 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+            <span className="text-[8.5px] font-semibold uppercase px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shrink-0">
               Soon
             </span>
           )}
         </div>
 
         {/* Max 1 short line description */}
-        <p className="text-[10px] text-slate-400 line-clamp-1 leading-tight group-hover:text-slate-500 transition-colors">
+        <p className="text-[10px] text-slate-400 dark:text-slate-500 line-clamp-1 leading-tight group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors">
           {tool.description}
         </p>
       </div>
@@ -398,22 +398,22 @@ export function EssentialToolCard({
   const IconComponent = ICON_MAP[tool.icon] || FileText;
 
   let catLabel = "Tool";
-  let catBadgeClass = "bg-slate-100 text-slate-600 border-slate-200";
+  let catBadgeClass = "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700";
   if (tool.category === "pdf") {
     catLabel = "PDF";
-    catBadgeClass = "bg-red-50 text-red-700 border-red-200/80";
+    catBadgeClass = "bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border-red-200/80 dark:border-red-800";
   } else if (tool.category === "image") {
     catLabel = "Image";
-    catBadgeClass = "bg-sky-50 text-sky-700 border-sky-200/80";
+    catBadgeClass = "bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border-sky-200/80 dark:border-sky-800";
   } else if (tool.category === "student" || tool.category === "academic") {
     catLabel = "Student";
-    catBadgeClass = "bg-indigo-50 text-indigo-700 border-indigo-200/80";
+    catBadgeClass = "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200/80 dark:border-indigo-800";
   } else if (tool.category === "career") {
     catLabel = "Career";
-    catBadgeClass = "bg-emerald-50 text-emerald-700 border-emerald-200/80";
+    catBadgeClass = "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200/80 dark:border-emerald-800";
   } else if (tool.category === "ai") {
     catLabel = "AI";
-    catBadgeClass = "bg-purple-50 text-purple-700 border-purple-200/80";
+    catBadgeClass = "bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-800";
   }
 
   // Section 7 & 42: Honest badge labeling
@@ -428,15 +428,10 @@ export function EssentialToolCard({
 
   const handleClick = () => {
     try {
-      fetch("/api/telemetry/event", {
+      fetch("/api/tools/stats", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventType: "NAVBAR_ESSENTIAL_TOOL_CLICK",
-          toolId: tool.key,
-          toolSlug: tool.key,
-          metadata: { source: "navbar_essential_menu", category: tool.category },
-        }),
+        body: JSON.stringify({ toolKey: tool.key, action: "click" }),
       }).catch(() => { });
     } catch { }
     if (onClick) onClick();
@@ -447,27 +442,27 @@ export function EssentialToolCard({
       href={tool.route}
       onClick={handleClick}
       id={`nav-essential-${tool.key}`}
-      className="group flex items-center justify-between p-2.5 rounded-xl border border-slate-100 bg-white hover:border-blue-200 hover:bg-blue-50/40 transition-all duration-150 cursor-pointer shadow-2xs hover:shadow-xs"
+      className="group flex items-center justify-between p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-[#162244] hover:border-blue-200 dark:hover:border-blue-700 hover:bg-blue-50/40 dark:hover:bg-slate-800/60 transition-all duration-150 cursor-pointer shadow-2xs hover:shadow-xs"
     >
       <div className="flex items-center gap-3 min-w-0 pr-2">
         {/* 20px Icon inside 32px rounded container */}
-        <div className="w-8 h-8 rounded-lg bg-slate-100/90 text-slate-600 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center shrink-0 transition-all duration-150 shadow-2xs">
+        <div className="w-8 h-8 rounded-lg bg-slate-100/90 dark:bg-slate-800 text-slate-600 dark:text-slate-300 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center shrink-0 transition-all duration-150 shadow-2xs">
           <IconComponent className="w-4 h-4 transition-transform group-hover:scale-110" />
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs font-bold text-slate-800 group-hover:text-blue-600 transition-colors truncate">
+            <span className="text-xs font-bold text-slate-800 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
               {tool.name}
             </span>
 
             {isPinnedOrAdmin && (
-              <span className="text-[8.5px] font-semibold tracking-tight px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200/70 shrink-0">
+              <span className="text-[8.5px] font-semibold tracking-tight px-1.5 py-0.2 rounded bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/70 dark:border-purple-800 shrink-0">
                 Featured
               </span>
             )}
             {isGenuinelyMostUsed && (
-              <span className="text-[8.5px] font-semibold tracking-tight px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200/70 shrink-0 flex items-center gap-0.5">
+              <span className="text-[8.5px] font-semibold tracking-tight px-1.5 py-0.2 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800 shrink-0 flex items-center gap-0.5">
                 <Flame className="w-2 h-2 fill-emerald-600 text-emerald-600" />
                 <span>Most Used</span>
               </span>
@@ -480,7 +475,7 @@ export function EssentialToolCard({
           </div>
 
           {/* Section 12: ONE short description */}
-          <p className="text-[11px] text-slate-400 group-hover:text-slate-500 transition-colors truncate mt-0.5">
+          <p className="text-[11px] text-slate-400 dark:text-slate-400 group-hover:text-slate-500 dark:group-hover:text-slate-300 transition-colors truncate mt-0.5">
             {tool.description || `${tool.name} utility`}
           </p>
         </div>
@@ -513,8 +508,8 @@ function QuickAccessStrip({
   if (quickTools.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-2 px-1 py-2 border-b border-slate-100 mb-3 overflow-x-auto">
-      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0 flex items-center gap-1">
+    <div className="flex items-center gap-2 px-1 py-2 border-b border-slate-100 dark:border-slate-800 mb-3 overflow-x-auto">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 shrink-0 flex items-center gap-1">
         <Zap className="w-3 h-3 text-amber-500" />
         Quick Access:
       </span>
@@ -527,7 +522,7 @@ function QuickAccessStrip({
               key={tool.key}
               href={tool.route}
               onClick={onClose}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-50 hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition-colors border border-slate-200/80 shrink-0"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-700 dark:hover:text-blue-300 text-slate-700 dark:text-slate-300 transition-colors border border-slate-200/80 dark:border-slate-700 shrink-0"
             >
               {isFeatured && <Star className="w-2.5 h-2.5 text-purple-600 fill-purple-600 shrink-0" />}
               {!isFeatured && isMostUsed && <Flame className="w-2.5 h-2.5 text-emerald-600 fill-emerald-600 shrink-0" />}
@@ -560,7 +555,7 @@ function CategorySearch({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full pl-9 pr-14 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 placeholder:text-slate-400 text-slate-700 transition-all"
+        className="w-full pl-9 pr-14 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 dark:focus:ring-blue-800 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-700 dark:text-slate-200 transition-all"
         aria-label={placeholder}
         autoComplete="off"
       />
@@ -569,13 +564,13 @@ function CategorySearch({
           <button
             type="button"
             onClick={() => onChange("")}
-            className="text-slate-400 hover:text-slate-700 cursor-pointer pointer-events-auto"
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer pointer-events-auto"
             aria-label="Clear search"
           >
             <X className="w-3.5 h-3.5" />
           </button>
         ) : (
-          <kbd className="hidden sm:inline-block text-[9.5px] px-1.5 py-0.5 bg-white border border-slate-200 rounded text-slate-400 font-mono shadow-xs">
+          <kbd className="hidden sm:inline-block text-[9.5px] px-1.5 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-400 dark:text-slate-400 font-mono shadow-xs">
             ⌘K
           </kbd>
         )}
@@ -908,7 +903,7 @@ export default function MegaMenu({
         <div
           onMouseEnter={onMouseEnter}
           onMouseLeave={onMouseLeave}
-          className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xl shadow-slate-900/10 relative overflow-hidden pointer-events-auto"
+          className="bg-white dark:bg-[#111c38] rounded-2xl sm:rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xl shadow-slate-900/10 dark:shadow-black/40 relative overflow-hidden pointer-events-auto"
         >
           {/* Subtle Top Accent Gradient */}
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600" />
@@ -919,7 +914,7 @@ export default function MegaMenu({
           {activeCategory && (
             <div className="flex flex-col">
               {/* Header: Title, Category Badge, Search, and Category View All CTA */}
-              <div className="px-5 sm:px-6 pt-4 pb-3 border-b border-slate-100 bg-white shrink-0 space-y-2.5">
+              <div className="px-5 sm:px-6 pt-4 pb-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-[#111c38] shrink-0 space-y-2.5">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
                     <div className={`w-8 h-8 rounded-xl ${currentTabConfig.activeBadgeBg} flex items-center justify-center shrink-0 shadow-2xs`}>
@@ -927,20 +922,20 @@ export default function MegaMenu({
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white">
                           {currentTabConfig.title}
                         </h2>
                         {activeTab === "essential" ? (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
                             Daily Use
                           </span>
                         ) : (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                             {currentCategoryTools.length} Tools
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-slate-400">
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500">
                         {currentTabConfig.description} · ALL SAARVI TOOLS available on /tools
                       </p>
                     </div>
@@ -972,8 +967,8 @@ export default function MegaMenu({
               </div>
 
               {/* Category Switcher Tabs Bar (Section 1, 22: Instant Switching) */}
-              <div className="flex items-center gap-1.5 overflow-x-auto px-5 sm:px-6 py-2.5 border-b border-slate-100 bg-slate-50/60 no-scrollbar">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1 shrink-0">
+              <div className="flex items-center gap-1.5 overflow-x-auto px-5 sm:px-6 py-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-[#0b1329]/60 no-scrollbar">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mr-1 shrink-0">
                   Explore:
                 </span>
                 {CATEGORY_TABS.map((tab) => {
@@ -1003,14 +998,14 @@ export default function MegaMenu({
                       }}
                       className={`px-3 py-1.5 rounded-xl font-semibold text-xs transition-all duration-150 shrink-0 flex items-center gap-1.5 cursor-pointer ${isActive
                         ? "bg-blue-600 text-white shadow-xs font-bold"
-                        : "bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200/70"
+                        : "bg-white dark:bg-[#162244] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200/70 dark:border-slate-700"
                         }`}
                     >
                       <IconComp className={`w-3.5 h-3.5 ${isActive ? "text-white" : tab.colorClass}`} />
                       <span>{tab.label}</span>
                       {count > 0 && (
                         <span
-                          className={`text-[9.5px] px-1.5 py-0.2 rounded-full font-semibold ${isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                          className={`text-[9.5px] px-1.5 py-0.2 rounded-full font-semibold ${isActive ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
                             }`}
                         >
                           {count}
@@ -1028,7 +1023,7 @@ export default function MegaMenu({
                   categorySearchResults.length > 0 ? (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between px-1">
-                        <span className="text-xs font-semibold text-slate-600">
+                        <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                           Found {categorySearchResults.length} {activeTab === "essential" ? "Saarvi" : currentTabConfig.label} tools matching &ldquo;{searchFilter}&rdquo;
                         </span>
                         <button
@@ -1048,7 +1043,7 @@ export default function MegaMenu({
                   ) : (
                     /* Section 42: No results in category search */
                     <div className="py-14 text-center space-y-2">
-                      <p className="text-sm font-semibold text-slate-700">
+                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                         No {currentTabConfig.label} tools match &ldquo;{searchFilter}&rdquo;.
                       </p>
                       <button
@@ -1376,11 +1371,11 @@ export default function MegaMenu({
               </div>
 
               {/* Shared Compact Footer (Section 15, 44) */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 px-5 sm:px-6 py-2.5 border-t border-slate-100 bg-slate-50/70 rounded-b-2xl sm:rounded-b-3xl shrink-0">
-                <div className="flex items-center gap-2 text-slate-600">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 px-5 sm:px-6 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-[#0b1329]/70 rounded-b-2xl sm:rounded-b-3xl shrink-0">
+                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <span className="text-[11px] font-medium">
-                    <strong className="text-slate-700">100% Client-Side Privacy:</strong> Files processed locally in your browser. Never uploaded.
+                    <strong className="text-slate-700 dark:text-slate-300">100% Client-Side Privacy:</strong> Files processed locally in your browser. Never uploaded.
                   </span>
                 </div>
 
@@ -1391,17 +1386,17 @@ export default function MegaMenu({
                       if (onOpenSearch) onOpenSearch();
                       else onClose();
                     }}
-                    className="text-[11px] font-medium text-slate-500 hover:text-blue-600 flex items-center gap-1 cursor-pointer transition-colors"
+                    className="text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1 cursor-pointer transition-colors"
                   >
                     <span>Search all tools</span>
-                    <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-bold text-slate-600 shadow-2xs">
+                    <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-600 dark:text-slate-300 shadow-2xs">
                       ⌘K
                     </kbd>
                   </button>
                   <Link
                     href="/tools"
                     onClick={onClose}
-                    className="font-bold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 text-xs shrink-0"
+                    className="font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline flex items-center gap-1 text-xs shrink-0"
                   >
                     View All →
                     <ArrowRight className="w-3.5 h-3.5" />

@@ -56,7 +56,7 @@ export default function GoogleSignInButton({
       disabled={loading || disabled}
       aria-label="Continue with Google"
       aria-busy={loading}
-      className={`w-full min-h-[44px] px-4 py-3 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-60 disabled:pointer-events-none text-slate-700 font-medium text-sm rounded-xl transition-all duration-150 flex items-center justify-center gap-3 shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 cursor-pointer ${className}`}
+      className={`w-full min-h-[44px] px-4 py-3 bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 active:bg-slate-100 dark:active:bg-slate-700 disabled:opacity-60 disabled:pointer-events-none text-slate-700 dark:text-slate-200 font-medium text-sm rounded-xl transition-all duration-150 flex items-center justify-center gap-3 shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 cursor-pointer ${className}`}
     >
       {loading ? (
         <>

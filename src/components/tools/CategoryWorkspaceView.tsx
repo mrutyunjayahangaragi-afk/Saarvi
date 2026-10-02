@@ -40,11 +40,11 @@ interface CategoryWorkspaceViewProps {
 }
 
 const CATEGORY_TABS = [
-  { key: "pdf", label: "PDF Tools", href: "/pdf", icon: FileText, color: "text-blue-600 bg-blue-50 border-blue-200" },
-  { key: "image", label: "Image Tools", href: "/images", icon: FileImage, color: "text-indigo-600 bg-indigo-50 border-indigo-200" },
-  { key: "student", label: "Student Tools", href: "/student-tools", icon: GraduationCap, color: "text-purple-600 bg-purple-50 border-purple-200" },
-  { key: "career", label: "Jobs & Career", href: "/jobs", icon: Briefcase, color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
-  { key: "all", label: "All Tools", href: "/tools", icon: Layers, color: "text-slate-600 bg-slate-50 border-slate-200" },
+  { key: "pdf", label: "PDF Tools", href: "/pdf", icon: FileText, color: "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800" },
+  { key: "image", label: "Image Tools", href: "/images", icon: FileImage, color: "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800" },
+  { key: "student", label: "Student Tools", href: "/student-tools", icon: GraduationCap, color: "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 border-purple-200 dark:border-purple-800" },
+  { key: "career", label: "Jobs & Career", href: "/jobs", icon: Briefcase, color: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800" },
+  { key: "all", label: "All Tools", href: "/tools", icon: Layers, color: "text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700" },
 ];
 
 export default function CategoryWorkspaceView({
@@ -145,20 +145,20 @@ export default function CategoryWorkspaceView({
   return (
     <div className="space-y-12 pb-16">
       {/* 1. Breadcrumbs */}
-      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-slate-500">
-        <Link href="/" className="hover:text-blue-600 transition-colors">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+        <Link href="/" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
           Home
         </Link>
-        <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-        <Link href="/tools" className="hover:text-blue-600 transition-colors">
+        <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-600" />
+        <Link href="/tools" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
           Tools
         </Link>
-        <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-        <span className="font-semibold text-slate-800">{title}</span>
+        <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-600" />
+        <span className="font-semibold text-slate-800 dark:text-slate-200">{title}</span>
       </nav>
 
       {/* 2. Category Workspace Switcher Header */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none border-b border-slate-200/80">
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none border-b border-slate-200/80 dark:border-slate-800">
         {CATEGORY_TABS.map((tab) => {
           const TabIcon = tab.icon;
           const isActive = pathname === tab.href;
@@ -168,8 +168,8 @@ export default function CategoryWorkspaceView({
               href={tab.href}
               className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                 isActive
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50 hover:text-slate-900"
+                  ? "bg-slate-900 dark:bg-blue-600 text-white shadow-xs"
+                  : "bg-white dark:bg-[#111c38] text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               <TabIcon className="w-4 h-4" />
@@ -180,21 +180,21 @@ export default function CategoryWorkspaceView({
       </div>
 
       {/* 3. Hero Section */}
-      <header className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-slate-50/60 to-blue-50/30 border border-slate-200/80 p-8 sm:p-12 shadow-xs">
+      <header className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-slate-50/60 to-blue-50/30 dark:from-[#111c38] dark:via-[#111c38] dark:to-blue-950/30 border border-slate-200/80 dark:border-slate-800 p-8 sm:p-12 shadow-xs">
         <div className="max-w-3xl space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200/70 text-blue-700 text-xs font-semibold">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200/70 dark:border-blue-900 text-blue-700 dark:text-blue-300 text-xs font-semibold">
             <IconComponent className="w-3.5 h-3.5" />
             <span>{tagline}</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
             {title}
           </h1>
-          <p className="text-sm sm:text-base text-slate-600 leading-relaxed max-w-2xl">
+          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed max-w-2xl">
             {description}
           </p>
 
           {/* Trust Invariants */}
-          <div className="pt-2 flex flex-wrap items-center gap-4 sm:gap-6 text-xs text-slate-500 font-medium">
+          <div className="pt-2 flex flex-wrap items-center gap-4 sm:gap-6 text-xs text-slate-500 dark:text-slate-400 font-medium">
             <div className="flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-500" />
               <span>Client-Side Local Sandbox</span>
@@ -215,28 +215,28 @@ export default function CategoryWorkspaceView({
       {popularTools.length > 0 && (
         <section aria-label="Popular Quick Actions" className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               Popular Quick Actions
             </h2>
-            <span className="text-xs text-slate-500">Fast entry points</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Fast entry points</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             {popularTools.map((tool) => (
               <Link
                 key={tool.key}
                 href={tool.route}
-                className="p-4 rounded-2xl bg-white border border-slate-200/80 hover:border-blue-500 hover:shadow-xs transition-all group flex flex-col justify-between space-y-3"
+                className="p-4 rounded-2xl bg-white dark:bg-[#111c38] border border-slate-200/80 dark:border-slate-800 hover:border-blue-500 hover:shadow-xs transition-all group flex flex-col justify-between space-y-3"
               >
                 <div className="space-y-1">
-                  <span className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors block">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors block">
                     {tool.name}
                   </span>
-                  <span className="text-[11px] text-slate-500 line-clamp-1 block">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 block">
                     {tool.description}
                   </span>
                 </div>
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-[10px] font-semibold text-blue-600 group-hover:underline">
+                  <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 group-hover:underline">
                     Launch →
                   </span>
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -248,7 +248,7 @@ export default function CategoryWorkspaceView({
       )}
 
       {/* 5. In-Category Search & Filters */}
-      <section aria-label="Search category tools" className="space-y-6 pt-4 border-t border-slate-200/80">
+      <section aria-label="Search category tools" className="space-y-6 pt-4 border-t border-slate-200/80 dark:border-slate-800">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -257,13 +257,13 @@ export default function CategoryWorkspaceView({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={`Search ${title.toLowerCase()}...`}
-              className="w-full pl-10 pr-9 py-2.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              className="w-full pl-10 pr-9 py-2.5 rounded-xl bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                 aria-label="Clear search"
               >
                 <X className="w-3.5 h-3.5" />
@@ -271,14 +271,14 @@ export default function CategoryWorkspaceView({
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-medium shrink-0 self-start sm:self-auto">
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl text-xs font-medium shrink-0 self-start sm:self-auto border border-transparent dark:border-slate-700">
             <button
               type="button"
               onClick={() => setActiveFilter("all")}
               className={`px-3 py-1.5 rounded-lg transition-all ${
                 activeFilter === "all"
-                  ? "bg-white text-slate-900 shadow-2xs font-semibold"
-                  : "text-slate-600 hover:text-slate-900"
+                  ? "bg-white dark:bg-[#111c38] text-slate-900 dark:text-white shadow-2xs font-semibold"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               All ({categoryTools.length})
@@ -288,8 +288,8 @@ export default function CategoryWorkspaceView({
               onClick={() => setActiveFilter("guest")}
               className={`px-3 py-1.5 rounded-lg transition-all ${
                 activeFilter === "guest"
-                  ? "bg-white text-slate-900 shadow-2xs font-semibold"
-                  : "text-slate-600 hover:text-slate-900"
+                  ? "bg-white dark:bg-[#111c38] text-slate-900 dark:text-white shadow-2xs font-semibold"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               Guest Free
@@ -299,8 +299,8 @@ export default function CategoryWorkspaceView({
               onClick={() => setActiveFilter("pro")}
               className={`px-3 py-1.5 rounded-lg transition-all ${
                 activeFilter === "pro"
-                  ? "bg-white text-slate-900 shadow-2xs font-semibold"
-                  : "text-slate-600 hover:text-slate-900"
+                  ? "bg-white dark:bg-[#111c38] text-slate-900 dark:text-white shadow-2xs font-semibold"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               Pro
@@ -319,16 +319,16 @@ export default function CategoryWorkspaceView({
               return (
                 <div
                   key={tool.key}
-                  className="p-5 rounded-2xl bg-white border border-slate-200/80 hover:border-blue-500/80 hover:shadow-xs transition-all flex flex-col justify-between space-y-4 group"
+                  className="p-5 rounded-2xl bg-white dark:bg-[#111c38] border border-slate-200/80 dark:border-slate-800 hover:border-blue-500/80 dark:hover:border-blue-500/80 hover:shadow-xs transition-all flex flex-col justify-between space-y-4 group"
                 >
                   <div className="space-y-2.5">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                      <span className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                         {tool.name}
                       </span>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {tool.popular && (
-                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                             Featured
                           </span>
                         )}
@@ -337,25 +337,25 @@ export default function CategoryWorkspaceView({
                             PRO
                           </span>
                         ) : (
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                             Guest
                           </span>
                         )}
                       </div>
                     </div>
 
-                    <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">
                       {tool.description}
                     </p>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-[11px] text-slate-400 font-medium">
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
                       {tool.workerMode === "client" ? "Local Browser Processing" : "Saarvi Secure Engine"}
                     </span>
                     <Link
                       href={tool.route}
-                      className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 group-hover:text-blue-700 group-hover:translate-x-0.5 transition-all"
+                      className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300 group-hover:translate-x-0.5 transition-all"
                     >
                       <span>Try Tool</span>
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -366,17 +366,17 @@ export default function CategoryWorkspaceView({
             })}
           </div>
         ) : (
-          <div className="text-center py-12 px-4 rounded-3xl bg-white border border-slate-200/80 space-y-3">
-            <p className="text-sm font-semibold text-slate-800">
+          <div className="text-center py-12 px-4 rounded-3xl bg-white dark:bg-[#111c38] border border-slate-200/80 dark:border-slate-800 space-y-3">
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
               No matching {title.toLowerCase()} found.
             </p>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
               Try searching with different keywords or explore our complete catalog.
             </p>
             <div className="pt-2">
               <Link
                 href="/tools"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 dark:bg-blue-600 text-white text-xs font-semibold hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors"
               >
                 <span>Browse All Saarvi Tools</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -388,18 +388,18 @@ export default function CategoryWorkspaceView({
 
       {/* 7. Helpful Information / FAQ */}
       {faqItems.length > 0 && (
-        <section aria-label="Helpful guidance" className="space-y-4 pt-8 border-t border-slate-200/80">
-          <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+        <section aria-label="Helpful guidance" className="space-y-4 pt-8 border-t border-slate-200/80 dark:border-slate-800">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
             Frequently Asked Questions
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {faqItems.map((faq, idx) => (
               <div
                 key={idx}
-                className="p-5 rounded-2xl bg-white border border-slate-200/80 space-y-2 text-xs"
+                className="p-5 rounded-2xl bg-white dark:bg-[#111c38] border border-slate-200/80 dark:border-slate-800 space-y-2 text-xs"
               >
-                <h3 className="font-bold text-slate-900">{faq.q}</h3>
-                <p className="text-slate-600 leading-relaxed">{faq.a}</p>
+                <h3 className="font-bold text-slate-900 dark:text-white">{faq.q}</h3>
+                <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{faq.a}</p>
               </div>
             ))}
           </div>

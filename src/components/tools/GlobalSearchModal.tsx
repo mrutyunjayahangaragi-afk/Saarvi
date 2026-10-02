@@ -450,17 +450,17 @@ export default function GlobalSearchModal({
         <div className="p-3 bg-slate-50 dark:bg-[#0b1329] border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-3">
             <span>
-              Press <kbd className="px-1 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono">↑</kbd> <kbd className="px-1 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono">↓</kbd> to navigate
+              Press <kbd className="px-1 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded text-[10px] font-mono">↑</kbd> <kbd className="px-1 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded text-[10px] font-mono">↓</kbd> to navigate
             </span>
             <span>
-              <kbd className="px-1 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono">Enter</kbd> to select
+              <kbd className="px-1 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded text-[10px] font-mono">Enter</kbd> to select
             </span>
             <span>
-              <kbd className="px-1 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono">Esc</kbd> to close
+              <kbd className="px-1 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded text-[10px] font-mono">Esc</kbd> to close
             </span>
           </div>
 
-          <div className="font-semibold text-slate-600">
+          <div className="font-semibold text-slate-600 dark:text-slate-300">
             {isMac ? "Press Cmd + K to search" : "Press Ctrl + K to search"}
           </div>
         </div>

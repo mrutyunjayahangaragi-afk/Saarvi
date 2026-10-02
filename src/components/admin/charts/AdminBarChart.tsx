@@ -27,8 +27,8 @@ export default function AdminBarChart({
   if (!data || data.length === 0 || totalValue === 0) {
     return (
       <div className="h-[200px] flex flex-col items-center justify-center text-center p-4">
-        <p className="text-xs text-slate-500 font-medium">{emptyMessage}</p>
-        <span className="text-[11px] text-slate-400 mt-1">0 entries recorded</span>
+        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{emptyMessage}</p>
+        <span className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">0 entries recorded</span>
       </div>
     );
   }
@@ -90,7 +90,7 @@ export default function AdminBarChart({
           y1={paddingTop + chartHeight}
           x2={svgWidth - paddingX}
           y2={paddingTop + chartHeight}
-          stroke="#e2e8f0"
+          className="stroke-slate-200 dark:stroke-slate-800"
           strokeWidth="1"
         />
 
@@ -125,8 +125,8 @@ export default function AdminBarChart({
                 width={barWidth}
                 height={bar.value > 0 ? bar.barHeight : 2}
                 rx={Math.min(barWidth / 2, 4)}
-                fill={isHovered ? hoverColor : bar.value > 0 ? barColor : '#e2e8f0'}
-                className="transition-all duration-150"
+                fill={isHovered ? hoverColor : bar.value > 0 ? barColor : undefined}
+                className={`transition-all duration-150 ${bar.value > 0 ? '' : 'fill-slate-200 dark:fill-slate-800'}`}
               />
             </g>
           );
@@ -148,7 +148,7 @@ export default function AdminBarChart({
               x={bar.x + barWidth / 2}
               y={svgHeight - 4}
               textAnchor="middle"
-              className="text-[9px] fill-slate-400 font-medium"
+              className="text-[9px] fill-slate-400 dark:fill-slate-500 font-medium"
             >
               {bar.label}
             </text>
@@ -159,7 +159,7 @@ export default function AdminBarChart({
       {/* Floating Tooltip Popover */}
       {hoveredBar && (
         <div
-          className="absolute z-20 pointer-events-none -translate-x-1/2 -translate-y-full mb-2 bg-slate-900 text-white rounded-lg px-2.5 py-1.5 text-xs shadow-lg border border-slate-800 space-y-0.5 transition-transform"
+          className="absolute z-20 pointer-events-none -translate-x-1/2 -translate-y-full mb-2 bg-slate-900 dark:bg-slate-950 text-white rounded-lg px-2.5 py-1.5 text-xs shadow-lg border border-slate-800 dark:border-slate-700 space-y-0.5 transition-transform"
           style={{
             left: `${(hoveredBar.x / svgWidth) * 100}%`,
             top: `${(hoveredBar.y / svgHeight) * 100}%`,

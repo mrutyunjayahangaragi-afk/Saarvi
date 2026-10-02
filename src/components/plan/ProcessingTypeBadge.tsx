@@ -23,9 +23,9 @@ export default function ProcessingTypeBadge({
     return (
       <span
         title={showTooltip ? '100% Client-Side Processing. Your documents never leave this device.' : undefined}
-        className={`inline-flex items-center gap-1 font-semibold rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/80 cursor-help ${sizeClasses} ${className}`}
+        className={`inline-flex items-center gap-1 font-semibold rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800 cursor-help ${sizeClasses} ${className}`}
       >
-        <ShieldCheck className="w-3 h-3 text-emerald-600 shrink-0" />
+        <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
         <span>Local (In-Browser)</span>
       </span>
     );
@@ -35,9 +35,9 @@ export default function ProcessingTypeBadge({
     return (
       <span
         title={showTooltip ? 'Requires secure remote processing.' : undefined}
-        className={`inline-flex items-center gap-1 font-semibold rounded-md bg-slate-100 text-slate-700 border border-slate-200 cursor-help ${sizeClasses} ${className}`}
+        className={`inline-flex items-center gap-1 font-semibold rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 cursor-help ${sizeClasses} ${className}`}
       >
-        <Cloud className="w-3 h-3 text-slate-500 shrink-0" />
+        <Cloud className="w-3 h-3 text-slate-500 dark:text-slate-400 shrink-0" />
         <span>Server Processing</span>
       </span>
     );
@@ -46,9 +46,9 @@ export default function ProcessingTypeBadge({
   return (
     <span
       title={showTooltip ? 'Combines client-side preparation with optional remote enrichment.' : undefined}
-      className={`inline-flex items-center gap-1 font-semibold rounded-md bg-purple-50 text-purple-700 border border-purple-200 cursor-help ${sizeClasses} ${className}`}
+      className={`inline-flex items-center gap-1 font-semibold rounded-md bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 cursor-help ${sizeClasses} ${className}`}
     >
-      <Cpu className="w-3 h-3 text-purple-600 shrink-0" />
+      <Cpu className="w-3 h-3 text-purple-600 dark:text-purple-400 shrink-0" />
       <span>Mixed Architecture</span>
     </span>
   );
