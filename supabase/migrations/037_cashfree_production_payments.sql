@@ -58,19 +58,19 @@ BEGIN
         ALTER TABLE public.payment_orders ALTER COLUMN receipt DROP NOT NULL;
     END IF;
     
-    -- Backfill order_reference on legacy records if null
-    UPDATE public.payment_orders
-    SET order_reference = COALESCE(provider_order_id, 'ord_' || replace(id::text, '-', ''))
-    WHERE order_reference IS NULL;
+    -- Backfill order_reference on legacy records if null (dynamic SQL avoids compilation errors)
+    EXECUTE 'UPDATE public.payment_orders
+             SET order_reference = COALESCE(provider_order_id, ''ord_'' || replace(id::text, ''-'', ''''))
+             WHERE order_reference IS NULL';
 
     -- Backfill amount_paise from amount_cents if it exists
     IF EXISTS (
         SELECT 1 FROM information_schema.columns 
         WHERE table_schema = 'public' AND table_name = 'payment_orders' AND column_name = 'amount_cents'
     ) THEN
-        UPDATE public.payment_orders
-        SET amount_paise = amount_cents
-        WHERE amount_paise IS NULL AND amount_cents IS NOT NULL;
+        EXECUTE 'UPDATE public.payment_orders
+                 SET amount_paise = amount_cents
+                 WHERE amount_paise IS NULL AND amount_cents IS NOT NULL';
     END IF;
 
     -- Backfill plan_id from plan if it exists
@@ -78,9 +78,9 @@ BEGIN
         SELECT 1 FROM information_schema.columns 
         WHERE table_schema = 'public' AND table_name = 'payment_orders' AND column_name = 'plan'
     ) THEN
-        UPDATE public.payment_orders
-        SET plan_id = COALESCE(plan, 'pro_monthly')
-        WHERE plan_id IS NULL;
+        EXECUTE 'UPDATE public.payment_orders
+                 SET plan_id = COALESCE(plan, ''pro_monthly'')
+                 WHERE plan_id IS NULL';
     END IF;
 END $$;
 

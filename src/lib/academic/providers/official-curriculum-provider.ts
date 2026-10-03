@@ -77,29 +77,46 @@ export class OfficialCurriculumProvider implements AcademicSubjectProvider {
         )
       : allStoreSubjects;
 
+    // 2. Check academicServerStore published subjects (Admin published subjects take top priority)
     for (const s of storeSubjects) {
-      if (!results.some((r) => r.subjectCode.toUpperCase() === s.subjectCode.toUpperCase())) {
-        results.push({
-          id: s.id,
-          subjectCode: s.subjectCode.toUpperCase(),
-          subjectName: s.subjectName,
-          credits: s.credits,
-          semester: s.semester,
-          branch: s.branchId,
-          scheme: s.schemeId,
-          university: s.universityId.toUpperCase(),
-          academicYear: scope.academicYear || '2022-2026',
-          sourceType: 'OFFICIAL_UNIVERSITY_WEBSITE',
-          sourceUrl: 'https://vtu.ac.in',
-          sourceDocument: 'Official University Curriculum Portal',
-          lastVerifiedAt: s.updatedAt || new Date().toISOString(),
-          verificationStatus: 'VERIFIED',
-          courseType: s.courseType,
-          seeApplicable: s.seeApplicable,
-          cieApplicable: true,
-        });
+      const existingIdx = results.findIndex((r) => r.subjectCode.toUpperCase() === s.subjectCode.toUpperCase());
+      const publishedItem: AuthoritativeSubject = {
+        id: s.id,
+        subjectCode: s.subjectCode.toUpperCase(),
+        subjectName: s.subjectName,
+        credits: s.credits,
+        semester: s.semester,
+        branch: s.branchId,
+        scheme: s.schemeId,
+        university: s.universityId.toUpperCase(),
+        academicYear: scope.academicYear || '2022-2026',
+        sourceType: 'OFFICIAL_UNIVERSITY_WEBSITE',
+        sourceUrl: 'https://vtu.ac.in',
+        sourceDocument: 'Official University Curriculum Portal (Admin Published)',
+        lastVerifiedAt: s.updatedAt || new Date().toISOString(),
+        verificationStatus: 'VERIFIED',
+        courseType: s.courseType,
+        seeApplicable: s.seeApplicable,
+        cieApplicable: true,
+      };
+
+      if (existingIdx >= 0) {
+        results[existingIdx] = publishedItem;
+      } else {
+        results.push(publishedItem);
       }
     }
+
+    // Exclude archived subjects
+    const archivedSubjects = academicServerStore.getSubjects({
+      universityId: scope.universityId,
+      schemeId: scope.schemeId,
+      branchId: scope.branchId,
+      semester: scope.semester,
+      status: 'ARCHIVED',
+    });
+    const archivedCodes = new Set(archivedSubjects.map((s) => s.subjectCode.toUpperCase()));
+    const unarchivedResults = results.filter((r) => !archivedCodes.has(r.subjectCode.toUpperCase()));
 
     // 3. Check MockStorage verified subjects
     const storedSubjects = MockStorageProvider.getAcademicSubjects({
@@ -141,7 +158,15 @@ export class OfficialCurriculumProvider implements AcademicSubjectProvider {
       }
     }
 
-    return results;
+    const archivedSubjects = academicServerStore.getSubjects({
+      universityId: scope.universityId,
+      schemeId: scope.schemeId,
+      branchId: scope.branchId,
+      semester: scope.semester,
+      status: 'ARCHIVED',
+    });
+    const archivedCodes = new Set(archivedSubjects.map((s) => s.subjectCode.toUpperCase()));
+    return results.filter((r) => !archivedCodes.has(r.subjectCode.toUpperCase()));
   }
 
   async getSubject(scope: AcademicScope, subjectCode: string): Promise<AuthoritativeSubject | null> {
