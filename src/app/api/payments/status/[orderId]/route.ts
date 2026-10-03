@@ -13,6 +13,7 @@ import { CashfreeService } from '@/lib/payments/cashfree';
 import { getSupabaseAdminClient } from '@/lib/supabase/admin';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { getAuthenticatedNotificationUser } from '@/lib/notifications/auth-helper';
+import { grantOrExtendProEntitlement } from '@/lib/payments/entitlement-service';
 
 export async function GET(
   request: Request,
@@ -113,16 +114,24 @@ export async function GET(
           .select('id')
           .maybeSingle();
 
-        // 4. Activate Pro Entitlement
-        await supabase.from('entitlements').insert({
-          user_id: internalOrder.user_id,
-          feature: 'pro',
-          plan_id: planId,
-          status: 'ACTIVE',
-          starts_at: now.toISOString(),
-          ends_at: expiresAt.toISOString(),
+        // 4. Activate or Extend Pro Entitlement Cumulatively
+        const entResult = await grantOrExtendProEntitlement({
+          userId: internalOrder.user_id as string,
+          planId,
+          durationDays,
           source: 'CASHFREE',
-          payment_transaction_id: txData?.id || null,
+          transactionId: txData?.id || null,
+        });
+
+        return NextResponse.json({
+          success: true,
+          orderId,
+          status: 'CAPTURED',
+          isPro: true,
+          planId,
+          amount: Number(internalOrder.amount_paise) / 100,
+          currency: 'INR',
+          expiresAt: entResult.endsAt,
         });
       }
 

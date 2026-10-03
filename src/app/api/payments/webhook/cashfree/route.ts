@@ -14,6 +14,7 @@ import crypto from 'node:crypto';
 import { CashfreeService } from '@/lib/payments/cashfree';
 import { getSupabaseAdminClient } from '@/lib/supabase/admin';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
+import { grantOrExtendProEntitlement } from '@/lib/payments/entitlement-service';
 
 export async function POST(request: Request) {
   try {
@@ -165,16 +166,13 @@ export async function POST(request: Request) {
         .select('id')
         .maybeSingle();
 
-      // Grant Pro Entitlement (Section 20)
-      await supabase.from('entitlements').insert({
-        user_id: userId,
-        feature: 'pro',
-        plan_id: planId,
-        status: 'ACTIVE',
-        starts_at: now.toISOString(),
-        ends_at: endsAt.toISOString(),
+      // Grant or Extend Pro Entitlement (Section 20 & 22)
+      await grantOrExtendProEntitlement({
+        userId,
+        planId,
+        durationDays,
         source: 'CASHFREE',
-        payment_transaction_id: tx?.id || null,
+        transactionId: tx?.id || null,
       });
 
       // Mark webhook processed

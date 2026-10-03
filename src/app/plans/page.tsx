@@ -27,6 +27,7 @@ import { usePlan } from '@/hooks/usePlan';
 import { PRO_PRICING, ACTIVE_PRO_BENEFITS, PRO_ROADMAP_DISCLAIMER } from '@/config/pricing';
 import { BillingInterval } from '@/types/plan';
 import { initiateCashfreeCheckout } from '@/lib/payments/cashfree-checkout';
+import { PaymentMethodModal } from '@/components/billing/PaymentMethodModal';
 
 function PlansContent() {
   const { user } = useAuth();
@@ -35,6 +36,7 @@ function PlansContent() {
   const searchParams = useSearchParams();
 
   const [interval, setInterval] = useState<BillingInterval>('monthly');
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -57,8 +59,8 @@ function PlansContent() {
     }
   }, [searchParams]);
 
-  // Handle Upgrade click directly via Cashfree
-  const handleUpgradeClick = async () => {
+  // Handle Upgrade click to open Cashfree Upgrade Modal
+  const handleUpgradeClick = () => {
     if (!user) {
       router.push(`/login?next=${encodeURIComponent(`/plans?plan=pro&interval=${interval}`)}`);
       return;
@@ -69,35 +71,7 @@ function PlansContent() {
       return;
     }
 
-    setCheckoutLoading(true);
-    setCheckoutError(null);
-
-    try {
-      const res = await fetch('/api/payments/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          planId: `pro_${interval}`,
-          interval,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success || !data.paymentSessionId) {
-        throw new Error(data?.error?.message || 'Could not initiate checkout session.');
-      }
-
-      const mode = process.env.NEXT_PUBLIC_CASHFREE_MODE === 'PRODUCTION' ? 'production' : 'sandbox';
-      await initiateCashfreeCheckout({
-        paymentSessionId: data.paymentSessionId,
-        mode,
-      });
-    } catch (err) {
-      console.error('[Cashfree Checkout Error]:', err);
-      setCheckoutError(err instanceof Error ? err.message : 'Checkout could not be initialized.');
-    } finally {
-      setCheckoutLoading(false);
-    }
+    setIsModalOpen(true);
   };
 
   const formattedExpiry = entitlement?.expiresAt
@@ -125,7 +99,7 @@ function PlansContent() {
     },
     {
       q: "What payment methods are supported?",
-      a: "We support instant online checkout via Razorpay (UPI, Credit/Debit Cards, Netbanking, Cred) as well as direct UPI QR payments (PhonePe, Google Pay, Paytm) with a 2-hour verification SLA.",
+      a: "We support secure online checkout powered by Cashfree Payments, supporting UPI (Google Pay, PhonePe, Paytm), Credit & Debit Cards, Netbanking, and Wallets with instant server-verified activation.",
     },
   ];
 
@@ -426,32 +400,17 @@ function PlansContent() {
               <button
                 type="button"
                 onClick={handleUpgradeClick}
-                disabled={checkoutLoading}
-                className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-xs sm:text-sm font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer"
               >
-                {checkoutLoading ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Preparing Secure Checkout...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    <span>Upgrade to Pro ({selectedPrice.amountDisplay})</span>
-                  </>
-                )}
+                <Sparkles className="w-4 h-4" />
+                <span>Continue to Secure Payment</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
-            )}
-
-            {checkoutError && (
-              <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-[11px] text-rose-600 dark:text-rose-400 text-center font-medium">
-                {checkoutError}
-              </div>
             )}
 
             <div className="flex items-center justify-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 pt-1">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Secure INR Checkout Powered by Cashfree</span>
+              <span>Secure payment powered by Cashfree.</span>
             </div>
           </div>
         </div>
@@ -641,6 +600,17 @@ function PlansContent() {
           ))}
         </div>
       </div>
+
+      {/* Cashfree Pro Upgrade Modal */}
+      <PaymentMethodModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        interval={interval}
+        onSuccess={() => {
+          refreshPlan();
+          router.push('/payment/success');
+        }}
+      />
     </div>
   );
 }

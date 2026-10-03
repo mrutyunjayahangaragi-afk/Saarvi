@@ -1,11 +1,4 @@
-'use client';
-
-/**
- * Upgrade to Saarvi Pro Modal (Cashfree Only)
- *
- * Replaces the legacy Razorpay / Manual UPI selection modal with a unified
- * Cashfree checkout modal per master architectural specifications.
- */
+"use client";
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -13,20 +6,18 @@ import { X, Sparkles, ArrowRight, RefreshCw, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { CANONICAL_PRO_PLAN } from '@/config/plans';
 import { initiateCashfreeCheckout } from '@/lib/payments/cashfree-checkout';
-import { BillingInterval } from '@/types/plan';
 
-export interface PaymentMethodModalProps {
+interface CashfreeUpgradeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  interval?: BillingInterval;
   onSuccess?: () => void;
 }
 
-export function PaymentMethodModal({
+export function CashfreeUpgradeModal({
   isOpen,
   onClose,
   onSuccess,
-}: PaymentMethodModalProps) {
+}: CashfreeUpgradeModalProps) {
   const { user } = useAuth();
   const router = useRouter();
 
@@ -45,7 +36,7 @@ export function PaymentMethodModal({
     setError(null);
 
     try {
-      // 1. Create server-authoritative order sending only planId
+      // 1. Create server-authoritative order (sends only planId)
       const res = await fetch('/api/payments/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -104,7 +95,7 @@ export function PaymentMethodModal({
               id="upgrade-modal-title"
               className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white uppercase"
             >
-              UPGRADE TO SAARVI PRO
+              Upgrade to Saarvi Pro
             </h2>
           </div>
           <button
@@ -147,10 +138,10 @@ export function PaymentMethodModal({
           {/* Secure Checkout Section */}
           <div className="space-y-1.5">
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200">
-              Secure checkout
+              Secure Checkout
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Your payment will be securely processed through Cashfree.
+              Complete your payment securely through Cashfree.
             </p>
           </div>
 

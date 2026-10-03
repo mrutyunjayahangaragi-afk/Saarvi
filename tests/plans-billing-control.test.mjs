@@ -91,20 +91,17 @@ test('SAARVI PLANS & BILLING CONTROL CENTER TEST SUITE', async (t) => {
     assert.match(plansPage, /Compare Plan Capabilities/);
   });
 
-  await t.test('8. Payment Method Modal: Clean selector, Razorpay and UPI/QR steps with 2-hour SLA', () => {
+  await t.test('8. Upgrade to Pro Modal: Clean Cashfree checkout, server-authoritative plan and no provider selection', () => {
     const modalFile = fs.readFileSync(path.join(rootDir, 'src/components/billing/PaymentMethodModal.tsx'), 'utf8');
-    assert.match(modalFile, /Choose payment method/);
-    assert.match(modalFile, /Continue with Razorpay/);
-    assert.match(modalFile, /Continue with UPI/);
-    assert.match(modalFile, /checkout\.razorpay\.com\/v1\/checkout\.js/);
-    assert.match(modalFile, /\/api\/payments\/razorpay\/create-order/);
-    assert.match(modalFile, /\/api\/payments\/razorpay\/verify/);
-    assert.match(modalFile, /\/api\/billing\/payment-request/);
-    assert.match(modalFile, /Creating payment order\.\.\./);
-    assert.match(modalFile, /Verifying payment signature\.\.\./);
-    assert.match(modalFile, /Payment submitted/);
-    assert.match(modalFile, /Pending review/);
-    assert.match(modalFile, /Manual UPI payments are reviewed by the Saarvi team within/);
+    assert.match(modalFile, /UPGRADE TO SAARVI PRO/);
+    assert.match(modalFile, /Continue to Secure Payment/);
+    assert.match(modalFile, /Your payment will be securely processed through Cashfree/);
+    assert.match(modalFile, /Secure server-verified payment/);
+    assert.match(modalFile, /initiateCashfreeCheckout/);
+    // Verifies complete removal of legacy provider selection and manual workflows
+    assert.doesNotMatch(modalFile, /Continue with Razorpay/);
+    assert.doesNotMatch(modalFile, /Continue with UPI/);
+    assert.doesNotMatch(modalFile, /checkout\.razorpay\.com/);
   });
 
   await t.test('9. User Dashboard Billing: Expiration handling and real Cashfree orders history', () => {

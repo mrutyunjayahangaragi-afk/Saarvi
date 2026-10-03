@@ -14,6 +14,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { CashfreeService } from '@/lib/payments/cashfree';
 import { PRO_PRICING } from '@/config/pricing';
+import { CANONICAL_PRO_PLAN } from '@/config/plans';
 import { BillingInterval } from '@/types/plan';
 import { getAuthenticatedNotificationUser } from '@/lib/notifications/auth-helper';
 import { getSupabaseAdminClient } from '@/lib/supabase/admin';
@@ -71,27 +72,19 @@ export async function POST(request: Request) {
 
     // 4. Resolve Canonical Plan & Price Server-Side
     let interval: BillingInterval = 'monthly';
+    let canonicalPlanId = CANONICAL_PRO_PLAN.id;
+    let amountPaise = CANONICAL_PRO_PLAN.amountPaise;
+
     const rawPlanId = String(body.planId || body.plan || '').toLowerCase();
     if (rawPlanId.includes('year') || body.interval === 'yearly') {
       interval = 'yearly';
+      canonicalPlanId = 'pro_yearly';
+      amountPaise = PRO_PRICING.yearly.amountCents;
+    } else {
+      canonicalPlanId = 'pro_30_days';
+      amountPaise = CANONICAL_PRO_PLAN.amountPaise;
     }
 
-    const planConfig = PRO_PRICING[interval];
-    if (!planConfig) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: 'INVALID_PLAN',
-            message: 'Requested plan configuration not found.',
-          },
-        },
-        { status: 400 }
-      );
-    }
-
-    const canonicalPlanId = `pro_${interval}`;
-    const amountPaise = planConfig.amountCents; // e.g. 9900 paise = ₹99
     const currency = 'INR';
 
     // 5. Generate deterministic, collision-resistant order references
@@ -103,7 +96,7 @@ export async function POST(request: Request) {
       request.headers.get('origin') ||
       process.env.NEXT_PUBLIC_APP_URL ||
       'https://saarvi.app';
-    const returnUrl = `${origin}/payment/success?order_id=${orderReference}`;
+    const returnUrl = `${origin}/payment/return?order_id=${orderReference}`;
 
     // 6. Record order in Supabase payment_orders
     const supabase = getSupabaseAdminClient();
@@ -163,7 +156,7 @@ export async function POST(request: Request) {
       success: true,
       orderId: orderReference,
       paymentSessionId: cfResult.paymentSessionId,
-      amountDisplay: planConfig.amountDisplay,
+      amountDisplay: `₹${amountPaise / 100}`,
       currency: 'INR',
       planId: canonicalPlanId,
       interval,

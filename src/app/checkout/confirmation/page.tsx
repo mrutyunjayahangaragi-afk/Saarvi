@@ -51,29 +51,20 @@ function CheckoutConfirmationContent() {
     setChecking(true);
 
     try {
-      // 1. Direct Razorpay signature verification if callback parameters are present
-      if (orderId && paymentId && signature) {
+      // 1. Direct server status verification if orderId is present
+      if (orderId) {
         try {
-          const verifyRes = await fetch('/api/payments/razorpay/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              orderId,
-              paymentId,
-              signature,
-              userId: user.id,
-            }),
-          });
+          const verifyRes = await fetch(`/api/payments/status/${encodeURIComponent(orderId)}`);
           if (verifyRes.ok) {
             const verifyData = await verifyRes.json();
-            if (verifyData.success) {
+            if (verifyData.status === 'CAPTURED' || verifyData.isPro) {
               setConfirmationState('active');
               refreshPlan();
               return;
             }
           }
         } catch (verifyErr) {
-          console.warn('Direct signature verification notice:', verifyErr);
+          console.warn('Direct payment status verification notice:', verifyErr);
         }
       }
 
