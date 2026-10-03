@@ -10,53 +10,124 @@ declare global {
     Cashfree?: (config: { mode: 'sandbox' | 'production' }) => {
       checkout: (options: {
         paymentSessionId: string;
-        redirectTarget?: '_self' | '_blank' | '_top';
-      }) => Promise<void>;
+        redirectTarget?: '_self' | '_blank' | '_top' | '_modal';
+      }) => Promise<{ error?: { message?: string }; redirect?: boolean } | void>;
     };
   }
 }
 
+const CASHFREE_SCRIPT_SRC = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+
 export function loadCashfreeScript(): Promise<boolean> {
   return new Promise((resolve) => {
     if (typeof window === 'undefined') return resolve(false);
-    if (window.Cashfree) return resolve(true);
 
-    const existing = document.querySelector('script[src*="cashfree"]');
+    // 1. If already initialized on window, return true immediately
+    if (typeof window.Cashfree === 'function') {
+      return resolve(true);
+    }
+
+    const checkWindowCashfree = (maxWaitMs = 3000): Promise<boolean> => {
+      const start = Date.now();
+      return new Promise((res) => {
+        const interval = setInterval(() => {
+          if (typeof window.Cashfree === 'function') {
+            clearInterval(interval);
+            res(true);
+          } else if (Date.now() - start > maxWaitMs) {
+            clearInterval(interval);
+            res(false);
+          }
+        }, 50);
+      });
+    };
+
+    // 2. Check if a script element already exists
+    const existing = document.querySelector<HTMLScriptElement>(`script[src*="cashfree"]`);
     if (existing) {
-      existing.addEventListener('load', () => resolve(true));
-      existing.addEventListener('error', () => resolve(false));
+      checkWindowCashfree(2000).then((isReady) => {
+        if (isReady) {
+          resolve(true);
+        } else {
+          try {
+            existing.remove();
+          } catch {
+            // Ignore
+          }
+          injectFreshScript();
+        }
+      });
       return;
     }
 
-    const script = document.createElement('script');
-    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
-    script.async = true;
-    script.onload = () => resolve(true);
-    script.onerror = () => {
-      console.error('Failed to load Cashfree Checkout SDK');
-      resolve(false);
-    };
-    document.body.appendChild(script);
+    injectFreshScript();
+
+    function injectFreshScript() {
+      const script = document.createElement('script');
+      script.src = CASHFREE_SCRIPT_SRC;
+      script.async = true;
+      script.crossOrigin = 'anonymous';
+
+      let timedOut = false;
+      const timer = setTimeout(() => {
+        timedOut = true;
+        console.error('[Cashfree SDK] Script load timed out.');
+        resolve(false);
+      }, 10000);
+
+      script.onload = async () => {
+        if (timedOut) return;
+        clearTimeout(timer);
+        const isReady = await checkWindowCashfree(3000);
+        resolve(isReady);
+      };
+
+      script.onerror = (e) => {
+        if (timedOut) return;
+        clearTimeout(timer);
+        console.error('[Cashfree SDK] Failed to load script from CDN (check CSP/network):', e);
+        try {
+          script.remove();
+        } catch {}
+        resolve(false);
+      };
+
+      document.head.appendChild(script);
+    }
   });
 }
 
 export interface InitiateCashfreeCheckoutParams {
   paymentSessionId: string;
   mode?: 'sandbox' | 'production';
+  redirectTarget?: '_self' | '_blank' | '_top' | '_modal';
 }
 
 export async function initiateCashfreeCheckout({
   paymentSessionId,
   mode = 'sandbox',
+  redirectTarget = '_self',
 }: InitiateCashfreeCheckoutParams): Promise<void> {
   const isLoaded = await loadCashfreeScript();
-  if (!isLoaded || !window.Cashfree) {
-    throw new Error('Cashfree payment SDK could not be initialized.');
+  if (!isLoaded || typeof window.Cashfree !== 'function') {
+    throw new Error(
+      'Cashfree payment SDK could not be initialized. Please check your internet connection or disable ad-blockers and try again.'
+    );
   }
 
-  const cashfree = window.Cashfree({ mode });
-  await cashfree.checkout({
+  const cleanMode = (mode || 'sandbox').toLowerCase() === 'production' ? 'production' : 'sandbox';
+  const cashfree = window.Cashfree({ mode: cleanMode });
+
+  if (!cashfree || typeof cashfree.checkout !== 'function') {
+    throw new Error('Cashfree checkout interface is not available.');
+  }
+
+  const checkoutResult = await cashfree.checkout({
     paymentSessionId,
-    redirectTarget: '_self',
+    redirectTarget,
   });
+
+  if (checkoutResult && typeof checkoutResult === 'object' && 'error' in checkoutResult && checkoutResult.error) {
+    throw new Error(checkoutResult.error.message || 'Payment initiation failed.');
+  }
 }

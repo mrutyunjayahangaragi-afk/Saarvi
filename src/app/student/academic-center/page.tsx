@@ -151,10 +151,19 @@ export default function AcademicCenterPage() {
       }
 
       const text = await extractPdfTextItems(buffer);
-      const parsed = parseVTUMarksheetText(text);
+      const parsed = parseVTUMarksheetText(text, { fallbackUsn: usn.trim() });
 
       if (!parsed.success || !parsed.result) {
         throw new Error(parsed.error || 'Unable to parse marks from PDF. Please check the document.');
+      }
+
+      // If user hadn't searched or entered USN yet, sync with detected USN
+      if (!usn.trim() && parsed.result.usn) {
+        setUsn(parsed.result.usn);
+        const discovery = SemesterResultDiscoveryEngine.discoverSessionsForUSN(parsed.result.usn);
+        setActiveScheme(discovery.scheme);
+        setDiscoveredSessions(discovery.sessions);
+        setHasSearched(true);
       }
 
       setReviewResult(parsed.result);

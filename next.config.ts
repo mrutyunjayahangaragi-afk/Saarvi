@@ -9,12 +9,12 @@ if (typeof g.Iterator === "undefined") {
 
 const cspHeader = `
   default-src 'self';
-  script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com;
+  script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sdk.cashfree.com https://checkout.razorpay.com;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src 'self' https://fonts.gstatic.com data:;
-  img-src 'self' data: blob: https://*.razorpay.com https://*.googleusercontent.com https://*.supabase.co https://api.qrserver.com;
-  connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://lumberjack-cx.razorpay.com https://*.supabase.co;
-  frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com;
+  img-src 'self' data: blob: https://*.cashfree.com https://*.razorpay.com https://*.googleusercontent.com https://*.supabase.co https://api.qrserver.com;
+  connect-src 'self' https://api.cashfree.com https://sandbox.cashfree.com https://*.cashfree.com https://api.razorpay.com https://lumberjack.razorpay.com https://lumberjack-cx.razorpay.com https://*.supabase.co;
+  frame-src 'self' https://sdk.cashfree.com https://*.cashfree.com https://api.razorpay.com https://checkout.razorpay.com;
   frame-ancestors 'self';
   worker-src 'self' blob:;
   object-src 'none';

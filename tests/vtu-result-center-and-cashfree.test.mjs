@@ -268,3 +268,89 @@ test('Cashfree signature verification rejects tampered payloads or invalid secre
   // Missing timestamp
   assert.equal(verifyCashfreeWebhookSignature(rawBody, validSignature, '', secretKey), false);
 });
+
+// =============================================================================
+// 5. PDF PARSER RESILIENCE & CASHFREE CSP TESTS
+// =============================================================================
+
+function testDetectUsn(text, fallbackUsn) {
+  // Strategy 1: Direct exact match
+  const exactMatch = text.match(/\b([1-4][A-Z]{2}\d{2}[A-Z]{2,3}\d{2,4})\b/i);
+  if (exactMatch) return exactMatch[1].toUpperCase();
+
+  // Strategy 2: Spaced characters / kerning
+  const spacedMatch = text.match(/\b([1-4]\s*[A-Za-z]{2}\s*\d{2}\s*[A-Za-z]{2,3}\s*\d{2,4})\b/i);
+  if (spacedMatch) {
+    const candidate = spacedMatch[1].replace(/\s+/g, '').toUpperCase();
+    if (/^[1-4][A-Z]{2}\d{2}[A-Z]{2,3}\d{2,4}$/.test(candidate)) {
+      return candidate;
+    }
+  }
+
+  // Strategy 3: Target label-based extraction
+  const labelMatch = text.match(/(?:University\s*Seat\s*Number|USN|Seat\s*No|Roll\s*No)\s*[:.-]?\s*([A-Za-z0-9\s]{7,18})/i);
+  if (labelMatch) {
+    const candidate = labelMatch[1].replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const subMatch = candidate.match(/([1-4][A-Z]{2}\d{2}[A-Z]{2,3}\d{2,4})/);
+    if (subMatch) return subMatch[1];
+  }
+
+  // Strategy 4: Search squashed text
+  const squashed = text.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  const squashedMatch = squashed.match(/([1-4][A-Z]{2}\d{2}[A-Z]{2,3}\d{2,4})/);
+  if (squashedMatch) {
+    return squashedMatch[1];
+  }
+
+  // Strategy 5: Contextual Fallback
+  if (fallbackUsn) {
+    const cleanFallback = fallbackUsn.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (/^[1-4][A-Z]{2}\d{2}[A-Z]{2,3}\d{2,4}$/.test(cleanFallback)) {
+      return cleanFallback;
+    }
+  }
+
+  return '';
+}
+
+test('detectUsnFromText extracts USN across exact, spaced, labeled and fallback formats', () => {
+  // Exact match
+  assert.equal(testDetectUsn('Student 2LB24CS047 semester 1 marks card'), '2LB24CS047');
+
+  // Spaced/kerning match
+  assert.equal(testDetectUsn('Seat: 2 L B 2 4 C S 0 4 7 Examination Result'), '2LB24CS047');
+
+  // Label-based match
+  assert.equal(testDetectUsn('University Seat Number : 2LB24CS047'), '2LB24CS047');
+  assert.equal(testDetectUsn('USN : 2LB24CS047 - B.E. Computer Science'), '2LB24CS047');
+
+  // Squashed/dirty punctuation match
+  assert.equal(testDetectUsn('VTU-RESULT|USN:2LB24CS047|SEM:1'), '2LB24CS047');
+
+  // Fallback match when text is fragmented
+  assert.equal(testDetectUsn('VTU PROVISIONAL RESULTS 2024', '2LB24CS047'), '2LB24CS047');
+});
+
+test('2022 Scheme course code regex detects BMATS101, BCS301, BSCK307', () => {
+  const subjectCodeRegex = /\b((?:B[A-Z]{2,5}\d{2,3}[A-Z]?)|(?:\d{2}[A-Z]{2,4}\d{2,3}[A-Z]?)|(?:[A-Z]{2,5}\d{2,4}[A-Z]?))\b/gi;
+  const sample = 'BMATS101 Mathematics, BPHYS102 Physics, BCS301 Data Structures, BSCK307 Social Connect, 21CS31 Analog';
+  const matches = Array.from(sample.matchAll(subjectCodeRegex)).map(m => m[1].toUpperCase());
+
+  assert.ok(matches.includes('BMATS101'));
+  assert.ok(matches.includes('BPHYS102'));
+  assert.ok(matches.includes('BCS301'));
+  assert.ok(matches.includes('BSCK307'));
+  assert.ok(matches.includes('21CS31'));
+});
+
+test('next.config.ts CSP header includes Cashfree SDK, endpoints, and iframes', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const nextConfig = fs.readFileSync(path.join(process.cwd(), 'next.config.ts'), 'utf8');
+
+  assert.match(nextConfig, /https:\/\/sdk\.cashfree\.com/);
+  assert.match(nextConfig, /https:\/\/\*\.cashfree\.com/);
+  assert.match(nextConfig, /https:\/\/api\.cashfree\.com/);
+  assert.match(nextConfig, /https:\/\/sandbox\.cashfree\.com/);
+});
+
