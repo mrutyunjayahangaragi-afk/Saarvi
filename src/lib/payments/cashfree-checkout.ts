@@ -66,7 +66,6 @@ export function loadCashfreeScript(): Promise<boolean> {
       const script = document.createElement('script');
       script.src = CASHFREE_SCRIPT_SRC;
       script.async = true;
-      script.crossOrigin = 'anonymous';
 
       let timedOut = false;
       const timer = setTimeout(() => {

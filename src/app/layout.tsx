@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
@@ -121,6 +122,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               })();
             `
           }}
+        />
+        <Script
+          src="https://sdk.cashfree.com/js/v3/cashfree.js"
+          strategy="afterInteractive"
         />
       </head>
       <body className="min-h-full flex flex-col transition-colors duration-200 pb-16 md:pb-0">
