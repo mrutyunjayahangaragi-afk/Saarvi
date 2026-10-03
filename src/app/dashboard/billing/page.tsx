@@ -29,7 +29,6 @@ export default function BillingDashboardPage() {
   const [subscription, setSubscription] = useState<SubscriptionRecord | null>(null);
   const [invoices, setInvoices] = useState<BillingInvoiceRecord[]>([]);
   const [paymentOrders, setPaymentOrders] = useState<any[]>([]);
-  const [paymentRequests, setPaymentRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
   const [cancelSuccessMsg, setCancelSuccessMsg] = useState<string | null>(null);
@@ -39,22 +38,21 @@ export default function BillingDashboardPage() {
   const fetchBillingData = useCallback(async () => {
     if (!user) return;
     try {
-      const [subRes, upiRes] = await Promise.all([
+      const [subRes, ordersRes] = await Promise.all([
         fetch(`/api/billing/subscription?userId=${user.id}`),
-        fetch('/api/billing/payment-request'),
+        fetch('/api/payments/my-orders'),
       ]);
 
       if (subRes.ok) {
         const data = await subRes.json();
         setSubscription(data.subscription || null);
         setInvoices(data.invoices || []);
-        setPaymentOrders(data.paymentOrders || data.data?.paymentOrders || []);
       }
 
-      if (upiRes.ok) {
-        const upiData = await upiRes.json();
-        if (upiData.success && Array.isArray(upiData.requests)) {
-          setPaymentRequests(upiData.requests);
+      if (ordersRes.ok) {
+        const ordersData = await ordersRes.json();
+        if (ordersData.success && Array.isArray(ordersData.orders)) {
+          setPaymentOrders(ordersData.orders);
         }
       }
     } catch (err) {
@@ -269,131 +267,16 @@ export default function BillingDashboardPage() {
         </div>
       </div>
 
-      {/* Manual UPI Payment Requests & SLA Tracker */}
-      <div className="bg-white dark:bg-[#111c38] rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 space-y-4 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div className="space-y-0.5">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <span>UPI Payment Requests &amp; 2-Hour Review SLA Tracker</span>
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Track manual UPI payments, UTR verification status, and Pro entitlement approvals.
-            </p>
-          </div>
-          {!isPro && (
-            <Link
-              href="/pricing#upi-payment"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 self-start sm:self-auto"
-            >
-              <span>Submit New Payment</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          )}
-        </div>
-
-        {paymentRequests.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
-                  <th className="p-3">Plan</th>
-                  <th className="p-3">Amount</th>
-                  <th className="p-3">UTR / Ref</th>
-                  <th className="p-3">Submitted</th>
-                  <th className="p-3 text-center">Status</th>
-                  <th className="p-3">Review SLA / Notes</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-600 dark:text-slate-400">
-                {paymentRequests.map((req) => {
-                  const isPending = req.status === 'PENDING';
-                  const isApproved = req.status === 'APPROVED';
-                  const deadline = new Date(req.slaDeadline).getTime();
-                  const now = Date.now();
-                  const remainingMs = deadline - now;
-                  const remainingMins = Math.max(0, Math.floor(remainingMs / (1000 * 60)));
-
-                  return (
-                    <tr key={req.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="p-3 font-semibold text-slate-900 dark:text-white">
-                        {req.planDuration}
-                      </td>
-                      <td className="p-3 font-bold text-slate-900 dark:text-white">
-                        ₹{req.amount} {req.currency}
-                      </td>
-                      <td className="p-3 font-mono text-slate-600 dark:text-slate-300">
-                        {req.utrNumber}
-                      </td>
-                      <td className="p-3 text-slate-500 dark:text-slate-400">
-                        {new Date(req.createdAt).toLocaleString(undefined, {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </td>
-                      <td className="p-3 text-center">
-                        <span
-                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
-                            isPending
-                              ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                              : isApproved
-                              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                              : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                          }`}
-                        >
-                          {req.status}
-                        </span>
-                      </td>
-                      <td className="p-3 text-xs">
-                        {isPending ? (
-                          <div className="flex items-center gap-1 text-amber-700 dark:text-amber-400 font-medium">
-                            <Clock className="w-3.5 h-3.5 shrink-0 animate-pulse" />
-                            {remainingMins > 0 ? (
-                              <span>Review SLA: ~{remainingMins} mins remaining</span>
-                            ) : (
-                              <span>Priority verification in progress</span>
-                            )}
-                          </div>
-                        ) : isApproved ? (
-                          <span className="text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                            Verified &amp; Activated by Admin
-                          </span>
-                        ) : (
-                          <span className="text-rose-700 dark:text-rose-400 font-medium">
-                            {req.reviewNotes || 'Payment details could not be matched.'}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="py-6 text-center text-xs text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-900/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 space-y-1">
-            <Clock className="w-5 h-5 mx-auto text-slate-400 dark:text-slate-500" />
-            <p className="font-medium text-slate-700 dark:text-slate-300">No active UPI payment requests</p>
-            <p className="text-[11px] text-slate-400 dark:text-slate-500">
-              Submit a direct UPI payment or scan QR on the pricing page to activate Saarvi Pro.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Payment & Order History */}
+      {/* Cashfree Payments & Billing History */}
       <div className="bg-white dark:bg-[#111c38] rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 space-y-4 shadow-xs">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-              <span>Razorpay Payments &amp; Billing History</span>
+              <Receipt className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <span>Payment &amp; Billing History</span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Authoritative transaction records, gateway references, and receipts.
+              Authoritative transaction records and receipts processed via Cashfree Payments.
             </p>
           </div>
         </div>
@@ -404,45 +287,51 @@ export default function BillingDashboardPage() {
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
                   <th className="p-3">Date</th>
-                  <th className="p-3">Plan / Description</th>
+                  <th className="p-3">Plan</th>
                   <th className="p-3">Amount</th>
-                  <th className="p-3">Gateway Reference</th>
+                  <th className="p-3">Order Reference</th>
                   <th className="p-3 text-center">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-600 dark:text-slate-400">
                 {paymentOrders.map((ord) => {
-                  const isPaid = ord.status === 'paid';
-                  const isFailed = ord.status === 'failed';
+                  const isCaptured = ord.status === 'CAPTURED' || ord.status === 'paid';
+                  const isFailed = ord.status === 'FAILED' || ord.status === 'failed';
+                  const isRefunded = ord.status === 'REFUNDED';
+                  const planLabel = ord.planId?.includes('yearly') ? 'Saarvi Pro (Yearly)' : 'Saarvi Pro (Monthly)';
+                  const amount = ord.amount ?? (ord.amountCents ? ord.amountCents / 100 : 99);
+
                   return (
                     <tr key={ord.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="p-3 font-medium text-slate-800 dark:text-slate-300">
-                        {new Date(ord.paidAt || ord.createdAt).toLocaleDateString(undefined, {
+                        {new Date(ord.createdAt || ord.paidAt).toLocaleDateString(undefined, {
                           year: 'numeric',
                           month: 'short',
                           day: 'numeric',
                         })}
                       </td>
                       <td className="p-3 font-semibold text-slate-900 dark:text-white">
-                        Saarvi Pro ({ord.billingInterval === 'yearly' ? 'Yearly' : 'Monthly'})
+                        {planLabel}
                       </td>
                       <td className="p-3 font-bold text-slate-900 dark:text-white">
-                        ₹{(ord.amountCents / 100).toFixed(0)} {ord.currency || 'INR'}
+                        ₹{amount} {ord.currency || 'INR'}
                       </td>
                       <td className="p-3 font-mono text-[11px] text-slate-500 dark:text-slate-400">
-                        {ord.providerPaymentId || ord.providerOrderId}
+                        {ord.orderReference || ord.providerPaymentId || ord.providerOrderId}
                       </td>
                       <td className="p-3 text-center">
                         <span
                           className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${
-                            isPaid
+                            isCaptured
                               ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                              : isRefunded
+                              ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
                               : isFailed
                               ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
                               : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
                           }`}
                         >
-                          {isPaid ? 'Successful' : ord.status}
+                          {isCaptured ? 'Successful' : ord.status}
                         </span>
                       </td>
                     </tr>

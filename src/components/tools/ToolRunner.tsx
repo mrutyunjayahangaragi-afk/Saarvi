@@ -263,7 +263,7 @@ export default function ToolRunner({ tool }: ToolRunnerProps) {
     } catch (err) {
       console.warn('Tool access check error:', err);
     }
-  }, [tool.slug, user?.id]);
+  }, [tool.slug, user]);
 
   useEffect(() => {
     const checkTool = () => {

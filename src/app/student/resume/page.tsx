@@ -306,9 +306,7 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
     }, 150);
   };
 
-  const activeVersion = useMemo(() => {
-    return versions.find((v) => v.id === activeVersionId) || versions[0] || null;
-  }, [versions, activeVersionId]);
+  const activeVersion = versions.find((v) => v.id === activeVersionId) || versions[0] || null;
 
   // Validation & Completeness Score
   const validationResult: ResumeValidationResult = useMemo(() => {
@@ -331,11 +329,11 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
   // Resume Completion Wizard 6.0 Computations
   const skippedSet = useMemo(
     () => new Set<string>(activeVersion?.wizardSkippedSections || []),
-    [activeVersion?.wizardSkippedSections]
+    [activeVersion]
   );
   const notApplicableSet = useMemo(
     () => new Set<string>(activeVersion?.wizardNotApplicableSections || []),
-    [activeVersion?.wizardNotApplicableSections]
+    [activeVersion]
   );
 
   const completionReport = useMemo(() => {
@@ -378,7 +376,7 @@ function ResumeBuilderComponent({ initialTab = "builder" }: { initialTab?: "buil
         // silent
       }
     },
-    [profile?.id, activeVersion?.id]
+    [profile, activeVersion]
   );
 
   // Save profile helper (Strictly local-first IndexedDB)

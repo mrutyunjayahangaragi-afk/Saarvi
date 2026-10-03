@@ -29,49 +29,69 @@ export async function GET(request: Request) {
         { status: 403 }
       );
     }
+    let orders: any[] = [...MockStorageProvider.getAllPaymentOrders()];
 
-    let orders = MockStorageProvider.getAllPaymentOrders();
+    let webhookEvents: any[] = [];
 
     // If Supabase is configured, also fetch from live database
     if (isSupabaseConfigured()) {
       const supabase = getSupabaseAdminClient();
       if (supabase) {
         try {
-          const { data, error } = await supabase
-            .from('payment_orders')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(200);
+          const [ordersRes, webhooksRes] = await Promise.all([
+            supabase
+              .from('payment_orders')
+              .select('*')
+              .order('created_at', { ascending: false })
+              .limit(200),
+            supabase
+              .from('payment_webhook_events')
+              .select('*')
+              .order('received_at', { ascending: false })
+              .limit(100),
+          ]);
 
-          if (!error && data && data.length > 0) {
-            const mappedOrders = data.map((d: any) => ({
+          if (!ordersRes.error && ordersRes.data && ordersRes.data.length > 0) {
+            const mappedOrders = ordersRes.data.map((d: any) => ({
               id: d.id,
               userId: d.user_id,
-              userEmail: d.user_email,
-              userName: d.user_name,
-              provider: d.provider,
+              user_id: d.user_id,
+              userEmail: d.user_email || d.metadata?.user_email,
+              user_email: d.user_email || d.metadata?.user_email,
+              userName: d.user_name || d.metadata?.user_name,
+              provider: d.provider || 'cashfree',
               providerOrderId: d.provider_order_id,
+              provider_order_id: d.provider_order_id,
+              order_reference: d.order_reference || d.provider_order_id,
+              orderReference: d.order_reference || d.provider_order_id,
               providerPaymentId: d.provider_payment_id,
-              amountCents: d.amount_cents,
-              currency: d.currency,
-              plan: d.plan,
-              billingInterval: d.billing_interval,
+              amountCents: d.amount_paise || d.amount_cents || 0,
+              amount_paise: d.amount_paise || d.amount_cents || 0,
+              currency: d.currency || 'INR',
+              plan: d.plan || d.plan_id,
+              plan_id: d.plan_id || d.plan,
+              billingInterval: d.billing_interval || d.metadata?.interval || 'monthly',
               status: d.status,
-              receipt: d.receipt,
-              errorMessage: d.error_message,
+              environment: d.environment || 'PRODUCTION',
               metadata: d.metadata,
               createdAt: d.created_at,
+              created_at: d.created_at,
               updatedAt: d.updated_at,
+              updated_at: d.updated_at,
               paidAt: d.paid_at,
             }));
 
-            // Merge avoiding duplicates by providerOrderId
-            const existingOrderIds = new Set(orders.map((o) => o.providerOrderId));
+            // Merge avoiding duplicates by providerOrderId / orderReference
+            const existingOrderIds = new Set(orders.map((o) => o.providerOrderId || o.orderReference));
             for (const mo of mappedOrders) {
-              if (!existingOrderIds.has(mo.providerOrderId)) {
+              if (!existingOrderIds.has(mo.providerOrderId || mo.orderReference)) {
                 orders.push(mo);
               }
             }
+          }
+
+          if (!webhooksRes.error && webhooksRes.data) {
+            webhookEvents = webhooksRes.data;
           }
         } catch (dbErr) {
           console.warn('[Admin Billing Orders DB Fetch Warning]:', dbErr);
@@ -80,7 +100,7 @@ export async function GET(request: Request) {
     }
 
     // Sort by createdAt descending
-    orders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    orders.sort((a, b) => new Date(b.createdAt || b.created_at).getTime() - new Date(a.createdAt || a.created_at).getTime());
 
     // Compute metrics
     const now = Date.now();
@@ -94,16 +114,20 @@ export async function GET(request: Request) {
     let todayOrdersCount = 0;
 
     for (const ord of orders) {
-      const ordTime = new Date(ord.createdAt).getTime();
+      const ordTime = new Date(ord.createdAt || ord.created_at).getTime();
       const isToday = ordTime >= oneDayAgo;
 
       if (isToday) todayOrdersCount++;
 
-      if (ord.status === 'paid') {
+      const isPaid = ord.status === 'CAPTURED' || ord.status === 'paid';
+      const isFailed = ord.status === 'FAILED' || ord.status === 'failed';
+
+      if (isPaid) {
         paidOrders++;
-        totalRevenuePaise += ord.amountCents || 0;
-        if (isToday) todayRevenuePaise += ord.amountCents || 0;
-      } else if (ord.status === 'failed') {
+        const amt = ord.amount_paise || ord.amountCents || 0;
+        totalRevenuePaise += amt;
+        if (isToday) todayRevenuePaise += amt;
+      } else if (isFailed) {
         failedOrders++;
       } else {
         createdOrders++;
@@ -112,8 +136,12 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
+      orders,
+      webhooks: webhookEvents,
+      webhookEvents,
       data: {
         orders,
+        webhooks: webhookEvents,
         metrics: {
           totalOrders: orders.length,
           paidOrders,

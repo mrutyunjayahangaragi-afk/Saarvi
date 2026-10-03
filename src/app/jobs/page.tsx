@@ -1971,19 +1971,24 @@ function JobsContent() {
                   {/* Training Delivery Mode (Primary for Training) */}
                   {selectedOpportunityType === "training" && (
                     <div>
-                      <label htmlFor="training-mode-select" className="block text-[11px] font-bold text-slate-600 mb-1">
+                      <label htmlFor="training-mode-select" className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
                         Delivery Mode
                       </label>
                       <select
                         id="training-mode-select"
                         value={deliveryMode}
                         onChange={(e) => setDeliveryMode(e.target.value)}
-                        className="w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 bg-white"
+                        className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white dark:bg-[#111c38] text-slate-800 dark:text-slate-200 cursor-pointer shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 ${
+                          deliveryMode !== "all"
+                            ? `${activeTheme.primary.borderClass} font-bold`
+                            : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
+                        }`}
+                        aria-label="Training delivery mode"
                       >
-                        <option value="all">All Modes</option>
-                        <option value="online">Online Live / Self-Paced</option>
-                        <option value="offline">Classroom / Offline</option>
-                        <option value="hybrid">Hybrid</option>
+                        <option value="all" className="bg-white dark:bg-[#111c38] text-slate-800 dark:text-slate-200">All Modes</option>
+                        <option value="online" className="bg-white dark:bg-[#111c38] text-slate-800 dark:text-slate-200">Online Live / Self-Paced</option>
+                        <option value="offline" className="bg-white dark:bg-[#111c38] text-slate-800 dark:text-slate-200">Classroom / Offline</option>
+                        <option value="hybrid" className="bg-white dark:bg-[#111c38] text-slate-800 dark:text-slate-200">Hybrid</option>
                       </select>
                     </div>
                   )}
@@ -1991,19 +1996,24 @@ function JobsContent() {
                   {/* Training Duration (Primary for Training) */}
                   {selectedOpportunityType === "training" && (
                     <div>
-                      <label htmlFor="training-dur-select" className="block text-[11px] font-bold text-slate-600 mb-1">
+                      <label htmlFor="training-dur-select" className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
                         Duration
                       </label>
                       <select
                         id="training-dur-select"
                         value={duration}
                         onChange={(e) => setDuration(e.target.value)}
-                        className="w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 bg-white"
+                        className={`w-full min-h-[42px] text-xs font-semibold px-3 py-2 rounded-xl border bg-white dark:bg-[#111c38] text-slate-800 dark:text-slate-200 cursor-pointer shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 ${
+                          duration !== "all"
+                            ? `${activeTheme.primary.borderClass} font-bold`
+                            : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
+                        }`}
+                        aria-label="Training duration"
                       >
-                        <option value="all">Any Duration</option>
-                        <option value="1-2-months">1 – 2 Months</option>
-                        <option value="3-6-months">3 – 6 Months</option>
-                        <option value="6-plus-months">6+ Months</option>
+                        <option value="all" className="bg-white dark:bg-[#111c38] text-slate-800 dark:text-slate-200">Any Duration</option>
+                        <option value="1-2-months" className="bg-white dark:bg-[#111c38] text-slate-800 dark:text-slate-200">1 – 2 Months</option>
+                        <option value="3-6-months" className="bg-white dark:bg-[#111c38] text-slate-800 dark:text-slate-200">3 – 6 Months</option>
+                        <option value="6-plus-months" className="bg-white dark:bg-[#111c38] text-slate-800 dark:text-slate-200">6+ Months</option>
                       </select>
                     </div>
                   )}

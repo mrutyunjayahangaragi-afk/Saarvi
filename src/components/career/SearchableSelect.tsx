@@ -103,7 +103,7 @@ export default function SearchableSelect({
       onKeyDown={handleKeyDown}
       className={`relative flex-1 min-w-[140px] ${className}`}
     >
-      <label htmlFor={selectId} className="block text-[11px] font-bold text-slate-600 mb-1 truncate">
+      <label htmlFor={selectId} className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1 truncate">
         {label}
       </label>
 

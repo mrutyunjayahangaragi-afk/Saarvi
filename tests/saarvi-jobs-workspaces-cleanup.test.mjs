@@ -12,15 +12,19 @@ test("1. Crawlable Directory Cleanup: No visible link dump in /tools and Footer"
     !toolsPageContent.includes("Crawlable Category Directory"),
     "Visible 'Crawlable Category Directory' must be removed from /tools"
   );
-  // Ensure replaced with clean category workspace navigation
+  // Master Spec: Entire 'Explore by Category' section is removed from public /tools
   assert.ok(
-    toolsPageContent.includes("Explore by Category"),
-    "Replaced with clean 'Explore by Category' section"
+    !toolsPageContent.includes("Explore by Category"),
+    "Explore by Category must be removed from /tools"
   );
-  assert.ok(toolsPageContent.includes('href="/pdf"'), "Links to /pdf workspace");
-  assert.ok(toolsPageContent.includes('href="/images"'), "Links to /images workspace");
-  assert.ok(toolsPageContent.includes('href="/student-tools"'), "Links to /student-tools workspace");
-  assert.ok(toolsPageContent.includes('href="/jobs"'), "Links to /jobs workspace");
+  assert.ok(
+    !toolsPageContent.includes("PDF Workspace"),
+    "PDF Workspace category launcher must be removed from /tools"
+  );
+  assert.ok(
+    toolsPageContent.includes("ToolsCatalogClient"),
+    "Mounts ToolsCatalogClient for unified tool collection"
+  );
 
   const footerContent = fs.readFileSync(path.join(ROOT, "src/components/layout/Footer.tsx"), "utf8");
   assert.ok(footerContent.includes('href="/pdf"'), "Footer links to /pdf");

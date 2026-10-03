@@ -1,89 +1,157 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useTransition } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
+import { usePathname } from "next/navigation";
 
 export type Theme = "light" | "dark" | "system";
 
-interface ThemeContextType {
+export interface ThemeContextType {
   theme: Theme;
   resolvedTheme: "light" | "dark";
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
+  isAdminRoute: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+const STORAGE_KEY = "doc_ease_theme";
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isAdminRoute = Boolean(pathname?.startsWith("/admin"));
+
   const [theme, setThemeState] = useState<Theme>("system");
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
 
+  // Helper to calculate resolved theme for public routes
+  const getPublicResolvedTheme = useCallback((currentTheme: Theme): "light" | "dark" => {
+    if (currentTheme === "dark") return "dark";
+    if (currentTheme === "light") return "light";
+    if (typeof window !== "undefined" && window.matchMedia) {
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    return "light";
+  }, []);
+
+  // Synchronize DOM with the computed active appearance
+  const applyThemeToDOM = useCallback((resolved: "light" | "dark", isForcedLight: boolean) => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+
+    if (isForcedLight || resolved === "light") {
+      root.classList.remove("dark");
+      root.classList.add("light");
+      root.setAttribute("data-theme", "light");
+      root.style.colorScheme = "light";
+    } else {
+      root.classList.remove("light");
+      root.classList.add("dark");
+      root.setAttribute("data-theme", "dark");
+      root.style.colorScheme = "dark";
+    }
+  }, []);
+
+  // Initialize theme from localStorage and bind media query + storage events
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("doc_ease_theme") as Theme | null;
-      const initialTheme: Theme = stored || "system";
+      const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+      const initialTheme: Theme = stored === "dark" || stored === "light" || stored === "system" ? stored : "system";
       setThemeState(initialTheme);
 
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      const publicResolved = getPublicResolvedTheme(initialTheme);
+      const activeResolved = isAdminRoute ? "light" : publicResolved;
+      setResolvedTheme(activeResolved);
+      applyThemeToDOM(activeResolved, isAdminRoute);
 
-      const applyTheme = (t: Theme) => {
-        const isDark =
-          t === "dark" || (t === "system" && mediaQuery.matches);
-        const resolved: "light" | "dark" = isDark ? "dark" : "light";
-        setResolvedTheme(resolved);
-        if (resolved === "dark") {
-          document.documentElement.classList.add("dark");
-        } else {
-          document.documentElement.classList.remove("dark");
+      // Listen for OS system theme changes
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      const handleSystemChange = () => {
+        const currentStored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+        if (!currentStored || currentStored === "system") {
+          const nextPublic = mediaQuery.matches ? "dark" : "light";
+          if (!isAdminRoute) {
+            setResolvedTheme(nextPublic);
+            applyThemeToDOM(nextPublic, false);
+          }
         }
       };
 
-      applyTheme(initialTheme);
-
-      // Listen for system theme changes in real time
-      const handleSystemChange = () => {
-        const currentStored = localStorage.getItem("doc_ease_theme") as Theme | null;
-        if (!currentStored || currentStored === "system") {
-          applyTheme("system");
+      // Listen for cross-tab theme changes (Requirement Part 22)
+      const handleStorageChange = (e: StorageEvent) => {
+        if (e.key === STORAGE_KEY) {
+          const val = (e.newValue as Theme) || "system";
+          setThemeState(val);
+          const nextPublic = getPublicResolvedTheme(val);
+          if (!isAdminRoute) {
+            setResolvedTheme(nextPublic);
+            applyThemeToDOM(nextPublic, false);
+          }
         }
       };
 
       mediaQuery.addEventListener("change", handleSystemChange);
-      return () => mediaQuery.removeEventListener("change", handleSystemChange);
-    } catch {
-      // Non-browser or SSR fallback
-    }
-  }, []);
+      window.addEventListener("storage", handleStorageChange);
 
-  const setTheme = (newTheme: Theme) => {
+      return () => {
+        mediaQuery.removeEventListener("change", handleSystemChange);
+        window.removeEventListener("storage", handleStorageChange);
+      };
+    } catch {
+      // Fallback for non-standard environments
+    }
+  }, [isAdminRoute, getPublicResolvedTheme, applyThemeToDOM]);
+
+  // Handle route transitions between Admin (forced-light) and Public routes (respect user preference)
+  useEffect(() => {
+    if (isAdminRoute) {
+      // Admin route: lock DOM to light without touching stored user preference
+      setResolvedTheme("light");
+      applyThemeToDOM("light", true);
+    } else {
+      // Public route: restore user's saved preference
+      const publicResolved = getPublicResolvedTheme(theme);
+      setResolvedTheme(publicResolved);
+      applyThemeToDOM(publicResolved, false);
+    }
+  }, [isAdminRoute, theme, getPublicResolvedTheme, applyThemeToDOM]);
+
+  // Explicit user action to change preference
+  const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
     try {
       if (newTheme === "system") {
-        localStorage.removeItem("doc_ease_theme");
+        localStorage.setItem(STORAGE_KEY, "system");
       } else {
-        localStorage.setItem("doc_ease_theme", newTheme);
+        localStorage.setItem(STORAGE_KEY, newTheme);
       }
     } catch {}
 
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const isDark =
-      newTheme === "dark" || (newTheme === "system" && mediaQuery.matches);
-    const nextResolved: "light" | "dark" = isDark ? "dark" : "light";
-    setResolvedTheme(nextResolved);
-
-    if (nextResolved === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
+    const publicResolved = getPublicResolvedTheme(newTheme);
+    if (!isAdminRoute) {
+      setResolvedTheme(publicResolved);
+      applyThemeToDOM(publicResolved, false);
     }
-  };
+  }, [isAdminRoute, getPublicResolvedTheme, applyThemeToDOM]);
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     const next = resolvedTheme === "dark" ? "light" : "dark";
     setTheme(next);
-  };
+  }, [resolvedTheme, setTheme]);
+
+  const contextValue = useMemo(
+    () => ({
+      theme,
+      resolvedTheme: isAdminRoute ? "light" : resolvedTheme,
+      setTheme,
+      toggleTheme,
+      isAdminRoute,
+    }),
+    [theme, resolvedTheme, isAdminRoute, setTheme, toggleTheme]
+  );
 
   return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme, toggleTheme }}>
+    <ThemeContext.Provider value={contextValue}>
       {children}
     </ThemeContext.Provider>
   );

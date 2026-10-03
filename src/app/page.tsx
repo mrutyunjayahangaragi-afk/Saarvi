@@ -344,8 +344,8 @@ export default function HomePage() {
                 >
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 group-hover:bg-gradient-to-br group-hover:from-blue-600 group-hover:to-indigo-600 group-hover:text-white group-hover:border-transparent group-hover:-translate-y-0.5 transition-all duration-200 shadow-2xs">
-                        <Icon className="w-5 h-5 transition-transform duration-200 group-hover:scale-105" />
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-300 group-hover:bg-gradient-to-br group-hover:from-blue-600 group-hover:to-indigo-600 group-hover:text-white group-hover:border-transparent group-hover:-translate-y-0.5 transition-all duration-200 shadow-2xs">
+                        <Icon className="block h-5 w-5 shrink-0 transition-transform duration-200 group-hover:scale-105" aria-hidden="true" />
                       </div>
                       <span className="text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200/80 dark:border-slate-700">
                         {tool.badge}

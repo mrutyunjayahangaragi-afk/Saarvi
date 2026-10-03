@@ -155,9 +155,7 @@ export default function CoverLetterPage() {
     load();
   }, []);
 
-  const activeLetter = useMemo(() => {
-    return letters.find((l) => l.id === activeLetterId) || letters[0] || null;
-  }, [letters, activeLetterId]);
+  const activeLetter = letters.find((l) => l.id === activeLetterId) || letters[0] || null;
 
   // Is active letter displaying demonstration sample data?
   const isSampleActive = useMemo(() => {

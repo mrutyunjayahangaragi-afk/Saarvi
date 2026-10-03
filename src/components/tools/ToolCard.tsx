@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ToolDefinition } from "@/types/tool";
 import { getDefaultToolAccessMode, ToolAccessMode } from "@/lib/tools/access-control";
 import { CANONICAL_TOOL_REGISTRY } from "@/lib/tools/tool-registry";
+import ToolCardIcon from "@/components/tools/ToolCardIcon";
 import {
   FileImage,
   FileType,
@@ -119,9 +120,7 @@ export default function ToolCard({ tool, featured = false, onSelect }: ToolCardP
       <div className="space-y-3.5">
         {/* Top: Icon + Access & Processing Badges */}
         <div className="flex items-center justify-between">
-          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 group-hover:bg-gradient-to-br group-hover:from-blue-600 group-hover:to-indigo-600 group-hover:text-white group-hover:-translate-y-0.5 transition-all duration-200 shadow-2xs group-hover:shadow-xs">
-            <IconComponent className="w-5 h-5 transition-transform duration-200 group-hover:scale-105" />
-          </div>
+          <ToolCardIcon icon={IconComponent} />
 
           <div className="flex items-center gap-1.5">
             {featured && (

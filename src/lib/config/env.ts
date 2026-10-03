@@ -24,48 +24,36 @@ export const ENV_SPECS: Record<string, EnvVariableSpec> = {
     description: 'Supabase anonymous/public API key',
     isSecret: false,
   },
-  NEXT_PUBLIC_RAZORPAY_KEY_ID: {
-    name: 'NEXT_PUBLIC_RAZORPAY_KEY_ID',
-    category: 'REQUIRED_IN_PRODUCTION',
-    description: 'Razorpay Key ID used to initialize client-side Checkout modal',
+  NEXT_PUBLIC_CASHFREE_MODE: {
+    name: 'NEXT_PUBLIC_CASHFREE_MODE',
+    category: 'OPTIONAL',
+    description: 'Cashfree Web SDK mode ("sandbox" or "production")',
     isSecret: false,
   },
 
-  // Server-Only
-  BILLING_PROVIDER: {
-    name: 'BILLING_PROVIDER',
+  // Server-Only Cashfree PG
+  CASHFREE_APP_ID: {
+    name: 'CASHFREE_APP_ID',
     category: 'REQUIRED_IN_PRODUCTION',
-    description: 'Payment provider ("razorpay" for production, "sandbox" for dev/testing)',
+    description: 'Cashfree PG Application ID',
     isSecret: false,
   },
-  RAZORPAY_KEY_ID: {
-    name: 'RAZORPAY_KEY_ID',
+  CASHFREE_SECRET_KEY: {
+    name: 'CASHFREE_SECRET_KEY',
     category: 'REQUIRED_IN_PRODUCTION',
-    description: 'Razorpay API Key ID used on server',
-    isSecret: false,
-  },
-  RAZORPAY_KEY_SECRET: {
-    name: 'RAZORPAY_KEY_SECRET',
-    category: 'REQUIRED_IN_PRODUCTION',
-    description: 'Razorpay API Key Secret used for server-side calls',
+    description: 'Cashfree PG Secret Key used for HMAC webhook verification and orders API',
     isSecret: true,
   },
-  RAZORPAY_WEBHOOK_SECRET: {
-    name: 'RAZORPAY_WEBHOOK_SECRET',
-    category: 'REQUIRED_IN_PRODUCTION',
-    description: 'Cryptographic secret used to verify Razorpay HMAC signatures',
-    isSecret: true,
-  },
-  RAZORPAY_PRO_MONTHLY_PLAN_ID: {
-    name: 'RAZORPAY_PRO_MONTHLY_PLAN_ID',
-    category: 'REQUIRED_IN_PRODUCTION',
-    description: 'Razorpay plan ID for monthly Pro subscription',
+  CASHFREE_API_VERSION: {
+    name: 'CASHFREE_API_VERSION',
+    category: 'OPTIONAL',
+    description: 'Cashfree PG API Version (default: 2023-08-01)',
     isSecret: false,
   },
-  RAZORPAY_PRO_YEARLY_PLAN_ID: {
-    name: 'RAZORPAY_PRO_YEARLY_PLAN_ID',
+  CASHFREE_ENVIRONMENT: {
+    name: 'CASHFREE_ENVIRONMENT',
     category: 'REQUIRED_IN_PRODUCTION',
-    description: 'Razorpay plan ID for yearly Pro subscription',
+    description: 'Cashfree PG Environment ("SANDBOX" or "PRODUCTION")',
     isSecret: false,
   },
   SUPABASE_SERVICE_ROLE_KEY: {
@@ -201,50 +189,24 @@ export function validateEnvironment(env: Record<string, string | undefined> = pr
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  const provider = (env.BILLING_PROVIDER || 'razorpay').toLowerCase();
-  const rzpKeyId = env.RAZORPAY_KEY_ID || '';
-  const rzpKeySecret = env.RAZORPAY_KEY_SECRET || '';
-  const rzpWebhookSecret = env.RAZORPAY_WEBHOOK_SECRET || '';
-  const rzpMonthlyPlan = env.RAZORPAY_PRO_MONTHLY_PLAN_ID || '';
-  const rzpYearlyPlan = env.RAZORPAY_PRO_YEARLY_PLAN_ID || '';
-  const publicRzpKeyId = env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '';
+  const cfAppId = env.CASHFREE_APP_ID || '';
+  const cfSecretKey = env.CASHFREE_SECRET_KEY || '';
+  const cfEnv = (env.CASHFREE_ENVIRONMENT || 'SANDBOX').toUpperCase();
 
-  const billingConfigured = Boolean(
-    rzpKeyId && rzpKeySecret && rzpWebhookSecret && publicRzpKeyId
-  );
+  const billingConfigured = Boolean(cfAppId && cfSecretKey);
 
-  // 1. Production Config Guards (Section 42 & 9)
+  // 1. Production Config Guards (Cashfree Only)
   if (isProduction) {
-    if (provider === 'sandbox') {
-      errors.push('CRITICAL: BILLING_PROVIDER=sandbox is strictly forbidden in production.');
+    if (cfEnv !== 'PRODUCTION') {
+      errors.push('CRITICAL: CASHFREE_ENVIRONMENT must be set to PRODUCTION in production.');
     }
 
-    if (rzpKeyId.startsWith('rzp_test_')) {
-      errors.push('CRITICAL: Razorpay Test Mode credentials (rzp_test_*) cannot be deployed to production. Live credentials (rzp_live_*) are required.');
+    if (!cfAppId) {
+      errors.push('Missing required production variable: CASHFREE_APP_ID.');
     }
 
-    if (!rzpKeyId) {
-      errors.push('Missing required production variable: RAZORPAY_KEY_ID.');
-    }
-
-    if (!rzpKeySecret) {
-      errors.push('Missing required production variable: RAZORPAY_KEY_SECRET.');
-    }
-
-    if (!rzpWebhookSecret) {
-      errors.push('Missing required production variable: RAZORPAY_WEBHOOK_SECRET.');
-    }
-
-    if (!publicRzpKeyId) {
-      errors.push('Missing required production variable: NEXT_PUBLIC_RAZORPAY_KEY_ID.');
-    }
-
-    if (!rzpMonthlyPlan) {
-      errors.push('Missing required production variable: RAZORPAY_PRO_MONTHLY_PLAN_ID.');
-    }
-
-    if (!rzpYearlyPlan) {
-      errors.push('Missing required production variable: RAZORPAY_PRO_YEARLY_PLAN_ID.');
+    if (!cfSecretKey) {
+      errors.push('Missing required production variable: CASHFREE_SECRET_KEY.');
     }
   } else if (!isTest) {
     // Development / Preview warnings
@@ -253,9 +215,9 @@ export function validateEnvironment(env: Record<string, string | undefined> = pr
         'Billing is unconfigured or partially configured. Free document tools remain fully operational.'
       );
     }
-    if (provider === 'razorpay' && rzpKeyId && !rzpKeyId.startsWith('rzp_test_')) {
+    if (cfEnv === 'PRODUCTION') {
       warnings.push(
-        'Warning: Live Razorpay key detected in non-production environment.'
+        'Warning: CASHFREE_ENVIRONMENT=PRODUCTION configured in non-production environment.'
       );
     }
   }

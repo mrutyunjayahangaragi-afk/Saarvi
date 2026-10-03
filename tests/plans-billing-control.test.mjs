@@ -75,10 +75,10 @@ test('SAARVI PLANS & BILLING CONTROL CENTER TEST SUITE', async (t) => {
     assert.match(serviceFile, /saveNotification/);
   });
 
-  await t.test('7. Clean Plans Page Architecture: No inline forms/QR codes, dynamic discount percentage', () => {
+  await t.test('7. Clean Plans Page Architecture: Direct Cashfree checkout, dynamic discount percentage', () => {
     const plansPage = fs.readFileSync(path.join(rootDir, 'src/app/plans/page.tsx'), 'utf8');
-    // Verifies PaymentMethodModal integration
-    assert.match(plansPage, /PaymentMethodModal/);
+    // Verifies direct Cashfree checkout integration
+    assert.match(plansPage, /initiateCashfreeCheckout/);
     assert.match(plansPage, /Simple, Honest Pricing/);
     assert.match(plansPage, /Simple, Transparent &amp; Private by Design/);
     // Verifies dynamic discount percentage calculation
@@ -107,10 +107,10 @@ test('SAARVI PLANS & BILLING CONTROL CENTER TEST SUITE', async (t) => {
     assert.match(modalFile, /Manual UPI payments are reviewed by the Saarvi team within/);
   });
 
-  await t.test('9. User Dashboard Billing: Expiration handling and real Razorpay orders history', () => {
+  await t.test('9. User Dashboard Billing: Expiration handling and real Cashfree orders history', () => {
     const dashboardBilling = fs.readFileSync(path.join(rootDir, 'src/app/dashboard/billing/page.tsx'), 'utf8');
     assert.match(dashboardBilling, /paymentOrders/);
-    assert.match(dashboardBilling, /Razorpay Payments (&amp;|&) Billing History/);
+    assert.match(dashboardBilling, /Payment &amp; Billing History/);
     assert.match(dashboardBilling, /Expires On/);
   });
 

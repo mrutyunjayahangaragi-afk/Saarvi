@@ -657,3 +657,226 @@ export function calculateAcademicGoal(
     explanation: `To achieve your goal CGPA of ${targetCgpa}, you need an average SGPA of at least ${requiredSgpa} across your remaining ${remainingCredits} credits.`,
   };
 }
+
+// =============================================================================
+// ADVANCED ACADEMIC INTELLIGENCE ENGINES (Prompt Section 23, 24, 28, 29)
+// =============================================================================
+
+export interface WhatIfCoursePrediction {
+  courseCode: string;
+  courseTitle: string;
+  credits: number;
+  gradePoint: number;
+}
+
+export interface WhatIfSimulationResult {
+  currentCgpa: number;
+  currentCredits: number;
+  projectedSemesterSgpa: number;
+  projectedCredits: number;
+  projectedNewCgpa: number;
+  cgpaDelta: number;
+  explanation: string;
+}
+
+/**
+ * What-If Academic Simulator (Prompt Section 28)
+ * Models future semester subjects and grades without modifying official historical records.
+ */
+export function calculateWhatIfSimulation(
+  historicalSemesters: Array<{ sgpa: number; totalCredits: number }>,
+  projectedCourses: WhatIfCoursePrediction[]
+): WhatIfSimulationResult {
+  // 1. Current historical baseline
+  let currentCreditPoints = 0;
+  let currentCredits = 0;
+
+  for (const s of historicalSemesters) {
+    if (s.totalCredits > 0 && s.sgpa > 0) {
+      currentCredits += s.totalCredits;
+      currentCreditPoints += s.sgpa * s.totalCredits;
+    }
+  }
+
+  const currentCgpa = currentCredits > 0 ? roundTo(currentCreditPoints / currentCredits, 2) : 0;
+
+  // 2. Projected semester calculations
+  let projectedCredits = 0;
+  let projectedCreditPoints = 0;
+
+  for (const c of projectedCourses) {
+    if (c.credits > 0) {
+      projectedCredits += c.credits;
+      projectedCreditPoints += c.credits * Math.max(0, Math.min(10, c.gradePoint));
+    }
+  }
+
+  const projectedSemesterSgpa =
+    projectedCredits > 0 ? roundTo(projectedCreditPoints / projectedCredits, 2) : 0;
+
+  // 3. New projected cumulative CGPA
+  const combinedCredits = currentCredits + projectedCredits;
+  const combinedPoints = currentCreditPoints + projectedCreditPoints;
+  const projectedNewCgpa =
+    combinedCredits > 0 ? roundTo(combinedPoints / combinedCredits, 2) : currentCgpa;
+
+  const cgpaDelta = roundTo(projectedNewCgpa - currentCgpa, 2);
+
+  const explanation =
+    cgpaDelta >= 0
+      ? `Achieving an estimated SGPA of ${projectedSemesterSgpa} in this future semester will increase your CGPA by +${cgpaDelta} (from ${currentCgpa} to ${projectedNewCgpa}).`
+      : `Achieving an estimated SGPA of ${projectedSemesterSgpa} will result in a CGPA of ${projectedNewCgpa} (${cgpaDelta} from current ${currentCgpa}).`;
+
+  return {
+    currentCgpa,
+    currentCredits,
+    projectedSemesterSgpa,
+    projectedCredits,
+    projectedNewCgpa,
+    cgpaDelta,
+    explanation,
+  };
+}
+
+export interface BacklogAnalysisResult {
+  activeBacklogs: Array<{ courseCode: string; courseTitle: string; semester: number; credits: number }>;
+  clearedBacklogs: Array<{ courseCode: string; courseTitle: string; semester: number; clearedGrade: string }>;
+  activeCount: number;
+  clearedCount: number;
+  hasActiveBacklogs: boolean;
+}
+
+/**
+ * Backlog Tracking Engine (Prompt Section 23)
+ * Analyzes active vs. cleared failures across all semesters and revaluation versions.
+ */
+export function analyzeBacklogs(
+  semesters: Array<{
+    semester: number;
+    courses?: Array<{
+      courseCode: string;
+      courseTitle: string;
+      credits: number;
+      grade: string;
+      gradePoint?: number;
+      isPassed?: boolean;
+      resultStatus?: string;
+    }>;
+    subjects?: Array<{
+      courseCode: string;
+      courseTitle: string;
+      credits: number;
+      grade: string;
+      gradePoint?: number;
+      isPassed?: boolean;
+      resultStatus?: string;
+    }>;
+  }>
+): BacklogAnalysisResult {
+  const courseAttempts = new Map<
+    string,
+    Array<{ semester: number; courseTitle: string; credits: number; grade: string; isPassed: boolean }>
+  >();
+
+  for (const sem of semesters) {
+    const list = sem.courses || sem.subjects || [];
+    for (const c of list) {
+      const code = c.courseCode.toUpperCase();
+      if (!courseAttempts.has(code)) {
+        courseAttempts.set(code, []);
+      }
+      const isPassed = c.isPassed !== undefined ? c.isPassed : c.resultStatus === 'P';
+      courseAttempts.get(code)!.push({
+        semester: sem.semester,
+        courseTitle: c.courseTitle,
+        credits: c.credits,
+        grade: c.grade,
+        isPassed,
+      });
+    }
+  }
+
+  const activeBacklogs: BacklogAnalysisResult['activeBacklogs'] = [];
+  const clearedBacklogs: BacklogAnalysisResult['clearedBacklogs'] = [];
+
+  for (const [code, attempts] of courseAttempts.entries()) {
+    // Sort chronologically by semester
+    attempts.sort((a, b) => a.semester - b.semester);
+    const hadFail = attempts.some((a) => !a.isPassed || a.grade === 'F');
+    const latestAttempt = attempts[attempts.length - 1];
+
+    if (!latestAttempt.isPassed || latestAttempt.grade === 'F') {
+      activeBacklogs.push({
+        courseCode: code,
+        courseTitle: latestAttempt.courseTitle,
+        semester: latestAttempt.semester,
+        credits: latestAttempt.credits,
+      });
+    } else if (hadFail && latestAttempt.isPassed) {
+      clearedBacklogs.push({
+        courseCode: code,
+        courseTitle: latestAttempt.courseTitle,
+        semester: latestAttempt.semester,
+        clearedGrade: latestAttempt.grade,
+      });
+    }
+  }
+
+  return {
+    activeBacklogs,
+    clearedBacklogs,
+    activeCount: activeBacklogs.length,
+    clearedCount: clearedBacklogs.length,
+    hasActiveBacklogs: activeBacklogs.length > 0,
+  };
+}
+
+export interface CreditTrackerResult {
+  attemptedCredits: number;
+  earnedCredits: number;
+  excludedCredits: number;
+  completedPercentage: number;
+}
+
+/**
+ * Credit Accounting Engine (Prompt Section 24)
+ * Respects non-credit and audit exclusions while calculating earned vs. attempted credits.
+ */
+export function calculateCreditBreakdown(
+  courses: Array<{
+    credits: number;
+    isPassed: boolean;
+    includedInSGPA?: boolean;
+    includedInCGPA?: boolean;
+  }>,
+  totalDegreeCreditsRequired = 160
+): CreditTrackerResult {
+  let attemptedCredits = 0;
+  let earnedCredits = 0;
+  let excludedCredits = 0;
+
+  for (const c of courses) {
+    if (c.includedInSGPA === false || c.credits <= 0) {
+      excludedCredits += Math.max(0, c.credits);
+      continue;
+    }
+
+    attemptedCredits += c.credits;
+    if (c.isPassed) {
+      earnedCredits += c.credits;
+    }
+  }
+
+  const completedPercentage =
+    totalDegreeCreditsRequired > 0
+      ? roundTo((earnedCredits / totalDegreeCreditsRequired) * 100, 1)
+      : 0;
+
+  return {
+    attemptedCredits,
+    earnedCredits,
+    excludedCredits,
+    completedPercentage: Math.min(100, completedPercentage),
+  };
+}
+

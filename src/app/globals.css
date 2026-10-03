@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* 
  * Saarvi Centralized Design Tokens & 3D Visual System
@@ -6,6 +7,38 @@
  */
 
 :root {
+  color-scheme: light;
+
+  /* Semantic Design Tokens (Requirement Part 15) */
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --surface-muted: #f1f5f9;
+  --surface-hover: #f1f5f9;
+  --surface-active: #e2e8f0;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --border: #e2e8f0;
+  --border-subtle: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --muted: #64748b;
+  --muted-foreground: #94a3b8;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #eff6ff;
+  --secondary-foreground: #1d4ed8;
+  --accent: #eff6ff;
+  --accent-foreground: #2563eb;
+  --input: #e2e8f0;
+  --ring: #2563eb;
+  --success: #047857;
+  --warning: #b45309;
+  --danger: #b91c1c;
+  --info: #0284c7;
+
   /* Surface & Background */
   --canvas-bg: #f8fafc;
   --canvas-grid: rgba(148, 163, 184, 0.12);
@@ -148,6 +181,38 @@
 }
 
 .dark {
+  color-scheme: dark;
+
+  /* Semantic Design Tokens (Requirement Part 15) */
+  --background: #0b1329;
+  --foreground: #f8fafc;
+  --surface: #111c38;
+  --surface-elevated: #162244;
+  --surface-muted: #0f1934;
+  --surface-hover: #1c2b54;
+  --surface-active: #2a3d66;
+  --card: #111c38;
+  --card-foreground: #f8fafc;
+  --popover: #111c38;
+  --popover-foreground: #f8fafc;
+  --border: #1e2e50;
+  --border-subtle: #1e2e50;
+  --border-strong: #2a3d66;
+  --muted: #94a3b8;
+  --muted-foreground: #64748b;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #162244;
+  --secondary-foreground: #60a5fa;
+  --accent: rgba(59, 130, 246, 0.15);
+  --accent-foreground: #60a5fa;
+  --input: #1e2e50;
+  --ring: #3b82f6;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --info: #38bdf8;
+
   /* Dark Surface & Background */
   --canvas-bg: #0b1329;
   --canvas-grid: rgba(255, 255, 255, 0.05);
@@ -203,6 +268,50 @@
 
   --saarvi-shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.35);
   --saarvi-shadow-card-hover: 0 12px 24px -4px rgba(0, 0, 0, 0.5), 0 0 12px rgba(59, 130, 246, 0.15);
+}
+
+/* Forced Light Boundary for Admin Portal (Part 4, 15, 17) */
+.forced-light,
+.admin-layout,
+.admin-portal,
+[data-theme="light"] {
+  color-scheme: light !important;
+  --background: #f8fafc !important;
+  --foreground: #0f172a !important;
+  --canvas-bg: #f8fafc !important;
+  --canvas-grid: rgba(148, 163, 184, 0.12) !important;
+  --surface-base: #ffffff !important;
+  --surface-elevated: #ffffff !important;
+  --surface-hover: #f1f5f9 !important;
+  --surface-subtle: #f8fafc !important;
+  --surface-glass: rgba(255, 255, 255, 0.85) !important;
+  --text-main: #0f172a !important;
+  --text-muted: #64748b !important;
+  --text-subtle: #94a3b8 !important;
+  --border-subtle: #e2e8f0 !important;
+  --border-medium: #cbd5e1 !important;
+  --border-focus: #2563eb !important;
+  --saarvi-surface: #ffffff !important;
+  --saarvi-text: #0f172a !important;
+  --saarvi-muted: #64748b !important;
+  --saarvi-border: #e2e8f0 !important;
+  --card: #ffffff !important;
+  --card-foreground: #0f172a !important;
+}
+
+/* Ensure native select and options render properly in Dark Mode (Part 10, 11) */
+.dark select,
+.dark select option {
+  background-color: #111c38;
+  color: #f8fafc;
+}
+
+.light select,
+.light select option,
+.forced-light select,
+.forced-light select option {
+  background-color: #ffffff;
+  color: #0f172a;
 }
 
 body {

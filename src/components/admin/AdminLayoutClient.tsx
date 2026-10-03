@@ -10,7 +10,11 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
 
   return (
     <AdminGuard>
-      <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0b1329] flex flex-row text-slate-900 dark:text-white font-sans antialiased">
+      <div
+        className="min-h-screen bg-[#f8fafc] flex flex-row text-slate-900 font-sans antialiased forced-light light"
+        data-theme="light"
+        style={{ colorScheme: 'light' }}
+      >
         {/* Left Sidebar */}
         <AdminSidebar
           mobileOpen={mobileSidebarOpen}

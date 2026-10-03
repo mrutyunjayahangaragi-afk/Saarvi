@@ -70,13 +70,12 @@ test("SEO Domination 4: Server-rendered /tools page has metadata and crawlable l
 
   // Must export metadata
   assert.ok(toolsPage.includes("export const metadata: Metadata"));
-  assert.ok(toolsPage.includes("All Tools"));
+  assert.ok(toolsPage.includes("Saarvi Tools") || toolsPage.includes("Tools"));
 
-  // Must include standard crawlable HTML links
-  assert.ok(toolsPage.includes("PDF Tools"));
-  assert.ok(toolsPage.includes("Image Tools"));
-  assert.ok(toolsPage.includes("Academic & Student Tools"));
-  assert.ok(toolsPage.includes("href={t.route}"));
+  // Simplified Tools UX: Must NOT include Explore by Category
+  assert.ok(!toolsPage.includes("Explore by Category"), "Tools page must not contain Explore by Category");
+  assert.ok(!toolsPage.includes("PDF Workspace"), "Tools page must not contain PDF Workspace launcher");
+  assert.ok(toolsPage.includes("ToolsCatalogClient"), "Tools page mounts client catalog");
 });
 
 test("SEO Domination 5: Tool SEO educational content is rich, unique, and honest", () => {

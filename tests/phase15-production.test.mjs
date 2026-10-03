@@ -224,55 +224,41 @@ test('Phase 15 - Section 26: Manual Download Now and Download Again intentionall
 
 import { validateEnvironment } from '../src/lib/config/env.ts';
 
-test('Phase 15 - Section 42: Production rejects BILLING_PROVIDER=sandbox', () => {
+test('Phase 15 - Section 42: Production rejects CASHFREE_ENVIRONMENT=SANDBOX in production', () => {
   const env = {
     NODE_ENV: 'production',
-    BILLING_PROVIDER: 'sandbox',
-    RAZORPAY_KEY_ID: 'rzp_live_testkey',
-    RAZORPAY_KEY_SECRET: 'live_secret',
-    RAZORPAY_WEBHOOK_SECRET: 'live_wh_secret',
-    NEXT_PUBLIC_RAZORPAY_KEY_ID: 'rzp_live_testkey',
-    RAZORPAY_PRO_MONTHLY_PLAN_ID: 'plan_live_month',
-    RAZORPAY_PRO_YEARLY_PLAN_ID: 'plan_live_year',
+    CASHFREE_ENVIRONMENT: 'SANDBOX',
+    CASHFREE_APP_ID: 'cf_app_123',
+    CASHFREE_SECRET_KEY: 'cf_sec_123',
   };
 
   const result = validateEnvironment(env);
   assert.equal(result.valid, false);
-  assert.ok(result.errors.some((e) => e.includes('sandbox is strictly forbidden in production')));
+  assert.ok(result.errors.some((e) => e.includes('CASHFREE_ENVIRONMENT must be set to PRODUCTION')));
 });
 
-test('Phase 15 - Section 9 & 42: Production rejects Razorpay Test Mode credentials (rzp_test_*)', () => {
+test('Phase 15 - Section 9 & 42: Production rejects missing CASHFREE_APP_ID', () => {
   const env = {
     NODE_ENV: 'production',
-    BILLING_PROVIDER: 'razorpay',
-    RAZORPAY_KEY_ID: 'rzp_test_1234567890',
-    RAZORPAY_KEY_SECRET: 'test_secret',
-    RAZORPAY_WEBHOOK_SECRET: 'wh_secret',
-    NEXT_PUBLIC_RAZORPAY_KEY_ID: 'rzp_test_1234567890',
-    RAZORPAY_PRO_MONTHLY_PLAN_ID: 'plan_m',
-    RAZORPAY_PRO_YEARLY_PLAN_ID: 'plan_y',
+    CASHFREE_ENVIRONMENT: 'PRODUCTION',
+    CASHFREE_SECRET_KEY: 'cf_sec_123',
   };
 
   const result = validateEnvironment(env);
   assert.equal(result.valid, false);
-  assert.ok(result.errors.some((e) => e.includes('rzp_test_*') || e.includes('Live credentials')));
+  assert.ok(result.errors.some((e) => e.includes('CASHFREE_APP_ID')));
 });
 
-test('Phase 15 - Section 42: Production rejects missing production plan IDs', () => {
+test('Phase 15 - Section 42: Production rejects missing CASHFREE_SECRET_KEY', () => {
   const env = {
     NODE_ENV: 'production',
-    BILLING_PROVIDER: 'razorpay',
-    RAZORPAY_KEY_ID: 'rzp_live_realid',
-    RAZORPAY_KEY_SECRET: 'live_sec',
-    RAZORPAY_WEBHOOK_SECRET: 'live_wh',
-    NEXT_PUBLIC_RAZORPAY_KEY_ID: 'rzp_live_realid',
-    // Missing RAZORPAY_PRO_MONTHLY_PLAN_ID and YEARLY
+    CASHFREE_ENVIRONMENT: 'PRODUCTION',
+    CASHFREE_APP_ID: 'cf_app_123',
   };
 
   const result = validateEnvironment(env);
   assert.equal(result.valid, false);
-  assert.ok(result.errors.some((e) => e.includes('RAZORPAY_PRO_MONTHLY_PLAN_ID')));
-  assert.ok(result.errors.some((e) => e.includes('RAZORPAY_PRO_YEARLY_PLAN_ID')));
+  assert.ok(result.errors.some((e) => e.includes('CASHFREE_SECRET_KEY')));
 });
 
 test('Phase 15 - Section 3: Rejects secrets prefixed with NEXT_PUBLIC_', () => {

@@ -32,6 +32,7 @@ import {
   SlidersHorizontal,
   FileCheck2,
   Calculator,
+  Sparkles,
 } from "lucide-react";
 import { revealDestination } from "@/lib/ux/action-destination";
 
@@ -922,8 +923,32 @@ export default function SGPACalculatorPage() {
             SGPA Calculator
           </h1>
           <p className="text-sm text-slate-500 leading-relaxed">
-            Official syllabus credits and codes loaded dynamically. Enter your CIE & SEE marks to calculate your deterministic semester SGPA.
+            Official syllabus credits and codes loaded dynamically. Enter your CIE &amp; SEE marks to calculate your deterministic semester SGPA.
           </p>
+        </div>
+
+        {/* Result Import Promotion Banner (Prompt Section 1 & 2) */}
+        <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                Zero Typing: Import Your VTU Result Directly
+              </h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Enter your USN or upload your official marksheet PDF to auto-populate all subjects, credits, and SGPA.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/student/academic-center"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shrink-0 transition shadow-xs"
+          >
+            <span>Open Result Center</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
 
         {/* MODE TOGGLE: Curriculum Engine vs Custom */}
