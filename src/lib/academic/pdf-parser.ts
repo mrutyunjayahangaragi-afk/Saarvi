@@ -50,9 +50,9 @@ export function validatePdfBytes(buffer: ArrayBuffer, maxBytes = 15 * 1024 * 102
 export async function extractPdfTextItems(buffer: ArrayBuffer): Promise<string> {
   const pdfjsLib = await import('pdfjs-dist');
 
-  // Configure standard worker or fallback
-  if (!pdfjsLib.GlobalWorkerOptions.workerSrc && typeof window !== 'undefined') {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+  // Configure local worker bundled in public/
+  if (typeof window !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
   }
 
   const loadingTask = pdfjsLib.getDocument({
