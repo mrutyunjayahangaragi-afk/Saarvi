@@ -107,17 +107,6 @@ export class OfficialCurriculumProvider implements AcademicSubjectProvider {
       }
     }
 
-    // Exclude archived subjects
-    const archivedSubjects = academicServerStore.getSubjects({
-      universityId: scope.universityId,
-      schemeId: scope.schemeId,
-      branchId: scope.branchId,
-      semester: scope.semester,
-      status: 'ARCHIVED',
-    });
-    const archivedCodes = new Set(archivedSubjects.map((s) => s.subjectCode.toUpperCase()));
-    const unarchivedResults = results.filter((r) => !archivedCodes.has(r.subjectCode.toUpperCase()));
-
     // 3. Check MockStorage verified subjects
     const storedSubjects = MockStorageProvider.getAcademicSubjects({
       universityId: scope.universityId,
