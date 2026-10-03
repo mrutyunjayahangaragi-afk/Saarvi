@@ -52,7 +52,7 @@ export function CashfreeUpgradeModal({
 
       // 2. Open Cashfree Web Checkout using the Payment Session ID
       const mode =
-        process.env.NEXT_PUBLIC_CASHFREE_MODE === 'PRODUCTION'
+        (process.env.NEXT_PUBLIC_CASHFREE_MODE || '').toLowerCase() === 'production'
           ? 'production'
           : 'sandbox';
 
