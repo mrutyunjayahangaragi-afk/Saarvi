@@ -267,7 +267,7 @@ export default function BillingDashboardPage() {
         </div>
       </div>
 
-      {/* Cashfree Payments & Billing History */}
+      {/* Razorpay Payments & Billing History */}
       <div className="bg-white dark:bg-[#111c38] rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 space-y-4 shadow-xs">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
@@ -276,7 +276,7 @@ export default function BillingDashboardPage() {
               <span>Payment &amp; Billing History</span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Authoritative transaction records and receipts processed via Cashfree Payments.
+              Authoritative transaction records and receipts processed via Razorpay Payments.
             </p>
           </div>
         </div>

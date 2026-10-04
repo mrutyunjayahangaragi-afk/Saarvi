@@ -1,6 +1,6 @@
-// DocEase Phase 14A: Razorpay Server Client Integration
+// Saarvi Razorpay Server Client Integration
 // Instantiates the official Razorpay SDK strictly on the server.
-// Enforces environment variable validation, plan ID resolution, and zero client leakage.
+// Enforces environment variable validation, plan resolution, and zero secret leakage.
 
 import Razorpay from 'razorpay';
 
@@ -19,7 +19,8 @@ export interface RazorpayEnvConfig {
  * Never logs or exposes secret keys.
  */
 export function getRazorpayServerConfig(): RazorpayEnvConfig {
-  const keyId = process.env.RAZORPAY_KEY_ID || '';
+  const keyId =
+    process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '';
   const keySecret = process.env.RAZORPAY_KEY_SECRET || '';
   const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || '';
   const monthlyPlanId =

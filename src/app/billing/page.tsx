@@ -8,8 +8,6 @@ import {
   ShieldCheck,
   Calendar,
   Clock,
-  ArrowRight,
-  AlertTriangle,
   CheckCircle2,
   RefreshCw,
   Receipt,
@@ -21,7 +19,7 @@ import PlanBadge from '@/components/plan/PlanBadge';
 
 export default function BillingPage() {
   const { user } = useAuth();
-  const { isPro, plan, refreshPlan } = usePlan();
+  const { isPro, plan, refreshPlan, entitlement } = usePlan();
 
   const [paymentOrders, setPaymentOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,18 +87,18 @@ export default function BillingPage() {
 
   if (!user) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center p-4">
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-[#060b18]">
         <div className="w-full max-w-md bg-white dark:bg-[#0b1329] rounded-3xl border border-slate-200 dark:border-slate-800 p-8 text-center shadow-lg space-y-4">
           <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 mx-auto flex items-center justify-center">
             <CreditCard className="w-6 h-6" />
           </div>
           <h2 className="text-xl font-black text-slate-900 dark:text-white">Sign In Required</h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Sign in to view your Saarvi Pro plan, subscription status, and Cashfree payment receipts.
+            Sign in to view your Saarvi Pro plan, subscription status, and payment receipts.
           </p>
           <Link
             href="/login?redirect=/billing"
-            className="block w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-colors shadow-md"
+            className="block w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-colors shadow-md min-h-[44px] flex items-center justify-center"
           >
             Sign in
           </Link>
@@ -110,7 +108,7 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/60 dark:bg-[#060b18] py-10 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50/60 dark:bg-[#060b18] py-10 px-4 sm:px-6 lg:px-8 text-slate-900 dark:text-slate-100 transition-colors">
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -130,7 +128,7 @@ export default function BillingPage() {
               type="button"
               onClick={handleManualRefresh}
               disabled={refreshing}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer min-h-[44px]"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
               <span>Refresh Status</span>
@@ -138,7 +136,7 @@ export default function BillingPage() {
             {!isPro && (
               <Link
                 href="/plans"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-sm"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-sm min-h-[44px]"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Upgrade to Pro</span>
@@ -179,7 +177,11 @@ export default function BillingPage() {
               <div>
                 <div className="text-slate-400 dark:text-slate-500 text-[11px] font-semibold">Access Type</div>
                 <div className="text-slate-900 dark:text-white font-bold mt-0.5">
-                  {isPro ? 'Full Pro Access (30 Days)' : 'Free Standard Student Tools'}
+                  {isPro
+                    ? entitlement?.expiresAt
+                      ? `Full Pro Access (Expires: ${new Date(entitlement.expiresAt).toLocaleDateString()})`
+                      : 'Full Pro Access (30 Days)'
+                    : 'Free Standard Student Tools'}
                 </div>
               </div>
             </div>
@@ -189,7 +191,7 @@ export default function BillingPage() {
               <div>
                 <div className="text-slate-400 dark:text-slate-500 text-[11px] font-semibold">Payment Gateway</div>
                 <div className="text-slate-900 dark:text-white font-bold mt-0.5">
-                  Cashfree Payments (Server-Verified)
+                  Razorpay (Server-Verified)
                 </div>
               </div>
             </div>
@@ -203,7 +205,7 @@ export default function BillingPage() {
               <Receipt className="w-5 h-5 text-slate-400" />
               <h2 className="text-lg font-black text-slate-900 dark:text-white">Payment History</h2>
             </div>
-            <span className="text-xs text-slate-400">Cashfree</span>
+            <span className="text-xs text-slate-400 font-medium">Razorpay</span>
           </div>
 
           {loading ? (
@@ -215,7 +217,7 @@ export default function BillingPage() {
             <div className="py-10 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl space-y-2">
               <FileText className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
               <p className="text-xs font-bold text-slate-700 dark:text-slate-300">No payment orders recorded yet</p>
-              <p className="text-[11px] text-slate-400">When you upgrade to Saarvi Pro via Cashfree, orders appear here.</p>
+              <p className="text-[11px] text-slate-400">When you upgrade to Saarvi Pro via Razorpay, orders appear here.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -236,14 +238,14 @@ export default function BillingPage() {
                       month: 'short',
                       year: 'numeric',
                     });
-                    const amt = Number(ord.amount_paise || ord.amountCents || 0) / 100;
+                    const amt = Number(ord.amount_paise || ord.amountCents || (ord.amount ? ord.amount * 100 : 0)) / 100;
                     return (
                       <tr key={ord.id || ord.orderReference} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                         <td className="py-4 font-medium text-slate-600 dark:text-slate-300">{dateStr}</td>
                         <td className="py-4 font-bold text-slate-900 dark:text-white">Saarvi Pro</td>
                         <td className="py-4 font-black text-slate-900 dark:text-white">₹{amt}</td>
                         <td className="py-4">{getOrderStatusBadge(ord.status)}</td>
-                        <td className="py-4 font-semibold text-slate-500 dark:text-slate-400">Cashfree</td>
+                        <td className="py-4 font-semibold text-slate-500 dark:text-slate-400">Razorpay</td>
                       </tr>
                     );
                   })}

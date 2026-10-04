@@ -1,31 +1,28 @@
 /**
  * POST /api/payments/create-order
  *
- * Server-Authoritative Cashfree Order Creation (Prompt Section 8 & 13)
- * - Authenticates Saarvi user
- * - Derives price and duration server-side from canonical PRO_PRICING
- * - Rejects any client-submitted price, amount, or currency
- * - Creates internal record in payment_orders
- * - Invokes Cashfree Orders API
- * - Returns ONLY safe checkout session data to browser (never returns secret keys)
+ * Canonical Server-Authoritative Razorpay Order Creation API
+ * - Authenticates user identity
+ * - Reads plan and interval from authoritative server catalog (PRO_PRICING / CANONICAL_PLANS)
+ * - Strictly detects and rejects any client-submitted pricing, amounts, or currency overrides
+ * - Generates unique receipt
+ * - Creates server Razorpay Order via official SDK
+ * - Returns safe client checkout payload (orderId, amount, currency, keyId, etc.)
+ * - Never leaks provider secrets to the browser
  */
 
 import { NextResponse } from 'next/server';
-import crypto from 'node:crypto';
-import { CashfreeService } from '@/lib/payments/cashfree';
-import { PRO_PRICING } from '@/config/pricing';
-import { CANONICAL_PRO_PLAN } from '@/config/plans';
-import { BillingInterval } from '@/types/plan';
-import { getAuthenticatedNotificationUser } from '@/lib/notifications/auth-helper';
-import { getSupabaseAdminClient } from '@/lib/supabase/admin';
-import { isSupabaseConfigured } from '@/lib/supabase/config';
+import { razorpayPaymentService } from '@/lib/billing/razorpay-service';
 import { checkRateLimit } from '@/lib/billing/rateLimit';
+import { getAuthenticatedNotificationUser } from '@/lib/notifications/auth-helper';
+import { isSupabaseConfigured } from '@/lib/supabase/config';
+import { BillingInterval } from '@/types/plan';
 
 export async function POST(request: Request) {
   try {
     // 1. IP Rate Limiting (20 order creations per minute per IP)
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown_ip';
-    const rateCheck = checkRateLimit(`cf_order:${ip}`, 20, 60000);
+    const rateCheck = checkRateLimit(`rzp_order:${ip}`, 20, 60000);
     if (!rateCheck.allowed) {
       return NextResponse.json(
         {
@@ -41,134 +38,95 @@ export async function POST(request: Request) {
 
     const body = await request.json().catch(() => ({}));
 
-    // 2. Reject any client-submitted price or amount (Section 8)
-    if (body.amount || body.price || body.currency || body.amount_paise) {
+    // 2. Security Invariant: Detect and reject client tampering with price/amount/currency
+    if (body.price || body.amount || body.currency || body.amount_paise || body.discount) {
       return NextResponse.json(
         {
           success: false,
           error: {
             code: 'SECURITY_VIOLATION',
-            message: 'Client cannot supply pricing or currency parameters.',
+            message: 'Security violation: Client cannot specify pricing or currency parameters.',
           },
         },
         { status: 400 }
       );
     }
 
-    // 3. User Authentication
+    // 3. User Authentication & IDOR Protection
     const authUser = await getAuthenticatedNotificationUser(request, body);
-    if (!authUser) {
+    const { userId, userEmail, userName } = body;
+
+    let effectiveUserId = authUser?.id || userId;
+    let effectiveUserEmail = authUser?.email || userEmail;
+    let effectiveUserName = (authUser as any)?.name || userName || (effectiveUserEmail ? effectiveUserEmail.split('@')[0] : 'Saarvi User');
+
+    if (authUser && userId && userId !== authUser.id) {
       return NextResponse.json(
         {
           success: false,
           error: {
-            code: 'UNAUTHORIZED',
-            message: 'You must be signed in to upgrade your plan.',
+            code: 'FORBIDDEN_USER_MISMATCH',
+            message: 'Forbidden: You cannot initiate an order for another account.',
           },
         },
-        { status: 401 }
+        { status: 403 }
       );
     }
 
-    // 4. Resolve Canonical Plan & Price Server-Side
-    let interval: BillingInterval = 'monthly';
-    let canonicalPlanId = CANONICAL_PRO_PLAN.id;
-    let amountPaise = CANONICAL_PRO_PLAN.amountPaise;
-
-    const rawPlanId = String(body.planId || body.plan || '').toLowerCase();
-    if (rawPlanId.includes('year') || body.interval === 'yearly') {
-      interval = 'yearly';
-      canonicalPlanId = 'pro_yearly';
-      amountPaise = PRO_PRICING.yearly.amountCents;
-    } else {
-      canonicalPlanId = 'pro_30_days';
-      amountPaise = CANONICAL_PRO_PLAN.amountPaise;
-    }
-
-    const currency = 'INR';
-
-    // 5. Generate deterministic, collision-resistant order references
-    const uniqueSuffix = crypto.randomBytes(4).toString('hex');
-    const orderReference = `saarvi_ord_${Date.now()}_${uniqueSuffix}`;
-    const orderExpiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes TTL
-
-    const origin =
-      request.headers.get('origin') ||
-      process.env.NEXT_PUBLIC_APP_URL ||
-      'https://saarvi.app';
-    const returnUrl = `${origin}/payment/return?order_id=${orderReference}`;
-
-    // 6. Record order in Supabase payment_orders
-    const supabase = getSupabaseAdminClient();
-    if (isSupabaseConfigured() && supabase) {
-      const { error: dbError } = await supabase.from('payment_orders').insert({
-        user_id: authUser.id,
-        plan_id: canonicalPlanId,
-        provider: 'cashfree',
-        provider_order_id: orderReference,
-        order_reference: orderReference,
-        amount_paise: amountPaise,
-        currency,
-        status: 'CREATED',
-        environment: process.env.CASHFREE_ENVIRONMENT === 'PRODUCTION' ? 'PRODUCTION' : 'SANDBOX',
-        expires_at: orderExpiresAt.toISOString(),
-        metadata: {
-          user_email: authUser.email,
-          user_name: (authUser as any).name || authUser.email?.split('@')[0] || 'Saarvi Student',
-          interval,
-        },
-      });
-
-      if (dbError) {
-        console.error('[Cashfree DB Insert Error]:', dbError);
-        // Continue if table doesn't block local dev
+    if (!effectiveUserId || !effectiveUserEmail) {
+      if (isSupabaseConfigured()) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'UNAUTHORIZED',
+              message: 'Authentication required. Please sign in to upgrade to Pro.',
+            },
+          },
+          { status: 401 }
+        );
       }
+      effectiveUserId = 'usr_guest_' + Date.now();
+      effectiveUserEmail = 'student@saarvi.app';
     }
 
-    // 7. Invoke Cashfree PG Orders API
-    const cashfreeService = CashfreeService.getInstance();
-    const cfResult = await cashfreeService.createOrder({
-      orderId: orderReference,
-      amountPaise,
-      currency,
-      customer: {
-        customerId: authUser.id,
-        customerEmail: authUser.email || 'student@saarvi.app',
-        customerName: (authUser as any).name || authUser.email?.split('@')[0] || 'Saarvi Student',
-      },
-      returnUrl,
-      orderNote: `Saarvi Pro (${interval})`,
+    // 4. Resolve Interval & Plan
+    const rawPlan = String(body.plan_id || body.planId || body.plan || '').toLowerCase();
+    const isYearly = rawPlan.includes('year') || body.interval === 'yearly' || body.billingInterval === 'yearly';
+    const interval: BillingInterval = isYearly ? 'yearly' : 'monthly';
+
+    // 5. Create Server-Authoritative Razorpay Order
+    const orderData = await razorpayPaymentService.createPaymentOrder({
+      userId: effectiveUserId,
+      userEmail: effectiveUserEmail,
+      userName: effectiveUserName,
+      interval,
+      planId: isYearly ? 'pro_yearly' : 'pro_30_days',
     });
 
-    // 8. Update DB with payment session id
-    if (isSupabaseConfigured() && supabase) {
-      await supabase
-        .from('payment_orders')
-        .update({
-          payment_session_id: cfResult.paymentSessionId,
-          status: 'PENDING',
-        })
-        .eq('order_reference', orderReference);
-    }
-
-    // 9. Return ONLY safe checkout information
     return NextResponse.json({
       success: true,
-      orderId: orderReference,
-      paymentSessionId: cfResult.paymentSessionId,
-      amountDisplay: `₹${amountPaise / 100}`,
-      currency: 'INR',
-      planId: canonicalPlanId,
-      interval,
+      orderId: orderData.orderId,
+      amount: orderData.amount,
+      amountDisplay: `₹${orderData.amount / 100}`,
+      currency: orderData.currency,
+      keyId: orderData.keyId,
+      plan: orderData.plan,
+      interval: orderData.interval,
+      planId: orderData.planId,
+      receipt: orderData.receipt,
+      prefill: orderData.prefill,
+      data: orderData,
+      order: orderData,
     });
   } catch (err) {
-    console.error('[Cashfree Create Order Error]:', err);
+    console.error('[Razorpay Create Order Error]:', err);
     return NextResponse.json(
       {
         success: false,
         error: {
           code: 'ORDER_CREATION_FAILED',
-          message: err instanceof Error ? err.message : 'Unable to create payment order.',
+          message: err instanceof Error ? err.message : 'Failed to create payment order.',
         },
       },
       { status: 500 }

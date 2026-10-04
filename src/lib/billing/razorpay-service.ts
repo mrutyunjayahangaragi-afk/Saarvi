@@ -1,23 +1,26 @@
 /**
- * Saarvi Razorpay Payment Service (Phase 42 / PART 7 & 8)
+ * Saarvi Razorpay Payment Service (Server-Authoritative Core)
  *
- * Server-authoritative payment lifecycle:
- * - Server determines order amounts exclusively from PRO_PRICING (tampered amounts rejected)
+ * Implements:
+ * - Server determines order amounts exclusively from PRO_PRICING & CANONICAL_PLANS
+ * - Tampered amounts or client-supplied pricing are strictly rejected
  * - Cryptographic HMAC-SHA256 signature verification with timingSafeEqual
  * - Idempotent entitlement provisioning converging webhook & client verification
- * - Replay protection & audit trail
+ * - Cumulative Pro duration extension (never cuts short remaining active days)
+ * - Official Razorpay SDK Refund workflow
+ * - In-app notifications and transactional emails
  * - Safe error handling & zero secret exposure
  */
 
 import crypto from 'crypto';
 import {
   RazorpayPaymentOrder,
-  RazorpayPaymentOrderStatus,
   BillingInterval,
   SubscriptionRecord,
   BillingInvoiceRecord,
 } from '@/types/plan';
 import { getPlanPrice, PRO_PRICING } from '@/config/pricing';
+import { CANONICAL_PLANS, getCanonicalPlan } from '@/config/plans';
 import {
   getRazorpayClient,
   getRazorpayServerConfig,
@@ -25,6 +28,8 @@ import {
 import { MockStorageProvider } from '@/lib/supabase/mock-storage';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { getSupabaseAdminClient } from '@/lib/supabase/admin';
+import { grantOrExtendProEntitlement } from '@/lib/payments/entitlement-service';
+import { GmailSmtpEmailProvider } from '@/lib/notifications/providers/email/gmail-provider';
 
 export class RazorpayPaymentService {
   private static instance: RazorpayPaymentService;
@@ -44,7 +49,8 @@ export class RazorpayPaymentService {
     userId: string;
     userEmail: string;
     userName?: string;
-    interval: BillingInterval;
+    interval?: BillingInterval;
+    planId?: string;
   }): Promise<{
     orderId: string;
     amount: number;
@@ -52,6 +58,7 @@ export class RazorpayPaymentService {
     keyId: string;
     plan: 'pro';
     interval: BillingInterval;
+    planId: string;
     receipt: string;
     prefill: {
       name: string;
@@ -62,10 +69,15 @@ export class RazorpayPaymentService {
       throw new Error('Authentication required: Valid user identity required for order creation.');
     }
 
-    const interval: BillingInterval = params.interval === 'yearly' ? 'yearly' : 'monthly';
+    const interval: BillingInterval =
+      params.interval === 'yearly' || (params.planId && params.planId.includes('year'))
+        ? 'yearly'
+        : 'monthly';
+
     const planConfig = getPlanPrice(interval);
     const amountCents = planConfig.amountCents;
     const currency = planConfig.currency || 'INR';
+    const canonicalPlan = interval === 'yearly' ? getCanonicalPlan('pro_yearly') : getCanonicalPlan('pro_30_days');
 
     const cleanUserId = params.userId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8);
     const receipt = `rcpt_${cleanUserId}_${Date.now()}`;
@@ -86,6 +98,7 @@ export class RazorpayPaymentService {
             userId: params.userId,
             userEmail: params.userEmail,
             plan: 'pro',
+            planId: canonicalPlan.id,
             interval,
           },
         });
@@ -94,7 +107,6 @@ export class RazorpayPaymentService {
         }
       } catch (sdkErr) {
         console.warn('[RazorpayPaymentService] Razorpay SDK create order notice:', sdkErr);
-        // If SDK fails in development or test, fallback gracefully to mock order ID
         if (process.env.NODE_ENV === 'production' && config.isConfigured) {
           throw new Error('Failed to create Razorpay Order with payment gateway.');
         }
@@ -118,6 +130,7 @@ export class RazorpayPaymentService {
       updatedAt: new Date().toISOString(),
       metadata: {
         environment: process.env.NODE_ENV || 'development',
+        planId: canonicalPlan.id,
       },
     };
 
@@ -133,14 +146,18 @@ export class RazorpayPaymentService {
             user_id: params.userId,
             user_email: params.userEmail,
             user_name: params.userName || null,
+            plan_id: canonicalPlan.id,
             provider: 'razorpay',
             provider_order_id: providerOrderId,
-            amount_cents: amountCents,
+            order_reference: providerOrderId,
+            amount_paise: amountCents,
             currency,
             plan: 'pro',
             billing_interval: interval,
-            status: 'created',
+            status: 'CREATED',
             receipt,
+            environment: process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'SANDBOX',
+            expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
             metadata: orderRecord.metadata,
           });
         } catch (dbErr) {
@@ -156,6 +173,7 @@ export class RazorpayPaymentService {
       keyId,
       plan: 'pro',
       interval,
+      planId: canonicalPlan.id,
       receipt,
       prefill: {
         name: params.userName || '',
@@ -177,7 +195,8 @@ export class RazorpayPaymentService {
     success: boolean;
     error?: string;
     isPro?: boolean;
-    order?: RazorpayPaymentOrder;
+    order?: any;
+    paymentId?: string;
   }> {
     const { orderId, paymentId, signature } = params;
 
@@ -188,8 +207,44 @@ export class RazorpayPaymentService {
       };
     }
 
-    // 1. Fetch internal order record to verify it exists and retrieve trusted metadata
-    const order = MockStorageProvider.getPaymentOrder(orderId);
+    // 1. Fetch internal order record from storage or Supabase
+    let order: any = MockStorageProvider.getPaymentOrder(orderId);
+    let supabaseOrder: any = null;
+
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabaseAdminClient();
+      if (supabase) {
+        try {
+          const { data } = await supabase
+            .from('payment_orders')
+            .select('*')
+            .or(`provider_order_id.eq.${orderId},order_reference.eq.${orderId}`)
+            .maybeSingle();
+          if (data) {
+            supabaseOrder = data;
+            if (!order) {
+              order = {
+                id: data.id,
+                userId: data.user_id,
+                userEmail: data.user_email || data.metadata?.user_email,
+                userName: data.user_name || data.metadata?.user_name,
+                provider: data.provider || 'razorpay',
+                providerOrderId: data.provider_order_id,
+                amountCents: data.amount_paise || data.amount_cents || 9900,
+                currency: data.currency || 'INR',
+                plan: data.plan || 'pro',
+                billingInterval: data.billing_interval || data.metadata?.interval || 'monthly',
+                status: data.status,
+                receipt: data.receipt,
+                metadata: data.metadata,
+              };
+            }
+          }
+        } catch (dbErr) {
+          console.warn('[RazorpayPaymentService] Supabase order fetch notice:', dbErr);
+        }
+      }
+    }
 
     // IDOR protection: Verify requesting user matches order owner if both present
     if (order && params.userId && order.userId && order.userId !== params.userId) {
@@ -214,6 +269,15 @@ export class RazorpayPaymentService {
 
       if (expectedBuf.length !== actualBuf.length || !crypto.timingSafeEqual(expectedBuf, actualBuf)) {
         MockStorageProvider.updatePaymentOrderStatus(orderId, 'failed', paymentId, 'Cryptographic signature mismatch');
+        if (isSupabaseConfigured()) {
+          const supabase = getSupabaseAdminClient();
+          if (supabase) {
+            await supabase
+              .from('payment_orders')
+              .update({ status: 'FAILED', updated_at: new Date().toISOString() })
+              .or(`provider_order_id.eq.${orderId},order_reference.eq.${orderId}`);
+          }
+        }
         return {
           success: false,
           error: 'Cryptographic signature mismatch. Payment verification failed.',
@@ -245,12 +309,55 @@ export class RazorpayPaymentService {
     }
 
     // 4. Signature is valid! Provision server entitlement idempotently
-    const targetUserId = order?.userId || params.userId || '';
-    const interval: BillingInterval = order?.billingInterval || 'monthly';
-    const amountCents = order?.amountCents || PRO_PRICING[interval].amountCents;
+    const targetUserId = order?.userId || supabaseOrder?.user_id || params.userId || '';
+    const interval: BillingInterval =
+      order?.billingInterval || supabaseOrder?.billing_interval || 'monthly';
+    const amountCents =
+      order?.amountCents || supabaseOrder?.amount_paise || PRO_PRICING[interval].amountCents;
+    const planId =
+      order?.metadata?.planId || supabaseOrder?.plan_id || (interval === 'yearly' ? 'pro_yearly' : 'pro_30_days');
 
     // Update internal order status
     const updatedOrder = MockStorageProvider.updatePaymentOrderStatus(orderId, 'paid', paymentId);
+    const now = new Date();
+
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabaseAdminClient();
+      if (supabase && targetUserId) {
+        try {
+          // Update payment_orders
+          await supabase
+            .from('payment_orders')
+            .update({
+              status: 'CAPTURED',
+              provider_payment_id: paymentId,
+              updated_at: now.toISOString(),
+            })
+            .or(`provider_order_id.eq.${orderId},order_reference.eq.${orderId}`);
+
+          // Insert or update payment_transactions
+          const internalOrderId = supabaseOrder?.id || order?.id;
+          if (internalOrderId) {
+            await supabase.from('payment_transactions').upsert(
+              {
+                payment_order_id: internalOrderId,
+                user_id: targetUserId,
+                provider: 'razorpay',
+                provider_payment_id: paymentId,
+                amount_paise: amountCents,
+                currency: 'INR',
+                status: 'SUCCESS',
+                payment_method: 'RAZORPAY_CHECKOUT',
+                captured_at: now.toISOString(),
+              },
+              { onConflict: 'provider,provider_payment_id' }
+            );
+          }
+        } catch (dbErr) {
+          console.warn('[RazorpayPaymentService] Supabase verification update notice:', dbErr);
+        }
+      }
+    }
 
     if (targetUserId) {
       await this.provisionProEntitlement({
@@ -259,13 +366,15 @@ export class RazorpayPaymentService {
         paymentId,
         interval,
         amountCents,
+        planId,
       });
     }
 
     return {
       success: true,
       isPro: true,
-      order: updatedOrder || undefined,
+      order: updatedOrder || supabaseOrder || undefined,
+      paymentId,
     };
   }
 
@@ -279,10 +388,26 @@ export class RazorpayPaymentService {
     paymentId: string;
     interval: BillingInterval;
     amountCents: number;
+    planId?: string;
   }): Promise<void> {
     const { userId, orderId, paymentId, interval, amountCents } = params;
     const now = new Date();
     const durationDays = interval === 'yearly' ? 365 : 30;
+    const planId = params.planId || (interval === 'yearly' ? 'pro_yearly' : 'pro_30_days');
+
+    // 1. Cumulative extension via centralized entitlement service
+    let entitlementResult: any = null;
+    try {
+      entitlementResult = await grantOrExtendProEntitlement({
+        userId,
+        planId,
+        durationDays,
+        source: 'RAZORPAY',
+        transactionId: paymentId,
+      });
+    } catch (entErr) {
+      console.warn('[RazorpayPaymentService] Entitlement service grant warning:', entErr);
+    }
 
     const existingSub = MockStorageProvider.getUserSubscription(userId);
     const isAlreadyActive =
@@ -290,16 +415,17 @@ export class RazorpayPaymentService {
       existingSub.status === 'ACTIVE' &&
       new Date(existingSub.currentPeriodEnd).getTime() > Date.now();
 
-    // If already active, extend from current expiry date so user doesn't lose days!
-    const baseTime =
-      isAlreadyActive && existingSub?.currentPeriodEnd
-        ? new Date(existingSub.currentPeriodEnd).getTime()
-        : now.getTime();
-    const periodEnd = new Date(baseTime + durationDays * 86400000).toISOString();
+    const periodEnd =
+      entitlementResult?.endsAt ||
+      (isAlreadyActive && existingSub?.currentPeriodEnd
+        ? new Date(new Date(existingSub.currentPeriodEnd).getTime() + durationDays * 86400000).toISOString()
+        : new Date(now.getTime() + durationDays * 86400000).toISOString());
+
     const periodStart =
-      isAlreadyActive && existingSub?.currentPeriodStart
+      entitlementResult?.startsAt ||
+      (isAlreadyActive && existingSub?.currentPeriodStart
         ? existingSub.currentPeriodStart
-        : now.toISOString();
+        : now.toISOString());
 
     const subscriptionRecord: SubscriptionRecord = {
       id: existingSub?.id || `sub_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -317,6 +443,7 @@ export class RazorpayPaymentService {
       metadata: {
         orderId,
         paymentId,
+        planId,
         verifiedAt: now.toISOString(),
       },
       createdAt: existingSub?.createdAt || now.toISOString(),
@@ -331,24 +458,28 @@ export class RazorpayPaymentService {
       const supabase = getSupabaseAdminClient();
       if (supabase) {
         try {
-          await supabase.from('subscriptions').upsert({
-            id: subscriptionRecord.id,
-            user_id: userId,
-            provider: 'razorpay',
-            provider_subscription_id: orderId,
-            plan: 'pro',
-            status: 'ACTIVE',
-            billing_interval: interval,
-            currency: 'INR',
-            amount_cents: amountCents,
-            current_period_start: subscriptionRecord.currentPeriodStart,
-            current_period_end: subscriptionRecord.currentPeriodEnd,
-            cancel_at_period_end: false,
-            metadata: subscriptionRecord.metadata,
-            updated_at: now.toISOString(),
-          });
+          await supabase.from('subscriptions').upsert(
+            {
+              id: subscriptionRecord.id,
+              user_id: userId,
+              provider: 'razorpay',
+              provider_subscription_id: orderId,
+              plan: 'pro',
+              status: 'ACTIVE',
+              billing_interval: interval,
+              currency: 'INR',
+              amount_cents: amountCents,
+              current_period_start: subscriptionRecord.currentPeriodStart,
+              current_period_end: subscriptionRecord.currentPeriodEnd,
+              cancel_at_period_end: false,
+              metadata: subscriptionRecord.metadata,
+              updated_at: now.toISOString(),
+            },
+            { onConflict: 'user_id' }
+          );
 
           await supabase.from('profiles').update({
+            plan: 'pro',
             is_pro: true,
             plan_tier: 'PRO',
             updated_at: now.toISOString(),
@@ -359,7 +490,7 @@ export class RazorpayPaymentService {
       }
     }
 
-    // Only generate invoice and notification if this is a new activation (prevent duplicates)
+    // Only generate invoice, notification, and email if this is a new activation (prevent duplicate emails)
     if (!isAlreadyActive || existingSub?.providerSubscriptionId !== orderId) {
       const invoice: BillingInvoiceRecord = {
         id: `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -374,15 +505,15 @@ export class RazorpayPaymentService {
       };
       MockStorageProvider.saveInvoice(invoice);
 
-      // Create in-app notification (PART 7.13)
+      // Create in-app notification
       const notificationId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
       MockStorageProvider.saveNotification({
         id: notificationId,
         created_by: 'system_razorpay',
         type: 'BILLING',
         category: 'SYSTEM',
-        title: 'Payment Successful — Pro Plan Active!',
-        body: `Your payment of ₹${(amountCents / 100).toFixed(0)} for Saarvi Pro (${interval === 'yearly' ? 'Annual' : 'Monthly'}) was completed successfully. All Pro tools and batch queues are now unlocked.`,
+        title: 'Saarvi Pro Activated 🎉',
+        body: `Your payment of ₹${(amountCents / 100).toFixed(0)} for Saarvi Pro (${interval === 'yearly' ? 'Annual / 365 Days' : 'Monthly / 30 Days'}) was confirmed. All Pro tools and 50-file batch queues are now active.`,
         priority: 'HIGH',
         status: 'SENT',
         audience_type: 'SELECTED_USERS',
@@ -390,6 +521,7 @@ export class RazorpayPaymentService {
         channels: ['in_app'],
         created_at: now.toISOString(),
       });
+
       MockStorageProvider.saveNotificationRecipient({
         id: `recip_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         notification_id: notificationId,
@@ -400,10 +532,43 @@ export class RazorpayPaymentService {
         delivered_at: now.toISOString(),
       });
 
+      // Send transactional confirmation email via Gmail SMTP (fail-safe)
+      try {
+        const emailProvider = new GmailSmtpEmailProvider();
+        if (emailProvider.isConfigured()) {
+          const userOrder = MockStorageProvider.getPaymentOrder(orderId);
+          const recipientEmail = userOrder?.userEmail;
+          if (recipientEmail) {
+            await emailProvider.sendTransactionalEmail({
+              to: recipientEmail,
+              subject: 'Your Saarvi Pro plan is now active! 🎉',
+              html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1e293b;">
+                  <h2 style="color: #2563eb; margin-bottom: 16px;">Welcome to Saarvi Pro!</h2>
+                  <p>Your payment was completed successfully via Razorpay. Your Saarvi Pro access is now active.</p>
+                  <div style="background-color: #f8fafc; border-radius: 12px; padding: 16px; margin: 20px 0; border: 1px solid #e2e8f0;">
+                    <p style="margin: 4px 0;"><strong>Plan:</strong> Saarvi Pro (${interval === 'yearly' ? 'Annual' : 'Monthly'})</p>
+                    <p style="margin: 4px 0;"><strong>Amount Paid:</strong> ₹${(amountCents / 100).toFixed(0)} INR</p>
+                    <p style="margin: 4px 0;"><strong>Duration:</strong> ${durationDays} Days</p>
+                    <p style="margin: 4px 0;"><strong>Transaction Reference:</strong> ${paymentId}</p>
+                    <p style="margin: 4px 0;"><strong>Valid Until:</strong> ${new Date(periodEnd).toLocaleDateString()}</p>
+                  </div>
+                  <p>You can now use high-capacity 50-file batch queues, 100MB conversions, and all executive student tools.</p>
+                  <p style="color: #64748b; font-size: 12px; margin-top: 24px;">Saarvi Educational Platform • Study. Work. Grow.</p>
+                </div>
+              `,
+              text: `Welcome to Saarvi Pro! Your payment of ₹${(amountCents / 100).toFixed(0)} for ${durationDays} days of Pro access has been confirmed. Ref: ${paymentId}`,
+            });
+          }
+        }
+      } catch (emailErr) {
+        console.warn('[RazorpayPaymentService] Transactional email notice:', emailErr);
+      }
+
       // Audit Log
       MockStorageProvider.addAuditLog({
         adminUserId: 'system_razorpay',
-        adminEmail: 'payments@saarvi.local',
+        adminEmail: 'payments@saarvi.app',
         action: 'PAYMENT_VERIFIED_PRO_GRANTED',
         targetType: 'SYSTEM',
         targetId: orderId,
@@ -415,6 +580,115 @@ export class RazorpayPaymentService {
         },
       });
     }
+  }
+
+  /**
+   * Official Razorpay Refund Workflow
+   * Authoritatively issues refund via Razorpay SDK and revokes/adjusts Pro entitlement.
+   */
+  public async createRefund(params: {
+    orderId: string;
+    amount?: number; // in Rupees
+    reason?: string;
+  }): Promise<{
+    success: boolean;
+    refundId?: string;
+    orderId: string;
+    amount: number;
+    error?: string;
+  }> {
+    const { orderId, amount, reason } = params;
+
+    if (!orderId) {
+      throw new Error('Order identifier is required for refund.');
+    }
+
+    const order = MockStorageProvider.getPaymentOrder(orderId);
+    let paymentId = order?.providerPaymentId || '';
+
+    // Check live database if paymentId not found in mock storage
+    if (!paymentId && isSupabaseConfigured()) {
+      const supabase = getSupabaseAdminClient();
+      if (supabase) {
+        const { data } = await supabase
+          .from('payment_orders')
+          .select('provider_payment_id, user_id, amount_paise')
+          .or(`provider_order_id.eq.${orderId},order_reference.eq.${orderId}`)
+          .maybeSingle();
+        if (data) {
+          paymentId = data.provider_payment_id || '';
+        }
+      }
+    }
+
+    const refundAmountRupees = amount || (order ? order.amountCents / 100 : 99);
+    const refundAmountPaise = Math.round(refundAmountRupees * 100);
+
+    let refundId = `rfnd_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+    // Call official Razorpay SDK if configured
+    const rzpClient = getRazorpayClient();
+    if (rzpClient && paymentId && !paymentId.startsWith('pay_mock')) {
+      try {
+        const refundResponse = await (rzpClient.payments as any).refund(paymentId, {
+          amount: refundAmountPaise,
+          notes: {
+            reason: reason || 'Customer requested refund',
+            orderId,
+          },
+        });
+        if (refundResponse && refundResponse.id) {
+          refundId = refundResponse.id;
+        }
+      } catch (sdkErr: any) {
+        console.error('[Razorpay Refund Error]:', sdkErr);
+        throw new Error(sdkErr?.error?.description || sdkErr?.message || 'Failed to issue refund with Razorpay.');
+      }
+    }
+
+    // Update order status in storage
+    MockStorageProvider.updatePaymentOrderStatus(orderId, 'failed', paymentId, `Refunded: ${refundId}`);
+
+    // Update Supabase tables
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabaseAdminClient();
+      if (supabase) {
+        try {
+          await supabase
+            .from('payment_orders')
+            .update({ status: 'REFUNDED', updated_at: new Date().toISOString() })
+            .or(`provider_order_id.eq.${orderId},order_reference.eq.${orderId}`);
+
+          if (order?.userId) {
+            await supabase
+              .from('entitlements')
+              .update({ status: 'REVOKED', updated_at: new Date().toISOString() })
+              .eq('user_id', order.userId)
+              .eq('status', 'ACTIVE');
+
+            await supabase
+              .from('subscriptions')
+              .update({ status: 'EXPIRED', updated_at: new Date().toISOString() })
+              .eq('user_id', order.userId)
+              .eq('status', 'ACTIVE');
+
+            await supabase
+              .from('profiles')
+              .update({ plan: 'free', is_pro: false, plan_tier: 'FREE', updated_at: new Date().toISOString() })
+              .eq('id', order.userId);
+          }
+        } catch (dbErr) {
+          console.warn('[RazorpayPaymentService] Supabase refund update warning:', dbErr);
+        }
+      }
+    }
+
+    return {
+      success: true,
+      refundId,
+      orderId,
+      amount: refundAmountRupees,
+    };
   }
 
   /**
@@ -464,9 +738,35 @@ export class RazorpayPaymentService {
 
     const eventId = event.id || `evt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
-    // Replay / Idempotency protection (PART 7.10)
+    // Replay / Idempotency protection
     if (MockStorageProvider.isBillingEventProcessed(eventId)) {
       return { success: true, received: true, eventId, duplicate: true };
+    }
+
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabaseAdminClient();
+      if (supabase) {
+        const { data: existing } = await supabase
+          .from('payment_webhook_events')
+          .select('id, processed')
+          .eq('provider', 'razorpay')
+          .eq('event_id', eventId)
+          .maybeSingle();
+
+        if (existing) {
+          return { success: true, received: true, eventId, duplicate: true };
+        }
+
+        const payloadHash = crypto.createHash('sha256').update(rawBody).digest('hex');
+        await supabase.from('payment_webhook_events').insert({
+          provider: 'razorpay',
+          event_id: eventId,
+          event_type: event.event || 'UNKNOWN',
+          signature_verified: true,
+          processed: false,
+          payload_hash: payloadHash,
+        });
+      }
     }
 
     const eventType = event.event || '';
@@ -489,6 +789,43 @@ export class RazorpayPaymentService {
             amountCents: order.amountCents,
           });
         }
+
+        if (isSupabaseConfigured()) {
+          const supabase = getSupabaseAdminClient();
+          if (supabase) {
+            const { data: dbOrder } = await supabase
+              .from('payment_orders')
+              .select('*')
+              .or(`provider_order_id.eq.${orderId},order_reference.eq.${orderId}`)
+              .maybeSingle();
+
+            if (dbOrder && dbOrder.status !== 'CAPTURED') {
+              const now = new Date();
+              await supabase
+                .from('payment_orders')
+                .update({
+                  status: 'CAPTURED',
+                  provider_payment_id: paymentId,
+                  updated_at: now.toISOString(),
+                })
+                .eq('id', dbOrder.id);
+
+              await this.provisionProEntitlement({
+                userId: dbOrder.user_id,
+                orderId,
+                paymentId: paymentId || `pay_${Date.now()}`,
+                interval: (dbOrder.billing_interval || 'monthly') as BillingInterval,
+                amountCents: dbOrder.amount_paise || 9900,
+                planId: dbOrder.plan_id || 'pro_30_days',
+              });
+
+              await supabase
+                .from('payment_webhook_events')
+                .update({ processed: true, processed_at: now.toISOString() })
+                .eq('event_id', eventId);
+            }
+          }
+        }
       }
     } else if (eventType === 'payment.failed') {
       if (orderId) {
@@ -498,6 +835,28 @@ export class RazorpayPaymentService {
           paymentId,
           paymentEntity?.error_description || 'Payment failed at gateway'
         );
+        if (isSupabaseConfigured()) {
+          const supabase = getSupabaseAdminClient();
+          if (supabase) {
+            await supabase
+              .from('payment_orders')
+              .update({ status: 'FAILED', updated_at: new Date().toISOString() })
+              .or(`provider_order_id.eq.${orderId},order_reference.eq.${orderId}`);
+          }
+        }
+      }
+    } else if (eventType === 'refund.processed' || eventType === 'refund.created') {
+      if (orderId) {
+        MockStorageProvider.updatePaymentOrderStatus(orderId, 'failed', paymentId, 'Refunded');
+        if (isSupabaseConfigured()) {
+          const supabase = getSupabaseAdminClient();
+          if (supabase) {
+            await supabase
+              .from('payment_orders')
+              .update({ status: 'REFUNDED', updated_at: new Date().toISOString() })
+              .or(`provider_order_id.eq.${orderId},order_reference.eq.${orderId}`);
+          }
+        }
       }
     }
 

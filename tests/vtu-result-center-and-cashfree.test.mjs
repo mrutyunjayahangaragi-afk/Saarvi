@@ -215,58 +215,55 @@ test('Target CGPA planner detects achievable and impossible goals', () => {
 });
 
 // =============================================================================
-// 5. CASHFREE CRYPTOGRAPHIC WEBHOOK & SECURITY TESTS
+// 5. RAZORPAY CRYPTOGRAPHIC WEBHOOK & SECURITY TESTS
 // =============================================================================
 
-function verifyCashfreeWebhookSignature(rawBody, signature, timestamp, secretKey) {
-  if (!rawBody || !signature || !timestamp || !secretKey) return false;
+function verifyRazorpayWebhookSignature(rawBody, signature, secretKey) {
+  if (!rawBody || !signature || !secretKey) return false;
   try {
-    const signatureData = `${timestamp}${rawBody}`;
-    const expected = crypto.createHmac('sha256', secretKey).update(signatureData).digest('base64');
-    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+    const expected = crypto.createHmac('sha256', secretKey).update(rawBody).digest('hex');
+    const expectedBuf = Buffer.from(expected, 'utf8');
+    const sigBuf = Buffer.from(signature, 'utf8');
+    if (expectedBuf.length !== sigBuf.length) return false;
+    return crypto.timingSafeEqual(expectedBuf, sigBuf);
   } catch {
     return false;
   }
 }
 
-test('Cashfree HMAC-SHA256 signature verification passes with valid key and payload', () => {
+test('Razorpay HMAC-SHA256 signature verification passes with valid key and payload', () => {
   const secretKey = 'test_secret_key_1234567890';
-  const timestamp = '1710000000';
   const rawBody = JSON.stringify({
-    type: 'PAYMENT_SUCCESS_WEBHOOK',
-    data: {
-      order: { order_id: 'saarvi_ord_123', order_amount: 99.0 },
-      payment: { cf_payment_id: 'cf_pay_456', payment_status: 'SUCCESS' },
+    event: 'order.paid',
+    payload: {
+      order: { entity: { id: 'order_123', amount: 9900 } },
+      payment: { entity: { id: 'pay_456', status: 'captured' } },
     },
   });
 
   const validSignature = crypto
     .createHmac('sha256', secretKey)
-    .update(`${timestamp}${rawBody}`)
-    .digest('base64');
+    .update(rawBody)
+    .digest('hex');
 
-  assert.equal(verifyCashfreeWebhookSignature(rawBody, validSignature, timestamp, secretKey), true);
+  assert.equal(verifyRazorpayWebhookSignature(rawBody, validSignature, secretKey), true);
 });
 
-test('Cashfree signature verification rejects tampered payloads or invalid secrets', () => {
+test('Razorpay signature verification rejects tampered payloads or invalid secrets', () => {
   const secretKey = 'test_secret_key_1234567890';
-  const timestamp = '1710000000';
-  const rawBody = JSON.stringify({ type: 'PAYMENT_SUCCESS_WEBHOOK', amount: 99 });
-  const tamperedBody = JSON.stringify({ type: 'PAYMENT_SUCCESS_WEBHOOK', amount: 1 });
+  const rawBody = JSON.stringify({ event: 'order.paid', amount: 9900 });
+  const tamperedBody = JSON.stringify({ event: 'order.paid', amount: 100 });
 
   const validSignature = crypto
     .createHmac('sha256', secretKey)
-    .update(`${timestamp}${rawBody}`)
-    .digest('base64');
+    .update(rawBody)
+    .digest('hex');
 
   // Tampered body with old signature
-  assert.equal(verifyCashfreeWebhookSignature(tamperedBody, validSignature, timestamp, secretKey), false);
+  assert.equal(verifyRazorpayWebhookSignature(tamperedBody, validSignature, secretKey), false);
 
   // Wrong secret key
-  assert.equal(verifyCashfreeWebhookSignature(rawBody, validSignature, timestamp, 'wrong_secret'), false);
-
-  // Missing timestamp
-  assert.equal(verifyCashfreeWebhookSignature(rawBody, validSignature, '', secretKey), false);
+  assert.equal(verifyRazorpayWebhookSignature(rawBody, validSignature, 'wrong_secret'), false);
 });
 
 // =============================================================================
@@ -343,14 +340,14 @@ test('2022 Scheme course code regex detects BMATS101, BCS301, BSCK307', () => {
   assert.ok(matches.includes('21CS31'));
 });
 
-test('next.config.ts CSP header includes Cashfree SDK, endpoints, and iframes', async () => {
+test('next.config.ts CSP header includes Razorpay SDK, endpoints, and iframes', async () => {
   const fs = await import('node:fs');
   const path = await import('node:path');
   const nextConfig = fs.readFileSync(path.join(process.cwd(), 'next.config.ts'), 'utf8');
 
-  assert.match(nextConfig, /https:\/\/sdk\.cashfree\.com/);
-  assert.match(nextConfig, /https:\/\/\*\.cashfree\.com/);
-  assert.match(nextConfig, /https:\/\/api\.cashfree\.com/);
-  assert.match(nextConfig, /https:\/\/sandbox\.cashfree\.com/);
+  assert.match(nextConfig, /https:\/\/checkout\.razorpay\.com/);
+  assert.match(nextConfig, /https:\/\/\*\.razorpay\.com/);
+  assert.match(nextConfig, /https:\/\/api\.razorpay\.com/);
+  assert.match(nextConfig, /https:\/\/lumberjack\.razorpay\.com/);
 });
 

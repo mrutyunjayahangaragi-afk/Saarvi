@@ -8,16 +8,15 @@ function PaymentReturnContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Cashfree returns order_id as query parameter
   const orderId = searchParams.get('order_id') || searchParams.get('orderId');
 
   const [attempts, setAttempts] = useState(0);
-  const [statusMessage, setStatusMessage] = useState('Verifying your payment with Cashfree...');
+  const [statusMessage, setStatusMessage] = useState('Verifying your payment with Saarvi...');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!orderId) {
-      setError('No order identifier received from payment session.');
+      setError('No order identifier received.');
       return;
     }
 
@@ -42,7 +41,6 @@ function PaymentReturnContent() {
           return;
         }
 
-        // Bounded polling: up to 5 attempts (every 2.5 seconds)
         if (attemptCount < 5) {
           setStatusMessage(`Awaiting confirmation from bank (attempt ${attemptCount + 1} of 5)...`);
           timerId = setTimeout(() => {
@@ -52,7 +50,6 @@ function PaymentReturnContent() {
             }
           }, 2500);
         } else {
-          // If still pending after 5 attempts, forward to dedicated pending page
           router.replace(`/payment/pending?order_id=${encodeURIComponent(orderId)}`);
         }
       } catch (err) {
@@ -76,8 +73,8 @@ function PaymentReturnContent() {
   }, [orderId, router]);
 
   return (
-    <div className="min-h-[75vh] flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white dark:bg-[#0b1329] border border-slate-200 dark:border-slate-800 rounded-3xl p-8 text-center shadow-xl space-y-6">
+    <div className="min-h-[75vh] flex items-center justify-center p-4 bg-slate-50 dark:bg-[#060b18]">
+      <div className="w-full max-w-md bg-white dark:bg-[#111c38] border border-slate-200 dark:border-slate-800 rounded-3xl p-8 text-center shadow-xl space-y-6">
         <div className="w-16 h-16 mx-auto rounded-2xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400">
           <RefreshCw className="w-8 h-8 animate-spin" />
         </div>
@@ -100,14 +97,14 @@ function PaymentReturnContent() {
 
         <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 text-[11px] text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1.5">
           <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-          <span>Server-side cryptographic verification via Cashfree</span>
+          <span>Server-side cryptographic verification via Razorpay</span>
         </div>
 
         {orderId && (
           <button
             type="button"
             onClick={() => router.push(`/payment/status?order_id=${encodeURIComponent(orderId)}`)}
-            className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-bold inline-flex items-center gap-1"
+            className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-bold inline-flex items-center gap-1 min-h-[44px]"
           >
             <span>Check Status Manually</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -122,7 +119,7 @@ export default function PaymentReturnPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-[75vh] flex items-center justify-center">
+        <div className="min-h-[75vh] flex items-center justify-center bg-slate-50 dark:bg-[#060b18]">
           <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
         </div>
       }

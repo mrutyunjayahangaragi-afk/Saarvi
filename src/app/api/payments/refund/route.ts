@@ -1,17 +1,16 @@
 /**
  * POST /api/payments/refund
  *
- * Admin-Authorized Cashfree Refund Processing (Prompt Section 26)
- * - Verifies requester has ADMIN or SUPER_ADMIN role
- * - Calls Cashfree PG Refund API
- * - Records refund status in database
- * - Revokes or adjusts entitlement accordingly
+ * Admin-Authorized Razorpay Refund Processing
+ * - Strictly verifies requester has ADMIN or SUPER_ADMIN role
+ * - Calls official Razorpay Payments Refund API via SDK
+ * - Synchronizes refund status in payment_orders & payment_transactions
+ * - Revokes Pro entitlement immediately
+ * - Writes safe audit log entry
  */
 
 import { NextResponse } from 'next/server';
-import { CashfreeService } from '@/lib/payments/cashfree';
-import { getSupabaseAdminClient } from '@/lib/supabase/admin';
-import { isSupabaseConfigured } from '@/lib/supabase/config';
+import { razorpayPaymentService } from '@/lib/billing/razorpay-service';
 import { getAuthenticatedNotificationUser } from '@/lib/notifications/auth-helper';
 
 export async function POST(request: Request) {
@@ -34,50 +33,21 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabase = getSupabaseAdminClient();
-    let internalOrder: Record<string, unknown> | null = null;
-    if (isSupabaseConfigured() && supabase) {
-      const { data } = await supabase
-        .from('payment_orders')
-        .select('*')
-        .eq('order_reference', orderId)
-        .maybeSingle();
-
-      internalOrder = data;
-    }
-
-    const refundAmountRupees = amount
-      ? Number(amount)
-      : internalOrder
-      ? Number(internalOrder.amount_paise) / 100
-      : 99;
-
-    const cashfree = CashfreeService.getInstance();
-    const refundResult = await cashfree.createRefund(orderId, refundAmountRupees, reason);
-
-    if (isSupabaseConfigured() && supabase && internalOrder) {
-      // Mark order refunded
-      await supabase
-        .from('payment_orders')
-        .update({ status: 'REFUNDED', updated_at: new Date().toISOString() })
-        .eq('id', internalOrder.id);
-
-      // Revoke active entitlement
-      await supabase
-        .from('entitlements')
-        .update({ status: 'REVOKED', updated_at: new Date().toISOString() })
-        .eq('user_id', internalOrder.user_id)
-        .eq('status', 'ACTIVE');
-    }
+    const refundResult = await razorpayPaymentService.createRefund({
+      orderId,
+      amount: amount ? Number(amount) : undefined,
+      reason: reason || 'Admin issued refund',
+    });
 
     return NextResponse.json({
       success: true,
       orderId,
-      refundAmount: refundAmountRupees,
-      refundResult,
+      refundAmount: refundResult.amount,
+      refundId: refundResult.refundId,
+      message: 'Refund processed successfully via Razorpay.',
     });
   } catch (err) {
-    console.error('[Cashfree Refund Error]:', err);
+    console.error('[Razorpay Refund Error]:', err);
     return NextResponse.json(
       { success: false, error: err instanceof Error ? err.message : 'Refund failed' },
       { status: 500 }

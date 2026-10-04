@@ -59,7 +59,7 @@ export async function GET(request: Request) {
               userEmail: d.user_email || d.metadata?.user_email,
               user_email: d.user_email || d.metadata?.user_email,
               userName: d.user_name || d.metadata?.user_name,
-              provider: d.provider || 'cashfree',
+              provider: d.provider || 'razorpay',
               providerOrderId: d.provider_order_id,
               provider_order_id: d.provider_order_id,
               order_reference: d.order_reference || d.provider_order_id,

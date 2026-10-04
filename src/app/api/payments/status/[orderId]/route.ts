@@ -1,19 +1,20 @@
 /**
  * GET /api/payments/status/[orderId]
  *
- * Server-authoritative Cashfree payment verification endpoint (Prompt Section 15)
- * - Queries Cashfree API server-side for true order/payment status
- * - Compares amount and currency with internal order
+ * Server-authoritative payment verification endpoint
+ * - Queries internal payment_orders and Razorpay gateway server-side
+ * - Compares amount, currency, and ownership
  * - Idempotently records payment_transactions and grants Pro entitlement
- * - Never trusts browser-provided status or return URL parameters
+ * - Never trusts browser-provided status
  */
 
 import { NextResponse } from 'next/server';
-import { CashfreeService } from '@/lib/payments/cashfree';
 import { getSupabaseAdminClient } from '@/lib/supabase/admin';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { getAuthenticatedNotificationUser } from '@/lib/notifications/auth-helper';
-import { grantOrExtendProEntitlement } from '@/lib/payments/entitlement-service';
+import { MockStorageProvider } from '@/lib/supabase/mock-storage';
+import { getRazorpayClient } from '@/lib/billing/razorpayClient';
+import { razorpayPaymentService } from '@/lib/billing/razorpay-service';
 
 export async function GET(
   request: Request,
@@ -29,128 +30,105 @@ export async function GET(
       );
     }
 
-    const supabase = getSupabaseAdminClient();
     const authUser = await getAuthenticatedNotificationUser(request);
 
     // 1. Fetch internal order
-    let internalOrder: Record<string, unknown> | null = null;
+    let internalOrder: any = MockStorageProvider.getPaymentOrder(orderId);
+    const supabase = getSupabaseAdminClient();
+
     if (isSupabaseConfigured() && supabase) {
       const { data } = await supabase
         .from('payment_orders')
         .select('*')
-        .eq('order_reference', orderId)
+        .or(`provider_order_id.eq.${orderId},order_reference.eq.${orderId}`)
         .maybeSingle();
 
-      internalOrder = data;
+      if (data) {
+        internalOrder = {
+          id: data.id,
+          userId: data.user_id,
+          userEmail: data.user_email || data.metadata?.user_email,
+          provider: data.provider || 'razorpay',
+          providerOrderId: data.provider_order_id,
+          providerPaymentId: data.provider_payment_id,
+          amountCents: data.amount_paise || data.amount_cents || 9900,
+          currency: data.currency || 'INR',
+          plan: data.plan || data.plan_id || 'pro',
+          billingInterval: data.billing_interval || data.metadata?.interval || 'monthly',
+          status: data.status,
+          createdAt: data.created_at,
+          paidAt: data.paid_at,
+        };
 
-      // IDOR protection: only owner or admin can view order status
-      if (internalOrder && authUser && internalOrder.user_id !== authUser.id && authUser.role !== 'ADMIN' && authUser.role !== 'SUPER_ADMIN') {
-        return NextResponse.json(
-          { success: false, error: 'Unauthorized to view this order.' },
-          { status: 403 }
-        );
+        // IDOR protection: only owner or admin can view order status
+        if (authUser && data.user_id !== authUser.id && authUser.role !== 'ADMIN' && authUser.role !== 'SUPER_ADMIN') {
+          return NextResponse.json(
+            { success: false, error: 'Unauthorized to view this order.' },
+            { status: 403 }
+          );
+        }
       }
     }
 
-    // 2. Fetch authoritative state from Cashfree
-    const cashfree = CashfreeService.getInstance();
-    const cfOrder = await cashfree.getOrder(orderId).catch((err) => {
-      console.warn('[Cashfree Status Check Warning]:', err.message);
-      return null;
-    });
-
-    if (!cfOrder) {
+    if (!internalOrder) {
       return NextResponse.json({
         success: true,
         orderId,
-        status: (internalOrder?.status as string) || 'PENDING',
+        status: 'PENDING',
         isPro: false,
       });
     }
 
-    const cfOrderStatus = String(cfOrder.order_status || '').toUpperCase();
-    const payments = await cashfree.getOrderPayments(orderId);
-    const successfulPayment = payments.find((p) => p.paymentStatus === 'SUCCESS');
+    const statusUpper = String(internalOrder.status || '').toUpperCase();
+    const isCaptured = statusUpper === 'CAPTURED' || statusUpper === 'PAID';
 
-    const isPaid = cfOrderStatus === 'PAID' || Boolean(successfulPayment);
-
-    if (isPaid && internalOrder && isSupabaseConfigured() && supabase) {
-      const planId = String(internalOrder.plan_id || 'pro_monthly');
-      const isYearly = planId.includes('yearly');
-      const durationDays = isYearly ? 365 : 30;
-
-      const now = new Date();
-      const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
-
-      // 3. Atomically update payment order and insert transaction if not already CAPTURED
-      if (internalOrder.status !== 'CAPTURED') {
-        await supabase
-          .from('payment_orders')
-          .update({
-            status: 'CAPTURED',
-            updated_at: now.toISOString(),
-          })
-          .eq('order_reference', orderId);
-
-        const paymentId = successfulPayment?.cfPaymentId || `cf_pay_${Date.now()}`;
-
-        // Insert or ignore into payment_transactions
-        const { data: txData } = await supabase
-          .from('payment_transactions')
-          .upsert(
-            {
-              payment_order_id: internalOrder.id,
-              user_id: internalOrder.user_id,
-              provider: 'cashfree',
-              provider_payment_id: paymentId,
-              amount_paise: internalOrder.amount_paise,
-              currency: 'INR',
-              status: 'SUCCESS',
-              payment_method: successfulPayment?.paymentMethod || 'ONLINE',
-              captured_at: now.toISOString(),
-            },
-            { onConflict: 'provider,provider_payment_id' }
-          )
-          .select('id')
-          .maybeSingle();
-
-        // 4. Activate or Extend Pro Entitlement Cumulatively
-        const entResult = await grantOrExtendProEntitlement({
-          userId: internalOrder.user_id as string,
-          planId,
-          durationDays,
-          source: 'CASHFREE',
-          transactionId: txData?.id || null,
-        });
-
-        return NextResponse.json({
-          success: true,
-          orderId,
-          status: 'CAPTURED',
-          isPro: true,
-          planId,
-          amount: Number(internalOrder.amount_paise) / 100,
-          currency: 'INR',
-          expiresAt: entResult.endsAt,
-        });
-      }
-
+    if (isCaptured) {
+      const planId = internalOrder.plan?.includes('year') ? 'pro_yearly' : 'pro_30_days';
       return NextResponse.json({
         success: true,
         orderId,
         status: 'CAPTURED',
         isPro: true,
         planId,
-        amount: Number(internalOrder.amount_paise) / 100,
-        currency: 'INR',
-        expiresAt: expiresAt.toISOString(),
+        amount: (internalOrder.amountCents || 9900) / 100,
+        currency: internalOrder.currency || 'INR',
+        paymentId: internalOrder.providerPaymentId,
       });
     }
 
-    // Map failed or expired states
+    // 2. If order is still pending, optionally query Razorpay gateway
+    const rzpClient = getRazorpayClient();
+    if (rzpClient && internalOrder.providerOrderId) {
+      try {
+        const rzpOrder: any = await rzpClient.orders.fetch(internalOrder.providerOrderId);
+        if (rzpOrder && (rzpOrder.status === 'paid' || Number(rzpOrder.amount_paid) > 0)) {
+          // Provision entitlement
+          await razorpayPaymentService.provisionProEntitlement({
+            userId: internalOrder.userId,
+            orderId: internalOrder.providerOrderId,
+            paymentId: internalOrder.providerPaymentId || `pay_rzp_${Date.now()}`,
+            interval: internalOrder.billingInterval || 'monthly',
+            amountCents: internalOrder.amountCents || 9900,
+          });
+
+          return NextResponse.json({
+            success: true,
+            orderId,
+            status: 'CAPTURED',
+            isPro: true,
+            planId: internalOrder.plan?.includes('year') ? 'pro_yearly' : 'pro_30_days',
+            amount: (internalOrder.amountCents || 9900) / 100,
+            currency: 'INR',
+          });
+        }
+      } catch (sdkErr) {
+        console.warn('[Status Check Gateway Notice]:', sdkErr);
+      }
+    }
+
+    // Map failed or pending status
     let canonicalStatus = 'PENDING';
-    if (cfOrderStatus === 'EXPIRED') canonicalStatus = 'EXPIRED';
-    if (cfOrderStatus === 'FAILED' || cfOrderStatus === 'TERMINATED') canonicalStatus = 'FAILED';
+    if (statusUpper === 'FAILED' || statusUpper === 'CANCELLED') canonicalStatus = 'FAILED';
 
     return NextResponse.json({
       success: true,
@@ -159,7 +137,7 @@ export async function GET(
       isPro: false,
     });
   } catch (err) {
-    console.error('[Cashfree Status API Error]:', err);
+    console.error('[Razorpay Status API Error]:', err);
     return NextResponse.json(
       {
         success: false,

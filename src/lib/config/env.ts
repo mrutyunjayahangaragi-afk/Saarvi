@@ -24,36 +24,41 @@ export const ENV_SPECS: Record<string, EnvVariableSpec> = {
     description: 'Supabase anonymous/public API key',
     isSecret: false,
   },
-  NEXT_PUBLIC_CASHFREE_MODE: {
-    name: 'NEXT_PUBLIC_CASHFREE_MODE',
+  // Razorpay Canonical Payment Gateway
+  NEXT_PUBLIC_RAZORPAY_KEY_ID: {
+    name: 'NEXT_PUBLIC_RAZORPAY_KEY_ID',
     category: 'OPTIONAL',
-    description: 'Cashfree Web SDK mode ("sandbox" or "production")',
+    description: 'Razorpay Public Key ID exposed to browser for Razorpay Checkout modal',
     isSecret: false,
   },
-
-  // Server-Only Cashfree PG
-  CASHFREE_APP_ID: {
-    name: 'CASHFREE_APP_ID',
+  RAZORPAY_KEY_ID: {
+    name: 'RAZORPAY_KEY_ID',
     category: 'REQUIRED_IN_PRODUCTION',
-    description: 'Cashfree PG Application ID',
+    description: 'Razorpay Key ID used on server for Order API and payment retrieval',
     isSecret: false,
   },
-  CASHFREE_SECRET_KEY: {
-    name: 'CASHFREE_SECRET_KEY',
+  RAZORPAY_KEY_SECRET: {
+    name: 'RAZORPAY_KEY_SECRET',
     category: 'REQUIRED_IN_PRODUCTION',
-    description: 'Cashfree PG Secret Key used for HMAC webhook verification and orders API',
+    description: 'Razorpay Key Secret used for server-authoritative HMAC-SHA256 signature verification (NEVER client-side)',
     isSecret: true,
   },
-  CASHFREE_API_VERSION: {
-    name: 'CASHFREE_API_VERSION',
+  RAZORPAY_WEBHOOK_SECRET: {
+    name: 'RAZORPAY_WEBHOOK_SECRET',
+    category: 'REQUIRED_IN_PRODUCTION',
+    description: 'Razorpay Webhook Secret used to cryptographically verify incoming webhook event signatures',
+    isSecret: true,
+  },
+  RAZORPAY_PRO_MONTHLY_PLAN_ID: {
+    name: 'RAZORPAY_PRO_MONTHLY_PLAN_ID',
     category: 'OPTIONAL',
-    description: 'Cashfree PG API Version (default: 2023-08-01)',
+    description: 'Razorpay Plan ID for Saarvi Pro 30-day monthly plan',
     isSecret: false,
   },
-  CASHFREE_ENVIRONMENT: {
-    name: 'CASHFREE_ENVIRONMENT',
-    category: 'REQUIRED_IN_PRODUCTION',
-    description: 'Cashfree PG Environment ("SANDBOX" or "PRODUCTION")',
+  RAZORPAY_PRO_YEARLY_PLAN_ID: {
+    name: 'RAZORPAY_PRO_YEARLY_PLAN_ID',
+    category: 'OPTIONAL',
+    description: 'Razorpay Plan ID for Saarvi Pro 365-day yearly plan',
     isSecret: false,
   },
   SUPABASE_SERVICE_ROLE_KEY: {
@@ -189,35 +194,30 @@ export function validateEnvironment(env: Record<string, string | undefined> = pr
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  const cfAppId = env.CASHFREE_APP_ID || '';
-  const cfSecretKey = env.CASHFREE_SECRET_KEY || '';
-  const cfEnv = (env.CASHFREE_ENVIRONMENT || 'SANDBOX').toUpperCase();
+  const rzpKeyId = env.RAZORPAY_KEY_ID || '';
+  const rzpKeySecret = env.RAZORPAY_KEY_SECRET || '';
+  const rzpWebhookSecret = env.RAZORPAY_WEBHOOK_SECRET || '';
 
-  const billingConfigured = Boolean(cfAppId && cfSecretKey);
+  const billingConfigured = Boolean(rzpKeyId && rzpKeySecret);
 
-  // 1. Production Config Guards (Cashfree Only)
+  // 1. Production Config Guards (Razorpay Canonical PG)
   if (isProduction) {
-    if (cfEnv !== 'PRODUCTION') {
-      errors.push('CRITICAL: CASHFREE_ENVIRONMENT must be set to PRODUCTION in production.');
+    if (!rzpKeyId) {
+      errors.push('Missing required production variable: RAZORPAY_KEY_ID.');
     }
 
-    if (!cfAppId) {
-      errors.push('Missing required production variable: CASHFREE_APP_ID.');
+    if (!rzpKeySecret) {
+      errors.push('Missing required production variable: RAZORPAY_KEY_SECRET.');
     }
 
-    if (!cfSecretKey) {
-      errors.push('Missing required production variable: CASHFREE_SECRET_KEY.');
+    if (!rzpWebhookSecret) {
+      errors.push('Missing required production variable: RAZORPAY_WEBHOOK_SECRET.');
     }
   } else if (!isTest) {
     // Development / Preview warnings
     if (!billingConfigured) {
       warnings.push(
         'Billing is unconfigured or partially configured. Free document tools remain fully operational.'
-      );
-    }
-    if (cfEnv === 'PRODUCTION') {
-      warnings.push(
-        'Warning: CASHFREE_ENVIRONMENT=PRODUCTION configured in non-production environment.'
       );
     }
   }

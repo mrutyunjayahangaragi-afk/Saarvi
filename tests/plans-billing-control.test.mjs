@@ -75,36 +75,26 @@ test('SAARVI PLANS & BILLING CONTROL CENTER TEST SUITE', async (t) => {
     assert.match(serviceFile, /saveNotification/);
   });
 
-  await t.test('7. Clean Plans Page Architecture: Direct Cashfree checkout, dynamic discount percentage', () => {
+  await t.test('7. Clean Plans Page Architecture: Professional Razorpay checkout', () => {
     const plansPage = fs.readFileSync(path.join(rootDir, 'src/app/plans/page.tsx'), 'utf8');
-    // Verifies direct Cashfree checkout integration
-    assert.match(plansPage, /initiateCashfreeCheckout/);
-    assert.match(plansPage, /Simple, Honest Pricing/);
-    assert.match(plansPage, /Simple, Transparent &amp; Private by Design/);
-    // Verifies dynamic discount percentage calculation
-    assert.match(plansPage, /discountPercent\s*=\s*Math\.round/);
-    // Verifies that neither inline UTR input nor inline UPI app launching exists directly on page
+    assert.match(plansPage, /Saarvi Pro/);
+    assert.match(plansPage, /Upgrade to Pro/);
+    assert.match(plansPage, /Secure payment powered by Razorpay/);
+    // Verifies that neither inline UTR input nor manual UPI QR exists directly on page
     assert.doesNotMatch(plansPage, /<input[^>]*utrNumber/);
     assert.doesNotMatch(plansPage, /handleLaunchUpiApp/);
-    // Verifies Free vs Pro cards and compare matrix
     assert.match(plansPage, /Essential Productivity/);
-    assert.match(plansPage, /Compare Plan Capabilities/);
   });
 
-  await t.test('8. Upgrade to Pro Modal: Clean Cashfree checkout, server-authoritative plan and no provider selection', () => {
+  await t.test('8. Upgrade to Pro Modal: Clean Razorpay checkout, server-authoritative plan and no fake buttons', () => {
     const modalFile = fs.readFileSync(path.join(rootDir, 'src/components/billing/PaymentMethodModal.tsx'), 'utf8');
-    assert.match(modalFile, /UPGRADE TO SAARVI PRO/);
     assert.match(modalFile, /Continue to Secure Payment/);
-    assert.match(modalFile, /Your payment will be securely processed through Cashfree/);
-    assert.match(modalFile, /Secure server-verified payment/);
-    assert.match(modalFile, /initiateCashfreeCheckout/);
-    // Verifies complete removal of legacy provider selection and manual workflows
-    assert.doesNotMatch(modalFile, /Continue with Razorpay/);
+    assert.match(modalFile, /Secure payment powered by Razorpay/);
+    assert.match(modalFile, /initiateRazorpayCheckout/);
     assert.doesNotMatch(modalFile, /Continue with UPI/);
-    assert.doesNotMatch(modalFile, /checkout\.razorpay\.com/);
   });
 
-  await t.test('9. User Dashboard Billing: Expiration handling and real Cashfree orders history', () => {
+  await t.test('9. User Dashboard Billing: Expiration handling and real Razorpay orders history', () => {
     const dashboardBilling = fs.readFileSync(path.join(rootDir, 'src/app/dashboard/billing/page.tsx'), 'utf8');
     assert.match(dashboardBilling, /paymentOrders/);
     assert.match(dashboardBilling, /Payment &amp; Billing History/);

@@ -1,13 +1,12 @@
 /**
  * Server-Authoritative Entitlement Management Service
  *
- * Implements Prompt Section 22:
- * - Grants Pro access upon confirmed Cashfree payment
- * - Enforces Cumulative Extension Policy:
- *   If user already has active Pro (e.g. expires 2026-10-20),
- *   new purchase adds +30 days (expires 2026-11-19).
+ * Enforces Cumulative Extension Policy:
+ * - Grants Pro access upon confirmed Razorpay payment
+ * - If user already has active Pro (e.g. expires in 10 days),
+ *   new purchase adds +30 days (expires in 40 days).
  * - Avoids conflicting active entitlement records.
- * - Synchronizes profiles.plan = 'pro' in Supabase.
+ * - Synchronizes profiles.plan = 'pro', is_pro = true, plan_tier = 'PRO' in Supabase.
  */
 
 import { getSupabaseAdminClient } from '@/lib/supabase/admin';
@@ -17,7 +16,7 @@ export interface GrantEntitlementParams {
   userId: string;
   planId: string;
   durationDays?: number; // default 30 days
-  source?: string; // 'CASHFREE'
+  source?: string; // 'RAZORPAY'
   transactionId?: string | null;
 }
 
@@ -37,7 +36,7 @@ export async function grantOrExtendProEntitlement({
   userId,
   planId,
   durationDays = 30,
-  source = 'CASHFREE',
+  source = 'RAZORPAY',
   transactionId = null,
 }: GrantEntitlementParams): Promise<EntitlementResult> {
   const supabase = getSupabaseAdminClient();
@@ -92,6 +91,7 @@ export async function grantOrExtendProEntitlement({
       .update({
         ends_at: endsAt.toISOString(),
         payment_transaction_id: transactionId || existing.payment_transaction_id,
+        source,
         updated_at: now.toISOString(),
       })
       .eq('id', existing.id)
@@ -130,11 +130,36 @@ export async function grantOrExtendProEntitlement({
       .from('profiles')
       .update({
         plan: 'pro',
+        is_pro: true,
+        plan_tier: 'PRO',
         updated_at: now.toISOString(),
       })
       .eq('id', userId);
   } catch (err) {
     console.warn('[Profile Plan Sync Warning]:', err);
+  }
+
+  // Also synchronize subscriptions table for unified queries
+  try {
+    await supabase.from('subscriptions').upsert(
+      {
+        user_id: userId,
+        provider: 'razorpay',
+        provider_subscription_id: transactionId || `sub_${Date.now()}`,
+        plan: 'pro',
+        status: 'ACTIVE',
+        billing_interval: durationDays > 100 ? 'yearly' : 'monthly',
+        currency: 'INR',
+        amount_cents: durationDays > 100 ? 89900 : 9900,
+        current_period_start: startsAt.toISOString(),
+        current_period_end: endsAt.toISOString(),
+        cancel_at_period_end: false,
+        updated_at: now.toISOString(),
+      },
+      { onConflict: 'user_id' }
+    );
+  } catch (subErr) {
+    console.warn('[Subscription Sync Warning]:', subErr);
   }
 
   const daysRemaining = Math.max(

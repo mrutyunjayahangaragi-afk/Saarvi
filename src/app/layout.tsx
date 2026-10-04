@@ -123,10 +123,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             `
           }}
         />
-        <Script
-          src="https://sdk.cashfree.com/js/v3/cashfree.js"
-          strategy="afterInteractive"
-        />
       </head>
       <body className="min-h-full flex flex-col transition-colors duration-200 pb-16 md:pb-0">
         <ThemeProvider>

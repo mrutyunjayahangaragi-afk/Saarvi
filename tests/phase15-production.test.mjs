@@ -224,41 +224,40 @@ test('Phase 15 - Section 26: Manual Download Now and Download Again intentionall
 
 import { validateEnvironment } from '../src/lib/config/env.ts';
 
-test('Phase 15 - Section 42: Production rejects CASHFREE_ENVIRONMENT=SANDBOX in production', () => {
+test('Phase 15 - Section 42: Production rejects missing RAZORPAY_KEY_ID in production', () => {
   const env = {
     NODE_ENV: 'production',
-    CASHFREE_ENVIRONMENT: 'SANDBOX',
-    CASHFREE_APP_ID: 'cf_app_123',
-    CASHFREE_SECRET_KEY: 'cf_sec_123',
+    RAZORPAY_KEY_SECRET: 'rzp_sec_123',
+    RAZORPAY_WEBHOOK_SECRET: 'rzp_wh_123',
   };
 
   const result = validateEnvironment(env);
   assert.equal(result.valid, false);
-  assert.ok(result.errors.some((e) => e.includes('CASHFREE_ENVIRONMENT must be set to PRODUCTION')));
+  assert.ok(result.errors.some((e) => e.includes('RAZORPAY_KEY_ID')));
 });
 
-test('Phase 15 - Section 9 & 42: Production rejects missing CASHFREE_APP_ID', () => {
+test('Phase 15 - Section 9 & 42: Production rejects missing RAZORPAY_KEY_SECRET', () => {
   const env = {
     NODE_ENV: 'production',
-    CASHFREE_ENVIRONMENT: 'PRODUCTION',
-    CASHFREE_SECRET_KEY: 'cf_sec_123',
+    RAZORPAY_KEY_ID: 'rzp_key_123',
+    RAZORPAY_WEBHOOK_SECRET: 'rzp_wh_123',
   };
 
   const result = validateEnvironment(env);
   assert.equal(result.valid, false);
-  assert.ok(result.errors.some((e) => e.includes('CASHFREE_APP_ID')));
+  assert.ok(result.errors.some((e) => e.includes('RAZORPAY_KEY_SECRET')));
 });
 
-test('Phase 15 - Section 42: Production rejects missing CASHFREE_SECRET_KEY', () => {
+test('Phase 15 - Section 42: Production rejects missing RAZORPAY_WEBHOOK_SECRET', () => {
   const env = {
     NODE_ENV: 'production',
-    CASHFREE_ENVIRONMENT: 'PRODUCTION',
-    CASHFREE_APP_ID: 'cf_app_123',
+    RAZORPAY_KEY_ID: 'rzp_key_123',
+    RAZORPAY_KEY_SECRET: 'rzp_sec_123',
   };
 
   const result = validateEnvironment(env);
   assert.equal(result.valid, false);
-  assert.ok(result.errors.some((e) => e.includes('CASHFREE_SECRET_KEY')));
+  assert.ok(result.errors.some((e) => e.includes('RAZORPAY_WEBHOOK_SECRET')));
 });
 
 test('Phase 15 - Section 3: Rejects secrets prefixed with NEXT_PUBLIC_', () => {
