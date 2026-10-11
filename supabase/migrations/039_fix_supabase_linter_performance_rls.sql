@@ -1135,7 +1135,7 @@ DO $$ BEGIN
 
     CREATE POLICY "Users and admins read notifications" ON public.notifications
       FOR SELECT USING (
-        (id IN (SELECT notification_id FROM public.notification_recipients WHERE user_id = (SELECT auth.uid())))
+        (id IN (SELECT notification_id FROM public.notification_recipients WHERE user_id = (SELECT auth.uid()::text)))
         OR public.is_admin_or_service_role()
       );
 
@@ -1157,10 +1157,10 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS "Users can update own recipient records" ON public.notification_recipients;
 
     CREATE POLICY "Users can view own recipient records" ON public.notification_recipients
-      FOR SELECT USING (user_id = (SELECT auth.uid()));
+      FOR SELECT USING (user_id = (SELECT auth.uid()::text));
 
     CREATE POLICY "Users can update own recipient records" ON public.notification_recipients
-      FOR UPDATE USING (user_id = (SELECT auth.uid())) WITH CHECK (user_id = (SELECT auth.uid()));
+      FOR UPDATE USING (user_id = (SELECT auth.uid()::text)) WITH CHECK (user_id = (SELECT auth.uid()::text));
   END IF;
 END $$;
 
@@ -1170,7 +1170,7 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS "Users can view and manage own notification preferences" ON public.notification_preferences;
 
     CREATE POLICY "Users can view and manage own notification preferences" ON public.notification_preferences
-      FOR ALL USING (user_id = (SELECT auth.uid())) WITH CHECK (user_id = (SELECT auth.uid()));
+      FOR ALL USING (user_id = (SELECT auth.uid()::text)) WITH CHECK (user_id = (SELECT auth.uid()::text));
   END IF;
 END $$;
 
@@ -1235,13 +1235,13 @@ DO $$ BEGIN
 
     CREATE POLICY "Users and admins read interview events" ON public.interview_events
       FOR SELECT USING (
-        (user_id = (SELECT auth.uid()))
+        (user_id = (SELECT auth.uid()::text))
         OR public.is_admin_or_service_role()
       );
 
     CREATE POLICY "Users insert own interview events" ON public.interview_events
       FOR INSERT WITH CHECK (
-        (user_id = (SELECT auth.uid()))
+        (user_id = (SELECT auth.uid()::text))
         OR public.is_admin_or_service_role()
       );
 
@@ -1259,7 +1259,7 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS "Users manage own interview permissions" ON public.interview_permissions;
 
     CREATE POLICY "Users manage own interview permissions" ON public.interview_permissions
-      FOR ALL USING (user_id = (SELECT auth.uid())) WITH CHECK (user_id = (SELECT auth.uid()));
+      FOR ALL USING (user_id = (SELECT auth.uid()::text)) WITH CHECK (user_id = (SELECT auth.uid()::text));
   END IF;
 END $$;
 
@@ -1270,7 +1270,7 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS "Admins manage all interview locations" ON public.interview_locations;
 
     CREATE POLICY "Users insert own interview locations" ON public.interview_locations
-      FOR INSERT WITH CHECK (user_id = (SELECT auth.uid()));
+      FOR INSERT WITH CHECK (user_id = (SELECT auth.uid()::text));
 
     CREATE POLICY "Admins manage all interview locations" ON public.interview_locations
       FOR ALL USING (public.is_admin_or_service_role());
@@ -1295,13 +1295,13 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS "Users update own sessions" ON public.interview_sessions;
 
     CREATE POLICY "Users read own sessions" ON public.interview_sessions
-      FOR SELECT USING (user_id = (SELECT auth.uid()));
+      FOR SELECT USING (user_id = (SELECT auth.uid()::text));
 
     CREATE POLICY "Users insert own sessions" ON public.interview_sessions
-      FOR INSERT WITH CHECK (user_id = (SELECT auth.uid()));
+      FOR INSERT WITH CHECK (user_id = (SELECT auth.uid()::text));
 
     CREATE POLICY "Users update own sessions" ON public.interview_sessions
-      FOR UPDATE USING (user_id = (SELECT auth.uid())) WITH CHECK (user_id = (SELECT auth.uid()));
+      FOR UPDATE USING (user_id = (SELECT auth.uid()::text)) WITH CHECK (user_id = (SELECT auth.uid()::text));
   END IF;
 END $$;
 
@@ -1317,13 +1317,13 @@ DO $$ BEGIN
 
     CREATE POLICY "Users and admins read interview answers" ON public.interview_answers
       FOR SELECT USING (
-        (user_id = (SELECT auth.uid()))
+        (user_id = (SELECT auth.uid()::text))
         OR public.is_admin_or_service_role()
       );
 
     CREATE POLICY "Users insert own interview answers" ON public.interview_answers
       FOR INSERT WITH CHECK (
-        (user_id = (SELECT auth.uid()))
+        (user_id = (SELECT auth.uid()::text))
         OR public.is_admin_or_service_role()
       );
 
