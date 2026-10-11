@@ -4,6 +4,7 @@ import { featureServerStore } from '@/lib/features/feature-store';
 import { enforceRateLimit, createRateLimitResponse } from '@/lib/security/rate-limit';
 import { getAuthenticatedAdmin } from '@/lib/security/admin-auth';
 import { analyticsStore } from '@/lib/analytics/analytics-store';
+import { SaarviActionOrchestrator } from '@/lib/ai/orchestrator/action-orchestrator';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,7 +56,55 @@ export async function POST(request: Request) {
       isAdmin = false;
     }
 
-    // 4. Resolve query via AI Assistant 2.0 Router
+    // 4. Check for multi-step workflow actions or action orchestration
+    const { workflowAction, workflowType, stepAnswer, fieldKey, confirmedActionId } = body;
+    let orchestrationResult = null;
+
+    if (workflowAction || workflowType) {
+      orchestrationResult = await SaarviActionOrchestrator.process({
+        message,
+        workflowAction,
+        workflowType,
+        stepAnswer,
+        fieldKey,
+        confirmedActionId,
+      });
+
+      return NextResponse.json({
+        success: true,
+        reply: orchestrationResult.explanation,
+        actionResult: orchestrationResult,
+        intent: orchestrationResult.intent,
+        isDeterministic: true,
+        workflowStatus: orchestrationResult.workflowStatus,
+        suggestedChips: orchestrationResult.suggestedChips,
+        currentQuestion: orchestrationResult.currentQuestion,
+        draftContent: orchestrationResult.draftContent,
+      });
+    }
+
+    // 4b. Evaluate with SaarviActionOrchestrator for action intents
+    const actionEvaluation = await SaarviActionOrchestrator.process({ message });
+    if (
+      actionEvaluation.intent === 'HEALTH_ASSISTANCE' ||
+      actionEvaluation.intent === 'HEALTH_LEAVE_LETTER' ||
+      actionEvaluation.intent === 'CAREER_SEARCH' ||
+      (actionEvaluation.intent === 'ACADEMIC_CALCULATION' && actionEvaluation.workflowStatus === 'completed')
+    ) {
+      return NextResponse.json({
+        success: true,
+        reply: actionEvaluation.explanation,
+        actionResult: actionEvaluation,
+        intent: actionEvaluation.intent,
+        isDeterministic: true,
+        workflowStatus: actionEvaluation.workflowStatus,
+        suggestedChips: actionEvaluation.suggestedChips,
+        currentQuestion: actionEvaluation.currentQuestion,
+        draftContent: actionEvaluation.draftContent,
+      });
+    }
+
+    // 4c. Resolve query via AI Assistant 2.0 Router
     const execution = await resolveAssistantQuery(message, { isAdmin });
     const durationMs = Date.now() - startTime;
 
@@ -83,6 +132,7 @@ export async function POST(request: Request) {
       intent: execution.intent,
       isDeterministic: execution.isDeterministic,
       providerUsed: execution.providerUsed,
+      actionResult: actionEvaluation,
     });
   } catch (error: any) {
     console.error('[AI Assistant API] Error:', error);
@@ -92,3 +142,4 @@ export async function POST(request: Request) {
     );
   }
 }
+

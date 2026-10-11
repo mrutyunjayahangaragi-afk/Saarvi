@@ -7,6 +7,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { PlatformProvider } from "@/context/PlatformContext";
 import AdvertisementGate from "@/components/advertising/AdvertisementGate";
 import GlobalAIAssistant from "@/components/ai/GlobalAIAssistant";
+import SaarviProactiveAssistant from "@/components/ai/SaarviProactiveAssistant";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -134,6 +135,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <FeedbackModal />
                 <SmartResultBanner />
                 <GlobalAIAssistant />
+                <SaarviProactiveAssistant />
                 <MobileBottomNav />
               </FeedbackProvider>
             </AuthProvider>

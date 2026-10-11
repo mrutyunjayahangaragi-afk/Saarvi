@@ -67,13 +67,13 @@ export function deriveCanonicalSubcategory(key: string, category: string): strin
   if (['pdf-metadata', 'pdf-info'].includes(key)) return 'inspect';
 
   // Image Subcategories
-  if (['png-to-jpg', 'jpg-to-png', 'svg-to-png', 'heic-to-jpg'].includes(key)) return 'convert';
+  if (['png-to-jpg', 'jpg-to-png'].includes(key)) return 'convert';
   if (['image-resize', 'crop-image', 'compress-image'].includes(key)) return 'optimize';
-  if (['document-scanner', 'scan-to-pdf', 'photo-to-document', 'jpg-to-pdf', 'image-to-pdf', 'multiple-images-to-pdf'].includes(key)) return 'scan';
+  if (['document-scanner', 'jpg-to-pdf', 'image-to-pdf', 'multiple-images-to-pdf'].includes(key)) return 'scan';
 
   // Student & Academic Subcategories
-  if (['sgpa-calculator', 'cgpa-calculator', 'exam-marks-analyzer', 'attendance-tracker', 'academic-goals'].includes(key) || category === 'academic') return 'academic';
-  if (['timetable-generator', 'study-planner', 'exam-tracker', 'assignment-tracker', 'student-notes', 'certificate-manager', 'internship-tracker', 'hackathon-tracker', 'notes-to-pdf'].includes(key) || category === 'student') return 'planning';
+  if (['sgpa-calculator', 'cgpa-calculator', 'exam-marks-analyzer', 'attendance-tracker'].includes(key) || category === 'academic') return 'academic';
+  if (['timetable-generator', 'study-planner', 'exam-tracker', 'internship-tracker', 'hackathon-tracker', 'notes-to-pdf'].includes(key) || category === 'student') return 'planning';
 
   // Career
   if (category === 'career') return 'career';

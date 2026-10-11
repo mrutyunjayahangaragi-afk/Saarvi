@@ -43,6 +43,7 @@ export const DEFAULT_TOOL_ACCESS_MODES: Record<string, ToolAccessMode> = {
 
   // Advanced AI Tools
   'ai-copilot': 'PRO',
+  'student-copilot': 'PRO',
   'copilot-interview': 'PRO',
 
   // AI OCR / Utilities

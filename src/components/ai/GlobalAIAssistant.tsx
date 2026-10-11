@@ -13,15 +13,27 @@ import {
   Trash2,
   Copy,
   Check,
+  Download,
+  FileText,
+  AlertTriangle,
+  ChevronLeft,
+  Briefcase,
+  GraduationCap,
 } from 'lucide-react';
 import { ToolDiscoveryResult, DiscoveredToolItem } from '@/lib/ai/tool-discovery-engine';
 import { isValidCanonicalRoute } from '@/lib/ai/ai-assistant-router';
+import type { ActionIntentResult } from '@/lib/ai/orchestrator/types';
+import { HealthLetterWorkflow } from '@/lib/ai/workflows/health-letter-workflow';
 
 interface ChatMessage {
   id: string;
   sender: 'user' | 'assistant';
   text: string;
   result?: ToolDiscoveryResult;
+  actionResult?: ActionIntentResult;
+  suggestedChips?: string[];
+  workflowType?: string;
+  draftContent?: Record<string, unknown>;
   timestamp: string;
   isError?: boolean;
 }
@@ -52,6 +64,8 @@ export default function GlobalAIAssistant() {
   const [isSearching, setIsSearching] = useState(false);
   const [lastUserPrompt, setLastUserPrompt] = useState<string | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [activeWorkflowType, setActiveWorkflowType] = useState<string | null>(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const triggerButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -98,6 +112,25 @@ export default function GlobalAIAssistant() {
     return () => window.removeEventListener('saarvi:ad-state-changed', handleAdState);
   }, []);
 
+  const handleSendMessageRef = useRef<((queryText?: string) => Promise<void>) | null>(null);
+
+  // Listen to open assistant custom event
+  useEffect(() => {
+    const handleOpenAssistant = (e: any) => {
+      setIsOpen(true);
+      if (e.detail?.query) {
+        if (e.detail.autoSend && handleSendMessageRef.current) {
+          handleSendMessageRef.current(e.detail.query);
+        } else {
+          setInputValue(e.detail.query);
+        }
+      }
+    };
+
+    window.addEventListener('saarvi:open-assistant', handleOpenAssistant);
+    return () => window.removeEventListener('saarvi:open-assistant', handleOpenAssistant);
+  }, []);
+
   // Keyboard support: Escape closes panel
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -127,6 +160,7 @@ export default function GlobalAIAssistant() {
 
   // Clear chat history
   const handleClearChat = () => {
+    setActiveWorkflowType(null);
     setMessages([
       {
         ...INITIAL_MESSAGE,
@@ -138,29 +172,54 @@ export default function GlobalAIAssistant() {
     } catch {}
   };
 
-  // Send message
-  const handleSendMessage = async (queryText?: string) => {
-    const textToSend = (queryText || inputValue).trim();
-    if (!textToSend || isSearching) return;
+  // Send message or workflow step
+  const handleSendMessage = async (
+    queryText?: string,
+    workflowOpts?: {
+      workflowAction?: 'start' | 'advance' | 'step_back' | 'cancel' | 'edit';
+      workflowType?: string;
+      stepAnswer?: unknown;
+      fieldKey?: string;
+    }
+  ) => {
+    const textToSend = (queryText !== undefined ? queryText : inputValue).trim();
+    if (!textToSend && !workflowOpts && !isSearching) return;
+    if (isSearching) return;
 
-    setLastUserPrompt(textToSend);
+    if (textToSend) {
+      setLastUserPrompt(textToSend);
+      const userMessage: ChatMessage = {
+        id: `usr_${Date.now()}`,
+        sender: 'user',
+        text: textToSend,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages((prev) => [...prev, userMessage]);
+    }
 
-    const userMessage: ChatMessage = {
-      id: `usr_${Date.now()}`,
-      sender: 'user',
-      text: textToSend,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    if (!queryText) setInputValue('');
+    if (!queryText && queryText === undefined) setInputValue('');
     setIsSearching(true);
 
     try {
+      const payload: Record<string, unknown> = {
+        message: textToSend || (workflowOpts?.workflowAction ? 'Workflow action' : ''),
+      };
+
+      if (workflowOpts) {
+        payload.workflowAction = workflowOpts.workflowAction;
+        payload.workflowType = workflowOpts.workflowType || activeWorkflowType;
+        payload.stepAnswer = workflowOpts.stepAnswer !== undefined ? workflowOpts.stepAnswer : textToSend;
+        payload.fieldKey = workflowOpts.fieldKey;
+      } else if (activeWorkflowType) {
+        payload.workflowAction = 'advance';
+        payload.workflowType = activeWorkflowType;
+        payload.stepAnswer = textToSend;
+      }
+
       const res = await fetch('/api/ai/tool-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: textToSend }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -168,16 +227,28 @@ export default function GlobalAIAssistant() {
         throw new Error(data.error || 'Failed to process request');
       }
 
+      const actionResult: ActionIntentResult | undefined = data.actionResult;
       const result: ToolDiscoveryResult = data.result || {
         type: 'NO_MATCH',
         reply: data.reply || 'Here is what I found.',
       };
+
+      if (actionResult?.intent === 'HEALTH_LEAVE_LETTER' && actionResult.workflowStatus === 'needs_clarification') {
+        setActiveWorkflowType('health_leave_letter');
+      } else if (actionResult?.intent === 'CAREER_SEARCH' && actionResult.workflowStatus === 'needs_clarification') {
+        setActiveWorkflowType('career_search');
+      } else if (actionResult?.workflowStatus === 'completed' || actionResult?.workflowStatus === 'cancelled') {
+        setActiveWorkflowType(null);
+      }
 
       const aiMessage: ChatMessage = {
         id: `ai_${Date.now()}`,
         sender: 'assistant',
         text: data.reply || result.reply,
         result,
+        actionResult,
+        suggestedChips: data.suggestedChips || actionResult?.suggestedChips,
+        draftContent: data.draftContent || actionResult?.draftContent,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
@@ -186,7 +257,8 @@ export default function GlobalAIAssistant() {
       const errorMessage: ChatMessage = {
         id: `err_${Date.now()}`,
         sender: 'assistant',
-        text: "Saarvi AI is temporarily unavailable, but I can still help you find Saarvi tools. Please try again or ask for PDF, Image, Student, or Career utilities.",
+        text:
+          "Saarvi AI is temporarily unavailable, but I can still help you find Saarvi tools. Please try again or ask for PDF, Image, Student, or Career utilities.",
         isError: true,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
@@ -195,6 +267,42 @@ export default function GlobalAIAssistant() {
       setIsSearching(false);
     }
   };
+  handleSendMessageRef.current = handleSendMessage;
+
+  const handleDownloadPdf = async (draftText: string) => {
+    if (!draftText || isDownloadingPdf) return;
+    setIsDownloadingPdf(true);
+    try {
+      const bytes = await HealthLetterWorkflow.createDraftPdf(draftText);
+      const blob = new Blob([bytes as any], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `saarvi_leave_letter_${Date.now()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to generate PDF:', err);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  const handleStepBack = () => {
+    if (activeWorkflowType) {
+      handleSendMessage('', { workflowAction: 'step_back', workflowType: activeWorkflowType });
+    }
+  };
+
+  const handleCancelWorkflow = () => {
+    if (activeWorkflowType) {
+      handleSendMessage('', { workflowAction: 'cancel', workflowType: activeWorkflowType });
+      setActiveWorkflowType(null);
+    }
+  };
+
 
   // Retry last query
   const handleRetry = () => {
@@ -366,7 +474,7 @@ export default function GlobalAIAssistant() {
                   )}
 
                   {/* Tool Discovery Cards */}
-                  {msg.result && msg.result.tools && msg.result.tools.length > 0 && (
+                  {msg.result?.tools && msg.result.tools.length > 0 ? (
                     <div className="mt-3 space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                       {msg.result.tools.map((tool) => (
                         <div
@@ -426,10 +534,10 @@ export default function GlobalAIAssistant() {
                         </div>
                       ))}
                     </div>
-                  )}
+                  ) : null}
 
                   {/* Category Route Button */}
-                  {msg.result && msg.result.categoryRoute && (
+                  {msg.result?.categoryRoute ? (
                     <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
                       <button
                         onClick={() => handleNavigate(msg.result!.categoryRoute!)}
@@ -439,7 +547,123 @@ export default function GlobalAIAssistant() {
                         <ArrowRight className="w-3 h-3" />
                       </button>
                     </div>
-                  )}
+                  ) : null}
+
+                  {/* Leave Letter Draft Preview Card */}
+                  {typeof msg.draftContent?.draftText === 'string' ? (
+                    <div className="mt-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-700 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-100">
+                          <FileText className="w-4 h-4 text-blue-600" />
+                          <span>Truthful Leave Request Draft</span>
+                        </div>
+                        <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                          Local Draft
+                        </span>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-white dark:bg-[#162244] border border-slate-200/80 dark:border-slate-800 text-[11px] font-mono whitespace-pre-wrap max-h-48 overflow-y-auto leading-relaxed text-slate-700 dark:text-slate-200">
+                        {String(msg.draftContent.draftText)}
+                      </div>
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[10px] text-slate-400">Zero cloud storage • 100% private</span>
+                        <button
+                          onClick={() => handleDownloadPdf(String(msg.draftContent!.draftText))}
+                          disabled={isDownloadingPdf}
+                          className="min-h-[32px] inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-50"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>{isDownloadingPdf ? 'Generating...' : 'Download PDF'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Recommended Opportunities Cards */}
+                  {Array.isArray((msg.draftContent as any)?.opportunities) && ((msg.draftContent as any).opportunities as any[]).length > 0 ? (
+                    <div className="mt-3 space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                        <Briefcase className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Recommended Opportunities:</span>
+                      </div>
+                      {((msg.draftContent as any).opportunities as any[]).map((opp: any) => (
+                        <div
+                          key={opp.id}
+                          className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="font-bold text-slate-900 dark:text-white text-xs truncate">{opp.title}</div>
+                              <div className="text-[11px] text-slate-500 dark:text-slate-400">{opp.company} • {opp.location}</div>
+                            </div>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 shrink-0">
+                              {opp.opportunityType}
+                            </span>
+                          </div>
+                          <div className="mt-1.5 text-[10px] text-slate-600 dark:text-slate-300 bg-white/60 dark:bg-slate-900/40 p-1.5 rounded-md border border-slate-200/50 dark:border-slate-800">
+                            <span className="font-semibold text-blue-600 dark:text-blue-400">Match Factor: </span>
+                            {opp.explanation?.explanationSummary}
+                          </div>
+                          <div className="mt-2 flex items-center justify-between text-[10px]">
+                            <span className="text-slate-400">Source: {opp.source}</span>
+                            <button
+                              onClick={() => handleNavigate('/jobs', 'job-tracker')}
+                              className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer"
+                            >
+                              <span>View in Jobs Hub</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {/* Academic Calculation Result Card */}
+                  {typeof msg.draftContent?.breakdown === 'string' ? (
+                    <div className="mt-3 p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/70 dark:border-blue-900 space-y-2">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900 dark:text-blue-200">
+                        <GraduationCap className="w-4 h-4 text-blue-600" />
+                        <span>Verified Academic Result</span>
+                      </div>
+                      <div className="text-[11px] whitespace-pre-wrap leading-relaxed text-slate-800 dark:text-slate-200 font-sans">
+                        {String(msg.draftContent.breakdown)}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Suggested Answer Chips */}
+                  {msg.suggestedChips && msg.suggestedChips.length > 0 ? (
+                    <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-1.5">
+                      {msg.suggestedChips.map((chip, chipIdx) => (
+                        <button
+                          key={chipIdx}
+                          onClick={() => handleSendMessage(chip)}
+                          className="px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800 text-[11px] font-medium transition active:scale-95 cursor-pointer"
+                        >
+                          {chip}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {/* Active Workflow Controls */}
+                  {activeWorkflowType && msg === messages[messages.length - 1] ? (
+                    <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px]">
+                      <button
+                        onClick={handleStepBack}
+                        className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium cursor-pointer"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                        <span>Previous Step</span>
+                      </button>
+                      <button
+                        onClick={handleCancelWorkflow}
+                        className="text-red-500 hover:text-red-700 font-medium cursor-pointer"
+                      >
+                        Cancel Workflow
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
                 <span className="text-[10px] text-slate-400 mt-1 px-1">
                   {msg.timestamp}

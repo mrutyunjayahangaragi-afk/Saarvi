@@ -211,7 +211,7 @@ test('SAARVI TOOL CONTROL CENTER & BETA FREE-USAGE LIMITS TEST SUITE', async (t)
   const engine = new ToolControlEngine(CANONICAL_TOOL_REGISTRY);
 
   await t.test('1. Canonical Tool Inventory: Exposes required operational metadata for all canonical tools', () => {
-    assert.ok(CANONICAL_TOOL_REGISTRY.length >= 60, `Expected at least 60 tools, got ${CANONICAL_TOOL_REGISTRY.length}`);
+    assert.ok(CANONICAL_TOOL_REGISTRY.length >= 55, `Expected at least 55 tools, got ${CANONICAL_TOOL_REGISTRY.length}`);
 
     for (const tool of CANONICAL_TOOL_REGISTRY) {
       assert.ok(tool.key, 'Tool must have unique key');
@@ -358,7 +358,7 @@ test('SAARVI TOOL CONTROL CENTER & BETA FREE-USAGE LIMITS TEST SUITE', async (t)
 
   await t.test('7. Telemetry Aggregation & Deterministic Tool Health', () => {
     const telemetry = engine.getTelemetryOverview();
-    assert.ok(telemetry.length >= 60);
+    assert.ok(telemetry.length >= 55);
 
     const sample = telemetry.find((t) => t.toolKey === 'pdf-to-jpg');
     assert.ok(sample);

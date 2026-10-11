@@ -17,17 +17,17 @@ const ROOT_DIR = process.cwd();
 // PHASE 35: IMAGE & SCAN TOOLKIT TESTS
 // =============================================================================
 
-test('Phase 35 — Document Scanner, Scan to PDF, and Photo to Document registered in CANONICAL_TOOL_REGISTRY', () => {
-  const scanSlugs = ['document-scanner', 'scan-to-pdf', 'photo-to-document'];
+test('Phase 35 — Document Scanner registered and consolidated in CANONICAL_TOOL_REGISTRY', () => {
   const canonicalKeys = CANONICAL_TOOL_REGISTRY.map((t) => t.key);
+  assert.ok(canonicalKeys.includes('document-scanner'), 'Missing document-scanner in CANONICAL_TOOL_REGISTRY');
+  const tool = CANONICAL_TOOL_REGISTRY.find((t) => t.key === 'document-scanner');
+  assert.ok(['image', 'pdf'].includes(tool.category));
+  assert.equal(tool.status, 'available');
+  assert.ok(tool.keywords && tool.keywords.length > 0);
 
-  for (const slug of scanSlugs) {
-    assert.ok(canonicalKeys.includes(slug), `Missing ${slug} in CANONICAL_TOOL_REGISTRY`);
-    const tool = CANONICAL_TOOL_REGISTRY.find((t) => t.key === slug);
-    assert.ok(['image', 'pdf'].includes(tool.category));
-    assert.equal(tool.status, 'available');
-    assert.ok(tool.keywords && tool.keywords.length > 0);
-  }
+  // Redundant scan tools consolidated into document-scanner
+  assert.ok(!canonicalKeys.includes('scan-to-pdf'), 'scan-to-pdf consolidated into document-scanner');
+  assert.ok(!canonicalKeys.includes('photo-to-document'), 'photo-to-document consolidated into document-scanner');
 });
 
 test('Phase 35 — Scan operations registered in registry.ts and limits.ts', () => {

@@ -275,8 +275,8 @@ export function AIToolRunner({
           </div>
         )}
 
-        {/* Error / Cancelled Phase */}
-        {(state === "ERROR" || state === "CANCELLED") && (
+        {/* Cancelled Phase */}
+        {state === "CANCELLED" && (
           <div
             id="tool-error"
             data-saarvi-target="tool-error"
@@ -288,7 +288,7 @@ export function AIToolRunner({
             </div>
             <div className="max-w-md space-y-1">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                {state === "CANCELLED" ? "Operation Cancelled" : "Processing Failed"}
+                Operation Cancelled
               </h3>
               <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                 {errorMessage || "The operation was interrupted. Your local document remains safe."}
@@ -301,6 +301,41 @@ export function AIToolRunner({
               <RotateCcw className="h-4 w-4" />
               Try Again
             </button>
+          </div>
+        )}
+
+        {/* Error Phase with accessible input recovery */}
+        {state === "ERROR" && (
+          <div className="space-y-6">
+            <div
+              id="tool-error"
+              data-saarvi-target="tool-error"
+              tabIndex={-1}
+              className="flex items-start gap-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 p-4 saarvi-destination-target outline-hidden"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-400">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0 space-y-1">
+                <h3 className="text-sm font-bold text-rose-900 dark:text-rose-200">
+                  Processing Issue
+                </h3>
+                <p className="text-xs text-rose-700 dark:text-rose-300 leading-relaxed">
+                  {errorMessage || "The operation could not be completed. Please adjust your file and try again."}
+                </p>
+              </div>
+              <button
+                onClick={handleReset}
+                className="shrink-0 text-xs font-semibold text-rose-700 hover:text-rose-900 dark:text-rose-300 dark:hover:text-rose-100 underline cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+
+            {inputRender({
+              disabled: false,
+              onStart: handleInitiate,
+            })}
           </div>
         )}
 

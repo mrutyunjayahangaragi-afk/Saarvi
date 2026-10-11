@@ -1102,8 +1102,6 @@ export default function Navbar() {
                       ? navCategories.find((c) => c.id === "images" || c.id === "image")!.allTools
                       : [
                         { key: "document-scanner", name: "Document Scanner", route: "/tools/document-scanner" },
-                        { key: "scan-to-pdf", name: "Scan to PDF", route: "/tools/scan-to-pdf" },
-                        { key: "photo-to-document", name: "Photo to Document", route: "/tools/photo-to-document" },
                         { key: "jpg-to-pdf", name: "JPG to PDF", route: "/tools/jpg-to-pdf" },
                         { key: "png-to-jpg", name: "PNG to JPG", route: "/tools/png-to-jpg" },
                         { key: "jpg-to-png", name: "JPG to PNG", route: "/tools/jpg-to-png" },
@@ -1112,8 +1110,6 @@ export default function Navbar() {
                         { key: "image-resize", name: "Resize Image", route: "/tools/image-resize" },
                         { key: "crop-image", name: "Crop Image", route: "/tools/crop-image" },
                         { key: "compress-image", name: "Compress Image", route: "/tools/compress-image" },
-                        { key: "svg-to-png", name: "SVG to PNG", route: "/tools/svg-to-png" },
-                        { key: "heic-to-jpg", name: "HEIC to JPG", route: "/tools/heic-to-jpg" },
                       ]
                   ).map((tool: any) => (
                     <Link
@@ -1168,13 +1164,9 @@ export default function Navbar() {
                         { key: "cgpa-calculator", name: "CGPA Calculator", route: "/student/cgpa-calculator" },
                         { key: "attendance-tracker", name: "Attendance Planner", route: "/student/attendance" },
                         { key: "exam-marks-analyzer", name: "Marks Calculator", route: "/student/calculator" },
-                        { key: "academic-goals", name: "Academic Goals", route: "/student/goals" },
                         { key: "timetable-generator", name: "Timetable Generator", route: "/student/timetable" },
                         { key: "study-planner", name: "Study Planner", route: "/student/study-planner" },
                         { key: "exam-tracker", name: "Exam Schedule Tracker", route: "/student/exams" },
-                        { key: "assignment-tracker", name: "Assignment Tracker", route: "/student/assignments" },
-                        { key: "student-notes", name: "Study Notes", route: "/student/notes" },
-                        { key: "certificate-manager", name: "Certificate Locker", route: "/student/certificates" },
                         { key: "internship-tracker", name: "Internship Tracker", route: "/student/internships" },
                         { key: "hackathon-tracker", name: "Hackathon Tracker", route: "/student/hackathons" },
                       ]

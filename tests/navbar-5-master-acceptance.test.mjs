@@ -141,14 +141,16 @@ class Navbar5TestEngine {
 test('Navbar 5.0 (Section 50): Completeness — All 20+ PDF, 15+ Image, 20+ Student Tools appear without 5-tool limit', () => {
   const engine = new Navbar5TestEngine(CANONICAL_TOOL_REGISTRY);
 
-  // Add mock tools to guarantee 20+ PDF, 15+ Images, 20+ Student tools
+  // Add mock tools to guarantee 20+ PDF, 15+ Images, 20+ Student tools without artificial truncation
   const mockTools = [
-    // Ensure 20+ PDF tools (registry has 26)
-    // Ensure 15+ image tools (registry has 13, adding 3)
+    // Ensure 15+ image tools after retiring discontinued tools
     { key: 'mock-img-1', name: 'Mock Image 1', description: 'desc', category: 'image', route: '/tools/mock-1', icon: 'FileImage', defaultAccess: 'FREE', status: 'available' },
     { key: 'mock-img-2', name: 'Mock Image 2', description: 'desc', category: 'image', route: '/tools/mock-2', icon: 'FileImage', defaultAccess: 'FREE', status: 'available' },
     { key: 'mock-img-3', name: 'Mock Image 3', description: 'desc', category: 'image', route: '/tools/mock-3', icon: 'FileImage', defaultAccess: 'FREE', status: 'available' },
-    // Ensure 20+ student tools (registry has 14, adding 7)
+    { key: 'mock-img-4', name: 'Mock Image 4', description: 'desc', category: 'image', route: '/tools/mock-4', icon: 'FileImage', defaultAccess: 'FREE', status: 'available' },
+    { key: 'mock-img-5', name: 'Mock Image 5', description: 'desc', category: 'image', route: '/tools/mock-5', icon: 'FileImage', defaultAccess: 'FREE', status: 'available' },
+    { key: 'mock-img-6', name: 'Mock Image 6', description: 'desc', category: 'image', route: '/tools/mock-6', icon: 'FileImage', defaultAccess: 'FREE', status: 'available' },
+    // Ensure 20+ student tools
     { key: 'mock-stu-1', name: 'Mock Student 1', description: 'desc', category: 'student', route: '/student/mock-1', icon: 'GraduationCap', defaultAccess: 'FREE', status: 'available' },
     { key: 'mock-stu-2', name: 'Mock Student 2', description: 'desc', category: 'student', route: '/student/mock-2', icon: 'GraduationCap', defaultAccess: 'FREE', status: 'available' },
     { key: 'mock-stu-3', name: 'Mock Student 3', description: 'desc', category: 'student', route: '/student/mock-3', icon: 'GraduationCap', defaultAccess: 'FREE', status: 'available' },
@@ -156,6 +158,9 @@ test('Navbar 5.0 (Section 50): Completeness — All 20+ PDF, 15+ Image, 20+ Stud
     { key: 'mock-stu-5', name: 'Mock Student 5', description: 'desc', category: 'student', route: '/student/mock-5', icon: 'GraduationCap', defaultAccess: 'FREE', status: 'available' },
     { key: 'mock-stu-6', name: 'Mock Student 6', description: 'desc', category: 'student', route: '/student/mock-6', icon: 'GraduationCap', defaultAccess: 'FREE', status: 'available' },
     { key: 'mock-stu-7', name: 'Mock Student 7', description: 'desc', category: 'student', route: '/student/mock-7', icon: 'GraduationCap', defaultAccess: 'FREE', status: 'available' },
+    { key: 'mock-stu-8', name: 'Mock Student 8', description: 'desc', category: 'student', route: '/student/mock-8', icon: 'GraduationCap', defaultAccess: 'FREE', status: 'available' },
+    { key: 'mock-stu-9', name: 'Mock Student 9', description: 'desc', category: 'student', route: '/student/mock-9', icon: 'GraduationCap', defaultAccess: 'FREE', status: 'available' },
+    { key: 'mock-stu-10', name: 'Mock Student 10', description: 'desc', category: 'student', route: '/student/mock-10', icon: 'GraduationCap', defaultAccess: 'FREE', status: 'available' },
   ];
   engine.addCustomTools(mockTools);
 

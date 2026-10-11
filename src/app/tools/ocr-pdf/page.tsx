@@ -24,7 +24,29 @@ export default function OcrPdfPage() {
   };
 
   const handleExecute = async (signal: AbortSignal) => {
-    if (!file) throw new Error("Please select a scanned PDF file.");
+    if (!file) {
+      throw new Error("No PDF selected — please upload a scanned PDF before processing.");
+    }
+
+    if (!file.name.toLowerCase().endsWith(".pdf") && file.type !== "application/pdf") {
+      throw new Error("Invalid file format. Please upload a standard scanned PDF document.");
+    }
+
+    if (file.size > 25 * 1024 * 1024) {
+      throw new Error("File too large. Maximum supported PDF size is 25 MB.");
+    }
+
+    if (startPage < 1) {
+      throw new Error("Start page must be at least 1.");
+    }
+
+    if (endPage < startPage) {
+      throw new Error("End page cannot be less than start page.");
+    }
+
+    if (endPage - startPage + 1 > 20) {
+      throw new Error("Selected page range exceeds the maximum limit of 20 pages per OCR request.");
+    }
 
     const formData = new FormData();
     formData.append("file", file);
@@ -38,6 +60,14 @@ export default function OcrPdfPage() {
     });
 
     if (!res.ok) {
+      if (res.status === 503) {
+        throw new Error(
+          "Your file was selected, but the OCR service is currently unavailable. Your original file has not been modified."
+        );
+      }
+      if (res.status === 429) {
+        throw new Error("OCR rate limit reached. Please wait a moment before trying again.");
+      }
       const err = await res.json().catch(() => ({ error: "PDF OCR extraction failed." }));
       throw new Error(err.error || "PDF OCR extraction failed.");
     }

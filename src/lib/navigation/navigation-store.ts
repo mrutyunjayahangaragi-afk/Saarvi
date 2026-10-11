@@ -62,7 +62,7 @@ export const DEFAULT_CATEGORY_CONFIGS: CategoryConfigItem[] = [
  */
 function buildDefaultConfigs(): NavigationConfigItem[] {
   return CANONICAL_TOOL_REGISTRY.map((tool, index) => {
-    const isFeatured = ['merge-pdf', 'pdf-to-excel', 'resume-builder', 'sgpa-calculator', 'document-scanner'].includes(tool.key);
+    const isFeatured = ['merge-pdf', 'compress-pdf', 'resume-builder', 'sgpa-calculator', 'document-scanner'].includes(tool.key);
     return {
       id: `nav_${tool.key}_${tool.category}`,
       toolId: tool.key,
