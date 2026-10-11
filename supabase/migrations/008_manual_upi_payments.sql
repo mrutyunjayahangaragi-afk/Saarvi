@@ -85,33 +85,98 @@ ALTER TABLE public.payment_configs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.manual_payment_requests ENABLE ROW LEVEL SECURITY;
 
 -- Payment Config: Readable by all authenticated and anonymous users
+DROP POLICY IF EXISTS payment_configs_read_all ON public.payment_configs;
 CREATE POLICY payment_configs_read_all ON public.payment_configs
     FOR SELECT USING (true);
 
 -- Payment Config: Modifiable only by Super Admins / Admins
-CREATE POLICY payment_configs_admin_all ON public.payment_configs
-    FOR ALL USING (
+DROP POLICY IF EXISTS payment_configs_admin_all ON public.payment_configs;
+DROP POLICY IF EXISTS "Admin insert payment configs" ON public.payment_configs;
+DROP POLICY IF EXISTS "Admin update payment configs" ON public.payment_configs;
+DROP POLICY IF EXISTS "Admin delete payment configs" ON public.payment_configs;
+
+CREATE POLICY "Admin insert payment configs" ON public.payment_configs
+    FOR INSERT WITH CHECK (
         EXISTS (
             SELECT 1 FROM public.profiles
-            WHERE profiles.id = auth.uid()
+            WHERE profiles.id = (SELECT auth.uid())
             AND profiles.role IN ('ADMIN', 'SUPER_ADMIN')
         )
     );
 
--- Payment Requests: Users can read their own submissions
-CREATE POLICY manual_payment_requests_user_read ON public.manual_payment_requests
-    FOR SELECT USING (auth.uid() = user_id);
-
--- Payment Requests: Users can insert their own payment requests
-CREATE POLICY manual_payment_requests_user_insert ON public.manual_payment_requests
-    FOR INSERT WITH CHECK (auth.uid() = user_id);
-
--- Payment Requests: Admins can view and update all requests
-CREATE POLICY manual_payment_requests_admin_all ON public.manual_payment_requests
-    FOR ALL USING (
+CREATE POLICY "Admin update payment configs" ON public.payment_configs
+    FOR UPDATE USING (
         EXISTS (
             SELECT 1 FROM public.profiles
-            WHERE profiles.id = auth.uid()
+            WHERE profiles.id = (SELECT auth.uid())
+            AND profiles.role IN ('ADMIN', 'SUPER_ADMIN')
+        )
+    ) WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = (SELECT auth.uid())
+            AND profiles.role IN ('ADMIN', 'SUPER_ADMIN')
+        )
+    );
+
+CREATE POLICY "Admin delete payment configs" ON public.payment_configs
+    FOR DELETE USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = (SELECT auth.uid())
+            AND profiles.role IN ('ADMIN', 'SUPER_ADMIN')
+        )
+    );
+
+-- Payment Requests: Users can read their own submissions, admins read all
+DROP POLICY IF EXISTS manual_payment_requests_user_read ON public.manual_payment_requests;
+DROP POLICY IF EXISTS manual_payment_requests_admin_all ON public.manual_payment_requests;
+CREATE POLICY manual_payment_requests_user_read ON public.manual_payment_requests
+    FOR SELECT USING (
+        ((SELECT auth.uid()) = user_id)
+        OR EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = (SELECT auth.uid())
+            AND profiles.role IN ('ADMIN', 'SUPER_ADMIN')
+        )
+    );
+
+-- Payment Requests: Users can insert their own payment requests
+DROP POLICY IF EXISTS manual_payment_requests_user_insert ON public.manual_payment_requests;
+CREATE POLICY manual_payment_requests_user_insert ON public.manual_payment_requests
+    FOR INSERT WITH CHECK (
+        ((SELECT auth.uid()) = user_id)
+        OR EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = (SELECT auth.uid())
+            AND profiles.role IN ('ADMIN', 'SUPER_ADMIN')
+        )
+    );
+
+-- Payment Requests: Admins can update and delete requests
+DROP POLICY IF EXISTS "Admin update manual payment requests" ON public.manual_payment_requests;
+DROP POLICY IF EXISTS "Admin delete manual payment requests" ON public.manual_payment_requests;
+
+CREATE POLICY "Admin update manual payment requests" ON public.manual_payment_requests
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = (SELECT auth.uid())
+            AND profiles.role IN ('ADMIN', 'SUPER_ADMIN')
+        )
+    ) WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = (SELECT auth.uid())
+            AND profiles.role IN ('ADMIN', 'SUPER_ADMIN')
+        )
+    );
+
+CREATE POLICY "Admin delete manual payment requests" ON public.manual_payment_requests
+    FOR DELETE USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = (SELECT auth.uid())
             AND profiles.role IN ('ADMIN', 'SUPER_ADMIN')
         )
     );
