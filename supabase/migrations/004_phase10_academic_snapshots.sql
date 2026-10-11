@@ -36,26 +36,26 @@ DROP POLICY IF EXISTS "Users can view own academic records" ON public.student_ac
 CREATE POLICY "Users can view own academic records"
   ON public.student_academic_records
   FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (user_id = (SELECT auth.uid()));
 
 -- 2. INSERT Policy
 DROP POLICY IF EXISTS "Users can insert own academic records" ON public.student_academic_records;
 CREATE POLICY "Users can insert own academic records"
   ON public.student_academic_records
   FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (user_id = (SELECT auth.uid()));
 
 -- 3. UPDATE Policy
 DROP POLICY IF EXISTS "Users can update own academic records" ON public.student_academic_records;
 CREATE POLICY "Users can update own academic records"
   ON public.student_academic_records
   FOR UPDATE
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  USING (user_id = (SELECT auth.uid()))
+  WITH CHECK (user_id = (SELECT auth.uid()));
 
 -- 4. DELETE Policy
 DROP POLICY IF EXISTS "Users can delete own academic records" ON public.student_academic_records;
 CREATE POLICY "Users can delete own academic records"
   ON public.student_academic_records
   FOR DELETE
-  USING (auth.uid() = user_id);
+  USING (user_id = (SELECT auth.uid()));

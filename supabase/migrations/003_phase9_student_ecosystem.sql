@@ -152,16 +152,16 @@ BEGIN
   ] LOOP
     EXECUTE format('
       DROP POLICY IF EXISTS "Users own select %I" ON public.%I;
-      CREATE POLICY "Users own select %I" ON public.%I FOR SELECT USING (auth.uid() = user_id);
+      CREATE POLICY "Users own select %I" ON public.%I FOR SELECT USING (user_id = (SELECT auth.uid()));
 
       DROP POLICY IF EXISTS "Users own insert %I" ON public.%I;
-      CREATE POLICY "Users own insert %I" ON public.%I FOR INSERT WITH CHECK (auth.uid() = user_id);
+      CREATE POLICY "Users own insert %I" ON public.%I FOR INSERT WITH CHECK (user_id = (SELECT auth.uid()));
 
       DROP POLICY IF EXISTS "Users own update %I" ON public.%I;
-      CREATE POLICY "Users own update %I" ON public.%I FOR UPDATE USING (auth.uid() = user_id);
+      CREATE POLICY "Users own update %I" ON public.%I FOR UPDATE USING (user_id = (SELECT auth.uid())) WITH CHECK (user_id = (SELECT auth.uid()));
 
       DROP POLICY IF EXISTS "Users own delete %I" ON public.%I;
-      CREATE POLICY "Users own delete %I" ON public.%I FOR DELETE USING (auth.uid() = user_id);
+      CREATE POLICY "Users own delete %I" ON public.%I FOR DELETE USING (user_id = (SELECT auth.uid()));
     ', tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl);
   END LOOP;
 END $$;
