@@ -457,16 +457,27 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS "Public read academic universities" ON public.academic_universities;
     DROP POLICY IF EXISTS "Admin manage academic universities" ON public.academic_universities;
     DROP POLICY IF EXISTS "Admin write academic universities" ON public.academic_universities;
+    DROP POLICY IF EXISTS "Admin insert academic universities" ON public.academic_universities;
+    DROP POLICY IF EXISTS "Admin update academic universities" ON public.academic_universities;
+    DROP POLICY IF EXISTS "Admin delete academic universities" ON public.academic_universities;
 
-    -- Only 1 permissive policy for SELECT
+    -- Exactly 1 permissive policy for SELECT
     CREATE POLICY "Public read academic universities" ON public.academic_universities
       FOR SELECT USING (true);
 
     -- Admin write operations separated (no SELECT overlap)
-    CREATE POLICY "Admin write academic universities" ON public.academic_universities
-      FOR ALL TO authenticated
+    CREATE POLICY "Admin insert academic universities" ON public.academic_universities
+      FOR INSERT TO authenticated
+      WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admin update academic universities" ON public.academic_universities
+      FOR UPDATE TO authenticated
       USING (public.is_admin_or_service_role())
       WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admin delete academic universities" ON public.academic_universities
+      FOR DELETE TO authenticated
+      USING (public.is_admin_or_service_role());
   END IF;
 END $$;
 
@@ -476,15 +487,26 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS "Public read academic schemes" ON public.academic_schemes;
     DROP POLICY IF EXISTS "Admin manage academic schemes" ON public.academic_schemes;
     DROP POLICY IF EXISTS "Admin write academic schemes" ON public.academic_schemes;
+    DROP POLICY IF EXISTS "Admin insert academic schemes" ON public.academic_schemes;
+    DROP POLICY IF EXISTS "Admin update academic schemes" ON public.academic_schemes;
+    DROP POLICY IF EXISTS "Admin delete academic schemes" ON public.academic_schemes;
 
-    -- Only 1 permissive policy for SELECT
+    -- Exactly 1 permissive policy for SELECT
     CREATE POLICY "Public read academic schemes" ON public.academic_schemes
       FOR SELECT USING (true);
 
-    CREATE POLICY "Admin write academic schemes" ON public.academic_schemes
-      FOR ALL TO authenticated
+    CREATE POLICY "Admin insert academic schemes" ON public.academic_schemes
+      FOR INSERT TO authenticated
+      WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admin update academic schemes" ON public.academic_schemes
+      FOR UPDATE TO authenticated
       USING (public.is_admin_or_service_role())
       WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admin delete academic schemes" ON public.academic_schemes
+      FOR DELETE TO authenticated
+      USING (public.is_admin_or_service_role());
   END IF;
 END $$;
 
@@ -494,15 +516,26 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS "Public read academic branches" ON public.academic_branches;
     DROP POLICY IF EXISTS "Admin manage academic branches" ON public.academic_branches;
     DROP POLICY IF EXISTS "Admin write academic branches" ON public.academic_branches;
+    DROP POLICY IF EXISTS "Admin insert academic branches" ON public.academic_branches;
+    DROP POLICY IF EXISTS "Admin update academic branches" ON public.academic_branches;
+    DROP POLICY IF EXISTS "Admin delete academic branches" ON public.academic_branches;
 
-    -- Only 1 permissive policy for SELECT
+    -- Exactly 1 permissive policy for SELECT
     CREATE POLICY "Public read academic branches" ON public.academic_branches
       FOR SELECT USING (true);
 
-    CREATE POLICY "Admin write academic branches" ON public.academic_branches
-      FOR ALL TO authenticated
+    CREATE POLICY "Admin insert academic branches" ON public.academic_branches
+      FOR INSERT TO authenticated
+      WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admin update academic branches" ON public.academic_branches
+      FOR UPDATE TO authenticated
       USING (public.is_admin_or_service_role())
       WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admin delete academic branches" ON public.academic_branches
+      FOR DELETE TO authenticated
+      USING (public.is_admin_or_service_role());
   END IF;
 END $$;
 
@@ -512,15 +545,26 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS "Public read academic semesters" ON public.academic_semesters;
     DROP POLICY IF EXISTS "Admin manage academic semesters" ON public.academic_semesters;
     DROP POLICY IF EXISTS "Admin write academic semesters" ON public.academic_semesters;
+    DROP POLICY IF EXISTS "Admin insert academic semesters" ON public.academic_semesters;
+    DROP POLICY IF EXISTS "Admin update academic semesters" ON public.academic_semesters;
+    DROP POLICY IF EXISTS "Admin delete academic semesters" ON public.academic_semesters;
 
-    -- Only 1 permissive policy for SELECT
+    -- Exactly 1 permissive policy for SELECT
     CREATE POLICY "Public read academic semesters" ON public.academic_semesters
       FOR SELECT USING (true);
 
-    CREATE POLICY "Admin write academic semesters" ON public.academic_semesters
-      FOR ALL TO authenticated
+    CREATE POLICY "Admin insert academic semesters" ON public.academic_semesters
+      FOR INSERT TO authenticated
+      WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admin update academic semesters" ON public.academic_semesters
+      FOR UPDATE TO authenticated
       USING (public.is_admin_or_service_role())
       WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admin delete academic semesters" ON public.academic_semesters
+      FOR DELETE TO authenticated
+      USING (public.is_admin_or_service_role());
   END IF;
 END $$;
 
@@ -530,15 +574,26 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS "Anyone can read verified academic subjects" ON public.academic_subjects;
     DROP POLICY IF EXISTS "Admins manage academic subjects" ON public.academic_subjects;
     DROP POLICY IF EXISTS "Admins write academic subjects" ON public.academic_subjects;
+    DROP POLICY IF EXISTS "Admins insert academic subjects" ON public.academic_subjects;
+    DROP POLICY IF EXISTS "Admins update academic subjects" ON public.academic_subjects;
+    DROP POLICY IF EXISTS "Admins delete academic subjects" ON public.academic_subjects;
 
-    -- Only 1 permissive policy for SELECT
+    -- Exactly 1 permissive policy for SELECT
     CREATE POLICY "Anyone can read verified academic subjects" ON public.academic_subjects
       FOR SELECT USING (true);
 
-    CREATE POLICY "Admins write academic subjects" ON public.academic_subjects
-      FOR ALL TO authenticated
+    CREATE POLICY "Admins insert academic subjects" ON public.academic_subjects
+      FOR INSERT TO authenticated
+      WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admins update academic subjects" ON public.academic_subjects
+      FOR UPDATE TO authenticated
       USING (public.is_admin_or_service_role())
       WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admins delete academic subjects" ON public.academic_subjects
+      FOR DELETE TO authenticated
+      USING (public.is_admin_or_service_role());
   END IF;
 END $$;
 
@@ -557,14 +612,27 @@ DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'curriculum_courses') THEN
     DROP POLICY IF EXISTS "Public read active curriculum courses" ON public.curriculum_courses;
     DROP POLICY IF EXISTS "Admins manage curriculum courses" ON public.curriculum_courses;
+    DROP POLICY IF EXISTS "Admins write curriculum courses" ON public.curriculum_courses;
+    DROP POLICY IF EXISTS "Admins insert curriculum courses" ON public.curriculum_courses;
+    DROP POLICY IF EXISTS "Admins update curriculum courses" ON public.curriculum_courses;
+    DROP POLICY IF EXISTS "Admins delete curriculum courses" ON public.curriculum_courses;
 
+    -- Exactly 1 permissive policy for SELECT
     CREATE POLICY "Public read active curriculum courses" ON public.curriculum_courses
       FOR SELECT USING (true);
 
-    CREATE POLICY "Admins write curriculum courses" ON public.curriculum_courses
-      FOR ALL TO authenticated
+    CREATE POLICY "Admins insert curriculum courses" ON public.curriculum_courses
+      FOR INSERT TO authenticated
+      WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admins update curriculum courses" ON public.curriculum_courses
+      FOR UPDATE TO authenticated
       USING (public.is_admin_or_service_role())
       WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admins delete curriculum courses" ON public.curriculum_courses
+      FOR DELETE TO authenticated
+      USING (public.is_admin_or_service_role());
   END IF;
 END $$;
 
@@ -573,14 +641,27 @@ DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'curriculum_versions') THEN
     DROP POLICY IF EXISTS "Public read active curriculum" ON public.curriculum_versions;
     DROP POLICY IF EXISTS "Admin manage curriculum" ON public.curriculum_versions;
+    DROP POLICY IF EXISTS "Admin write curriculum" ON public.curriculum_versions;
+    DROP POLICY IF EXISTS "Admin insert curriculum" ON public.curriculum_versions;
+    DROP POLICY IF EXISTS "Admin update curriculum" ON public.curriculum_versions;
+    DROP POLICY IF EXISTS "Admin delete curriculum" ON public.curriculum_versions;
 
+    -- Exactly 1 permissive policy for SELECT
     CREATE POLICY "Public read active curriculum" ON public.curriculum_versions
       FOR SELECT USING (true);
 
-    CREATE POLICY "Admin write curriculum" ON public.curriculum_versions
-      FOR ALL TO authenticated
+    CREATE POLICY "Admin insert curriculum" ON public.curriculum_versions
+      FOR INSERT TO authenticated
+      WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admin update curriculum" ON public.curriculum_versions
+      FOR UPDATE TO authenticated
       USING (public.is_admin_or_service_role())
       WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admin delete curriculum" ON public.curriculum_versions
+      FOR DELETE TO authenticated
+      USING (public.is_admin_or_service_role());
   END IF;
 END $$;
 
@@ -589,19 +670,100 @@ END $$;
 -- =============================================================================
 
 -- 5.1 Table: public.job_opportunities
-DO $$ BEGIN
+DO $$ 
+DECLARE
+  has_verification_tier BOOLEAN := false;
+  has_record_state BOOLEAN := false;
+BEGIN
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'job_opportunities') THEN
     DROP POLICY IF EXISTS "Public read active opportunities" ON public.job_opportunities;
     DROP POLICY IF EXISTS "Public read live opportunities" ON public.job_opportunities;
+    DROP POLICY IF EXISTS "Users read live and source opportunities" ON public.job_opportunities;
+    DROP POLICY IF EXISTS "Admins full access opportunities" ON public.job_opportunities;
     DROP POLICY IF EXISTS "Admin manage opportunities" ON public.job_opportunities;
+    DROP POLICY IF EXISTS "Admin write opportunities" ON public.job_opportunities;
+    DROP POLICY IF EXISTS "Admin insert opportunities" ON public.job_opportunities;
+    DROP POLICY IF EXISTS "Admin update opportunities" ON public.job_opportunities;
+    DROP POLICY IF EXISTS "Admin delete opportunities" ON public.job_opportunities;
 
-    CREATE POLICY "Public read live opportunities" ON public.job_opportunities
-      FOR SELECT USING (is_active = true);
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_schema = 'public' AND table_name = 'job_opportunities' AND column_name = 'verification_tier'
+    ) INTO has_verification_tier;
 
-    CREATE POLICY "Admin manage opportunities" ON public.job_opportunities
-      FOR ALL TO authenticated
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_schema = 'public' AND table_name = 'job_opportunities' AND column_name = 'record_state'
+    ) INTO has_record_state;
+
+    -- Create single permissive SELECT policy (covers both users and admins)
+    IF has_verification_tier THEN
+      -- Canonical schema (migration 030): Verification tier + multi-dimensional state
+      EXECUTE $pol$
+        CREATE POLICY "Users read live and source opportunities" ON public.job_opportunities
+          FOR SELECT USING (
+            (
+              record_state = 'ACTIVE'
+              AND visibility = 'public'
+              AND (
+                (
+                  verification_tier = 'SAARVI_VERIFIED'
+                  AND publication_state = 'PUBLISHED'
+                  AND review_state = 'APPROVED'
+                  AND (deadline IS NULL OR deadline > NOW())
+                )
+                OR
+                (
+                  verification_tier = 'SOURCE_DISCOVERY'
+                  AND (deadline IS NULL OR deadline > NOW())
+                )
+              )
+            )
+            OR public.is_admin_or_service_role()
+          );
+      $pol$;
+    ELSIF has_record_state THEN
+      -- Multi-dimensional state schema (migration 027/029)
+      EXECUTE $pol$
+        CREATE POLICY "Users read live and source opportunities" ON public.job_opportunities
+          FOR SELECT USING (
+            (
+              publication_state = 'PUBLISHED'
+              AND record_state = 'ACTIVE'
+              AND visibility = 'public'
+              AND (deadline IS NULL OR deadline > NOW())
+            )
+            OR public.is_admin_or_service_role()
+          );
+      $pol$;
+    ELSE
+      -- Fallback schema (migration 025 legacy status column)
+      EXECUTE $pol$
+        CREATE POLICY "Users read live and source opportunities" ON public.job_opportunities
+          FOR SELECT USING (
+            (
+              status IN ('PUBLISHED', 'ACTIVE', 'published')
+              AND visibility = 'public'
+              AND (deadline IS NULL OR deadline > NOW())
+            )
+            OR public.is_admin_or_service_role()
+          );
+      $pol$;
+    END IF;
+
+    -- Distinct write policies for Admin (eliminates duplicate SELECT permissive policies)
+    CREATE POLICY "Admin insert opportunities" ON public.job_opportunities
+      FOR INSERT TO authenticated
+      WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admin update opportunities" ON public.job_opportunities
+      FOR UPDATE TO authenticated
       USING (public.is_admin_or_service_role())
       WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admin delete opportunities" ON public.job_opportunities
+      FOR DELETE TO authenticated
+      USING (public.is_admin_or_service_role());
   END IF;
 END $$;
 
@@ -843,14 +1005,27 @@ DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'advertisements') THEN
     DROP POLICY IF EXISTS "Public read active ads" ON public.advertisements;
     DROP POLICY IF EXISTS "Admin manage advertisements" ON public.advertisements;
+    DROP POLICY IF EXISTS "Admin write advertisements" ON public.advertisements;
+    DROP POLICY IF EXISTS "Admin insert advertisements" ON public.advertisements;
+    DROP POLICY IF EXISTS "Admin update advertisements" ON public.advertisements;
+    DROP POLICY IF EXISTS "Admin delete advertisements" ON public.advertisements;
 
+    -- Exactly 1 permissive policy for SELECT
     CREATE POLICY "Public read active ads" ON public.advertisements
       FOR SELECT USING (true);
 
-    CREATE POLICY "Admin write advertisements" ON public.advertisements
-      FOR ALL TO authenticated
+    CREATE POLICY "Admin insert advertisements" ON public.advertisements
+      FOR INSERT TO authenticated
+      WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admin update advertisements" ON public.advertisements
+      FOR UPDATE TO authenticated
       USING (public.is_admin_or_service_role())
       WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admin delete advertisements" ON public.advertisements
+      FOR DELETE TO authenticated
+      USING (public.is_admin_or_service_role());
   END IF;
 END $$;
 
@@ -860,15 +1035,26 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS "Public read ad settings" ON public.ad_display_settings;
     DROP POLICY IF EXISTS "Admin manage ad display settings" ON public.ad_display_settings;
     DROP POLICY IF EXISTS "Admin write ad display settings" ON public.ad_display_settings;
+    DROP POLICY IF EXISTS "Admin insert ad display settings" ON public.ad_display_settings;
+    DROP POLICY IF EXISTS "Admin update ad display settings" ON public.ad_display_settings;
+    DROP POLICY IF EXISTS "Admin delete ad display settings" ON public.ad_display_settings;
 
-    -- Only 1 permissive policy for SELECT
+    -- Exactly 1 permissive policy for SELECT
     CREATE POLICY "Public read ad settings" ON public.ad_display_settings
       FOR SELECT USING (true);
 
-    CREATE POLICY "Admin write ad display settings" ON public.ad_display_settings
-      FOR ALL TO authenticated
+    CREATE POLICY "Admin insert ad display settings" ON public.ad_display_settings
+      FOR INSERT TO authenticated
+      WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admin update ad display settings" ON public.ad_display_settings
+      FOR UPDATE TO authenticated
       USING (public.is_admin_or_service_role())
       WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admin delete ad display settings" ON public.ad_display_settings
+      FOR DELETE TO authenticated
+      USING (public.is_admin_or_service_role());
   END IF;
 END $$;
 
@@ -887,12 +1073,25 @@ DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'platform_events') THEN
     DROP POLICY IF EXISTS "Users can read own platform events" ON public.platform_events;
     DROP POLICY IF EXISTS "Admins read all platform events" ON public.platform_events;
+    DROP POLICY IF EXISTS "Users and admins read platform events" ON public.platform_events;
+    DROP POLICY IF EXISTS "Admins insert platform events" ON public.platform_events;
+    DROP POLICY IF EXISTS "Admins update platform events" ON public.platform_events;
+    DROP POLICY IF EXISTS "Admins delete platform events" ON public.platform_events;
 
-    CREATE POLICY "Users can read own platform events" ON public.platform_events
-      FOR SELECT USING (user_id = (SELECT auth.uid()));
+    CREATE POLICY "Users and admins read platform events" ON public.platform_events
+      FOR SELECT USING (
+        (user_id = (SELECT auth.uid()))
+        OR public.is_admin_or_service_role()
+      );
 
-    CREATE POLICY "Admins read all platform events" ON public.platform_events
-      FOR ALL USING (public.is_admin_or_service_role());
+    CREATE POLICY "Admins insert platform events" ON public.platform_events
+      FOR INSERT WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admins update platform events" ON public.platform_events
+      FOR UPDATE USING (public.is_admin_or_service_role()) WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admins delete platform events" ON public.platform_events
+      FOR DELETE USING (public.is_admin_or_service_role());
   END IF;
 END $$;
 
@@ -929,14 +1128,25 @@ DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'notifications') THEN
     DROP POLICY IF EXISTS "Users can read their delivered notifications" ON public.notifications;
     DROP POLICY IF EXISTS "Admins and SuperAdmins can manage notifications" ON public.notifications;
+    DROP POLICY IF EXISTS "Users and admins read notifications" ON public.notifications;
+    DROP POLICY IF EXISTS "Admins insert notifications" ON public.notifications;
+    DROP POLICY IF EXISTS "Admins update notifications" ON public.notifications;
+    DROP POLICY IF EXISTS "Admins delete notifications" ON public.notifications;
 
-    CREATE POLICY "Users can read their delivered notifications" ON public.notifications
+    CREATE POLICY "Users and admins read notifications" ON public.notifications
       FOR SELECT USING (
-        id IN (SELECT notification_id FROM public.notification_recipients WHERE user_id = (SELECT auth.uid()))
+        (id IN (SELECT notification_id FROM public.notification_recipients WHERE user_id = (SELECT auth.uid())))
+        OR public.is_admin_or_service_role()
       );
 
-    CREATE POLICY "Admins and SuperAdmins can manage notifications" ON public.notifications
-      FOR ALL USING (public.is_admin_or_service_role());
+    CREATE POLICY "Admins insert notifications" ON public.notifications
+      FOR INSERT WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admins update notifications" ON public.notifications
+      FOR UPDATE USING (public.is_admin_or_service_role()) WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admins delete notifications" ON public.notifications
+      FOR DELETE USING (public.is_admin_or_service_role());
   END IF;
 END $$;
 
@@ -999,13 +1209,14 @@ DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'feedback') THEN
     DROP POLICY IF EXISTS "Users can view own feedback" ON public.feedback;
     DROP POLICY IF EXISTS "Admins can view all feedback" ON public.feedback;
+    DROP POLICY IF EXISTS "Users and admins view feedback" ON public.feedback;
     DROP POLICY IF EXISTS "Admins can update feedback" ON public.feedback;
 
-    CREATE POLICY "Users can view own feedback" ON public.feedback
-      FOR SELECT USING (user_id = (SELECT auth.uid()));
-
-    CREATE POLICY "Admins can view all feedback" ON public.feedback
-      FOR SELECT USING (public.is_admin_or_service_role());
+    CREATE POLICY "Users and admins view feedback" ON public.feedback
+      FOR SELECT USING (
+        (user_id = (SELECT auth.uid()))
+        OR public.is_admin_or_service_role()
+      );
 
     CREATE POLICY "Admins can update feedback" ON public.feedback
       FOR UPDATE USING (public.is_admin_or_service_role());
@@ -1018,15 +1229,27 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS "Users insert own interview events" ON public.interview_events;
     DROP POLICY IF EXISTS "Users read own interview events" ON public.interview_events;
     DROP POLICY IF EXISTS "Admins manage all interview events" ON public.interview_events;
+    DROP POLICY IF EXISTS "Users and admins read interview events" ON public.interview_events;
+    DROP POLICY IF EXISTS "Admins update interview events" ON public.interview_events;
+    DROP POLICY IF EXISTS "Admins delete interview events" ON public.interview_events;
+
+    CREATE POLICY "Users and admins read interview events" ON public.interview_events
+      FOR SELECT USING (
+        (user_id = (SELECT auth.uid()))
+        OR public.is_admin_or_service_role()
+      );
 
     CREATE POLICY "Users insert own interview events" ON public.interview_events
-      FOR INSERT WITH CHECK (user_id = (SELECT auth.uid()));
+      FOR INSERT WITH CHECK (
+        (user_id = (SELECT auth.uid()))
+        OR public.is_admin_or_service_role()
+      );
 
-    CREATE POLICY "Users read own interview events" ON public.interview_events
-      FOR SELECT USING (user_id = (SELECT auth.uid()));
+    CREATE POLICY "Admins update interview events" ON public.interview_events
+      FOR UPDATE USING (public.is_admin_or_service_role()) WITH CHECK (public.is_admin_or_service_role());
 
-    CREATE POLICY "Admins manage all interview events" ON public.interview_events
-      FOR ALL USING (public.is_admin_or_service_role());
+    CREATE POLICY "Admins delete interview events" ON public.interview_events
+      FOR DELETE USING (public.is_admin_or_service_role());
   END IF;
 END $$;
 
@@ -1088,15 +1311,27 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS "Users read own interview answers" ON public.interview_answers;
     DROP POLICY IF EXISTS "Users insert own interview answers" ON public.interview_answers;
     DROP POLICY IF EXISTS "Admins manage all interview answers" ON public.interview_answers;
+    DROP POLICY IF EXISTS "Users and admins read interview answers" ON public.interview_answers;
+    DROP POLICY IF EXISTS "Admins update interview answers" ON public.interview_answers;
+    DROP POLICY IF EXISTS "Admins delete interview answers" ON public.interview_answers;
 
-    CREATE POLICY "Users read own interview answers" ON public.interview_answers
-      FOR SELECT USING (user_id = (SELECT auth.uid()));
+    CREATE POLICY "Users and admins read interview answers" ON public.interview_answers
+      FOR SELECT USING (
+        (user_id = (SELECT auth.uid()))
+        OR public.is_admin_or_service_role()
+      );
 
     CREATE POLICY "Users insert own interview answers" ON public.interview_answers
-      FOR INSERT WITH CHECK (user_id = (SELECT auth.uid()));
+      FOR INSERT WITH CHECK (
+        (user_id = (SELECT auth.uid()))
+        OR public.is_admin_or_service_role()
+      );
 
-    CREATE POLICY "Admins manage all interview answers" ON public.interview_answers
-      FOR ALL USING (public.is_admin_or_service_role());
+    CREATE POLICY "Admins update interview answers" ON public.interview_answers
+      FOR UPDATE USING (public.is_admin_or_service_role()) WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admins delete interview answers" ON public.interview_answers
+      FOR DELETE USING (public.is_admin_or_service_role());
   END IF;
 END $$;
 
