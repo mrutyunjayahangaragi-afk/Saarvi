@@ -1612,28 +1612,76 @@ DO $$ BEGIN
 END $$;
 
 -- 6.6 Table: public.announcements
-DO $$ BEGIN
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'announcements') THEN
+DO $$
+DECLARE
+  has_dates BOOLEAN;
+  has_status BOOLEAN;
+BEGIN
+  IF to_regclass('public.announcements') IS NOT NULL THEN
     DROP POLICY IF EXISTS "Admin manage announcements" ON public.announcements;
     DROP POLICY IF EXISTS "Public read active announcements" ON public.announcements;
     DROP POLICY IF EXISTS "Admin insert announcements" ON public.announcements;
     DROP POLICY IF EXISTS "Admin update announcements" ON public.announcements;
     DROP POLICY IF EXISTS "Admin delete announcements" ON public.announcements;
 
-    CREATE POLICY "Public read active announcements" ON public.announcements
-      FOR SELECT USING (
-        (COALESCE(is_active, true) = true)
-        OR public.is_admin_or_service_role()
-      );
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_schema = 'public' AND table_name = 'announcements' AND column_name = 'start_date'
+    ) INTO has_dates;
 
-    CREATE POLICY "Admin insert announcements" ON public.announcements
-      FOR INSERT WITH CHECK (public.is_admin_or_service_role());
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_schema = 'public' AND table_name = 'announcements' AND column_name = 'status'
+    ) INTO has_status;
 
-    CREATE POLICY "Admin update announcements" ON public.announcements
-      FOR UPDATE USING (public.is_admin_or_service_role()) WITH CHECK (public.is_admin_or_service_role());
+    IF has_dates AND has_status THEN
+      EXECUTE $pol$
+        CREATE POLICY "Public read active announcements"
+          ON public.announcements
+          FOR SELECT
+          USING (
+            (
+              status IN ('PUBLISHED', 'ACTIVE')
+              AND (start_date IS NULL OR start_date <= now())
+              AND (end_date IS NULL OR end_date > now())
+            )
+            OR public.is_admin_or_service_role()
+          );
+      $pol$;
+    ELSIF has_status THEN
+      EXECUTE $pol$
+        CREATE POLICY "Public read active announcements"
+          ON public.announcements
+          FOR SELECT
+          USING (
+            status IN ('PUBLISHED', 'ACTIVE')
+            OR public.is_admin_or_service_role()
+          );
+      $pol$;
+    ELSE
+      EXECUTE $pol$
+        CREATE POLICY "Public read active announcements"
+          ON public.announcements
+          FOR SELECT
+          USING (true);
+      $pol$;
+    END IF;
 
-    CREATE POLICY "Admin delete announcements" ON public.announcements
-      FOR DELETE USING (public.is_admin_or_service_role());
+    CREATE POLICY "Admin insert announcements"
+      ON public.announcements
+      FOR INSERT
+      WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admin update announcements"
+      ON public.announcements
+      FOR UPDATE
+      USING (public.is_admin_or_service_role())
+      WITH CHECK (public.is_admin_or_service_role());
+
+    CREATE POLICY "Admin delete announcements"
+      ON public.announcements
+      FOR DELETE
+      USING (public.is_admin_or_service_role());
   END IF;
 END $$;
 
