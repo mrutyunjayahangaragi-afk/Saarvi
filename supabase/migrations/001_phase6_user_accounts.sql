@@ -56,57 +56,70 @@ ALTER TABLE public.resumes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
 
 -- 7. RLS Policies: Profiles (User A cannot access User B's profile)
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile"
   ON public.profiles FOR SELECT
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile"
   ON public.profiles FOR UPDATE
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile"
   ON public.profiles FOR INSERT
   WITH CHECK (auth.uid() = id);
 
 -- 8. RLS Policies: Conversion History (User A cannot query or delete User B's history)
+DROP POLICY IF EXISTS "Users can view own conversion history" ON public.conversion_history;
 CREATE POLICY "Users can view own conversion history"
   ON public.conversion_history FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own conversion history" ON public.conversion_history;
 CREATE POLICY "Users can insert own conversion history"
   ON public.conversion_history FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own conversion history" ON public.conversion_history;
 CREATE POLICY "Users can delete own conversion history"
   ON public.conversion_history FOR DELETE
   USING (auth.uid() = user_id);
 
 -- 9. RLS Policies: Resumes (User A cannot read, edit, or delete User B's resume drafts)
+DROP POLICY IF EXISTS "Users can view own resumes" ON public.resumes;
 CREATE POLICY "Users can view own resumes"
   ON public.resumes FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own resumes" ON public.resumes;
 CREATE POLICY "Users can insert own resumes"
   ON public.resumes FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own resumes" ON public.resumes;
 CREATE POLICY "Users can update own resumes"
   ON public.resumes FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own resumes" ON public.resumes;
 CREATE POLICY "Users can delete own resumes"
   ON public.resumes FOR DELETE
   USING (auth.uid() = user_id);
 
 -- 10. RLS Policies: User Preferences
+DROP POLICY IF EXISTS "Users can view own preferences" ON public.user_preferences;
 CREATE POLICY "Users can view own preferences"
   ON public.user_preferences FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own preferences" ON public.user_preferences;
 CREATE POLICY "Users can insert own preferences"
   ON public.user_preferences FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own preferences" ON public.user_preferences;
 CREATE POLICY "Users can update own preferences"
   ON public.user_preferences FOR UPDATE
   USING (auth.uid() = user_id);

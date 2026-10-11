@@ -32,18 +32,21 @@ CREATE INDEX IF NOT EXISTS idx_student_academic_records_user_status
 ALTER TABLE public.student_academic_records ENABLE ROW LEVEL SECURITY;
 
 -- 1. SELECT Policy
+DROP POLICY IF EXISTS "Users can view own academic records" ON public.student_academic_records;
 CREATE POLICY "Users can view own academic records"
   ON public.student_academic_records
   FOR SELECT
   USING (auth.uid() = user_id);
 
 -- 2. INSERT Policy
+DROP POLICY IF EXISTS "Users can insert own academic records" ON public.student_academic_records;
 CREATE POLICY "Users can insert own academic records"
   ON public.student_academic_records
   FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
 -- 3. UPDATE Policy
+DROP POLICY IF EXISTS "Users can update own academic records" ON public.student_academic_records;
 CREATE POLICY "Users can update own academic records"
   ON public.student_academic_records
   FOR UPDATE
@@ -51,6 +54,7 @@ CREATE POLICY "Users can update own academic records"
   WITH CHECK (auth.uid() = user_id);
 
 -- 4. DELETE Policy
+DROP POLICY IF EXISTS "Users can delete own academic records" ON public.student_academic_records;
 CREATE POLICY "Users can delete own academic records"
   ON public.student_academic_records
   FOR DELETE

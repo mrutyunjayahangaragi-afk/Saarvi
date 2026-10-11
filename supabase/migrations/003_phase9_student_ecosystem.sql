@@ -151,10 +151,17 @@ BEGIN
     'student_cover_letters'
   ] LOOP
     EXECUTE format('
+      DROP POLICY IF EXISTS "Users own select %I" ON public.%I;
       CREATE POLICY "Users own select %I" ON public.%I FOR SELECT USING (auth.uid() = user_id);
+
+      DROP POLICY IF EXISTS "Users own insert %I" ON public.%I;
       CREATE POLICY "Users own insert %I" ON public.%I FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+      DROP POLICY IF EXISTS "Users own update %I" ON public.%I;
       CREATE POLICY "Users own update %I" ON public.%I FOR UPDATE USING (auth.uid() = user_id);
+
+      DROP POLICY IF EXISTS "Users own delete %I" ON public.%I;
       CREATE POLICY "Users own delete %I" ON public.%I FOR DELETE USING (auth.uid() = user_id);
-    ', tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl);
+    ', tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl, tbl);
   END LOOP;
 END $$;
