@@ -6,6 +6,8 @@ import { GLOBAL_LOCK } from '@/lib/security/concurrency';
 import { GLOBAL_SCOPED_CACHE } from '@/lib/security/scoped-cache';
 import { enforceRateLimit, createRateLimitResponse } from '@/lib/security/rate-limit';
 
+import { revalidatePath } from 'next/cache';
+
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
@@ -33,7 +35,7 @@ export async function POST(request: NextRequest) {
     const lockKey = `publish:${universityId}:${schemeId}:${branchId}:${semester}`;
 
     const result = await GLOBAL_LOCK.withLock(lockKey, async () => {
-      const pubResult = academicServerStore.publishCurriculum(
+      const pubResult = await academicServerStore.publishCurriculum(
         {
           universityId,
           schemeId,
@@ -47,10 +49,22 @@ export async function POST(request: NextRequest) {
       // Invalidate cached curriculum for this scope
       GLOBAL_SCOPED_CACHE.invalidatePrefix(`academic:${universityId}`);
 
+      try {
+        revalidatePath('/student/sgpa-calculator');
+        revalidatePath('/admin/curriculum');
+      } catch (cacheErr) {
+        // Ignored if called in non-HTTP-request test context
+      }
+
       return pubResult;
     });
 
-    return NextResponse.json({ success: true, affectedCount: result.affectedCount });
+    return NextResponse.json({
+      success: true,
+      affectedCount: result.affectedCount,
+      revision: result.revision,
+      publishedAt: result.publishedAt,
+    });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 400 });
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -88,6 +88,10 @@ export default function SGPACalculatorPage() {
   const [selectedBranch, setSelectedBranch] = useState<string>("vtu-2022-cse");
   const [selectedSemester, setSelectedSemester] = useState<number>(3);
   const [curriculumMissing, setCurriculumMissing] = useState<boolean>(false);
+  const [curriculumRevision, setCurriculumRevision] = useState<number | null>(null);
+  const [curriculumUpdateNotice, setCurriculumUpdateNotice] = useState<string | null>(null);
+  const curriculumRevisionRef = useRef<number | null>(null);
+  const prevScopeRef = useRef<string>("");
 
   // Course row inputs
   const [coursesState, setCoursesState] = useState<CourseRowState[]>([]);
@@ -175,170 +179,274 @@ export default function SGPACalculatorPage() {
     return coursesState.length > 0 && !curriculumMissing;
   }, [coursesState, curriculumMissing]);
 
-  // Load authoritative curriculum from server store / fallback index
-  useEffect(() => {
+  // Apply new course rows with smart preservation of entered marks
+  const applyNewCourses = useCallback((newRows: CourseRowState[], newRev?: number) => {
+    setCoursesState((prevRows) => {
+      if (prevRows.length === 0) return newRows;
+      const prevMarksMap = new Map<
+        string,
+        {
+          cie: number | "";
+          see: number | "";
+          total: number | "";
+          inputMode: MarksInputMode;
+        }
+      >();
+      prevRows.forEach((r) => {
+        prevMarksMap.set(r.courseCode.trim().toUpperCase(), {
+          cie: r.cie,
+          see: r.see,
+          total: r.total,
+          inputMode: r.inputMode,
+        });
+      });
+
+      return newRows.map((row) => {
+        const prev = prevMarksMap.get(row.courseCode.trim().toUpperCase());
+        if (prev) {
+          return {
+            ...row,
+            cie: prev.cie,
+            see: prev.see,
+            total: prev.total,
+            inputMode: prev.inputMode,
+          };
+        }
+        return row;
+      });
+    });
+
+    if (typeof newRev === 'number') {
+      if (curriculumRevisionRef.current !== null && newRev > curriculumRevisionRef.current) {
+        setCurriculumUpdateNotice(`Curriculum updated to Revision ${newRev} • Your entered marks have been preserved.`);
+      }
+      curriculumRevisionRef.current = newRev;
+      setCurriculumRevision(newRev);
+    }
+  }, []);
+
+  // Authoritative curriculum loader
+  const loadCurriculum = useCallback(async () => {
     if (mode !== "vtu") return;
 
-    let isMounted = true;
+    const currentScopeKey = `${selectedUniversity}_${selectedScheme}_${selectedBranch}_${selectedSemester}`;
+    if (prevScopeRef.current !== currentScopeKey) {
+      prevScopeRef.current = currentScopeKey;
+      curriculumRevisionRef.current = null;
+      setCurriculumRevision(null);
+      setCurriculumUpdateNotice(null);
+    }
 
-    async function loadCurriculum() {
-      // 1. First attempt authoritative academic pipeline endpoint
-      try {
-        const subRes = await fetch(
-          `/api/academic/subjects?universityId=${selectedUniversity}&schemeId=${selectedScheme}&branchId=${selectedBranch}&semester=${selectedSemester}`
-        );
-        if (subRes.ok) {
-          const subData = await subRes.json();
-          if (isMounted && subData.success && subData.subjects && subData.subjects.length > 0) {
-            const rows: CourseRowState[] = subData.subjects.map((s: any) => {
-              const hasSEE = s.seeApplicable !== false;
-              const allowedInputModes: MarksInputMode[] = ["cie-see", "total"];
-              const preferredMode = allowedInputModes.includes(globalInputMode) ? globalInputMode : "cie-see";
-              return {
-                courseCode: s.subjectCode,
-                courseTitle: s.subjectName,
-                credits: s.credits, // Strictly use authoritative verified credits
-                category: s.courseType || "Core",
-                assessment: {
-                  hasSEE,
-                  cie: { maxMarks: 50 },
-                  see: hasSEE ? { maxMarks: 50 } : undefined,
-                  total: { maxMarks: 100 },
-                  allowedInputModes,
-                  passingRules: {
-                    minCIE: 20,
-                    minSEE: hasSEE ? 18 : 0,
-                    minAggregate: 40,
-                  },
-                  components: [
-                    { id: "cie", name: "CIE", maxMarks: 50, minPassMarks: 20, weight: 0.5 },
-                    ...(hasSEE ? [{ id: "see", name: "SEE", maxMarks: 50, minPassMarks: 18, weight: 0.5 }] : []),
-                  ],
-                },
-                inputMode: preferredMode,
-                cie: "",
-                see: "",
-                total: "",
-                includedInSGPA: s.includedInSGPA !== false && s.credits > 0,
-                includedInCGPA: s.includedInCGPA !== false && s.credits > 0,
-                isElectiveGroup: Boolean(s.isElective),
-                electiveGroupTitle: s.electiveGroup,
-              };
-            });
-            setCoursesState(rows);
-            setCurriculumMissing(false);
-            return;
-          }
-        }
-      } catch (subErr) {
-        console.warn('Academic subjects pipeline notice:', subErr);
-      }
-
-      // 2. Fallback to existing curriculum endpoint
-      try {
-        const res = await fetch(
-          `/api/academic/curriculum?universityId=${selectedUniversity}&schemeId=${selectedScheme}&branchId=${selectedBranch}&semester=${selectedSemester}`
-        );
-        if (res.ok) {
-          const data = await res.json();
-          if (isMounted && data.available && data.courses && data.courses.length > 0) {
-            const rows: CourseRowState[] = data.courses.map((c: any) => {
-              const hasSEE = c.seeApplicable !== false;
-              const allowedInputModes: MarksInputMode[] = hasSEE ? ["cie-see", "total"] : ["cie-see", "total"];
-              const preferredMode = allowedInputModes.includes(globalInputMode) ? globalInputMode : "cie-see";
-              return {
-                courseCode: c.subjectCode,
-                courseTitle: c.subjectName,
-                credits: c.credits,
-                category: c.category || c.courseType,
-                assessment: {
-                  hasSEE,
-                  cie: { maxMarks: 50 },
-                  see: hasSEE ? { maxMarks: 50 } : undefined,
-                  total: { maxMarks: 100 },
-                  allowedInputModes,
-                  passingRules: {
-                    minCIE: 20,
-                    minSEE: hasSEE ? 18 : 0,
-                    minAggregate: 40,
-                  },
-                  components: [
-                    { id: "cie", name: "CIE", maxMarks: 50, minPassMarks: 20, weight: 0.5 },
-                    ...(hasSEE ? [{ id: "see", name: "SEE", maxMarks: 50, minPassMarks: 18, weight: 0.5 }] : []),
-                  ],
-                },
-                inputMode: preferredMode,
-                cie: "",
-                see: "",
-                total: "",
-                includedInSGPA: c.includedInSGPA !== false,
-                includedInCGPA: c.includedInCGPA !== false,
-              };
-            });
-            setCoursesState(rows);
-            setCurriculumMissing(false);
-            return;
-          }
-        }
-      } catch {}
-
-      // Fallback: check if local verified VTU courses match
-      const schemeRecord = schemes.find((s) => s.id === selectedScheme);
-      const branchRecord = branches.find((b) => b.id === selectedBranch);
-      const schemeYear = schemeRecord?.year || (selectedScheme.includes("2025") ? "2025" : "2022");
-      const branchCode = branchRecord?.code || "CSE";
-
-      const officialCourses = curriculumIndex.getCourses(schemeYear, branchCode, selectedSemester);
-      if (officialCourses && officialCourses.length > 0) {
-        if (isMounted) {
-          const initialRows: CourseRowState[] = officialCourses.map((c) => {
-            let title = c.courseTitle;
-            let code = c.courseCode;
-
-            if (c.isElectiveGroup && c.electiveOptions && c.electiveOptions.length > 0) {
-              code = c.electiveOptions[0].courseCode;
-              title = c.electiveOptions[0].courseTitle;
-            }
-
-            const preferredMode = c.assessment.allowedInputModes.includes(globalInputMode)
-              ? globalInputMode
-              : c.assessment.allowedInputModes[0] || "cie-see";
-
+    // 1. First attempt authoritative academic pipeline endpoint
+    try {
+      const subRes = await fetch(
+        `/api/academic/subjects?universityId=${selectedUniversity}&schemeId=${selectedScheme}&branchId=${selectedBranch}&semester=${selectedSemester}`
+      );
+      if (subRes.ok) {
+        const subData = await subRes.json();
+        if (subData.success && subData.subjects && subData.subjects.length > 0) {
+          const rows: CourseRowState[] = subData.subjects.map((s: any) => {
+            const hasSEE = s.seeApplicable !== false;
+            const allowedInputModes: MarksInputMode[] = ["cie-see", "total"];
+            const preferredMode = allowedInputModes.includes(globalInputMode) ? globalInputMode : "cie-see";
             return {
-              courseCode: code,
-              courseTitle: title,
-              credits: c.credits,
-              category: c.category,
-              assessment: c.assessment,
+              courseCode: s.subjectCode,
+              courseTitle: s.subjectName,
+              credits: s.credits,
+              category: s.courseType || "Core",
+              assessment: {
+                hasSEE,
+                cie: { maxMarks: 50 },
+                see: hasSEE ? { maxMarks: 50 } : undefined,
+                total: { maxMarks: 100 },
+                allowedInputModes,
+                passingRules: {
+                  minCIE: 20,
+                  minSEE: hasSEE ? 18 : 0,
+                  minAggregate: 40,
+                },
+                components: [
+                  { id: "cie", name: "CIE", maxMarks: 50, minPassMarks: 20, weight: 0.5 },
+                  ...(hasSEE ? [{ id: "see", name: "SEE", maxMarks: 50, minPassMarks: 18, weight: 0.5 }] : []),
+                ],
+              },
               inputMode: preferredMode,
               cie: "",
               see: "",
               total: "",
-              includedInSGPA: c.includedInSGPA,
-              includedInCGPA: c.includedInCGPA,
-              isElectiveGroup: c.isElectiveGroup,
-              electiveGroupTitle: c.electiveGroupTitle,
-              electiveOptions: c.electiveOptions,
-              selectedElectiveCode: code,
+              includedInSGPA: s.includedInSGPA !== false && s.credits > 0,
+              includedInCGPA: s.includedInCGPA !== false && s.credits > 0,
+              isElectiveGroup: Boolean(s.isElective),
+              electiveGroupTitle: s.electiveGroup,
             };
           });
-          setCoursesState(initialRows);
+          applyNewCourses(rows, subData.revision);
           setCurriculumMissing(false);
-        }
-      } else {
-        if (isMounted) {
-          setCoursesState([]);
-          setCurriculumMissing(true);
+          return;
         }
       }
+    } catch (subErr) {
+      console.warn("Academic subjects pipeline notice:", subErr);
     }
 
+    // 2. Fallback to existing curriculum endpoint
+    try {
+      const res = await fetch(
+        `/api/academic/curriculum?universityId=${selectedUniversity}&schemeId=${selectedScheme}&branchId=${selectedBranch}&semester=${selectedSemester}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data.available && data.courses && data.courses.length > 0) {
+          const rows: CourseRowState[] = data.courses.map((c: any) => {
+            const hasSEE = c.seeApplicable !== false;
+            const allowedInputModes: MarksInputMode[] = ["cie-see", "total"];
+            const preferredMode = allowedInputModes.includes(globalInputMode) ? globalInputMode : "cie-see";
+            return {
+              courseCode: c.subjectCode,
+              courseTitle: c.subjectName,
+              credits: c.credits,
+              category: c.category || c.courseType,
+              assessment: {
+                hasSEE,
+                cie: { maxMarks: 50 },
+                see: hasSEE ? { maxMarks: 50 } : undefined,
+                total: { maxMarks: 100 },
+                allowedInputModes,
+                passingRules: {
+                  minCIE: 20,
+                  minSEE: hasSEE ? 18 : 0,
+                  minAggregate: 40,
+                },
+                components: [
+                  { id: "cie", name: "CIE", maxMarks: 50, minPassMarks: 20, weight: 0.5 },
+                  ...(hasSEE ? [{ id: "see", name: "SEE", maxMarks: 50, minPassMarks: 18, weight: 0.5 }] : []),
+                ],
+              },
+              inputMode: preferredMode,
+              cie: "",
+              see: "",
+              total: "",
+              includedInSGPA: c.includedInSGPA !== false,
+              includedInCGPA: c.includedInCGPA !== false,
+            };
+          });
+          applyNewCourses(rows, data.revision);
+          setCurriculumMissing(false);
+          return;
+        }
+      }
+    } catch {}
+
+    // 3. Static fallback: check if local verified VTU courses match
+    const schemeRecord = schemes.find((s) => s.id === selectedScheme);
+    const branchRecord = branches.find((b) => b.id === selectedBranch);
+    const schemeYear = schemeRecord?.year || (selectedScheme.includes("2025") ? "2025" : "2022");
+    const branchCode = branchRecord?.code || "CSE";
+
+    const officialCourses = curriculumIndex.getCourses(schemeYear, branchCode, selectedSemester);
+    if (officialCourses && officialCourses.length > 0) {
+      const initialRows: CourseRowState[] = officialCourses.map((c) => {
+        let title = c.courseTitle;
+        let code = c.courseCode;
+
+        if (c.isElectiveGroup && c.electiveOptions && c.electiveOptions.length > 0) {
+          code = c.electiveOptions[0].courseCode;
+          title = c.electiveOptions[0].courseTitle;
+        }
+
+        const preferredMode = c.assessment.allowedInputModes.includes(globalInputMode)
+          ? globalInputMode
+          : c.assessment.allowedInputModes[0] || "cie-see";
+
+        return {
+          courseCode: code,
+          courseTitle: title,
+          credits: c.credits,
+          category: c.category,
+          assessment: c.assessment,
+          inputMode: preferredMode,
+          cie: "",
+          see: "",
+          total: "",
+          includedInSGPA: c.includedInSGPA,
+          includedInCGPA: c.includedInCGPA,
+          isElectiveGroup: c.isElectiveGroup,
+          electiveGroupTitle: c.electiveGroupTitle,
+          electiveOptions: c.electiveOptions,
+          selectedElectiveCode: code,
+        };
+      });
+      applyNewCourses(initialRows, 1);
+      setCurriculumMissing(false);
+    } else {
+      setCoursesState([]);
+      setCurriculumMissing(true);
+    }
+  }, [
+    mode,
+    selectedUniversity,
+    selectedScheme,
+    selectedBranch,
+    selectedSemester,
+    globalInputMode,
+    schemes,
+    branches,
+    applyNewCourses,
+  ]);
+
+  // Trigger load on scope changes
+  useEffect(() => {
     loadCurriculum();
+  }, [loadCurriculum]);
+
+  // Live Curriculum Updates: polling and window focus check
+  useEffect(() => {
+    if (mode !== "vtu") return;
+
+    let isMounted = true;
+    let timer: NodeJS.Timeout | null = null;
+
+    const checkRevision = async () => {
+      if (!selectedUniversity || !selectedScheme || !selectedBranch || !selectedSemester) return;
+      try {
+        const res = await fetch(
+          `/api/academic/curriculum/revision?universityId=${selectedUniversity}&schemeId=${selectedScheme}&branchId=${selectedBranch}&semester=${selectedSemester}`,
+          { cache: "no-store" }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (
+            isMounted &&
+            data.success &&
+            typeof data.revision === "number" &&
+            curriculumRevisionRef.current !== null &&
+            data.revision > curriculumRevisionRef.current
+          ) {
+            loadCurriculum();
+          }
+        }
+      } catch (err) {
+        // Background polling errors ignored
+      }
+    };
+
+    const onFocusOrVisible = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        checkRevision();
+      }
+    };
+
+    window.addEventListener("focus", onFocusOrVisible);
+    document.addEventListener("visibilitychange", onFocusOrVisible);
+    timer = setInterval(checkRevision, 20000);
 
     return () => {
       isMounted = false;
+      if (timer) clearInterval(timer);
+      window.removeEventListener("focus", onFocusOrVisible);
+      document.removeEventListener("visibilitychange", onFocusOrVisible);
     };
-  }, [mode, selectedUniversity, selectedScheme, selectedBranch, selectedSemester, globalInputMode, schemes, branches]);
+  }, [mode, selectedUniversity, selectedScheme, selectedBranch, selectedSemester, loadCurriculum]);
 
   // Safe Switch for Global Input Mode
   const handleGlobalModeChange = (newMode: MarksInputMode) => {
@@ -1110,10 +1218,34 @@ export default function SGPACalculatorPage() {
             {/* 3. AUTO-LOADED COURSES & EVALUATION FORM */}
             {isVerified && coursesState.length > 0 && (
               <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+                {/* CURRICULUM LIVE UPDATE BANNER */}
+                {curriculumUpdateNotice && (
+                  <div className="p-3.5 bg-indigo-50/90 border border-indigo-200 text-indigo-900 text-xs rounded-2xl font-semibold flex items-center justify-between gap-3 shadow-xs animate-in fade-in duration-300">
+                    <div className="flex items-center gap-2.5">
+                      <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <span>{curriculumUpdateNotice}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCurriculumUpdateNotice(null)}
+                      className="px-2 py-0.5 text-indigo-500 hover:text-indigo-800 text-xs font-bold rounded-lg hover:bg-indigo-100 transition-colors cursor-pointer"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+
                 {/* HEADER & GLOBAL MARKS ENTRY MODE TOGGLE (Section 2) */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
                   <div className="space-y-1">
-                    <h3 className="text-lg font-extrabold text-slate-900">Enter your course marks</h3>
+                    <div className="flex items-center gap-2.5">
+                      <h3 className="text-lg font-extrabold text-slate-900">Enter your course marks</h3>
+                      {curriculumRevision !== null && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+                          Live Revision {curriculumRevision}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-slate-500">
                       Assessment inputs adapt to each course configuration. Credits are locked per official curriculum regulations.
                     </p>

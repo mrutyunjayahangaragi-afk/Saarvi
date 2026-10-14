@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = academicServerStore.importCurriculum(
+    const result = await academicServerStore.importCurriculum(
       {
         format,
         data,

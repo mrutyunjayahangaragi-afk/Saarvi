@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { subjectAuthorityService } from '@/lib/academic/services/subject-authority-service';
+import { academicServerStore } from '@/lib/academic/academic-store';
 import { enforceRateLimit, createRateLimitResponse } from '@/lib/security/rate-limit';
 
 export const dynamic = 'force-dynamic';
@@ -44,11 +45,19 @@ export async function GET(request: NextRequest) {
     };
 
     const subjects = await subjectAuthorityService.searchSubjects(scope, query);
+    const activeRev = await academicServerStore.getActiveRevisionAsync({
+      universityId: scope.universityId,
+      schemeId: scope.schemeId,
+      branchId: scope.branchId,
+      semester: scope.semester,
+    });
 
     return NextResponse.json({
       success: true,
       scope,
       count: subjects.length,
+      revision: activeRev.revisionNumber,
+      publishedAt: activeRev.publishedAt,
       subjects,
     });
   } catch (err: unknown) {

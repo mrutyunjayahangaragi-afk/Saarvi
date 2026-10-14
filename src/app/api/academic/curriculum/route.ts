@@ -46,19 +46,27 @@ export async function GET(request: NextRequest) {
 
     // Check scoped cache
     const cacheKey = buildCurriculumCacheKey(universityId, schemeId, branchId, semester);
-    const cached = GLOBAL_SCOPED_CACHE.get<{ available: boolean; courses: any[]; message: string }>(cacheKey);
+    const cached = GLOBAL_SCOPED_CACHE.get<{
+      available: boolean;
+      courses: any[];
+      message?: string;
+      revision?: number;
+      publishedAt?: string;
+    }>(cacheKey);
     if (cached) {
       return NextResponse.json({
         success: true,
         available: cached.available,
         courses: cached.courses,
         message: cached.message,
+        revision: cached.revision,
+        publishedAt: cached.publishedAt,
         cached: true,
       });
     }
 
     // Resolve exact 4-tuple without silent fallbacks
-    const resolved = academicServerStore.resolveCurriculum(universityId, schemeId, branchId, semester);
+    const resolved = await academicServerStore.resolveCurriculumAsync(universityId, schemeId, branchId, semester);
     GLOBAL_SCOPED_CACHE.set(cacheKey, resolved);
 
     return NextResponse.json({
@@ -66,6 +74,8 @@ export async function GET(request: NextRequest) {
       available: resolved.available,
       courses: resolved.courses,
       message: resolved.message,
+      revision: resolved.revision,
+      publishedAt: resolved.publishedAt,
     });
   } catch (err: any) {
     return NextResponse.json(

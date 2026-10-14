@@ -240,6 +240,25 @@ export interface AcademicSubjectRecord {
   includedInSGPA: boolean;
   includedInCGPA: boolean;
   category?: string;
+  revisionNumber?: number;
+  version?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CurriculumRevisionRecord {
+  id: string;
+  universityId: string;
+  schemeId: string;
+  branchId: string;
+  semester: number;
+  revisionNumber: number;
+  status: 'ACTIVE' | 'DRAFT' | 'SUPERSEDED' | 'ARCHIVED';
+  publishedBy: string;
+  publishedAt: string;
+  coursesCount: number;
+  coursesChecksum?: string;
+  notes?: string;
   createdAt: string;
   updatedAt: string;
 }

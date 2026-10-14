@@ -346,3 +346,10 @@ export class SubjectAuthorityService {
 }
 
 export const subjectAuthorityService = SubjectAuthorityService.getInstance();
+
+// Auto-register cache invalidator with AcademicServerStore
+import('../academic-store').then(({ AcademicServerStore }) => {
+  AcademicServerStore.registerCacheInvalidator((scope) => {
+    subjectAuthorityService.invalidateCache(scope);
+  });
+}).catch(() => {});

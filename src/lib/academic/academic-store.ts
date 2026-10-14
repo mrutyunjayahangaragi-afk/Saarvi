@@ -24,22 +24,46 @@ import type {
   AcademicSubjectRecord,
   CurriculumPublishStatus,
   AcademicCourseType,
+  CurriculumRevisionRecord,
 } from '@/types/admin';
-import { ALL_VERIFIED_VTU_COURSES } from '../student/vtu/curriculum-data';
-import { MockStorageProvider } from '../supabase/mock-storage';
+import { ALL_VERIFIED_VTU_COURSES } from '../student/vtu/curriculum-data.ts';
+import { MockStorageProvider } from '../supabase/mock-storage.ts';
+import type { StoredAcademicSubject } from '../supabase/mock-storage.ts';
+import { isSupabaseConfigured } from '../supabase/config.ts';
+import { getSupabaseAdminClient } from '../supabase/admin.ts';
 
 export class AcademicServerStore {
   private static instance: AcademicServerStore;
+  private static cacheInvalidators: Array<(scope?: any) => void> = [];
 
   private universities: Map<string, UniversityRecord> = new Map();
   private schemes: Map<string, SchemeRecord> = new Map();
   private branches: Map<string, BranchRecord> = new Map();
   private semesters: Map<string, AcademicSemesterRecord> = new Map();
   private subjects: Map<string, AcademicSubjectRecord> = new Map();
+  private revisions: Map<string, CurriculumRevisionRecord> = new Map();
   private initialized = false;
 
   private constructor() {
     this.initializeDefaults();
+  }
+
+  public static registerCacheInvalidator(fn: (scope?: any) => void) {
+    AcademicServerStore.cacheInvalidators.push(fn);
+  }
+
+  public registerCacheInvalidator(fn: (scope?: any) => void) {
+    AcademicServerStore.registerCacheInvalidator(fn);
+  }
+
+  public invalidateCaches(scope?: { universityId?: string; schemeId?: string; branchId?: string; semester?: number }) {
+    for (const fn of AcademicServerStore.cacheInvalidators) {
+      try {
+        fn(scope);
+      } catch (err) {
+        console.warn('[AcademicServerStore] Cache invalidation callback error:', err);
+      }
+    }
   }
 
   public static getInstance(): AcademicServerStore {
@@ -159,6 +183,37 @@ export class AcademicServerStore {
       };
 
       this.subjects.set(subjectId, subjectRecord);
+    }
+
+    // Load any persisted subjects from MockStorage
+    const savedSubjects = MockStorageProvider.getAcademicSubjects();
+    for (const s of savedSubjects) {
+      this.subjects.set(s.id, {
+        id: s.id,
+        universityId: s.universityId,
+        schemeId: s.schemeId,
+        branchId: s.branchId,
+        semester: s.semester,
+        subjectCode: s.subjectCode,
+        subjectName: s.subjectName,
+        credits: s.credits,
+        courseType: (s.courseType as AcademicCourseType) || 'Theory',
+        seeApplicable: s.seeApplicable !== false,
+        status: (s.verificationStatus === 'VERIFIED' ? 'PUBLISHED' : ((s as any).publish_status || (s as any).status || 'PUBLISHED')),
+        includedInSGPA: true,
+        includedInCGPA: true,
+        category: (s as any).category,
+        revisionNumber: (s as any).revision_number || (s as any).revisionNumber || 1,
+        version: s.version || 1,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+      });
+    }
+
+    // Load any persisted revisions from MockStorage
+    const savedRevs = MockStorageProvider.getCurriculumRevisions();
+    for (const r of savedRevs) {
+      this.revisions.set(r.id, r);
     }
 
     this.initialized = true;
@@ -454,8 +509,142 @@ export class AcademicServerStore {
     return all;
   }
 
+  public async getSubjectsAsync(filter?: {
+    universityId?: string;
+    schemeId?: string;
+    branchId?: string;
+    semester?: number;
+    status?: CurriculumPublishStatus;
+  }): Promise<AcademicSubjectRecord[]> {
+    if (isSupabaseConfigured()) {
+      const client = getSupabaseAdminClient();
+      if (client) {
+        try {
+          let query = client.from('academic_subjects').select('*');
+          if (filter?.universityId) query = query.eq('university_id', filter.universityId);
+          if (filter?.schemeId) query = query.eq('scheme_id', filter.schemeId);
+          if (filter?.branchId) query = query.eq('branch_id', filter.branchId);
+          if (filter?.semester !== undefined) query = query.eq('semester', filter.semester);
+          if (filter?.status) query = query.eq('publish_status', filter.status);
+
+          const { data, error } = await query;
+          if (!error && Array.isArray(data) && data.length > 0) {
+            data.forEach((row: any) => {
+              const record: AcademicSubjectRecord = {
+                id: row.id,
+                universityId: row.university_id,
+                schemeId: row.scheme_id,
+                branchId: row.branch_id,
+                semester: row.semester,
+                subjectCode: row.subject_code,
+                subjectName: row.subject_name,
+                credits: Number(row.credits),
+                courseType: (row.course_type as AcademicCourseType) || 'Theory',
+                seeApplicable: row.see_applicable !== false,
+                status: row.publish_status || 'PUBLISHED',
+                includedInSGPA: true,
+                includedInCGPA: true,
+                category: row.category,
+                revisionNumber: row.revision_number || 1,
+                version: row.version || 1,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at,
+              };
+              this.subjects.set(record.id, record);
+            });
+          }
+        } catch (dbErr) {
+          console.warn('[AcademicServerStore] getSubjectsAsync db warning:', dbErr);
+        }
+      }
+    }
+    return this.getSubjects(filter);
+  }
+
   public getSubject(id: string): AcademicSubjectRecord | undefined {
     return this.subjects.get(id);
+  }
+
+  public getActiveRevision(scope: {
+    universityId: string;
+    schemeId: string;
+    branchId: string;
+    semester: number;
+  }): CurriculumRevisionRecord {
+    const scopeId = `${scope.universityId}_${scope.schemeId}_${scope.branchId}_sem${scope.semester}`;
+    const existing = this.revisions.get(scopeId) || MockStorageProvider.getCurriculumRevision(scopeId);
+    if (existing) {
+      this.revisions.set(scopeId, existing);
+      return existing;
+    }
+
+    const defaultRev: CurriculumRevisionRecord = {
+      id: scopeId,
+      universityId: scope.universityId,
+      schemeId: scope.schemeId,
+      branchId: scope.branchId,
+      semester: scope.semester,
+      revisionNumber: 1,
+      status: 'ACTIVE',
+      publishedBy: 'system',
+      publishedAt: '2026-01-01T00:00:00.000Z',
+      coursesCount: this.getSubjects({ ...scope, status: 'PUBLISHED' }).length,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    this.revisions.set(scopeId, defaultRev);
+    MockStorageProvider.saveCurriculumRevision(defaultRev);
+    return defaultRev;
+  }
+
+  public async getActiveRevisionAsync(scope: {
+    universityId: string;
+    schemeId: string;
+    branchId: string;
+    semester: number;
+  }): Promise<CurriculumRevisionRecord> {
+    const scopeId = `${scope.universityId}_${scope.schemeId}_${scope.branchId}_sem${scope.semester}`;
+    if (isSupabaseConfigured()) {
+      const client = getSupabaseAdminClient();
+      if (client) {
+        try {
+          const { data, error } = await client
+            .from('academic_curriculum_revisions')
+            .select('*')
+            .eq('university_id', scope.universityId)
+            .eq('scheme_id', scope.schemeId)
+            .eq('branch_id', scope.branchId)
+            .eq('semester', scope.semester)
+            .eq('status', 'ACTIVE')
+            .maybeSingle();
+
+          if (!error && data) {
+            const rev: CurriculumRevisionRecord = {
+              id: data.id || scopeId,
+              universityId: data.university_id,
+              schemeId: data.scheme_id,
+              branchId: data.branch_id,
+              semester: data.semester,
+              revisionNumber: data.revision_number,
+              status: data.status,
+              publishedBy: data.published_by,
+              publishedAt: data.published_at,
+              coursesCount: data.courses_count,
+              coursesChecksum: data.courses_checksum,
+              notes: data.notes,
+              createdAt: data.created_at,
+              updatedAt: data.updated_at,
+            };
+            this.revisions.set(scopeId, rev);
+            MockStorageProvider.saveCurriculumRevision(rev);
+            return rev;
+          }
+        } catch (dbErr) {
+          console.warn('[AcademicServerStore] getActiveRevisionAsync db warning:', dbErr);
+        }
+      }
+    }
+    return this.getActiveRevision(scope);
   }
 
   /**
@@ -463,7 +652,7 @@ export class AcademicServerStore {
    * Required: subjectName, subjectCode, valid credits (>0).
    * Reject duplicate subjectCode within (university + scheme + branch + semester + subjectCode).
    */
-  public createSubject(
+  public async createSubject(
     data: {
       universityId: string;
       schemeId: string;
@@ -478,7 +667,7 @@ export class AcademicServerStore {
       category?: string;
     },
     actor = 'admin'
-  ): AcademicSubjectRecord {
+  ): Promise<AcademicSubjectRecord> {
     const cleanCode = data.subjectCode?.trim().toUpperCase();
     const cleanName = data.subjectName?.trim();
     const numCredits = Number(data.credits);
@@ -522,11 +711,79 @@ export class AcademicServerStore {
       includedInSGPA: true,
       includedInCGPA: true,
       category: data.category,
+      revisionNumber: 1,
+      version: 1,
       createdAt: now,
       updatedAt: now,
     };
 
     this.subjects.set(id, record);
+
+    // Save to MockStorage
+    const stored: StoredAcademicSubject = {
+      id,
+      universityId: data.universityId,
+      schemeId: data.schemeId,
+      branchId: data.branchId,
+      semester: data.semester,
+      academicYear: '2022-2026',
+      subjectCode: cleanCode,
+      subjectName: cleanName,
+      credits: numCredits,
+      courseType: data.courseType || 'Theory',
+      seeApplicable: data.seeApplicable !== false,
+      cieApplicable: true,
+      sourceType: 'OFFICIAL_UNIVERSITY_WEBSITE',
+      sourceUrl: 'https://vtu.ac.in',
+      sourceDocument: 'VTU Official Curriculum (Admin Added)',
+      verificationStatus: data.status === 'PUBLISHED' ? 'VERIFIED' : 'UNVERIFIED',
+      publishStatus: data.status || 'DRAFT',
+      lastVerifiedAt: now,
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+    };
+    MockStorageProvider.saveAcademicSubject(stored);
+
+    // Persist to Supabase PostgreSQL database
+    if (isSupabaseConfigured()) {
+      const client = getSupabaseAdminClient();
+      if (client) {
+        try {
+          const { error } = await client.from('academic_subjects').upsert({
+            id: record.id,
+            university_id: record.universityId,
+            scheme_id: record.schemeId,
+            branch_id: record.branchId,
+            semester: record.semester,
+            subject_code: record.subjectCode,
+            subject_name: record.subjectName,
+            credits: record.credits,
+            course_type: record.courseType,
+            see_applicable: record.seeApplicable,
+            cie_applicable: true,
+            publish_status: record.status,
+            status: 'ENABLED',
+            version: 1,
+            revision_number: 1,
+            updated_at: now,
+            created_at: now,
+          });
+          if (error) {
+            console.warn('[AcademicServerStore] Supabase subject create warning:', error.message);
+          }
+        } catch (dbErr) {
+          console.warn('[AcademicServerStore] Supabase subject create exception:', dbErr);
+        }
+      }
+    }
+
+    this.invalidateCaches({
+      universityId: data.universityId,
+      schemeId: data.schemeId,
+      branchId: data.branchId,
+      semester: data.semester,
+    });
 
     MockStorageProvider.addAuditLog({
       adminUserId: actor,
@@ -540,13 +797,24 @@ export class AcademicServerStore {
     return record;
   }
 
-  public updateSubject(
+  public async updateSubject(
     id: string,
-    updates: Partial<Pick<AcademicSubjectRecord, 'subjectName' | 'subjectCode' | 'credits' | 'courseType' | 'seeApplicable' | 'status'>>,
-    actor = 'admin'
-  ): AcademicSubjectRecord {
+    updates: Partial<Pick<AcademicSubjectRecord, 'subjectName' | 'subjectCode' | 'credits' | 'courseType' | 'seeApplicable' | 'status'>> & { expectedVersion?: number },
+    expectedVersionOrActor?: number | string,
+    actorParam = 'admin'
+  ): Promise<AcademicSubjectRecord> {
     const existing = this.subjects.get(id);
     if (!existing) throw new Error(`Subject with ID "${id}" not found.`);
+
+    const actor = typeof expectedVersionOrActor === 'string' ? expectedVersionOrActor : actorParam;
+    const expectedVersion = typeof expectedVersionOrActor === 'number' ? expectedVersionOrActor : updates.expectedVersion;
+
+    // Concurrency conflict detection: check optimistic version
+    if (expectedVersion !== undefined && existing.version && existing.version !== expectedVersion) {
+      throw new Error(
+        'Conflict detected: This subject has already been modified by another administrator. Please refresh the page to view the latest changes before saving.'
+      );
+    }
 
     if (updates.subjectCode) {
       const cleanCode = updates.subjectCode.trim().toUpperCase();
@@ -578,8 +846,69 @@ export class AcademicServerStore {
     if (updates.seeApplicable !== undefined) existing.seeApplicable = updates.seeApplicable;
     if (updates.status) existing.status = updates.status;
 
+    existing.version = (existing.version || 1) + 1;
     existing.updatedAt = new Date().toISOString();
     this.subjects.set(id, existing);
+
+    // Save to MockStorage
+    const stored: StoredAcademicSubject = {
+      id: existing.id,
+      universityId: existing.universityId,
+      schemeId: existing.schemeId,
+      branchId: existing.branchId,
+      semester: existing.semester,
+      academicYear: '2022-2026',
+      subjectCode: existing.subjectCode,
+      subjectName: existing.subjectName,
+      credits: existing.credits,
+      courseType: existing.courseType,
+      seeApplicable: existing.seeApplicable,
+      cieApplicable: true,
+      sourceType: 'OFFICIAL_UNIVERSITY_WEBSITE',
+      sourceUrl: 'https://vtu.ac.in',
+      sourceDocument: 'VTU Official Curriculum (Admin Updated)',
+      verificationStatus: existing.status === 'PUBLISHED' ? 'VERIFIED' : 'UNVERIFIED',
+      publishStatus: existing.status,
+      lastVerifiedAt: existing.updatedAt,
+      version: existing.version,
+      createdAt: existing.createdAt || existing.updatedAt,
+      updatedAt: existing.updatedAt,
+    };
+    MockStorageProvider.saveAcademicSubject(stored);
+
+    // Persist to Supabase PostgreSQL database
+    if (isSupabaseConfigured()) {
+      const client = getSupabaseAdminClient();
+      if (client) {
+        try {
+          const { error } = await client
+            .from('academic_subjects')
+            .update({
+              subject_code: existing.subjectCode,
+              subject_name: existing.subjectName,
+              credits: existing.credits,
+              course_type: existing.courseType,
+              see_applicable: existing.seeApplicable,
+              publish_status: existing.status,
+              version: existing.version,
+              updated_at: existing.updatedAt,
+            })
+            .eq('id', existing.id);
+          if (error) {
+            console.warn('[AcademicServerStore] Supabase subject update warning:', error.message);
+          }
+        } catch (dbErr) {
+          console.warn('[AcademicServerStore] Supabase subject update exception:', dbErr);
+        }
+      }
+    }
+
+    this.invalidateCaches({
+      universityId: existing.universityId,
+      schemeId: existing.schemeId,
+      branchId: existing.branchId,
+      semester: existing.semester,
+    });
 
     MockStorageProvider.addAuditLog({
       adminUserId: actor,
@@ -593,11 +922,30 @@ export class AcademicServerStore {
     return existing;
   }
 
-  public deleteSubject(id: string, actor = 'admin'): boolean {
+  public async deleteSubject(id: string, actor = 'admin'): Promise<boolean> {
     const existing = this.subjects.get(id);
     if (!existing) return false;
 
     this.subjects.delete(id);
+    MockStorageProvider.deleteAcademicSubject(id);
+
+    if (isSupabaseConfigured()) {
+      const client = getSupabaseAdminClient();
+      if (client) {
+        try {
+          await client.from('academic_subjects').delete().eq('id', id);
+        } catch (dbErr) {
+          console.warn('[AcademicServerStore] Supabase subject delete warning:', dbErr);
+        }
+      }
+    }
+
+    this.invalidateCaches({
+      universityId: existing.universityId,
+      schemeId: existing.schemeId,
+      branchId: existing.branchId,
+      semester: existing.semester,
+    });
 
     MockStorageProvider.addAuditLog({
       adminUserId: actor,
@@ -615,7 +963,7 @@ export class AcademicServerStore {
   // CURRICULUM PUBLISHING
   // =========================================================================
 
-  public publishCurriculum(
+  public async publishCurriculum(
     scope: {
       universityId: string;
       schemeId: string;
@@ -624,10 +972,16 @@ export class AcademicServerStore {
     },
     targetStatus: CurriculumPublishStatus = 'PUBLISHED',
     actor = 'admin'
-  ): { affectedCount: number } {
-    let affectedCount = 0;
+  ): Promise<{ success: boolean; affectedCount: number; revision: number; publishedAt: string }> {
     const now = new Date().toISOString();
 
+    // 1. Increment canonical revision for this scope
+    const scopeId = `${scope.universityId}_${scope.schemeId}_${scope.branchId}_sem${scope.semester}`;
+    const prevRev = this.revisions.get(scopeId) || MockStorageProvider.getCurriculumRevision(scopeId);
+    const nextRev = (prevRev?.revisionNumber || 0) + 1;
+
+    // 2. Mark in-memory subjects as targetStatus and persist to MockStorage
+    let affectedCount = 0;
     for (const [k, s] of this.subjects.entries()) {
       if (
         s.universityId === scope.universityId &&
@@ -636,11 +990,118 @@ export class AcademicServerStore {
         s.semester === scope.semester
       ) {
         s.status = targetStatus;
+        s.revisionNumber = nextRev;
         s.updatedAt = now;
         this.subjects.set(k, s);
+
+        MockStorageProvider.saveAcademicSubject({
+          id: s.id,
+          universityId: s.universityId,
+          schemeId: s.schemeId,
+          branchId: s.branchId,
+          semester: s.semester,
+          academicYear: '2026',
+          subjectCode: s.subjectCode,
+          subjectName: s.subjectName,
+          credits: s.credits,
+          courseType: s.courseType,
+          seeApplicable: s.seeApplicable,
+          cieApplicable: true,
+          sourceType: 'MANUAL_ADMIN_ENTRY',
+          verificationStatus: 'VERIFIED',
+          publishStatus: targetStatus,
+          revisionNumber: nextRev,
+          version: s.version || 1,
+          lastVerifiedAt: now,
+          createdAt: s.createdAt,
+          updatedAt: now,
+        });
+
         affectedCount++;
       }
     }
+
+    const revRecord: CurriculumRevisionRecord = {
+      id: scopeId,
+      universityId: scope.universityId,
+      schemeId: scope.schemeId,
+      branchId: scope.branchId,
+      semester: scope.semester,
+      revisionNumber: nextRev,
+      status: 'ACTIVE',
+      publishedBy: actor,
+      publishedAt: now,
+      coursesCount: affectedCount,
+      createdAt: prevRev?.createdAt || now,
+      updatedAt: now,
+    };
+    this.revisions.set(scopeId, revRecord);
+    MockStorageProvider.saveCurriculumRevision(revRecord);
+    MockStorageProvider.saveCurriculumRevisionHistory(revRecord);
+
+    // 3. Persist atomically to Supabase PostgreSQL database
+    if (isSupabaseConfigured()) {
+      const client = getSupabaseAdminClient();
+      if (client) {
+        try {
+          // A. Update subjects in scope to targetStatus with new revision number
+          const { error: subErr } = await client
+            .from('academic_subjects')
+            .update({
+              publish_status: targetStatus,
+              revision_number: nextRev,
+              updated_at: now,
+            })
+            .eq('university_id', scope.universityId)
+            .eq('scheme_id', scope.schemeId)
+            .eq('branch_id', scope.branchId)
+            .eq('semester', scope.semester);
+
+          if (subErr) {
+            console.warn('[AcademicServerStore] Supabase publish subjects update warning:', subErr.message);
+          }
+
+          // B. Upsert active canonical curriculum revision
+          const { error: revErr } = await client
+            .from('academic_curriculum_revisions')
+            .upsert({
+              id: scopeId,
+              university_id: scope.universityId,
+              scheme_id: scope.schemeId,
+              branch_id: scope.branchId,
+              semester: scope.semester,
+              revision_number: nextRev,
+              status: 'ACTIVE',
+              published_by: actor,
+              published_at: now,
+              courses_count: affectedCount,
+              updated_at: now,
+            });
+
+          if (revErr) {
+            console.warn('[AcademicServerStore] Supabase publish revision upsert warning:', revErr.message);
+          }
+
+          // C. Record append-only revision history
+          await client.from('academic_curriculum_revision_history').insert({
+            scope_id: scopeId,
+            university_id: scope.universityId,
+            scheme_id: scope.schemeId,
+            branch_id: scope.branchId,
+            semester: scope.semester,
+            revision_number: nextRev,
+            published_by: actor,
+            published_at: now,
+            courses_count: affectedCount,
+          });
+        } catch (dbErr: any) {
+          console.warn('[AcademicServerStore] Supabase publish transaction exception:', dbErr);
+        }
+      }
+    }
+
+    // 4. Invalidate all cache layers
+    this.invalidateCaches(scope);
 
     MockStorageProvider.addAuditLog({
       adminUserId: actor,
@@ -648,10 +1109,10 @@ export class AcademicServerStore {
       action: 'CURRICULUM_PUBLISHED',
       targetType: 'CURRICULUM',
       targetId: `${scope.branchId}-sem-${scope.semester}`,
-      metadata: { scope, targetStatus, affectedCount },
+      metadata: { scope, targetStatus, affectedCount, revision: nextRev, publishedAt: now },
     });
 
-    return { affectedCount };
+    return { success: true, affectedCount, revision: nextRev, publishedAt: now };
   }
 
   // =========================================================================
@@ -668,7 +1129,13 @@ export class AcademicServerStore {
     schemeId: string,
     branchId: string,
     semester: number
-  ): { available: boolean; courses: AcademicSubjectRecord[]; message?: string } {
+  ): {
+    available: boolean;
+    courses: AcademicSubjectRecord[];
+    message?: string;
+    revision: number;
+    publishedAt: string;
+  } {
     const courses = this.getSubjects({
       universityId,
       schemeId,
@@ -677,17 +1144,63 @@ export class AcademicServerStore {
       status: 'PUBLISHED',
     });
 
+    const activeRev = this.getActiveRevision({ universityId, schemeId, branchId, semester });
+
     if (courses.length === 0) {
       return {
         available: false,
         courses: [],
         message: 'Curriculum not available yet. Ask Admin to add curriculum.',
+        revision: activeRev.revisionNumber,
+        publishedAt: activeRev.publishedAt,
       };
     }
 
     return {
       available: true,
       courses,
+      revision: activeRev.revisionNumber,
+      publishedAt: activeRev.publishedAt,
+    };
+  }
+
+  public async resolveCurriculumAsync(
+    universityId: string,
+    schemeId: string,
+    branchId: string,
+    semester: number
+  ): Promise<{
+    available: boolean;
+    courses: AcademicSubjectRecord[];
+    message?: string;
+    revision: number;
+    publishedAt: string;
+  }> {
+    const courses = await this.getSubjectsAsync({
+      universityId,
+      schemeId,
+      branchId,
+      semester,
+      status: 'PUBLISHED',
+    });
+
+    const activeRev = await this.getActiveRevisionAsync({ universityId, schemeId, branchId, semester });
+
+    if (courses.length === 0) {
+      return {
+        available: false,
+        courses: [],
+        message: 'Curriculum not available yet. Ask Admin to add curriculum.',
+        revision: activeRev.revisionNumber,
+        publishedAt: activeRev.publishedAt,
+      };
+    }
+
+    return {
+      available: true,
+      courses,
+      revision: activeRev.revisionNumber,
+      publishedAt: activeRev.publishedAt,
     };
   }
 
@@ -695,7 +1208,7 @@ export class AcademicServerStore {
   // BATCH IMPORT (CSV / JSON)
   // =========================================================================
 
-  public importCurriculum(
+  public async importCurriculum(
     payload: {
       format: 'csv' | 'json';
       data: string;
@@ -705,7 +1218,7 @@ export class AcademicServerStore {
       semester: number;
     },
     actor = 'admin'
-  ): { importedCount: number; errors: string[] } {
+  ): Promise<{ importedCount: number; errors: string[] }> {
     const errors: string[] = [];
     const subjectsToCreate: Array<{
       subjectCode: string;
@@ -802,7 +1315,7 @@ export class AcademicServerStore {
     let importedCount = 0;
     for (const sub of subjectsToCreate) {
       try {
-        this.createSubject({
+        await this.createSubject({
           universityId: payload.universityId,
           schemeId: payload.schemeId,
           branchId: payload.branchId,

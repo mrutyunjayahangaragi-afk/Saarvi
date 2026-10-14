@@ -22,7 +22,83 @@ export class OfficialCurriculumProvider implements AcademicSubjectProvider {
     const normalizedBranch = scope.branchId.toUpperCase().replace(/^VTU-\d{4}-/, '');
     const normalizedScheme = scope.schemeId.replace(/^vtu-/, '');
 
-    // 1. Check verified VTU courses repository
+    // 1. First priority: Published subjects from authoritative AcademicServerStore / Database
+    const storeSubjects = academicServerStore.getSubjects({
+      universityId: scope.universityId,
+      schemeId: scope.schemeId,
+      branchId: scope.branchId,
+      semester: scope.semester,
+      status: 'PUBLISHED',
+    });
+
+    if (storeSubjects.length > 0) {
+      for (const s of storeSubjects) {
+        if (
+          !query ||
+          s.subjectCode.toLowerCase().includes(query.toLowerCase()) ||
+          s.subjectName.toLowerCase().includes(query.toLowerCase())
+        ) {
+          results.push({
+            id: s.id,
+            subjectCode: s.subjectCode.toUpperCase(),
+            subjectName: s.subjectName,
+            credits: s.credits,
+            semester: s.semester,
+            branch: s.branchId,
+            scheme: s.schemeId,
+            university: s.universityId.toUpperCase(),
+            academicYear: scope.academicYear || '2022-2026',
+            sourceType: 'OFFICIAL_UNIVERSITY_WEBSITE',
+            sourceUrl: 'https://vtu.ac.in',
+            sourceDocument: 'Official University Curriculum Portal (Admin Published)',
+            lastVerifiedAt: s.updatedAt || new Date().toISOString(),
+            verificationStatus: 'VERIFIED',
+            courseType: s.courseType,
+            seeApplicable: s.seeApplicable,
+            cieApplicable: true,
+          });
+        }
+      }
+      return results;
+    }
+
+    // 2. Second priority: Stored verified subjects in MockStorage
+    const storedSubjects = MockStorageProvider.getAcademicSubjects({
+      universityId: scope.universityId,
+      schemeId: scope.schemeId,
+      branchId: scope.branchId,
+      semester: scope.semester,
+      search: query,
+      status: 'VERIFIED',
+    });
+
+    if (storedSubjects.length > 0) {
+      for (const s of storedSubjects) {
+        results.push({
+          id: s.id,
+          subjectCode: s.subjectCode.toUpperCase(),
+          subjectName: s.subjectName,
+          credits: s.credits,
+          semester: s.semester,
+          branch: s.branchId,
+          scheme: s.schemeId,
+          university: s.universityId.toUpperCase(),
+          academicYear: s.academicYear,
+          sourceType: s.sourceType,
+          sourceUrl: s.sourceUrl,
+          sourceDocument: s.sourceDocument,
+          lastVerifiedAt: s.lastVerifiedAt,
+          verificationStatus: s.verificationStatus,
+          courseType: s.courseType as any,
+          seeApplicable: s.seeApplicable,
+          cieApplicable: s.cieApplicable,
+          auditHistory: s.auditHistory,
+        });
+      }
+      return results;
+    }
+
+    // 3. Fallback: Only if no authoritative published records exist, consult static verified seed data
     for (const c of ALL_VERIFIED_VTU_COURSES) {
       const matchScheme = c.scheme === normalizedScheme || scope.schemeId.includes(c.scheme);
       const matchBranch =
@@ -60,102 +136,7 @@ export class OfficialCurriculumProvider implements AcademicSubjectProvider {
       }
     }
 
-    // 2. Check academicServerStore published subjects
-    const allStoreSubjects = academicServerStore.getSubjects({
-      universityId: scope.universityId,
-      schemeId: scope.schemeId,
-      branchId: scope.branchId,
-      semester: scope.semester,
-      status: 'PUBLISHED',
-    });
-
-    const storeSubjects = query
-      ? allStoreSubjects.filter(
-          (s) =>
-            s.subjectCode.toLowerCase().includes(query.toLowerCase()) ||
-            s.subjectName.toLowerCase().includes(query.toLowerCase())
-        )
-      : allStoreSubjects;
-
-    // 2. Check academicServerStore published subjects (Admin published subjects take top priority)
-    for (const s of storeSubjects) {
-      const existingIdx = results.findIndex((r) => r.subjectCode.toUpperCase() === s.subjectCode.toUpperCase());
-      const publishedItem: AuthoritativeSubject = {
-        id: s.id,
-        subjectCode: s.subjectCode.toUpperCase(),
-        subjectName: s.subjectName,
-        credits: s.credits,
-        semester: s.semester,
-        branch: s.branchId,
-        scheme: s.schemeId,
-        university: s.universityId.toUpperCase(),
-        academicYear: scope.academicYear || '2022-2026',
-        sourceType: 'OFFICIAL_UNIVERSITY_WEBSITE',
-        sourceUrl: 'https://vtu.ac.in',
-        sourceDocument: 'Official University Curriculum Portal (Admin Published)',
-        lastVerifiedAt: s.updatedAt || new Date().toISOString(),
-        verificationStatus: 'VERIFIED',
-        courseType: s.courseType,
-        seeApplicable: s.seeApplicable,
-        cieApplicable: true,
-      };
-
-      if (existingIdx >= 0) {
-        results[existingIdx] = publishedItem;
-      } else {
-        results.push(publishedItem);
-      }
-    }
-
-    // 3. Check MockStorage verified subjects
-    const storedSubjects = MockStorageProvider.getAcademicSubjects({
-      universityId: scope.universityId,
-      schemeId: scope.schemeId,
-      branchId: scope.branchId,
-      semester: scope.semester,
-      search: query,
-      status: 'VERIFIED',
-    });
-
-    for (const s of storedSubjects) {
-      const idx = results.findIndex((r) => r.subjectCode.toUpperCase() === s.subjectCode.toUpperCase());
-      const item: AuthoritativeSubject = {
-        id: s.id,
-        subjectCode: s.subjectCode.toUpperCase(),
-        subjectName: s.subjectName,
-        credits: s.credits,
-        semester: s.semester,
-        branch: s.branchId,
-        scheme: s.schemeId,
-        university: s.universityId.toUpperCase(),
-        academicYear: s.academicYear,
-        sourceType: s.sourceType,
-        sourceUrl: s.sourceUrl,
-        sourceDocument: s.sourceDocument,
-        lastVerifiedAt: s.lastVerifiedAt,
-        verificationStatus: s.verificationStatus,
-        courseType: s.courseType as any,
-        seeApplicable: s.seeApplicable,
-        cieApplicable: s.cieApplicable,
-        auditHistory: s.auditHistory,
-      };
-
-      if (idx >= 0) {
-        results[idx] = item;
-      } else {
-        results.push(item);
-      }
-    }
-
-    const archivedSubjects = academicServerStore.getSubjects({
-      universityId: scope.universityId,
-      schemeId: scope.schemeId,
-      branchId: scope.branchId,
-      semester: scope.semester,
-      status: 'ARCHIVED',
-    });
-    const archivedCodes = new Set(archivedSubjects.map((s) => s.subjectCode.toUpperCase()));
-    return results.filter((r) => !archivedCodes.has(r.subjectCode.toUpperCase()));
+    return results;
   }
 
   async getSubject(scope: AcademicScope, subjectCode: string): Promise<AuthoritativeSubject | null> {

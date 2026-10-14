@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const semester = semStr ? parseInt(semStr, 10) : undefined;
     const status = (searchParams.get('status') as any) || undefined;
 
-    const subjects = academicServerStore.getSubjects({
+    const subjects = await academicServerStore.getSubjectsAsync({
       universityId,
       schemeId,
       branchId,
@@ -27,21 +27,25 @@ export async function GET(request: NextRequest) {
       status,
     });
 
-    return NextResponse.json({ success: true, subjects });
+    const activeRevision = (universityId && schemeId && branchId && semester)
+      ? await academicServerStore.getActiveRevisionAsync({ universityId, schemeId, branchId, semester })
+      : undefined;
+
+    return NextResponse.json({ success: true, subjects, revision: activeRevision });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await getAuthenticatedAdmin(request, 'SUPER_ADMIN');
+  const auth = await getAuthenticatedAdmin(request, 'MANAGE');
   if (!auth.success) {
     return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
   }
 
   try {
     const body = await request.json();
-    const created = academicServerStore.createSubject(
+    const created = await academicServerStore.createSubject(
       {
         universityId: body.universityId,
         schemeId: body.schemeId,
@@ -52,7 +56,7 @@ export async function POST(request: NextRequest) {
         credits: Number(body.credits),
         courseType: body.courseType,
         seeApplicable: body.seeApplicable,
-        status: body.status || 'PUBLISHED',
+        status: body.status || 'DRAFT',
         category: body.category,
       },
       auth.user.email
@@ -65,7 +69,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const auth = await getAuthenticatedAdmin(request, 'SUPER_ADMIN');
+  const auth = await getAuthenticatedAdmin(request, 'MANAGE');
   if (!auth.success) {
     return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
   }
@@ -76,7 +80,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Subject id is required.' }, { status: 400 });
     }
 
-    const updated = academicServerStore.updateSubject(
+    const updated = await academicServerStore.updateSubject(
       body.id,
       {
         subjectName: body.subjectName,
@@ -85,6 +89,7 @@ export async function PATCH(request: NextRequest) {
         courseType: body.courseType,
         seeApplicable: body.seeApplicable,
         status: body.status,
+        expectedVersion: body.expectedVersion !== undefined ? Number(body.expectedVersion) : undefined,
       },
       auth.user.email
     );
@@ -96,7 +101,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const auth = await getAuthenticatedAdmin(request, 'SUPER_ADMIN');
+  const auth = await getAuthenticatedAdmin(request, 'MANAGE');
   if (!auth.success) {
     return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
   }
@@ -108,7 +113,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Subject id parameter is required.' }, { status: 400 });
     }
 
-    const deleted = academicServerStore.deleteSubject(id, auth.user.email);
+    const deleted = await academicServerStore.deleteSubject(id, auth.user.email);
     if (!deleted) {
       return NextResponse.json({ success: false, error: 'Subject not found.' }, { status: 404 });
     }

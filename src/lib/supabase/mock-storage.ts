@@ -122,6 +122,8 @@ const STORAGE_KEYS = {
   ACADEMIC_SUBJECTS: 'saarvi_academic_subjects_v1',
   ACADEMIC_CONFLICTS: 'saarvi_academic_conflicts_v1',
   ACADEMIC_AUDIT_LOGS: 'saarvi_academic_audit_logs_v1',
+  CURRICULUM_REVISIONS: 'saarvi_curriculum_revisions_v1',
+  CURRICULUM_REVISION_HISTORY: 'saarvi_curriculum_rev_history_v1',
   // Phase 45 Jobs & Internships Platform Keys
   JOB_OPPORTUNITIES: 'saarvi_job_opportunities_v1',
   JOB_SOURCE_RECORDS: 'saarvi_job_source_records_v1',
@@ -149,6 +151,8 @@ export interface StoredAcademicSubject {
   sourceUrl?: string;
   sourceDocument?: string;
   verificationStatus: 'VERIFIED' | 'UNVERIFIED' | 'DISPUTED' | 'CONFLICT_REQUIRES_REVIEW' | 'REJECTED';
+  publishStatus?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+  revisionNumber?: number;
   conflictDetails?: any;
   auditHistory?: Array<{ timestamp: string; action: string; actor: string; changes: any }>;
   version: number;
@@ -2430,6 +2434,53 @@ export const MockStorageProvider = {
 
     setStored(STORAGE_KEYS.ACADEMIC_SUBJECTS, list);
     return updated;
+  },
+
+  deleteAcademicSubject(id: string): boolean {
+    const list = getStored<StoredAcademicSubject[]>(STORAGE_KEYS.ACADEMIC_SUBJECTS, []);
+    const filtered = list.filter((s) => s.id !== id);
+    if (filtered.length !== list.length) {
+      setStored(STORAGE_KEYS.ACADEMIC_SUBJECTS, filtered);
+      return true;
+    }
+    return false;
+  },
+
+  getCurriculumRevisions(): any[] {
+    return getStored<any[]>(STORAGE_KEYS.CURRICULUM_REVISIONS, []);
+  },
+
+  getCurriculumRevision(scopeId: string): any | null {
+    const list = getStored<any[]>(STORAGE_KEYS.CURRICULUM_REVISIONS, []);
+    return list.find((r) => r.id === scopeId) || null;
+  },
+
+  saveCurriculumRevision(rev: any): any {
+    const list = getStored<any[]>(STORAGE_KEYS.CURRICULUM_REVISIONS, []);
+    const idx = list.findIndex((r) => r.id === rev.id);
+    const now = new Date().toISOString();
+    const updated = { ...rev, updatedAt: now };
+    if (idx >= 0) {
+      list[idx] = updated;
+    } else {
+      list.push(updated);
+    }
+    setStored(STORAGE_KEYS.CURRICULUM_REVISIONS, list);
+    return updated;
+  },
+
+  getCurriculumRevisionHistory(scopeId?: string): any[] {
+    const list = getStored<any[]>(STORAGE_KEYS.CURRICULUM_REVISION_HISTORY, []);
+    if (scopeId) {
+      return list.filter((h) => h.scope_id === scopeId || h.scopeId === scopeId);
+    }
+    return list;
+  },
+
+  saveCurriculumRevisionHistory(entry: any): void {
+    const list = getStored<any[]>(STORAGE_KEYS.CURRICULUM_REVISION_HISTORY, []);
+    list.unshift({ ...entry, id: entry.id || `revhist_${Date.now()}_${Math.random().toString(36).substr(2, 6)}` });
+    setStored(STORAGE_KEYS.CURRICULUM_REVISION_HISTORY, list);
   },
 
   getAcademicSubjectConflicts(filters?: { status?: string }): StoredAcademicConflict[] {

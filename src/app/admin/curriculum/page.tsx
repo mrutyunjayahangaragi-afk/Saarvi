@@ -34,7 +34,8 @@ import {
   AcademicSemesterRecord,
   AcademicSubjectRecord,
   AcademicCourseType,
-  CurriculumPublishStatus
+  CurriculumPublishStatus,
+  CurriculumRevisionRecord,
 } from "@/types/admin";
 import AdminConfirmModal from "@/components/admin/AdminConfirmModal";
 import { useAuth } from "@/context/AuthContext";
@@ -51,6 +52,9 @@ export default function MultiUniversityAcademicPage() {
   const [branches, setBranches] = useState<BranchRecord[]>([]);
   const [semesters, setSemesters] = useState<AcademicSemesterRecord[]>([]);
   const [subjects, setSubjects] = useState<AcademicSubjectRecord[]>([]);
+  const [activeRevision, setActiveRevision] = useState<CurriculumRevisionRecord | null>(null);
+  const [publishing, setPublishing] = useState<boolean>(false);
+  const [savingSubject, setSavingSubject] = useState<boolean>(false);
 
   // Conflicts queue
   const [conflicts, setConflicts] = useState<any[]>([]);
@@ -290,6 +294,7 @@ export default function MultiUniversityAcademicPage() {
   async function loadSubjects() {
     if (!selectedBranchId) {
       setSubjects([]);
+      setActiveRevision(null);
       return;
     }
     try {
@@ -299,6 +304,7 @@ export default function MultiUniversityAcademicPage() {
       if (res.ok) {
         const data = await res.json();
         setSubjects(data.subjects || []);
+        setActiveRevision(data.revision || null);
       }
     } catch {}
   }
@@ -416,6 +422,7 @@ export default function MultiUniversityAcademicPage() {
   // Handle Save Subject (Create or Edit)
   async function handleSaveSubject() {
     setErrorNotice(null);
+    setSavingSubject(true);
     try {
       if (editingSubject) {
         const res = await fetch("/api/admin/academic/subjects", {
@@ -457,6 +464,8 @@ export default function MultiUniversityAcademicPage() {
       await loadSubjects();
     } catch (err: any) {
       setErrorNotice(err.message);
+    } finally {
+      setSavingSubject(false);
     }
   }
 
@@ -492,6 +501,7 @@ export default function MultiUniversityAcademicPage() {
           : "Archived subjects will be hidden from students."
       }`,
       action: async () => {
+        setPublishing(true);
         try {
           const res = await fetch("/api/admin/academic/publish", {
             method: "POST",
@@ -506,10 +516,16 @@ export default function MultiUniversityAcademicPage() {
           });
           const data = await res.json();
           if (!res.ok || !data.success) throw new Error(data.error || "Publish failed");
-          setSuccessNotice(`Curriculum successfully ${targetStatus.toLowerCase()} (${data.affectedCount} subjects updated).`);
+          setSuccessNotice(
+            targetStatus === "PUBLISHED"
+              ? `Curriculum published successfully. Revision ${data.revision} is now live.`
+              : `Curriculum successfully archived (${data.affectedCount} subjects updated).`
+          );
           await loadSubjects();
         } catch (err: any) {
           setErrorNotice(err.message);
+        } finally {
+          setPublishing(false);
         }
         setConfirmModal((prev) => ({ ...prev, isOpen: false }));
       },
@@ -1034,12 +1050,23 @@ export default function MultiUniversityAcademicPage() {
 
             {/* Scope Summary & Actions */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-100">
-              <div className="text-xs text-slate-500 font-medium">
-                Scope: <span className="font-bold text-slate-800">{selectedUniv?.code}</span> →{" "}
-                <span className="font-bold text-slate-800">{selectedScheme?.name}</span> →{" "}
-                <span className="font-bold text-slate-800">{selectedBranch?.code}</span> →{" "}
-                <span className="font-bold text-purple-700">Semester {selectedSemester}</span>{" "}
-                ({subjects.length} subjects configured)
+              <div className="flex items-center gap-3 flex-wrap text-xs text-slate-500 font-medium">
+                <div>
+                  Scope: <span className="font-bold text-slate-800">{selectedUniv?.code}</span> →{" "}
+                  <span className="font-bold text-slate-800">{selectedScheme?.name}</span> →{" "}
+                  <span className="font-bold text-slate-800">{selectedBranch?.code}</span> →{" "}
+                  <span className="font-bold text-purple-700">Semester {selectedSemester}</span>{" "}
+                  ({subjects.length} subjects configured)
+                </div>
+                {activeRevision && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Live Revision {activeRevision.revisionNumber}</span>
+                    <span className="text-emerald-600/70 font-normal">
+                      • {new Date(activeRevision.publishedAt).toLocaleDateString()}
+                    </span>
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
@@ -1071,20 +1098,20 @@ export default function MultiUniversityAcademicPage() {
 
                 <button
                   onClick={() => handlePublishCurriculum("PUBLISHED")}
-                  disabled={subjects.length === 0}
+                  disabled={subjects.length === 0 || publishing}
                   className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer shadow-xs"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>Publish to SGPA</span>
+                  <span>{publishing ? "Publishing..." : "Publish to SGPA"}</span>
                 </button>
 
                 <button
                   onClick={() => handlePublishCurriculum("ARCHIVED")}
-                  disabled={subjects.length === 0}
+                  disabled={subjects.length === 0 || publishing}
                   className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
                 >
                   <Archive className="w-3.5 h-3.5" />
-                  <span>Archive</span>
+                  <span>{publishing ? "Archiving..." : "Archive"}</span>
                 </button>
               </div>
             </div>
@@ -1905,10 +1932,10 @@ export default function MultiUniversityAcademicPage() {
               </button>
               <button
                 onClick={handleSaveSubject}
-                disabled={!subjectForm.subjectCode.trim() || !subjectForm.subjectName.trim() || subjectForm.credits <= 0}
-                className="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-semibold"
+                disabled={savingSubject || !subjectForm.subjectCode.trim() || !subjectForm.subjectName.trim() || subjectForm.credits <= 0}
+                className="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-semibold cursor-pointer"
               >
-                {editingSubject ? "Save Changes" : "Create Subject"}
+                {savingSubject ? "Saving..." : editingSubject ? "Save Changes" : "Create Subject"}
               </button>
             </div>
           </div>
